@@ -1,21 +1,34 @@
-import React from 'react';
 import { Calendar, AlertCircle } from 'lucide-react';
 import { Subscription } from '../types';
-import { formatDate, getDaysUntil } from '../utils/dates';
+import { formatDate, getDaysUntil, getAutoRenewedDates } from '../utils/dates';
 
 interface SubscriptionCardProps {
   subscription: Subscription;
   index: number;
   onClick: () => void;
+  onAutoRenew: (subscriptionId: string, newDates: { lastPaymentDate: string; nextPaymentDate: string }) => void;
 }
 
-export function SubscriptionCard({ subscription, index, onClick }: SubscriptionCardProps) {
-  const daysUntil = getDaysUntil(subscription.nextPaymentDate);
-  const isUpcoming = daysUntil <= 7;
+export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: SubscriptionCardProps) {
+  // 检查是否需要自动续期
+  const renewedDates = getAutoRenewedDates(
+    subscription.lastPaymentDate,
+    subscription.nextPaymentDate,
+    subscription.period,
+    subscription.period === 'custom' ? subscription.customDate : undefined
+  );
+
+  // 如果日期发生变化，触发自动续期
+  if (renewedDates.nextPaymentDate !== subscription.nextPaymentDate) {
+    onAutoRenew(subscription.id, renewedDates);
+  }
+
+  const daysUntil = getDaysUntil(renewedDates.nextPaymentDate);
+  const isUpcoming = daysUntil <= 7 && daysUntil >= 0;
 
   // Calculate progress
-  const lastPaymentDate = new Date(subscription.lastPaymentDate);
-  const nextPaymentDate = new Date(subscription.nextPaymentDate);
+  const lastPaymentDate = new Date(renewedDates.lastPaymentDate);
+  const nextPaymentDate = new Date(renewedDates.nextPaymentDate);
   const today = new Date();
   const totalDays = (nextPaymentDate.getTime() - lastPaymentDate.getTime()) / (1000 * 60 * 60 * 24);
   const daysElapsed = (today.getTime() - lastPaymentDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -44,7 +57,7 @@ export function SubscriptionCard({ subscription, index, onClick }: SubscriptionC
         <div className="flex items-center space-x-2">
           <Calendar className="w-5 h-5 text-gray-400" />
           <span className="text-sm text-gray-600">
-            Next: {formatDate(new Date(subscription.nextPaymentDate))}
+            Next: {formatDate(nextPaymentDate)}
           </span>
         </div>
         

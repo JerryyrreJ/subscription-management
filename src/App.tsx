@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Subscription, ViewMode } from './types';
 import { Dashboard } from './components/Dashboard';
@@ -49,6 +49,19 @@ export function App() {
     setIsEditModalOpen(true);
   };
 
+  const handleAutoRenew = (
+    subscriptionId: string, 
+    newDates: { lastPaymentDate: string; nextPaymentDate: string }
+  ) => {
+    const updatedSubscriptions = subscriptions.map(sub =>
+      sub.id === subscriptionId
+        ? { ...sub, ...newDates }
+        : sub
+    );
+    setSubscriptions(updatedSubscriptions);
+    saveSubscriptions(updatedSubscriptions);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -65,6 +78,7 @@ export function App() {
               subscription={subscription}
               index={index}
               onClick={() => setSelectedSubscription(subscription)}
+              onAutoRenew={handleAutoRenew}
             />
           ))}
           
