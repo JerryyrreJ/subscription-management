@@ -55,6 +55,9 @@ export function EditSubscriptionModal({
     onClose();
   };
 
+  // 获取今天的日期，格式化为 YYYY-MM-DD
+  const today = new Date().toISOString().split('T')[0];
+
   if (!isOpen) return null;
 
   return (
@@ -157,6 +160,7 @@ export function EditSubscriptionModal({
               <input
                 type="date"
                 required
+                max={today}
                 value={formData.lastPaymentDate}
                 onChange={(e) => setFormData({ ...formData, lastPaymentDate: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
