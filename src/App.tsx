@@ -5,6 +5,7 @@ import { Dashboard } from './components/Dashboard';
 import { AddSubscriptionModal } from './components/AddSubscriptionModal';
 import { SubscriptionCard } from './components/SubscriptionCard';
 import { SubscriptionDetailsModal } from './components/SubscriptionDetailsModal';
+import { EditSubscriptionModal } from './components/EditSubscriptionModal';
 import { loadSubscriptions, saveSubscriptions } from './utils/storage';
 
 export function App() {
@@ -12,6 +13,7 @@ export function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     setSubscriptions(loadSubscriptions());
@@ -33,9 +35,18 @@ export function App() {
     }
   };
 
-  const handleEditSubscription = () => {
-    // To be implemented in the next iteration
+  const handleEditSubscription = (updatedSubscription: Subscription) => {
+    const updatedSubscriptions = subscriptions.map(sub =>
+      sub.id === updatedSubscription.id ? updatedSubscription : sub
+    );
+    setSubscriptions(updatedSubscriptions);
+    saveSubscriptions(updatedSubscriptions);
     setSelectedSubscription(null);
+    setIsEditModalOpen(false);
+  };
+
+  const handleEditClick = () => {
+    setIsEditModalOpen(true);
   };
 
   return (
@@ -82,9 +93,18 @@ export function App() {
           isOpen={selectedSubscription !== null}
           subscription={selectedSubscription!}
           onClose={() => setSelectedSubscription(null)}
-          onEdit={handleEditSubscription}
+          onEdit={handleEditClick}
           onDelete={handleDeleteSubscription}
         />
+
+        {selectedSubscription && (
+          <EditSubscriptionModal
+            subscription={selectedSubscription}
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            onEdit={handleEditSubscription}
+          />
+        )}
       </div>
     </div>
   );
