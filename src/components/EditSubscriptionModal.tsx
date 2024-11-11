@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Period, Subscription } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';

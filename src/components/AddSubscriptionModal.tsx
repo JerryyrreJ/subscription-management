@@ -44,14 +44,14 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
     });
   };
 
-  // 获取今天的日期���格式化为 YYYY-MM-DD
+  // 获取今天的日期格式化为 YYYY-MM-DD
   const today = new Date().toISOString().split('T')[0];
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 modal-overlay">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto modal-content">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto modal-content relative">
         <div className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-800">Add Subscription</h2>

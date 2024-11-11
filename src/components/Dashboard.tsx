@@ -1,4 +1,3 @@
-import React from 'react';
 import { CreditCard, TrendingUp } from 'lucide-react';
 import { Subscription, ViewMode } from '../types';
 
