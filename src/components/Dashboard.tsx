@@ -10,13 +10,34 @@ interface DashboardProps {
 export function Dashboard({ subscriptions, viewMode, onViewModeChange }: DashboardProps) {
   const calculateTotal = () => {
     return subscriptions.reduce((total, sub) => {
-      const amount = sub.amount;
-      return total + (viewMode === 'yearly' && sub.period === 'monthly' ? amount * 12 : amount);
+      let amount = sub.amount;
+      
+      // 如果查看模式是年度，但订阅是月付
+      if (viewMode === 'yearly' && sub.period === 'monthly') {
+        amount = amount * 12;
+      }
+      // 如果查看模式是月度，但订阅是年付
+      else if (viewMode === 'monthly' && sub.period === 'yearly') {
+        amount = amount / 12;
+      }
+      // 如果是自定义周期
+      else if (sub.period === 'custom') {
+        const daysInPeriod = parseInt(sub.customDate || '30');
+        const periodsPerYear = 365 / daysInPeriod;
+        
+        if (viewMode === 'yearly') {
+          amount = amount * periodsPerYear;
+        } else { // monthly
+          amount = (amount * periodsPerYear) / 12;
+        }
+      }
+      
+      return total + amount;
     }, 0);
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-xl shadow-lg p-6 text-white">
+    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-xl shadow-lg p-6 text-white relative z-10">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-2">
           <CreditCard className="w-6 h-6" />

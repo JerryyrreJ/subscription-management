@@ -25,7 +25,7 @@ A modern web application for tracking and managing your recurring subscriptions.
 ### Prerequisites
 
 - Node.js (v18 or higher)
-- npm or yarn
+- npm
 
 ### Installation
 
