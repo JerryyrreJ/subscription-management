@@ -38,28 +38,28 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
   return (
     <div
       onClick={onClick}
-      className="h-[250px] bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer"
+      className="h-[250px] bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer"
       style={{
         animation: `fadeSlideIn 0.5s ease-out ${index * 0.1}s both`,
       }}
     >
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="text-xl font-semibold text-gray-800">{subscription.name}</h3>
-          <span className="text-sm text-gray-500">{subscription.category}</span>
+          <h3 className="text-xl font-semibold text-gray-800 dark:text-white">{subscription.name}</h3>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{subscription.category}</span>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-gray-900">
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {formatCurrency(subscription.amount, subscription.currency || 'CNY')}
           </div>
-          <span className="text-sm text-gray-500">{subscription.period}</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{subscription.period}</span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
         <div className="flex items-center space-x-2">
-          <Calendar className="w-5 h-5 text-gray-400" />
-          <span className="text-sm text-gray-600">
+          <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+          <span className="text-sm text-gray-600 dark:text-gray-300">
             Next: {formatDate(nextPaymentDate)}
           </span>
         </div>
@@ -75,17 +75,17 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
       </div>
 
       <div className="mt-4">
-        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
           <div 
             className="bg-indigo-600 h-full rounded-full transition-all duration-500"
             style={{ width: `${progress}%` }}
           />
         </div>
         <div className="flex justify-between mt-1">
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {Math.round(daysElapsed)} days used
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {Math.round(totalDays)} days total
           </span>
         </div>

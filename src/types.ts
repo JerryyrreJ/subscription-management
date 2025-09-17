@@ -16,6 +16,8 @@ export interface Subscription {
 
 export type ViewMode = 'monthly' | 'yearly';
 
+export type Theme = 'light' | 'dark';
+
 export interface ExchangeRates {
   [key: string]: number;
 }

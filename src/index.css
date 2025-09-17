@@ -3,9 +3,10 @@
 @tailwind utilities;
 
 body {
-  @apply bg-gray-50;
+  @apply bg-gray-50 dark:bg-gray-900;
   margin: 0;
   padding: 0;
+  transition: background-color 0.3s ease;
 }
 
 @keyframes fadeSlideIn {

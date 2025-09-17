@@ -5,16 +5,16 @@ export function Footer() {
   
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-transparent to-gray-50 pointer-events-none" />
+      <div className="fixed bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-transparent to-gray-50 dark:to-gray-900 pointer-events-none" />
       
-      <footer className="fixed bottom-0 left-0 right-0 backdrop-blur-sm bg-gray-50/80 py-4 border-t border-gray-100/50">
-        <p className="text-center text-[11px] text-gray-400">
+      <footer className="fixed bottom-0 left-0 right-0 backdrop-blur-sm bg-gray-50/80 dark:bg-gray-900/80 py-4 border-t border-gray-100/50 dark:border-gray-800/50">
+        <p className="text-center text-[11px] text-gray-400 dark:text-gray-500">
           © {currentYear} Subscription Manager. Made by Jerry Lu
           <a 
             href="https://github.com/JerryyrreJ/subscription-management/tree/main" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="inline-flex items-center ml-1 text-gray-400 hover:text-gray-600 transition-colors"
+            className="inline-flex items-center ml-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
             <svg 
               viewBox="0 0 16 16" 
@@ -25,7 +25,7 @@ export function Footer() {
             </svg>
           </a>
           <br />
-          <span className="text-[10px] text-gray-300">
+          <span className="text-[10px] text-gray-300 dark:text-gray-600">
             Version {version}
           </span>
         </p>

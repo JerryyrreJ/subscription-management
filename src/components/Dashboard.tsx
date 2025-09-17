@@ -11,6 +11,7 @@ interface DashboardProps {
 
 export function Dashboard({ subscriptions, viewMode, onViewModeChange }: DashboardProps) {
   const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
+  const [displayCurrency, setDisplayCurrency] = useState<Currency>(DEFAULT_CURRENCY);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
   const [isLoadingRates, setIsLoadingRates] = useState(false);
 
@@ -19,8 +20,12 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange }: Dashboa
     try {
       const rates = await getCachedExchangeRates(baseCurrency);
       setExchangeRates(rates);
+      // 只有在汇率加载完成后才更新显示货币
+      setDisplayCurrency(baseCurrency);
     } catch (error) {
       console.error('Failed to load exchange rates:', error);
+      // 即使出错也要更新显示货币，避免界面卡住
+      setDisplayCurrency(baseCurrency);
     } finally {
       setIsLoadingRates(false);
     }
@@ -34,9 +39,9 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange }: Dashboa
     return subscriptions.reduce((total, sub) => {
       let amount = sub.amount;
 
-      // 转换为基准货币
-      if (sub.currency !== baseCurrency) {
-        amount = convertCurrency(amount, sub.currency, baseCurrency, exchangeRates, baseCurrency);
+      // 转换为显示货币
+      if (sub.currency !== displayCurrency) {
+        amount = convertCurrency(amount, sub.currency, displayCurrency, exchangeRates, baseCurrency);
       }
 
       // 根据订阅周期和查看模式调整金额
@@ -71,7 +76,7 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange }: Dashboa
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-xl shadow-lg p-6 text-white relative z-10">
+    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 dark:from-gray-700 dark:to-gray-800 rounded-xl shadow-lg p-6 text-white relative z-10">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-2">
           <CreditCard className="w-6 h-6" />
@@ -127,7 +132,11 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange }: Dashboa
         <div>
           <p className="text-sm text-indigo-200">Total {viewMode} cost</p>
           <h3 className="text-4xl font-bold">
-            {formatCurrency(calculateTotal(), baseCurrency)}
+            {isLoadingRates && baseCurrency !== displayCurrency ? (
+              <span className="animate-pulse">Loading...</span>
+            ) : (
+              formatCurrency(calculateTotal(), displayCurrency)
+            )}
           </h3>
         </div>
         <div className="flex items-center text-emerald-300 bg-emerald-400/10 px-3 py-1 rounded-full">
