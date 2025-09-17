@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Calendar, Tag, DollarSign } from 'lucide-react';
 import { Subscription } from '../types';
 import { formatDate } from '../utils/dates';
+import { formatCurrency } from '../utils/currency';
 
 interface SubscriptionDetailsModalProps {
   subscription: Subscription;
@@ -43,7 +44,7 @@ export function SubscriptionDetailsModal({
             <div className="flex items-center space-x-3">
               <DollarSign className="w-5 h-5 text-gray-400" />
               <span className="text-gray-600">
-                ¥{subscription.amount.toFixed(2)} / {subscription.period}
+                {formatCurrency(subscription.amount, subscription.currency || 'CNY')} / {subscription.period}
               </span>
             </div>
 

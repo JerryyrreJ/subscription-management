@@ -1,6 +1,7 @@
 import { Calendar, AlertCircle } from 'lucide-react';
 import { Subscription } from '../types';
 import { formatDate, getDaysUntil, getAutoRenewedDates } from '../utils/dates';
+import { formatCurrency } from '../utils/currency';
 
 interface SubscriptionCardProps {
   subscription: Subscription;
@@ -48,7 +49,9 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
           <span className="text-sm text-gray-500">{subscription.category}</span>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-gray-900">¥{subscription.amount.toFixed(2)}</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {formatCurrency(subscription.amount, subscription.currency || 'CNY')}
+          </div>
           <span className="text-sm text-gray-500">{subscription.period}</span>
         </div>
       </div>

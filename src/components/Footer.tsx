@@ -25,10 +25,6 @@ export function Footer() {
             </svg>
           </a>
           <br />
-          <span className="text-[10px]">
-            All data is stored locally and never leaves your device
-          </span>
-          <br />
           <span className="text-[10px] text-gray-300">
             Version {version}
           </span>

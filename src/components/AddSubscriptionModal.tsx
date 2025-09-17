@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { Period, Subscription } from '../types';
+import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
+import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 
 interface AddSubscriptionModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
     name: '',
     category: '',
     amount: '',
+    currency: DEFAULT_CURRENCY as Currency,
     period: 'monthly' as Period,
     lastPaymentDate: '',
     customDate: '',
@@ -38,10 +40,24 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
       name: '',
       category: '',
       amount: '',
+      currency: DEFAULT_CURRENCY,
       period: 'monthly',
       lastPaymentDate: '',
       customDate: '',
     });
+  };
+
+  const handleClose = () => {
+    setFormData({
+      name: '',
+      category: '',
+      amount: '',
+      currency: DEFAULT_CURRENCY,
+      period: 'monthly',
+      lastPaymentDate: '',
+      customDate: '',
+    });
+    onClose();
   };
 
   // 获取今天的日期格式化为 YYYY-MM-DD
@@ -56,7 +72,7 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-800">Add Subscription</h2>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
             >
               <X className="w-6 h-6" />
@@ -97,20 +113,39 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Amount (¥)
-              </label>
-              <input
-                type="number"
-                required
-                step="0.01"
-                min="0"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="29.99"
-              />
+            <div className="flex gap-3">
+              <div className="w-[30%]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Currency
+                </label>
+                <select
+                  required
+                  value={formData.currency}
+                  onChange={(e) => setFormData({ ...formData, currency: e.target.value as Currency })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                >
+                  {CURRENCIES.map((currency) => (
+                    <option key={currency.code} value={currency.code}>
+                      {currency.code}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="w-[70%]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount
+                </label>
+                <input
+                  type="number"
+                  required
+                  step="0.01"
+                  min="0"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="29.99"
+                />
+              </div>
             </div>
 
             <div>

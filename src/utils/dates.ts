@@ -54,7 +54,7 @@ export const getAutoRenewedDates = (
 
   // 计算需要续期的次数
   let newLastPayment = new Date(lastPaymentDate);
-  let newNextPayment = new Date(nextPaymentDate);
+  const newNextPayment = new Date(nextPaymentDate);
   
   while (newNextPayment < today) {
     newLastPayment = new Date(newNextPayment);

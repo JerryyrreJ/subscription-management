@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { CalendarDays, Plus } from 'lucide-react';
-import { Period, Subscription } from '../types';
+import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
+import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 
 interface AddSubscriptionFormProps {
   onAdd: (subscription: Subscription) => void;
@@ -12,6 +13,7 @@ export function AddSubscriptionForm({ onAdd }: AddSubscriptionFormProps) {
     name: '',
     category: '',
     amount: '',
+    currency: DEFAULT_CURRENCY as Currency,
     period: 'monthly' as Period,
     lastPaymentDate: '',
     customDate: '',
@@ -36,6 +38,7 @@ export function AddSubscriptionForm({ onAdd }: AddSubscriptionFormProps) {
       name: '',
       category: '',
       amount: '',
+      currency: DEFAULT_CURRENCY,
       period: 'monthly',
       lastPaymentDate: '',
       customDate: '',
@@ -83,20 +86,39 @@ export function AddSubscriptionForm({ onAdd }: AddSubscriptionFormProps) {
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Amount (¥)
-          </label>
-          <input
-            type="number"
-            required
-            step="0.01"
-            min="0"
-            value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="29.99"
-          />
+        <div className="flex gap-3">
+          <div className="w-[30%]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Currency
+            </label>
+            <select
+              required
+              value={formData.currency}
+              onChange={(e) => setFormData({ ...formData, currency: e.target.value as Currency })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            >
+              {CURRENCIES.map((currency) => (
+                <option key={currency.code} value={currency.code}>
+                  {currency.code}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="w-[70%]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Amount
+            </label>
+            <input
+              type="number"
+              required
+              step="0.01"
+              min="0"
+              value={formData.amount}
+              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="29.99"
+            />
+          </div>
         </div>
 
         <div>
