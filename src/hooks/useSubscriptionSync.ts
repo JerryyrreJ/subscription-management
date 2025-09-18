@@ -27,22 +27,27 @@ export function useSubscriptionSync(
   // 同步订阅数据
   const syncSubscriptions = useCallback(async (): Promise<Subscription[]> => {
     if (!config.features.cloudSync || !user || isSyncingRef.current) {
-      return subscriptions
+      console.log('Sync skipped:', { cloudSync: config.features.cloudSync, user: !!user, isSyncing: isSyncingRef.current })
+      return loadSubscriptions() // 直接从存储返回，避免状态依赖
     }
 
+    console.log('Starting sync for user:', user.email)
     isSyncingRef.current = true
     setSyncStatus('syncing')
 
     try {
-      const syncedSubscriptions = await SubscriptionService.syncSubscriptions(subscriptions)
+      const currentSubscriptions = loadSubscriptions() // 从存储获取最新数据
+      const syncedSubscriptions = await SubscriptionService.syncSubscriptions(currentSubscriptions)
       setSubscriptions(syncedSubscriptions)
       saveSubscriptions(syncedSubscriptions)
       setSyncStatus('success')
 
+      // 立即重置同步标志，然后延迟重置状态
+      isSyncingRef.current = false
+
       // 3秒后重置状态
       setTimeout(() => {
         setSyncStatus('idle')
-        isSyncingRef.current = false
       }, 3000)
 
       return syncedSubscriptions
@@ -50,15 +55,17 @@ export function useSubscriptionSync(
       console.error('Sync failed:', error)
       setSyncStatus('error')
 
+      // 立即重置同步标志，然后延迟重置状态
+      isSyncingRef.current = false
+
       // 5秒后重置状态
       setTimeout(() => {
         setSyncStatus('idle')
-        isSyncingRef.current = false
       }, 5000)
 
-      return subscriptions
+      return loadSubscriptions() // 返回存储中的数据
     }
-  }, [user, subscriptions, setSubscriptions])
+  }, [user, setSubscriptions]) // 移除subscriptions依赖避免无限重新创建
 
   // 上传本地数据到云端（用户首次登录时）
   const uploadLocalData = useCallback(async (localSubscriptions: Subscription[]): Promise<Subscription[]> => {
@@ -76,9 +83,11 @@ export function useSubscriptionSync(
       saveSubscriptions(cloudSubscriptions)
       setSyncStatus('success')
 
+      // 立即重置上传标志，然后延迟重置状态
+      isUploadingRef.current = false
+
       setTimeout(() => {
         setSyncStatus('idle')
-        isUploadingRef.current = false
       }, 3000)
 
       return cloudSubscriptions
@@ -86,9 +95,11 @@ export function useSubscriptionSync(
       console.error('Upload failed:', error)
       setSyncStatus('error')
 
+      // 立即重置上传标志，然后延迟重置状态
+      isUploadingRef.current = false
+
       setTimeout(() => {
         setSyncStatus('idle')
-        isUploadingRef.current = false
       }, 5000)
 
       return localSubscriptions

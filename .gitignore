@@ -14,6 +14,8 @@ dist-ssr
 
 # Editor directories and files
 CLAUDE.md
+.bolt
+.claude
 .vscode/*
 !.vscode/extensions.json
 .idea

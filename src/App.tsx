@@ -80,19 +80,33 @@ export function App() {
   useEffect(() => {
     if (!user || hasInitialSync) return; // 如果用户未登录或已经同步过，直接返回
 
-    const hasLocalData = subscriptions.some(sub => sub.id.length === 36); // UUID格式检查
+    // 标记开始同步，防止重复
+    setHasInitialSync(true);
 
-    if (subscriptions.length > 0 && hasLocalData) {
-      console.log('User logged in with local data, uploading...');
-      uploadLocalData(subscriptions).finally(() => setHasInitialSync(true));
-    } else if (subscriptions.length === 0) {
-      console.log('User logged in without local data, syncing from cloud...');
-      syncSubscriptions().finally(() => setHasInitialSync(true));
-    } else {
-      // 如果有数据但不是本地生成的，直接标记为已同步
-      setHasInitialSync(true);
-    }
-  }, [user, hasInitialSync]); // 添加hasInitialSync到依赖
+    // 使用一个标志来防止重复执行
+    const performInitialSync = async () => {
+      const currentSubscriptions = loadSubscriptions(); // 直接从存储加载，避免状态依赖
+      const hasLocalData = currentSubscriptions.some(sub => sub.id.length === 36); // UUID格式检查
+
+      if (currentSubscriptions.length > 0 && hasLocalData) {
+        console.log('User logged in with local data, uploading...');
+        try {
+          await uploadLocalData(currentSubscriptions);
+        } catch (error) {
+          console.error('Failed to upload local data:', error);
+        }
+      } else if (currentSubscriptions.length === 0) {
+        console.log('User logged in without local data, syncing from cloud...');
+        try {
+          await syncSubscriptions();
+        } catch (error) {
+          console.error('Failed to sync from cloud:', error);
+        }
+      }
+    };
+
+    performInitialSync();
+  }, [user]); // 只依赖user，避免循环
 
   // 重置同步状态当用户登出时
   useEffect(() => {

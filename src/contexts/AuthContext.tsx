@@ -96,6 +96,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           profile = await UserProfileService.createUserProfile(userId, 'User')
         } catch (createError) {
           console.error('Failed to create default profile:', createError)
+          // 即使创建失败，也设置一个null值，避免无限等待
+          setUserProfile(null)
+          return
         }
       }
 
@@ -143,22 +146,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
+    // 添加超时保护，防止无限加载
+    const loadingTimeout = setTimeout(() => {
+      console.warn('Authentication initialization timeout, setting loading to false')
+      setLoading(false)
+    }, 2000) // 2秒超时，认证本身应该很快
+
     // 获取初始session
     const getSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession()
-      if (error) {
-        console.error('Error getting session:', error)
-      } else {
-        setSession(session)
-        setUser(session?.user ?? null)
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) {
+          console.error('Error getting session:', error)
+          setSession(null)
+          setUser(null)
+          setUserProfile(null)
+        } else {
+          setSession(session)
+          setUser(session?.user ?? null)
 
-        // 如果有用户，获取用户资料并清理URL
-        if (session?.user) {
-          await fetchUserProfile(session.user.id)
-          cleanUrlFromAuthParams()
+          // 如果有用户，异步获取用户资料并清理URL（不阻塞认证完成）
+          if (session?.user) {
+            cleanUrlFromAuthParams()
+            // 异步获取用户资料，不阻塞认证流程
+            fetchUserProfile(session.user.id).catch(profileError => {
+              console.error('Error fetching user profile:', profileError)
+            })
+          }
         }
+      } catch (error) {
+        console.error('Unexpected error during session initialization:', error)
+        setSession(null)
+        setUser(null)
+        setUserProfile(null)
+      } finally {
+        // 无论如何都要设置loading为false
+        clearTimeout(loadingTimeout)
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     getSession()
@@ -168,35 +193,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email)
 
-        // 在处理认证状态变化后立即清理URL
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          cleanUrlFromAuthParams()
+        try {
+          // 在处理认证状态变化后立即清理URL
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            cleanUrlFromAuthParams()
+          }
+
+          // 执行安全检查
+          const isSecure = performSecurityChecks(session)
+          if (session?.user && !isSecure) {
+            console.error('❌ Security: Session failed security checks, signing out')
+            await supabase.auth.signOut()
+            return
+          }
+
+          setSession(session)
+          setUser(session?.user ?? null)
+
+          if (session?.user) {
+            // 用户登录，异步获取资料（不阻塞状态变化）
+            fetchUserProfile(session.user.id).catch(profileError => {
+              console.error('Error fetching user profile during auth state change:', profileError)
+            })
+          } else {
+            // 用户登出，清空资料
+            setUserProfile(null)
+          }
+        } catch (error) {
+          console.error('Error during auth state change:', error)
+        } finally {
+          // 确保总是设置loading为false，但不清除超时，因为这是状态变化回调
+          setLoading(false)
         }
-
-        // 执行安全检查
-        const isSecure = performSecurityChecks(session)
-        if (session?.user && !isSecure) {
-          console.error('❌ Security: Session failed security checks, signing out')
-          await supabase.auth.signOut()
-          return
-        }
-
-        setSession(session)
-        setUser(session?.user ?? null)
-
-        if (session?.user) {
-          // 用户登录，获取资料
-          await fetchUserProfile(session.user.id)
-        } else {
-          // 用户登出，清空资料
-          setUserProfile(null)
-        }
-
-        setLoading(false)
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(loadingTimeout)
+    }
   }, [])
 
   const signUp = async (email: string, password: string, nickname?: string) => {

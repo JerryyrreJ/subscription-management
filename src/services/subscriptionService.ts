@@ -45,9 +45,24 @@ export class SubscriptionService {
 
     const supabaseData = this.transformToSupabase(subscription)
 
+    // 获取当前用户ID
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError) {
+      console.error('Auth error:', authError)
+      throw new Error(`Authentication failed: ${authError.message}`)
+    }
+    if (!user) {
+      console.error('No authenticated user found')
+      throw new Error('User not authenticated')
+    }
+    console.log('Creating subscription for user:', user.id)
+
     const { data, error } = await supabase
       .from('subscriptions')
-      .insert([supabaseData])
+      .insert([{
+        ...supabaseData,
+        user_id: user.id
+      }])
       .select()
       .single()
 
@@ -99,28 +114,70 @@ export class SubscriptionService {
     }
   }
 
-  // 批量同步 - 简单策略：云端数据优先
+  // 批量同步 - 智能去重策略：内容+ID双重检查
   static async syncSubscriptions(localSubscriptions: Subscription[]): Promise<Subscription[]> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      throw new Error('Cloud sync not available')
+    }
+
     try {
       // 1. 获取云端数据
       const cloudSubscriptions = await this.getSubscriptions()
 
-      // 2. 找出本地独有的订阅（可能是离线时创建的）
-      const cloudIds = new Set(cloudSubscriptions.map(s => s.id))
-      const localOnlySubscriptions = localSubscriptions.filter(sub => !cloudIds.has(sub.id))
+      // 2. 创建内容指纹，用于检测重复内容
+      const createContentKey = (sub: Subscription) =>
+        `${sub.name}-${sub.amount}-${sub.currency}-${sub.period}`
 
-      // 3. 上传本地独有的订阅到云端
-      const uploadPromises = localOnlySubscriptions.map(sub =>
-        this.createSubscription(sub).catch(error => {
+      // 3. 创建云端数据的ID和内容映射
+      const cloudIds = new Set(cloudSubscriptions.map(s => s.id))
+      const cloudContentKeys = new Set(cloudSubscriptions.map(createContentKey))
+
+      // 4. 过滤本地数据：排除ID重复或内容重复的订阅
+      const localOnlySubscriptions = localSubscriptions.filter(sub => {
+        const hasIdDuplicate = cloudIds.has(sub.id)
+        const hasContentDuplicate = cloudContentKeys.has(createContentKey(sub))
+
+        if (hasIdDuplicate) {
+          console.log(`Skipping upload for ${sub.name}: ID already exists in cloud`)
+          return false
+        }
+
+        if (hasContentDuplicate) {
+          console.log(`Skipping upload for ${sub.name}: Content already exists in cloud`)
+          return false
+        }
+
+        return true
+      })
+
+      console.log(`Found ${localOnlySubscriptions.length} unique local subscriptions to upload`)
+
+      // 5. 上传真正独有的订阅到云端
+      const uploadPromises = localOnlySubscriptions.map(async sub => {
+        try {
+          return await this.createSubscription(sub)
+        } catch (error) {
           console.error(`Failed to upload subscription ${sub.name}:`, error)
           return sub // 如果上传失败，保留本地版本
-        })
-      )
+        }
+      })
 
       const uploadedSubscriptions = await Promise.all(uploadPromises)
 
-      // 4. 合并云端数据和上传后的数据
-      return [...cloudSubscriptions, ...uploadedSubscriptions]
+      // 6. 合并云端数据和上传后的数据，最终去重
+      const allSubscriptions = [...cloudSubscriptions, ...uploadedSubscriptions]
+
+      // 根据ID去重，云端数据优先
+      const uniqueSubscriptions = allSubscriptions.reduce((acc, current) => {
+        const existing = acc.find(item => item.id === current.id)
+        if (!existing) {
+          acc.push(current)
+        }
+        return acc
+      }, [] as Subscription[])
+
+      console.log(`Sync completed: ${uniqueSubscriptions.length} total subscriptions`)
+      return uniqueSubscriptions
     } catch (error) {
       console.error('Error syncing subscriptions:', error)
       // 如果同步失败，返回本地数据
@@ -128,10 +185,52 @@ export class SubscriptionService {
     }
   }
 
-  // 批量上传本地数据到云端
+  // 批量上传本地数据到云端（带去重检查）
   static async uploadLocalSubscriptions(subscriptions: Subscription[]): Promise<Subscription[]> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      throw new Error('Cloud sync not available')
+    }
+
     try {
-      const uploadPromises = subscriptions.map(async (sub) => {
+      // 获取当前用户ID
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('User not authenticated')
+      }
+
+      // 1. 获取云端现有数据进行去重检查
+      const cloudSubscriptions = await this.getSubscriptions()
+
+      // 2. 创建内容指纹，用于检测重复内容
+      const createContentKey = (sub: Subscription) =>
+        `${sub.name}-${sub.amount}-${sub.currency}-${sub.period}`
+
+      // 3. 创建云端数据的内容映射
+      const cloudContentKeys = new Set(cloudSubscriptions.map(createContentKey))
+      const cloudIds = new Set(cloudSubscriptions.map(s => s.id))
+
+      // 4. 过滤需要上传的订阅（避免重复）
+      const subsToUpload = subscriptions.filter(sub => {
+        const hasIdDuplicate = cloudIds.has(sub.id)
+        const hasContentDuplicate = cloudContentKeys.has(createContentKey(sub))
+
+        if (hasIdDuplicate) {
+          console.log(`Skipping upload for ${sub.name}: ID already exists in cloud`)
+          return false
+        }
+
+        if (hasContentDuplicate) {
+          console.log(`Skipping upload for ${sub.name}: Content already exists in cloud`)
+          return false
+        }
+
+        return true
+      })
+
+      console.log(`Uploading ${subsToUpload.length} unique local subscriptions`)
+
+      // 5. 上传独有的订阅
+      const uploadPromises = subsToUpload.map(async (sub) => {
         try {
           return await this.createSubscription(sub)
         } catch (error) {
@@ -140,7 +239,21 @@ export class SubscriptionService {
         }
       })
 
-      return await Promise.all(uploadPromises)
+      const uploadedSubscriptions = await Promise.all(uploadPromises)
+
+      // 6. 返回所有云端数据（包括原有的和新上传的）
+      const allSubscriptions = [...cloudSubscriptions, ...uploadedSubscriptions]
+
+      // 根据ID去重，确保数据一致性
+      const uniqueSubscriptions = allSubscriptions.reduce((acc, current) => {
+        const existing = acc.find(item => item.id === current.id)
+        if (!existing) {
+          acc.push(current)
+        }
+        return acc
+      }, [] as Subscription[])
+
+      return uniqueSubscriptions
     } catch (error) {
       console.error('Error uploading subscriptions:', error)
       return subscriptions
@@ -154,8 +267,8 @@ export class SubscriptionService {
       name: data.name,
       category: data.category,
       amount: data.amount,
-      currency: data.currency as any,
-      period: data.period as any,
+      currency: data.currency as 'CNY' | 'USD' | 'EUR' | 'JPY' | 'GBP' | 'AUD' | 'CAD' | 'CHF' | 'HKD' | 'SGD',
+      period: data.period as 'monthly' | 'yearly' | 'custom',
       lastPaymentDate: data.last_payment_date,
       nextPaymentDate: data.next_payment_date,
       customDate: data.custom_date
