@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { UserProfile, UserProfileService } from '../services/userProfileService'
+import { config } from '../lib/config'
 
 interface AuthContextType {
   user: User | null
@@ -136,6 +137,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    // 如果没有Supabase配置，直接设置为未登录状态
+    if (!config.features.authentication || !supabase) {
+      setLoading(false)
+      return
+    }
+
     // 获取初始session
     const getSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession()
@@ -193,6 +200,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signUp = async (email: string, password: string, nickname?: string) => {
+    if (!supabase) {
+      throw new Error('Authentication not available')
+    }
     const result = await supabase.auth.signUp({
       email,
       password,
@@ -207,11 +217,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signIn = async (email: string, password: string) => {
+    if (!supabase) {
+      throw new Error('Authentication not available')
+    }
     const result = await supabase.auth.signInWithPassword({ email, password })
     return result
   }
 
   const signOut = async () => {
+    if (!supabase) {
+      throw new Error('Authentication not available')
+    }
     await supabase.auth.signOut()
   }
 

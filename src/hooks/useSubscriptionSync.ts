@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react'
 import { Subscription } from '../types'
 import { SubscriptionService } from '../services/subscriptionService'
 import { loadSubscriptions, saveSubscriptions } from '../utils/storage'
+import { config } from '../lib/config'
 
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
@@ -25,7 +26,7 @@ export function useSubscriptionSync(
 
   // 同步订阅数据
   const syncSubscriptions = useCallback(async (): Promise<Subscription[]> => {
-    if (!user || isSyncingRef.current) {
+    if (!config.features.cloudSync || !user || isSyncingRef.current) {
       return subscriptions
     }
 
@@ -61,7 +62,7 @@ export function useSubscriptionSync(
 
   // 上传本地数据到云端（用户首次登录时）
   const uploadLocalData = useCallback(async (localSubscriptions: Subscription[]): Promise<Subscription[]> => {
-    if (!user || localSubscriptions.length === 0 || isUploadingRef.current) {
+    if (!config.features.cloudSync || !user || localSubscriptions.length === 0 || isUploadingRef.current) {
       return localSubscriptions
     }
 
@@ -96,7 +97,7 @@ export function useSubscriptionSync(
 
   // 创建订阅（自动同步）
   const createSubscription = useCallback(async (subscription: Omit<Subscription, 'id'>): Promise<Subscription> => {
-    if (user) {
+    if (config.features.cloudSync && user) {
       try {
         // 在线模式：直接保存到云端
         const newSubscription = await SubscriptionService.createSubscription(subscription)
@@ -131,7 +132,7 @@ export function useSubscriptionSync(
 
   // 更新订阅（自动同步）
   const updateSubscription = useCallback(async (subscription: Subscription): Promise<Subscription> => {
-    if (user) {
+    if (config.features.cloudSync && user) {
       try {
         // 在线模式：同步到云端
         const updatedSubscription = await SubscriptionService.updateSubscription(subscription)
@@ -164,7 +165,7 @@ export function useSubscriptionSync(
 
   // 删除订阅（自动同步）
   const deleteSubscription = useCallback(async (id: string): Promise<void> => {
-    if (user) {
+    if (config.features.cloudSync && user) {
       try {
         // 在线模式：从云端删除
         await SubscriptionService.deleteSubscription(id)

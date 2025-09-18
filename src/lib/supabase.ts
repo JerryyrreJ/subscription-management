@@ -1,13 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
+import { config } from './config'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// 条件创建Supabase客户端
+export const supabase = config.hasSupabaseConfig
+  ? createClient(config.supabase.url, config.supabase.anonKey, {
   auth: {
     // 使用更安全的存储配置
     storage: {
@@ -36,5 +32,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     // refreshIntervalSeconds: 3600 // 1小时
   }
 })
+  : null // 没有配置时返回null
 
 export type { User, Session } from '@supabase/supabase-js'

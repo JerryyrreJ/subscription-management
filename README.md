@@ -2,10 +2,13 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.4.0)
+## ✨ Latest Updates (v1.4.1)
 
-- 👤 **User Authentication** - Secure login system for multi-device synchronization
-- ☁️ **Multi-Device Sync** - Access your subscriptions across all your devices
+- 🔧 **Environment Detection** - Smart feature detection based on configuration availability
+- 🚀 **Deployment Flexibility** - Single codebase supports both open-source and premium versions
+- 📦 **Open Source Ready** - Works perfectly without cloud configuration for local-only usage
+- 👤 **User Authentication** - Secure login system for multi-device synchronization (when configured)
+- ☁️ **Multi-Device Sync** - Access your subscriptions across all your devices (premium feature)
 - 🔐 **Data Security** - Your subscription data is safely synced and backed up
 - 🌙 **Dark Mode Support** - Toggle between light and dark themes with automatic system preference detection
 - 🎨 **Enhanced User Experience** - Smooth theme transitions and persistent theme preferences
@@ -13,18 +16,22 @@ A modern web application for tracking and managing your recurring subscriptions 
 
 ## Features
 
-- 👤 **User Authentication** - Secure login system with account management
-- ☁️ **Multi-Device Sync** - Seamlessly access your data across all devices
-- 🔐 **Data Security** - Your information is encrypted and safely stored
-- 🌙 **Dark Mode Support** - Beautiful light and dark themes with automatic system preference detection
+### Core Features (Always Available)
 - 🌍 **Multi-Currency Support** - Track subscriptions in 10 major currencies
 - 💱 **Smart Currency Conversion** - Real-time exchange rates with automatic conversion
-- 📊 Dashboard with monthly/yearly cost overview in your preferred currency
-- 💳 Track multiple subscriptions with detailed information
-- 🔄 Automatic renewal date calculations
-- 📱 Responsive design for all devices
-- 🎨 Intuitive UI with currency selector and optimized layouts
-- ✨ Clean, modern interface with smooth animations and theme transitions
+- 📊 **Dashboard** - Monthly/yearly cost overview in your preferred currency
+- 💳 **Subscription Management** - Track multiple subscriptions with detailed information
+- 🔄 **Automatic Calculations** - Automatic renewal date calculations
+- 🌙 **Dark Mode Support** - Beautiful light and dark themes with automatic system preference detection
+- 📱 **Responsive Design** - Works perfectly on all devices
+- 🎨 **Modern UI** - Intuitive interface with smooth animations and theme transitions
+- 💾 **Local Storage** - Your data is always saved locally for offline access
+
+### Premium Features (When Cloud Sync is Configured)
+- 👤 **User Authentication** - Secure login system with account management
+- ☁️ **Multi-Device Sync** - Seamlessly access your data across all devices
+- 🔐 **Data Security** - Your information is encrypted and safely stored in the cloud
+- 🔄 **Automatic Backup** - Your subscription data is automatically backed up
 
 ## Technologies Used
 
@@ -100,10 +107,16 @@ The app supports the following currencies with real-time exchange rates:
 
 ### Data Storage & Synchronization
 
-- **Local Storage**: Subscription data is stored locally for offline access
-- **Cloud Sync**: With user authentication, your data automatically syncs across all your devices
+#### Local Storage (Always Available)
+- **Local Storage**: Subscription data is stored in your browser for offline access
 - **Multi-Currency Support**: Full support for currency conversion and exchange rate integration
-- **Backup & Security**: Your data is securely backed up and encrypted in the cloud
+- **No Account Required**: Use the app immediately without any registration
+
+#### Cloud Sync (Premium Feature)
+- **Multi-Device Access**: Your data automatically syncs across all your devices
+- **Secure Backup**: Your data is securely backed up and encrypted in the cloud
+- **Account Management**: User profiles with customizable nicknames
+- **Real-time Sync**: Changes are instantly synchronized across devices
 
 ## License
 

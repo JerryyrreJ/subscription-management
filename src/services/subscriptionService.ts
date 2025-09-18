@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { Subscription } from '../types'
+import { config } from '../lib/config'
 
 export interface SupabaseSubscription {
   id: string
@@ -19,6 +20,10 @@ export interface SupabaseSubscription {
 export class SubscriptionService {
   // 获取云端数据
   static async getSubscriptions(): Promise<Subscription[]> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      throw new Error('Cloud sync not available')
+    }
+
     const { data, error } = await supabase
       .from('subscriptions')
       .select('*')
@@ -34,6 +39,10 @@ export class SubscriptionService {
 
   // 创建订阅
   static async createSubscription(subscription: Omit<Subscription, 'id'>): Promise<Subscription> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      throw new Error('Cloud sync not available')
+    }
+
     const supabaseData = this.transformToSupabase(subscription)
 
     const { data, error } = await supabase
@@ -52,6 +61,10 @@ export class SubscriptionService {
 
   // 更新订阅
   static async updateSubscription(subscription: Subscription): Promise<Subscription> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      throw new Error('Cloud sync not available')
+    }
+
     const supabaseData = this.transformToSupabase(subscription)
 
     const { data, error } = await supabase
@@ -71,6 +84,10 @@ export class SubscriptionService {
 
   // 删除订阅
   static async deleteSubscription(id: string): Promise<void> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      throw new Error('Cloud sync not available')
+    }
+
     const { error } = await supabase
       .from('subscriptions')
       .delete()
@@ -161,6 +178,10 @@ export class SubscriptionService {
 
   // 检查用户是否在线
   static async isOnline(): Promise<boolean> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      return false
+    }
+
     try {
       const { error } = await supabase.from('subscriptions').select('id').limit(1)
       return !error

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { config } from '../lib/config'
 
 export interface UserProfile {
   id: string
@@ -11,6 +12,10 @@ export interface UserProfile {
 export class UserProfileService {
   // 获取用户资料
   static async getUserProfile(userId: string): Promise<UserProfile | null> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      return null
+    }
+
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -32,6 +37,10 @@ export class UserProfileService {
 
   // 创建用户资料
   static async createUserProfile(userId: string, nickname: string): Promise<UserProfile> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      throw new Error('User profiles not available')
+    }
+
     const { data, error } = await supabase
       .from('user_profiles')
       .insert([{
@@ -51,6 +60,10 @@ export class UserProfileService {
 
   // 更新用户资料
   static async updateUserProfile(userId: string, nickname: string): Promise<UserProfile> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      throw new Error('User profiles not available')
+    }
+
     // 首先检查用户资料是否存在
     const existingProfile = await this.getUserProfile(userId)
 
@@ -82,6 +95,10 @@ export class UserProfileService {
 
   // 获取或创建用户资料
   static async getOrCreateUserProfile(userId: string, nickname?: string): Promise<UserProfile | null> {
+    if (!config.hasSupabaseConfig || !supabase) {
+      return null
+    }
+
     try {
       // 首先尝试获取现有资料
       const profile = await this.getUserProfile(userId)

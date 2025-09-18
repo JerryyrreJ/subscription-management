@@ -14,6 +14,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
 import { loadSubscriptions, saveSubscriptions } from './utils/storage';
 import { Footer } from './components/Footer';
+import { config } from './lib/config';
 
 export function App() {
   const { user, userProfile, loading, signOut } = useAuth();
@@ -186,7 +187,7 @@ export function App() {
                 Subscription Manager
               </h1>
               <div className="flex items-center space-x-4">
-                {user ? (
+                {config.features.authentication && user ? (
                   <div className="flex items-center space-x-3">
                     <SyncIndicator
                       status={syncStatus}
@@ -215,14 +216,14 @@ export function App() {
                       <span>Sign out</span>
                     </button>
                   </div>
-                ) : (
+                ) : config.features.authentication ? (
                   <button
                     onClick={() => setIsAuthModalOpen(true)}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm"
                   >
                     Login to Sync
                   </button>
-                )}
+                ) : null}
                 <ThemeToggle theme={theme} onToggle={toggleTheme} />
               </div>
             </div>
@@ -284,15 +285,19 @@ export function App() {
           />
         )}
 
-        <AuthModal
-          isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
-        />
+        {config.features.authentication && (
+          <AuthModal
+            isOpen={isAuthModalOpen}
+            onClose={() => setIsAuthModalOpen(false)}
+          />
+        )}
 
-        <EditNicknameModal
-          isOpen={isEditNicknameModalOpen}
-          onClose={() => setIsEditNicknameModalOpen(false)}
-        />
+        {config.features.authentication && (
+          <EditNicknameModal
+            isOpen={isEditNicknameModalOpen}
+            onClose={() => setIsEditNicknameModalOpen(false)}
+          />
+        )}
       </div>
 
       <Footer />
