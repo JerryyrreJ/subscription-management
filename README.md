@@ -2,15 +2,20 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.3.0)
+## ✨ Latest Updates (v1.4.0)
 
+- 👤 **User Authentication** - Secure login system for multi-device synchronization
+- ☁️ **Multi-Device Sync** - Access your subscriptions across all your devices
+- 🔐 **Data Security** - Your subscription data is safely synced and backed up
 - 🌙 **Dark Mode Support** - Toggle between light and dark themes with automatic system preference detection
 - 🎨 **Enhanced User Experience** - Smooth theme transitions and persistent theme preferences
 - 💱 **Optimized Multi-Currency** - Improved currency switching experience with synchronized number formatting and symbols
-- 🔧 **Theme Persistence** - Your preferred theme is saved and restored automatically
 
 ## Features
 
+- 👤 **User Authentication** - Secure login system with account management
+- ☁️ **Multi-Device Sync** - Seamlessly access your data across all devices
+- 🔐 **Data Security** - Your information is encrypted and safely stored
 - 🌙 **Dark Mode Support** - Beautiful light and dark themes with automatic system preference detection
 - 🌍 **Multi-Currency Support** - Track subscriptions in 10 major currencies
 - 💱 **Smart Currency Conversion** - Real-time exchange rates with automatic conversion
@@ -93,9 +98,12 @@ The app supports the following currencies with real-time exchange rates:
 - 🇭🇰 HKD (Hong Kong Dollar)
 - 🇸🇬 SGD (Singapore Dollar)
 
-### Data Storage
+### Data Storage & Synchronization
 
-Subscription data is stored in your browser's local storage with multi-currency support and exchange rate integration.
+- **Local Storage**: Subscription data is stored locally for offline access
+- **Cloud Sync**: With user authentication, your data automatically syncs across all your devices
+- **Multi-Currency Support**: Full support for currency conversion and exchange rate integration
+- **Backup & Security**: Your data is securely backed up and encrypted in the cloud
 
 ## License
 
