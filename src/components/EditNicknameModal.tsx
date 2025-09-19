@@ -27,12 +27,12 @@ export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
         setSuccess('')
         onClose()
       }, 1500)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Update nickname error:', error)
 
       let errorMessage = 'Failed to update nickname. Please try again.'
 
-      if (error.message) {
+      if (error instanceof Error && error.message) {
         if (error.message.includes('JSON object')) {
           errorMessage = 'Profile not found. Please try signing out and back in.'
         } else {

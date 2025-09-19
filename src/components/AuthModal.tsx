@@ -12,6 +12,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [nickname, setNickname] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -26,7 +27,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password)
+        const { error } = await signIn(email, password, rememberMe)
         if (error) throw error
 
         setSuccess('Login successful!')
@@ -44,16 +45,18 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           setSuccess('')
         }, 3000)
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Auth error:', error)
-      if (error.message.includes('Invalid login credentials')) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+
+      if (errorMessage.includes('Invalid login credentials')) {
         setError('Invalid email or password. Please check and try again.')
-      } else if (error.message.includes('User already registered')) {
+      } else if (errorMessage.includes('User already registered')) {
         setError('This email is already registered. Please login directly.')
-      } else if (error.message.includes('Password should be at least 6 characters')) {
+      } else if (errorMessage.includes('Password should be at least 6 characters')) {
         setError('Password must be at least 6 characters.')
       } else {
-        setError(error.message || 'Operation failed. Please try again.')
+        setError(errorMessage || 'Operation failed. Please try again.')
       }
     } finally {
       setLoading(false)
@@ -64,6 +67,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setEmail('')
     setPassword('')
     setNickname('')
+    setRememberMe(false)
     setError('')
     setSuccess('')
   }
@@ -164,6 +168,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </p>
             )}
           </div>
+
+          {isLogin && (
+            <div className="flex items-center">
+              <input
+                id="rememberMe"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                disabled={loading}
+              />
+              <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                Remember me (trust this device)
+              </label>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center space-x-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">

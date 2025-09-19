@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
+import { User } from '@supabase/supabase-js'
 import { Subscription } from '../types'
 import { SubscriptionService } from '../services/subscriptionService'
 import { loadSubscriptions, saveSubscriptions } from '../utils/storage'
@@ -16,7 +17,7 @@ interface UseSyncReturn {
 }
 
 export function useSubscriptionSync(
-  user: any,
+  user: User | null,
   subscriptions: Subscription[],
   setSubscriptions: (subs: Subscription[]) => void
 ): UseSyncReturn {

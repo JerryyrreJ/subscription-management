@@ -1,16 +1,17 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { User, Session } from '@supabase/supabase-js'
+import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { UserProfile, UserProfileService } from '../services/userProfileService'
 import { config } from '../lib/config'
+import { setRememberMe, isRememberMeEnabled, clearRememberMe, shouldAttemptAutoRestore } from '../utils/rememberMe'
 
 interface AuthContextType {
   user: User | null
   userProfile: UserProfile | null
   session: Session | null
   loading: boolean
-  signUp: (email: string, password: string, nickname?: string) => Promise<any>
-  signIn: (email: string, password: string) => Promise<any>
+  signUp: (email: string, password: string, nickname?: string) => Promise<{ error: AuthError | null }>
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
   refreshUserProfile: () => Promise<void>
   updateUserNickname: (nickname: string) => Promise<void>
@@ -156,8 +157,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const getSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession()
+
         if (error) {
           console.error('Error getting session:', error)
+          // 如果获取session失败但用户选择了记住登录，尝试刷新token
+          if (shouldAttemptAutoRestore()) {
+            console.log('Attempting to refresh session for remembered user...')
+            try {
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+              if (!refreshError && refreshData.session) {
+                setSession(refreshData.session)
+                setUser(refreshData.session.user)
+                fetchUserProfile(refreshData.session.user.id).catch(profileError => {
+                  console.error('Error fetching user profile after refresh:', profileError)
+                })
+                return
+              }
+            } catch (refreshError) {
+              console.error('Failed to refresh session:', refreshError)
+              // 如果刷新失败，清除记住登录状态
+              clearRememberMe()
+            }
+          }
+
           setSession(null)
           setUser(null)
           setUserProfile(null)
@@ -251,10 +273,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return result
   }
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMe?: boolean) => {
     if (!supabase) {
       throw new Error('Authentication not available')
     }
+
+    // 设置记住登录状态
+    setRememberMe(rememberMe || false)
+
     const result = await supabase.auth.signInWithPassword({ email, password })
     return result
   }
@@ -263,7 +289,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabase) {
       throw new Error('Authentication not available')
     }
-    await supabase.auth.signOut()
+
+    // 检查是否是记住登录状态
+    const rememberMeEnabled = isRememberMeEnabled()
+
+    if (rememberMeEnabled) {
+      // 如果是记住登录，只退出当前会话，但不清除存储的token
+      await supabase.auth.signOut({ scope: 'local' })
+    } else {
+      // 如果不是记住登录，完全退出并清除所有信息
+      await supabase.auth.signOut()
+      clearRememberMe()
+    }
   }
 
   return (
