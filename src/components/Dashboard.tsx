@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { CreditCard, TrendingUp, RefreshCw } from 'lucide-react';
 import { Subscription, ViewMode, Currency, ExchangeRates } from '../types';
 import { getCachedExchangeRates, convertCurrency, formatCurrency, CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
+import { CustomSelect } from './CustomSelect';
 
 interface DashboardProps {
   subscriptions: Subscription[];
@@ -84,17 +85,17 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange }: Dashboa
         </div>
         <div className="flex items-center space-x-2">
           {/* 基准货币选择 */}
-          <select
-            value={baseCurrency}
-            onChange={(e) => setBaseCurrency(e.target.value as Currency)}
-            className="bg-white/10 text-white text-sm rounded-lg px-3 py-1 border border-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
-          >
-            {CURRENCIES.map((currency) => (
-              <option key={currency.code} value={currency.code} className="text-gray-800">
-                {currency.code} ({currency.symbol})
-              </option>
-            ))}
-          </select>
+          <div className="min-w-[100px]">
+            <CustomSelect
+              value={baseCurrency}
+              onChange={(value) => setBaseCurrency(value as Currency)}
+              options={CURRENCIES.map(currency => ({
+                value: currency.code,
+                label: `${currency.code} (${currency.symbol})`
+              }))}
+              className="dashboard-select"
+            />
+          </div>
 
           {/* 刷新汇率按钮 */}
           <button

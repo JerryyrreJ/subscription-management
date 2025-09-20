@@ -4,6 +4,7 @@ import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 import { getAllCategories, addCustomCategory, validateCategoryName, isCustomCategory, removeCustomCategory } from '../utils/categories';
+import { CustomSelect } from './CustomSelect';
 
 interface AddSubscriptionModalProps {
   isOpen: boolean;
@@ -183,19 +184,16 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
               )}
 
               <div className="space-y-2">
-                <select
-                  required
+                <CustomSelect
                   value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="">Select category</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setFormData({ ...formData, category: value })}
+                  options={[
+                    { value: '', label: 'Select category' },
+                    ...categories.map(cat => ({ value: cat, label: cat }))
+                  ]}
+                  placeholder="Select category"
+                  required={true}
+                />
 
                 {/* 显示自定义类型管理 */}
                 {categories.filter(cat => isCustomCategory(cat)).length > 0 && (
@@ -228,18 +226,15 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Currency
                 </label>
-                <select
-                  required
+                <CustomSelect
                   value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value as Currency })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                >
-                  {CURRENCIES.map((currency) => (
-                    <option key={currency.code} value={currency.code}>
-                      {currency.code}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setFormData({ ...formData, currency: value as Currency })}
+                  options={CURRENCIES.map(currency => ({
+                    value: currency.code,
+                    label: currency.code
+                  }))}
+                  required={true}
+                />
               </div>
               <div className="w-[70%]">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -262,16 +257,16 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Payment Period
               </label>
-              <select
-                required
+              <CustomSelect
                 value={formData.period}
-                onChange={(e) => setFormData({ ...formData, period: e.target.value as Period })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-                <option value="custom">Custom</option>
-              </select>
+                onChange={(value) => setFormData({ ...formData, period: value as Period })}
+                options={[
+                  { value: 'monthly', label: 'Monthly' },
+                  { value: 'yearly', label: 'Yearly' },
+                  { value: 'custom', label: 'Custom' }
+                ]}
+                required={true}
+              />
             </div>
 
             {formData.period === 'custom' && (

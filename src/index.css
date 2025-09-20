@@ -36,3 +36,24 @@ body {
 .modal-content {
   animation: fadeSlideIn 0.3s ease-out;
 }
+
+/* Dashboard select styles */
+.dashboard-select button {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  font-size: 0.875rem !important;
+  padding: 0.25rem 0.75rem !important;
+}
+
+.dashboard-select button:focus {
+  --tw-ring-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.dashboard-select span {
+  color: white !important;
+}
+
+.dashboard-select svg {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
