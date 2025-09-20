@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Trash2 } from 'lucide-react';
 import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
+import { getAllCategories, addCustomCategory, validateCategoryName, isCustomCategory, removeCustomCategory } from '../utils/categories';
 
 interface AddSubscriptionModalProps {
   isOpen: boolean;
@@ -20,6 +21,45 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
     lastPaymentDate: '',
     customDate: '',
   });
+
+  const [categories, setCategories] = useState<string[]>([]);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+
+  // 加载类型列表
+  useEffect(() => {
+    setCategories(getAllCategories());
+  }, []);
+
+  const handleAddCategory = () => {
+    const validation = validateCategoryName(newCategoryName);
+    if (!validation.isValid) {
+      setCategoryError(validation.error || 'Invalid category name');
+      return;
+    }
+
+    const success = addCustomCategory(newCategoryName.trim());
+    if (success) {
+      setCategories(getAllCategories());
+      setFormData({ ...formData, category: newCategoryName.trim() });
+      setNewCategoryName('');
+      setShowAddCategory(false);
+      setCategoryError('');
+    } else {
+      setCategoryError('Failed to add category');
+    }
+  };
+
+  const handleRemoveCategory = (categoryToRemove: string) => {
+    if (removeCustomCategory(categoryToRemove)) {
+      setCategories(getAllCategories());
+      // 如果删除的是当前选中的类型，清空选择
+      if (formData.category === categoryToRemove) {
+        setFormData({ ...formData, category: '' });
+      }
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +97,9 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
       lastPaymentDate: '',
       customDate: '',
     });
+    setShowAddCategory(false);
+    setNewCategoryName('');
+    setCategoryError('');
     onClose();
   };
 
@@ -95,22 +138,89 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Category
-              </label>
-              <select
-                required
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                <option value="">Select category</option>
-                <option value="Entertainment">Entertainment</option>
-                <option value="Software">Software</option>
-                <option value="Music">Music</option>
-                <option value="Productivity">Productivity</option>
-                <option value="Other">Other</option>
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Category
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddCategory(!showAddCategory);
+                    setCategoryError('');
+                  }}
+                  className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-medium transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add Custom
+                </button>
+              </div>
+
+              {showAddCategory && (
+                <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => {
+                        setNewCategoryName(e.target.value);
+                        setCategoryError('');
+                      }}
+                      placeholder="Enter new category name"
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  {categoryError && (
+                    <p className="text-xs text-red-600 dark:text-red-400">{categoryError}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <select
+                  required
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                >
+                  <option value="">Select category</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+
+                {/* 显示自定义类型管理 */}
+                {categories.filter(cat => isCustomCategory(cat)).length > 0 && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {categories.filter(cat => isCustomCategory(cat)).map((category) => (
+                        <span
+                          key={category}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded text-xs"
+                        >
+                          {category}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCategory(category)}
+                            className="text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                            title="Remove custom category"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex gap-3">

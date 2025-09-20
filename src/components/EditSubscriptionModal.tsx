@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES } from '../utils/currency';
+import { getAllCategories } from '../utils/categories';
 
 interface EditSubscriptionModalProps {
   subscription: Subscription;
@@ -26,6 +27,13 @@ export function EditSubscriptionModal({
     lastPaymentDate: subscription.lastPaymentDate,
     customDate: subscription.customDate || '',
   });
+
+  const [categories, setCategories] = useState<string[]>([]);
+
+  // 加载类型列表
+  useEffect(() => {
+    setCategories(getAllCategories());
+  }, []);
 
   // 当subscription改变时更新表单数据
   useEffect(() => {
@@ -101,11 +109,11 @@ export function EditSubscriptionModal({
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
-                <option value="Entertainment">Entertainment</option>
-                <option value="Software">Software</option>
-                <option value="Music">Music</option>
-                <option value="Productivity">Productivity</option>
-                <option value="Other">Other</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
               </select>
             </div>
 

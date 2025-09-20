@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CalendarDays, Plus } from 'lucide-react';
 import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
+import { getAllCategories } from '../utils/categories';
 
 interface AddSubscriptionFormProps {
   onAdd: (subscription: Subscription) => void;
@@ -18,6 +19,13 @@ export function AddSubscriptionForm({ onAdd }: AddSubscriptionFormProps) {
     lastPaymentDate: '',
     customDate: '',
   });
+
+  const [categories, setCategories] = useState<string[]>([]);
+
+  // 加载类型列表
+  useEffect(() => {
+    setCategories(getAllCategories());
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,11 +86,11 @@ export function AddSubscriptionForm({ onAdd }: AddSubscriptionFormProps) {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
             <option value="">Select category</option>
-            <option value="Entertainment">Entertainment</option>
-            <option value="Software">Software</option>
-            <option value="Music">Music</option>
-            <option value="Productivity">Productivity</option>
-            <option value="Other">Other</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
           </select>
         </div>
 
