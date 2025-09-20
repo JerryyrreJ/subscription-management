@@ -3,7 +3,7 @@ import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { UserProfile, UserProfileService } from '../services/userProfileService'
 import { config } from '../lib/config'
-import { setRememberMe, isRememberMeEnabled, clearRememberMe, shouldAttemptAutoRestore } from '../utils/rememberMe'
+import { setRememberMe, isRememberMeEnabled, clearRememberMe, shouldAttemptAutoRestore, refreshRememberMeTimestamp } from '../utils/rememberMe'
 
 interface AuthContextType {
   user: User | null
@@ -219,6 +219,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // 在处理认证状态变化后立即清理URL
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             cleanUrlFromAuthParams()
+            // 刷新记住登录时间戳
+            refreshRememberMeTimestamp()
           }
 
           // 执行安全检查

@@ -2,16 +2,18 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.4.2)
+## ✨ Latest Updates (v1.4.3)
 
+- 🔐 **Remember Me Login** - Trust device functionality for persistent login across browser sessions
+- 🔑 **Enhanced Authentication Security** - Industry-standard Refresh Token + Access Token flow
+- ⏰ **Smart Session Management** - Automatic token refresh and 30-day remember login duration
+- 🛡️ **Dynamic Storage Security** - Intelligent choice between sessionStorage and localStorage based on user preference
+- 👥 **Improved User Experience** - Seamless login experience with secure session persistence
 - 🔄 **Smart Sync Deduplication** - Intelligent content-based duplicate detection prevents data duplication during sync
 - ⚡ **Enhanced Sync Performance** - Optimized sync logic with better error handling and logging
 - 🛡️ **Data Integrity Protection** - Advanced algorithms ensure clean data across all devices
-- 🔧 **Improved Authentication Flow** - Fixed loading timeouts and enhanced user experience during login
 - 🚀 **Deployment Flexibility** - Single codebase supports both open-source and premium versions
-- 👤 **User Authentication** - Secure login system for multi-device synchronization (when configured)
 - ☁️ **Multi-Device Sync** - Access your subscriptions across all your devices (premium feature)
-- 🔐 **Data Security** - Your subscription data is safely synced and backed up
 - 🌙 **Dark Mode Support** - Toggle between light and dark themes with automatic system preference detection
 
 ## Features
@@ -29,8 +31,10 @@ A modern web application for tracking and managing your recurring subscriptions 
 
 ### Premium Features (When Cloud Sync is Configured)
 - 👤 **User Authentication** - Secure login system with account management
+- 🔐 **Remember Me Login** - Trust device option for persistent login across browser sessions
+- ⏰ **Smart Session Management** - Secure 30-day remember login with automatic expiration
 - ☁️ **Multi-Device Sync** - Seamlessly access your data across all devices
-- 🔐 **Data Security** - Your information is encrypted and safely stored in the cloud
+- 🔐 **Data Security** - Your information is encrypted and safely stored in the cloud with industry-standard token management
 - 🔄 **Automatic Backup** - Your subscription data is automatically backed up
 
 ## Technologies Used
@@ -114,6 +118,8 @@ The app supports the following currencies with real-time exchange rates:
 
 #### Cloud Sync (Premium Feature)
 - **Multi-Device Access**: Your data automatically syncs across all your devices
+- **Remember Me Login**: Trust device functionality with secure 30-day session persistence
+- **Industry-Standard Security**: Refresh Token + Access Token architecture with automatic token refresh
 - **Secure Backup**: Your data is securely backed up and encrypted in the cloud
 - **Account Management**: User profiles with customizable nicknames
 - **Real-time Sync**: Changes are instantly synchronized across devices
