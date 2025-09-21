@@ -75,6 +75,7 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
       ...formData,
       amount: parseFloat(formData.amount),
       nextPaymentDate,
+      createdAt: new Date().toISOString(),
     });
 
     setFormData({

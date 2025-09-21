@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CreditCard, TrendingUp, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import { Subscription, ViewMode, Currency, ExchangeRates, SortConfig } from '../types';
+import { Subscription, ViewMode, Currency, ExchangeRates, SortConfig, SortBy } from '../types';
 import { getCachedExchangeRates, convertCurrency, formatCurrency, CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 import { CustomSelect } from './CustomSelect';
 
@@ -40,16 +40,17 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfi
 
   // 排序选项
   const sortOptions = [
-    { value: 'nextPaymentDate', label: 'Due Date' },
     { value: 'amount', label: 'Price' },
     { value: 'name', label: 'Name' },
-    { value: 'category', label: 'Category' }
+    { value: 'category', label: 'Category' },
+    { value: 'nextPaymentDate', label: 'Due Date' },
+    { value: 'createdAt', label: 'Created Date' }
   ];
 
   const handleSortByChange = (sortBy: string) => {
     onSortChange({
       ...sortConfig,
-      sortBy: sortBy as any
+      sortBy: sortBy as SortBy
     });
   };
 
@@ -210,21 +211,21 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfi
       </div>
 
       <div className="relative">
-        <div className="flex items-end space-x-4">
-          <div>
-            <p className="text-sm text-indigo-200">Total {viewMode} cost</p>
-            <h3 className="text-4xl font-bold">
+        <div className="flex flex-col">
+          <p className="text-sm text-indigo-200">Total {viewMode} cost</p>
+          <div className="flex items-center space-x-4">
+            <h3 className="text-4xl font-bold leading-none">
               {isLoadingRates && baseCurrency !== displayCurrency ? (
                 <span className="animate-pulse">Loading...</span>
               ) : (
                 formatCurrency(calculateTotal(), displayCurrency)
               )}
             </h3>
-          </div>
 
-          <div className="flex items-center text-emerald-300 bg-emerald-400/10 px-3 py-1 rounded-full">
-            <TrendingUp className="w-4 h-4 mr-1" />
-            <span className="text-sm">{subscriptions.length} active</span>
+            <div className="flex items-center text-emerald-300 bg-emerald-400/10 px-3 py-1 rounded-full">
+              <TrendingUp className="w-4 h-4 mr-1" />
+              <span className="text-sm">{subscriptions.length} active</span>
+            </div>
           </div>
         </div>
 
@@ -234,7 +235,7 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfi
             <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/70" />
 
             {/* 排序字段选择器 - 小尺寸 */}
-            <div className="min-w-[90px] dashboard-sort-control">
+            <div className="min-w-[110px] dashboard-sort-control">
               <CustomSelect
                 value={sortConfig.sortBy}
                 onChange={handleSortByChange}

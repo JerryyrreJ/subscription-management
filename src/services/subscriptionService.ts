@@ -271,7 +271,8 @@ export class SubscriptionService {
       period: data.period as 'monthly' | 'yearly' | 'custom',
       lastPaymentDate: data.last_payment_date,
       nextPaymentDate: data.next_payment_date,
-      customDate: data.custom_date
+      customDate: data.custom_date,
+      createdAt: data.created_at
     }
   }
 

@@ -10,10 +10,11 @@ export const loadSubscriptions = (): Subscription[] => {
 
     const subscriptions = JSON.parse(data);
 
-    // 为旧数据添加默认货币字段以保证向后兼容
+    // 为旧数据添加默认字段以保证向后兼容
     return subscriptions.map((subscription: Partial<Subscription>) => ({
       ...subscription,
       currency: subscription.currency || DEFAULT_CURRENCY,
+      createdAt: subscription.createdAt || new Date().toISOString(),
     })) as Subscription[];
   } catch (error) {
     console.error('Error loading subscriptions:', error);

@@ -58,6 +58,64 @@ body {
   color: rgba(255, 255, 255, 0.7) !important;
 }
 
+/* Dashboard货币选择器下拉选项样式 */
+.dashboard-select .absolute {
+  background: white !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 6px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+  margin-top: 4px !important;
+  z-index: 60 !important;
+}
+
+.dark .dashboard-select .absolute {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
+}
+
+.dashboard-select .absolute button {
+  background: transparent !important;
+  color: #374151 !important;
+  font-size: 0.875rem !important;
+  font-weight: 400 !important;
+  padding: 8px 12px !important;
+  text-align: left !important;
+  width: 100% !important;
+  border: none !important;
+  border-radius: 0 !important;
+  min-height: auto !important;
+}
+
+.dashboard-select .absolute button span {
+  color: #374151 !important;
+}
+
+.dashboard-select .absolute button:hover {
+  background: #f9fafb !important;
+  color: #374151 !important;
+}
+
+.dashboard-select .absolute button:hover span {
+  color: #374151 !important;
+}
+
+.dark .dashboard-select .absolute button {
+  color: #f9fafb !important;
+}
+
+.dark .dashboard-select .absolute button span {
+  color: #f9fafb !important;
+}
+
+.dark .dashboard-select .absolute button:hover {
+  background: #4b5563 !important;
+  color: #f9fafb !important;
+}
+
+.dark .dashboard-select .absolute button:hover span {
+  color: #f9fafb !important;
+}
+
 /* Sort control styles */
 .sort-select button {
   background: white !important;

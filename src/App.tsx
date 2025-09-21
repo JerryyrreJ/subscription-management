@@ -56,21 +56,43 @@ export function App() {
         case 'category':
           comparison = a.category.localeCompare(b.category);
           break;
-        case 'amount':
-          // 将所有价格转换为CNY进行比较
-          const amountA = a.currency === DEFAULT_CURRENCY
-            ? a.amount
-            : convertCurrency(a.amount, a.currency, DEFAULT_CURRENCY, {}, DEFAULT_CURRENCY);
-          const amountB = b.currency === DEFAULT_CURRENCY
-            ? b.amount
-            : convertCurrency(b.amount, b.currency, DEFAULT_CURRENCY, {}, DEFAULT_CURRENCY);
-          comparison = amountA - amountB;
+        case 'amount': {
+          // 计算每日价格进行比较
+          const getDailyPrice = (sub: Subscription) => {
+            // 先转换为基准货币
+            let amount = sub.currency === DEFAULT_CURRENCY
+              ? sub.amount
+              : convertCurrency(sub.amount, sub.currency, DEFAULT_CURRENCY, {}, DEFAULT_CURRENCY);
+
+            // 转换为每日价格
+            if (sub.period === 'monthly') {
+              return amount / 30; // 月费 / 30天
+            } else if (sub.period === 'yearly') {
+              return amount / 365; // 年费 / 365天
+            } else if (sub.period === 'custom') {
+              const daysInPeriod = parseInt(sub.customDate || '30');
+              return amount / daysInPeriod; // 自定义周期费用 / 自定义天数
+            }
+            return amount / 30; // 默认按月计算
+          };
+
+          const dailyPriceA = getDailyPrice(a);
+          const dailyPriceB = getDailyPrice(b);
+          comparison = dailyPriceA - dailyPriceB;
           break;
-        case 'nextPaymentDate':
+        }
+        case 'nextPaymentDate': {
           const dateA = new Date(a.nextPaymentDate).getTime();
           const dateB = new Date(b.nextPaymentDate).getTime();
           comparison = dateA - dateB;
           break;
+        }
+        case 'createdAt': {
+          const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          comparison = createdA - createdB;
+          break;
+        }
         default:
           comparison = 0;
       }

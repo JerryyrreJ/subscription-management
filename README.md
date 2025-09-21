@@ -2,8 +2,12 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.5.0)
+## ✨ Latest Updates (v1.5.1)
 
+- 📅 **Created Date Sorting** - Sort subscriptions by creation date to track when subscriptions were added to the system
+- 💰 **Enhanced Price Sorting** - Improved price comparison logic using daily cost calculation for accurate cross-period subscription comparison
+
+### Previous Updates (v1.5.0)
 - 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, or category for better expense tracking
 - 📊 **Enhanced Dashboard** - Integrated sorting controls directly into the overview dashboard for seamless user experience
 - 🎨 **Improved UI Integration** - Compact sorting controls positioned in dashboard bottom-right corner for optimal layout
@@ -19,7 +23,7 @@ A modern web application for tracking and managing your recurring subscriptions 
 ## Features
 
 ### Core Features (Always Available)
-- 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, or category for easy expense tracking
+- 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, category, or creation date for comprehensive expense tracking
 - 🌍 **Multi-Currency Support** - Track subscriptions in 10 major currencies
 - 💱 **Smart Currency Conversion** - Real-time exchange rates with automatic conversion
 - 📊 **Enhanced Dashboard** - Monthly/yearly cost overview with integrated sorting controls

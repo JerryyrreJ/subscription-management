@@ -12,11 +12,12 @@ export interface Subscription {
   lastPaymentDate: string;
   nextPaymentDate: string;
   customDate?: string;
+  createdAt?: string;
 }
 
 export type ViewMode = 'monthly' | 'yearly';
 
-export type SortBy = 'name' | 'amount' | 'nextPaymentDate' | 'category';
+export type SortBy = 'name' | 'amount' | 'nextPaymentDate' | 'category' | 'createdAt';
 export type SortOrder = 'asc' | 'desc';
 
 export interface SortConfig {
