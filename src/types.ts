@@ -16,6 +16,14 @@ export interface Subscription {
 
 export type ViewMode = 'monthly' | 'yearly';
 
+export type SortBy = 'name' | 'amount' | 'nextPaymentDate' | 'category';
+export type SortOrder = 'asc' | 'desc';
+
+export interface SortConfig {
+  sortBy: SortBy;
+  sortOrder: SortOrder;
+}
+
 export type Theme = 'light' | 'dark';
 
 export interface ExchangeRates {

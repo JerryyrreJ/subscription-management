@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CreditCard, TrendingUp, RefreshCw } from 'lucide-react';
-import { Subscription, ViewMode, Currency, ExchangeRates } from '../types';
+import { CreditCard, TrendingUp, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Subscription, ViewMode, Currency, ExchangeRates, SortConfig } from '../types';
 import { getCachedExchangeRates, convertCurrency, formatCurrency, CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 import { CustomSelect } from './CustomSelect';
 
@@ -8,9 +8,11 @@ interface DashboardProps {
   subscriptions: Subscription[];
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  sortConfig: SortConfig;
+  onSortChange: (config: SortConfig) => void;
 }
 
-export function Dashboard({ subscriptions, viewMode, onViewModeChange }: DashboardProps) {
+export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfig, onSortChange }: DashboardProps) {
   const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
   const [displayCurrency, setDisplayCurrency] = useState<Currency>(DEFAULT_CURRENCY);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
@@ -35,6 +37,28 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange }: Dashboa
   useEffect(() => {
     loadExchangeRates();
   }, [loadExchangeRates]);
+
+  // 排序选项
+  const sortOptions = [
+    { value: 'nextPaymentDate', label: 'Due Date' },
+    { value: 'amount', label: 'Price' },
+    { value: 'name', label: 'Name' },
+    { value: 'category', label: 'Category' }
+  ];
+
+  const handleSortByChange = (sortBy: string) => {
+    onSortChange({
+      ...sortConfig,
+      sortBy: sortBy as any
+    });
+  };
+
+  const handleSortOrderToggle = () => {
+    onSortChange({
+      ...sortConfig,
+      sortOrder: sortConfig.sortOrder === 'asc' ? 'desc' : 'asc'
+    });
+  };
 
   const calculateTotal = () => {
     return subscriptions.reduce((total, sub) => {
@@ -78,10 +102,11 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange }: Dashboa
 
   return (
     <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 dark:from-gray-700 dark:to-gray-800 rounded-xl shadow-lg p-6 text-white relative z-10">
-      <div className="flex justify-between items-center mb-6">
+      {/* 桌面端：原始布局（标题和控件在同一行） */}
+      <div className="hidden sm:flex justify-between items-center mb-6">
         <div className="flex items-center space-x-2">
           <CreditCard className="w-6 h-6" />
-          <h2 className="text-xl font-semibold">Total Subscriptions</h2>
+          <h2 className="text-xl font-semibold">Overview</h2>
         </div>
         <div className="flex items-center space-x-2">
           {/* 基准货币选择 */}
@@ -129,21 +154,111 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange }: Dashboa
         </div>
       </div>
 
-      <div className="flex items-end space-x-4">
-        <div>
-          <p className="text-sm text-indigo-200">Total {viewMode} cost</p>
-          <h3 className="text-4xl font-bold">
-            {isLoadingRates && baseCurrency !== displayCurrency ? (
-              <span className="animate-pulse">Loading...</span>
-            ) : (
-              formatCurrency(calculateTotal(), displayCurrency)
-            )}
-          </h3>
+      {/* 移动端：垂直布局 */}
+      <div className="flex sm:hidden flex-col space-y-4 mb-6">
+        {/* 标题行 */}
+        <div className="flex items-center space-x-2">
+          <CreditCard className="w-5 h-5" />
+          <h2 className="text-lg font-semibold">Overview</h2>
         </div>
-        <div className="flex items-center text-emerald-300 bg-emerald-400/10 px-3 py-1 rounded-full">
-          <TrendingUp className="w-4 h-4 mr-1" />
-          <span className="text-sm">{subscriptions.length} active</span>
+
+        {/* 控制行 - 移动端垂直布局 */}
+        <div className="flex flex-col gap-3">
+          {/* 货币选择和刷新按钮 */}
+          <div className="flex items-center space-x-2">
+            <div className="min-w-[120px]">
+              <CustomSelect
+                value={baseCurrency}
+                onChange={(value) => setBaseCurrency(value as Currency)}
+                options={CURRENCIES.map(currency => ({
+                  value: currency.code,
+                  label: `${currency.code} (${currency.symbol})`
+                }))}
+                className="dashboard-select"
+              />
+            </div>
+            <button
+              onClick={loadExchangeRates}
+              disabled={isLoadingRates}
+              className="bg-white/10 hover:bg-white/20 disabled:opacity-50 p-2 rounded-lg transition-colors flex-shrink-0"
+              title="刷新汇率"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoadingRates ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          {/* 视图模式切换 - 移动端全宽 */}
+          <div className="bg-white/10 rounded-lg p-1 w-full">
+            <button
+              onClick={() => onViewModeChange('monthly')}
+              className={`w-1/2 px-3 py-2 text-sm rounded-md transition-colors ${
+                viewMode === 'monthly' ? 'bg-white text-indigo-600' : 'text-white'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => onViewModeChange('yearly')}
+              className={`w-1/2 px-3 py-2 text-sm rounded-md transition-colors ${
+                viewMode === 'yearly' ? 'bg-white text-indigo-600' : 'text-white'
+              }`}
+            >
+              Yearly
+            </button>
+          </div>
         </div>
+      </div>
+
+      <div className="relative">
+        <div className="flex items-end space-x-4">
+          <div>
+            <p className="text-sm text-indigo-200">Total {viewMode} cost</p>
+            <h3 className="text-4xl font-bold">
+              {isLoadingRates && baseCurrency !== displayCurrency ? (
+                <span className="animate-pulse">Loading...</span>
+              ) : (
+                formatCurrency(calculateTotal(), displayCurrency)
+              )}
+            </h3>
+          </div>
+
+          <div className="flex items-center text-emerald-300 bg-emerald-400/10 px-3 py-1 rounded-full">
+            <TrendingUp className="w-4 h-4 mr-1" />
+            <span className="text-sm">{subscriptions.length} active</span>
+          </div>
+        </div>
+
+        {/* 紧凑排序控件 - 绝对定位到右下角 */}
+        {subscriptions.length > 0 && (
+          <div className="absolute bottom-0 right-0 flex items-center space-x-1.5 sm:space-x-2 bg-white/10 rounded-lg p-1.5 sm:p-2">
+            <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/70" />
+
+            {/* 排序字段选择器 - 小尺寸 */}
+            <div className="min-w-[90px] dashboard-sort-control">
+              <CustomSelect
+                value={sortConfig.sortBy}
+                onChange={handleSortByChange}
+                options={sortOptions.map(option => ({
+                  value: option.value,
+                  label: option.label
+                }))}
+              />
+            </div>
+
+            {/* 排序顺序切换按钮 - 小尺寸 */}
+            <button
+              onClick={handleSortOrderToggle}
+              className="bg-white/10 hover:bg-white/20 p-1 sm:p-1.5 rounded transition-colors"
+              title={`Sort ${sortConfig.sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
+            >
+              {sortConfig.sortOrder === 'asc' ? (
+                <ArrowUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              ) : (
+                <ArrowDown className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 汇率状态指示 */}

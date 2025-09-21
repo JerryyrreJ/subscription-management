@@ -57,3 +57,130 @@ body {
 .dashboard-select svg {
   color: rgba(255, 255, 255, 0.7) !important;
 }
+
+/* Sort control styles */
+.sort-select button {
+  background: white !important;
+  color: #374151 !important;
+  border-color: #d1d5db !important;
+  font-size: 0.875rem !important;
+  padding: 0.5rem 0.75rem !important;
+}
+
+.dark .sort-select button {
+  background: #374151 !important;
+  color: #f3f4f6 !important;
+  border-color: #4b5563 !important;
+}
+
+.sort-select button:focus {
+  --tw-ring-color: rgba(79, 70, 229, 0.5) !important;
+}
+
+.sort-select span {
+  color: inherit !important;
+}
+
+.sort-select svg {
+  color: #6b7280 !important;
+}
+
+.dark .sort-select svg {
+  color: #9ca3af !important;
+}
+
+/* Dashboard排序控件的CustomSelect样式 - 原始半透明样式 */
+.dashboard-sort-control button {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 4px 8px !important;
+  min-height: 28px !important;
+  border-radius: 4px !important;
+}
+
+.dashboard-sort-control button:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+}
+
+.dark .dashboard-sort-control button {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: white !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.dark .dashboard-sort-control button:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+}
+
+.dashboard-sort-control span {
+  color: white !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+.dashboard-sort-control svg {
+  color: rgba(255, 255, 255, 0.8) !important;
+  width: 12px !important;
+  height: 12px !important;
+}
+
+/* Dashboard排序控件下拉选项 - 原始样式 */
+.dashboard-sort-control .absolute {
+  background: white !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 6px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+  margin-top: 4px !important;
+  z-index: 60 !important;
+}
+
+.dark .dashboard-sort-control .absolute {
+  background: #374151 !important;
+  border-color: #4b5563 !important;
+}
+
+.dashboard-sort-control .absolute button {
+  background: transparent !important;
+  color: #374151 !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  padding: 6px 8px !important;
+  text-align: left !important;
+  width: 100% !important;
+  border: none !important;
+  border-radius: 0 !important;
+  min-height: auto !important;
+}
+
+.dashboard-sort-control .absolute button span {
+  color: #374151 !important;
+}
+
+.dashboard-sort-control .absolute button:hover {
+  background: #f9fafb !important;
+  color: #374151 !important;
+}
+
+.dashboard-sort-control .absolute button:hover span {
+  color: #374151 !important;
+}
+
+.dark .dashboard-sort-control .absolute button {
+  color: #f9fafb !important;
+}
+
+.dark .dashboard-sort-control .absolute button span {
+  color: #f9fafb !important;
+}
+
+.dark .dashboard-sort-control .absolute button:hover {
+  background: #4b5563 !important;
+  color: #f9fafb !important;
+}
+
+.dark .dashboard-sort-control .absolute button:hover span {
+  color: #f9fafb !important;
+}

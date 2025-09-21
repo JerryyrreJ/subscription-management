@@ -38,45 +38,45 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
   return (
     <div
       onClick={onClick}
-      className="h-[250px] bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer"
+      className="h-[200px] sm:h-[250px] bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer"
       style={{
         animation: `fadeSlideIn 0.5s ease-out ${index * 0.1}s both`,
       }}
     >
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-xl font-semibold text-gray-800 dark:text-white">{subscription.name}</h3>
-          <span className="text-sm text-gray-500 dark:text-gray-400">{subscription.category}</span>
+      <div className="flex justify-between items-start mb-3 sm:mb-4">
+        <div className="flex-1 min-w-0 pr-2">
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-white truncate">{subscription.name}</h3>
+          <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{subscription.category}</span>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+        <div className="text-right flex-shrink-0">
+          <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
             {formatCurrency(subscription.amount, subscription.currency || 'CNY')}
           </div>
-          <span className="text-sm text-gray-500 dark:text-gray-400">{subscription.period}</span>
+          <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{subscription.period}</span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100 dark:border-gray-700 space-y-2 sm:space-y-0">
         <div className="flex items-center space-x-2">
-          <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-          <span className="text-sm text-gray-600 dark:text-gray-300">
+          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+          <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
             Next: {formatDate(nextPaymentDate)}
           </span>
         </div>
-        
+
         {isUpcoming && (
           <div className="flex items-center space-x-1 text-amber-600">
-            <AlertCircle className="w-4 h-4" />
-            <span className="text-sm font-medium">
+            <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="text-xs sm:text-sm font-medium">
               {daysUntil === 0 ? 'Due today' : `Due in ${daysUntil} days`}
             </span>
           </div>
         )}
       </div>
 
-      <div className="mt-4">
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-          <div 
+      <div className="mt-3 sm:mt-4">
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 sm:h-2 overflow-hidden">
+          <div
             className="bg-indigo-600 h-full rounded-full transition-all duration-500"
             style={{ width: `${progress}%` }}
           />

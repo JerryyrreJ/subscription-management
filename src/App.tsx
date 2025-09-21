@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, LogOut, User, Edit3 } from 'lucide-react';
-import { Subscription, ViewMode, Theme } from './types';
+import { Subscription, ViewMode, Theme, SortConfig } from './types';
 import { Dashboard } from './components/Dashboard';
 import { AddSubscriptionModal } from './components/AddSubscriptionModal';
 import { SubscriptionCard } from './components/SubscriptionCard';
@@ -13,6 +13,7 @@ import { SyncIndicator } from './components/SyncIndicator';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
 import { loadSubscriptions, saveSubscriptions } from './utils/storage';
+import { convertCurrency, DEFAULT_CURRENCY } from './utils/currency';
 import { Footer } from './components/Footer';
 import { config } from './lib/config';
 
@@ -21,6 +22,10 @@ export function App() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
   const [theme, setTheme] = useState<Theme>('light');
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    sortBy: 'nextPaymentDate',
+    sortOrder: 'asc'
+  });
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -38,6 +43,44 @@ export function App() {
     updateSubscription,
     deleteSubscription
   } = useSubscriptionSync(user, subscriptions, setSubscriptions);
+
+  // 排序函数
+  const sortSubscriptions = (subs: Subscription[], config: SortConfig): Subscription[] => {
+    return [...subs].sort((a, b) => {
+      let comparison = 0;
+
+      switch (config.sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'category':
+          comparison = a.category.localeCompare(b.category);
+          break;
+        case 'amount':
+          // 将所有价格转换为CNY进行比较
+          const amountA = a.currency === DEFAULT_CURRENCY
+            ? a.amount
+            : convertCurrency(a.amount, a.currency, DEFAULT_CURRENCY, {}, DEFAULT_CURRENCY);
+          const amountB = b.currency === DEFAULT_CURRENCY
+            ? b.amount
+            : convertCurrency(b.amount, b.currency, DEFAULT_CURRENCY, {}, DEFAULT_CURRENCY);
+          comparison = amountA - amountB;
+          break;
+        case 'nextPaymentDate':
+          const dateA = new Date(a.nextPaymentDate).getTime();
+          const dateB = new Date(b.nextPaymentDate).getTime();
+          comparison = dateA - dateB;
+          break;
+        default:
+          comparison = 0;
+      }
+
+      return config.sortOrder === 'desc' ? -comparison : comparison;
+    });
+  };
+
+  // 获取排序后的订阅列表
+  const sortedSubscriptions = sortSubscriptions(subscriptions, sortConfig);
 
   // 初始化数据和主题
   useEffect(() => {
@@ -173,6 +216,10 @@ export function App() {
     setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
   };
 
+  const handleSortChange = (newSortConfig: SortConfig) => {
+    setSortConfig(newSortConfig);
+  };
+
   const handleSignOut = async () => {
     await signOut();
     // 可选：清空本地数据或保留
@@ -196,60 +243,85 @@ export function App() {
       <div className="min-h-screen pb-20 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
         <div className="px-4 py-8">
           <div className="max-w-7xl mx-auto space-y-8">
-            <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            {/* 移动端优化的头部布局 */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                 Subscription Manager
               </h1>
-              <div className="flex items-center space-x-4">
+
+              {/* 移动端按钮组 */}
+              <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
                 {config.features.authentication && user ? (
-                  <div className="flex items-center space-x-3">
-                    <SyncIndicator
-                      status={syncStatus}
-                      isOnline={isOnline}
-                      onSync={syncSubscriptions}
-                    />
-                    <div className="flex items-center space-x-2 text-sm">
-                      <User className="w-4 h-4 text-green-600 dark:text-green-400" />
-                      <span className="text-gray-600 dark:text-gray-400 max-w-32 truncate" title={user.email}>
-                        {userProfile?.nickname || user.email}
-                      </span>
-                      <button
-                        onClick={() => setIsEditNicknameModalOpen(true)}
-                        className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                        title="Edit nickname"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
+                  <>
+                    {/* 移动端简化的用户信息 */}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <SyncIndicator
+                        status={syncStatus}
+                        isOnline={isOnline}
+                        onSync={syncSubscriptions}
+                      />
+
+                      {/* 桌面端显示完整用户信息 */}
+                      <div className="hidden sm:flex items-center space-x-2 text-sm">
+                        <User className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        <span className="text-gray-600 dark:text-gray-400 max-w-32 truncate" title={user.email}>
+                          {userProfile?.nickname || user.email}
+                        </span>
+                        <button
+                          onClick={() => setIsEditNicknameModalOpen(true)}
+                          className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                          title="Edit nickname"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* 移动端只显示用户图标和编辑按钮 */}
+                      <div className="flex sm:hidden items-center gap-1">
+                        <User className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        <button
+                          onClick={() => setIsEditNicknameModalOpen(true)}
+                          className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+                          title="Edit profile"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
+
                     <button
                       onClick={handleSignOut}
                       className="flex items-center space-x-1 text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 transition-colors"
                       title="Sign out"
                     >
                       <LogOut className="w-4 h-4" />
-                      <span>Sign out</span>
+                      <span className="hidden sm:inline">Sign out</span>
                     </button>
-                  </div>
+                  </>
                 ) : config.features.authentication ? (
                   <button
                     onClick={() => setIsAuthModalOpen(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors font-medium text-sm"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-colors font-medium text-sm"
                   >
-                    Login to Sync
+                    <span className="hidden sm:inline">Login to Sync</span>
+                    <span className="sm:hidden">Login</span>
                   </button>
                 ) : null}
+
                 <ThemeToggle theme={theme} onToggle={toggleTheme} />
               </div>
             </div>
 
             <Dashboard
-              subscriptions={subscriptions}
+              subscriptions={sortedSubscriptions}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              sortConfig={sortConfig}
+              onSortChange={handleSortChange}
             />
 
-            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {subscriptions.map((subscription, index) => (
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {sortedSubscriptions.map((subscription, index) => (
                 <SubscriptionCard
                   key={subscription.id}
                   subscription={subscription}
@@ -258,16 +330,16 @@ export function App() {
                   onAutoRenew={handleAutoRenew}
                 />
               ))}
-              
+
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="group h-[250px] bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center gap-4 transition-all duration-300 hover:scale-105 hover:shadow-xl"
+                className="group h-[200px] sm:h-[250px] bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 flex flex-col items-center justify-center gap-3 sm:gap-4 transition-all duration-300 hover:scale-105 hover:shadow-xl"
               >
-                <div className="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center group-hover:bg-indigo-200 dark:group-hover:bg-indigo-800 transition-colors">
-                  <Plus className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center group-hover:bg-indigo-200 dark:group-hover:bg-indigo-800 transition-colors">
+                  <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <p className="text-gray-600 dark:text-gray-300 font-medium">
-                  {subscriptions.length === 0
+                <p className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base text-center">
+                  {sortedSubscriptions.length === 0
                     ? "Add your first subscription"
                     : "Add a subscription"}
                 </p>

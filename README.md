@@ -2,30 +2,31 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.4.3)
+## ✨ Latest Updates (v1.5.0)
 
+- 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, or category for better expense tracking
+- 📊 **Enhanced Dashboard** - Integrated sorting controls directly into the overview dashboard for seamless user experience
+- 🎨 **Improved UI Integration** - Compact sorting controls positioned in dashboard bottom-right corner for optimal layout
+- 📱 **Cross-Platform Compatibility** - Fixed dropdown text visibility issues across all browsers including Safari
 - 🔐 **Remember Me Login** - Trust device functionality for persistent login across browser sessions
 - 🔑 **Enhanced Authentication Security** - Industry-standard Refresh Token + Access Token flow
 - ⏰ **Smart Session Management** - Automatic token refresh and 30-day remember login duration
-- 🛡️ **Dynamic Storage Security** - Intelligent choice between sessionStorage and localStorage based on user preference
-- 👥 **Improved User Experience** - Seamless login experience with secure session persistence
+- 🛡️ **Dynamic Storage Security** - Intelligent choice between sessionStorage and localStorage based user preference
 - 🔄 **Smart Sync Deduplication** - Intelligent content-based duplicate detection prevents data duplication during sync
-- ⚡ **Enhanced Sync Performance** - Optimized sync logic with better error handling and logging
-- 🛡️ **Data Integrity Protection** - Advanced algorithms ensure clean data across all devices
 - 🚀 **Deployment Flexibility** - Single codebase supports both open-source and premium versions
-- ☁️ **Multi-Device Sync** - Access your subscriptions across all your devices (premium feature)
 - 🌙 **Dark Mode Support** - Toggle between light and dark themes with automatic system preference detection
 
 ## Features
 
 ### Core Features (Always Available)
+- 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, or category for easy expense tracking
 - 🌍 **Multi-Currency Support** - Track subscriptions in 10 major currencies
 - 💱 **Smart Currency Conversion** - Real-time exchange rates with automatic conversion
-- 📊 **Dashboard** - Monthly/yearly cost overview in your preferred currency
+- 📊 **Enhanced Dashboard** - Monthly/yearly cost overview with integrated sorting controls
 - 💳 **Subscription Management** - Track multiple subscriptions with detailed information
 - 🔄 **Automatic Calculations** - Automatic renewal date calculations
 - 🌙 **Dark Mode Support** - Beautiful light and dark themes with automatic system preference detection
-- 📱 **Responsive Design** - Works perfectly on all devices
+- 📱 **Responsive Design** - Works perfectly on all devices with optimized mobile layouts
 - 🎨 **Modern UI** - Intuitive interface with smooth animations and theme transitions
 - 💾 **Local Storage** - Your data is always saved locally for offline access
 
@@ -91,6 +92,7 @@ The application will be available at `http://localhost:5173`
 - Click any subscription card to view details
 - Use the edit button to modify subscription details (including currency)
 - Use the delete button to remove subscriptions
+- **Sort subscriptions** using the integrated controls in the dashboard bottom-right corner
 - **Switch base currency** in the dashboard to view total costs in your preferred currency
 - View total costs in monthly or yearly format with automatic currency conversion
 - **Toggle dark mode** using the theme switcher in the top-right corner for optimal viewing experience
