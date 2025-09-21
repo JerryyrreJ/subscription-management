@@ -60,7 +60,7 @@ export function App() {
           // 计算每日价格进行比较
           const getDailyPrice = (sub: Subscription) => {
             // 先转换为基准货币
-            let amount = sub.currency === DEFAULT_CURRENCY
+            const amount = sub.currency === DEFAULT_CURRENCY
               ? sub.amount
               : convertCurrency(sub.amount, sub.currency, DEFAULT_CURRENCY, {}, DEFAULT_CURRENCY);
 
@@ -283,41 +283,62 @@ export function App() {
                         onSync={syncSubscriptions}
                       />
 
-                      {/* 桌面端显示完整用户信息 */}
-                      <div className="hidden sm:flex items-center space-x-2 text-sm">
-                        <User className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        <span className="text-gray-600 dark:text-gray-400 max-w-32 truncate" title={user.email}>
-                          {userProfile?.nickname || user.email}
-                        </span>
+                      {/* 桌面端只显示图标 */}
+                      <div className="hidden sm:flex items-center space-x-2">
+                        <div className="relative p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md group overflow-hidden w-10 hover:w-auto transition-all duration-500 ease-in-out hover:shadow-lg">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                              <User className="w-4 h-4 text-green-600 dark:text-green-400" />
+                            </div>
+                            {/* 展开的文字区域 */}
+                            <span className="whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 max-w-0 group-hover:max-w-xs overflow-hidden transition-all duration-500 ease-in-out">
+                              {userProfile?.nickname || user.email}
+                            </span>
+                          </div>
+                        </div>
                         <button
                           onClick={() => setIsEditNicknameModalOpen(true)}
-                          className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                          title="Edit nickname"
+                          className="relative p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md group overflow-hidden w-10 hover:w-auto transition-all duration-500 ease-in-out hover:shadow-lg"
                         >
-                          <Edit3 className="w-3.5 h-3.5" />
+                          <div className="flex items-center space-x-2">
+                            <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                              <Edit3 className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                            </div>
+                            {/* 展开的文字区域 */}
+                            <span className="whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 max-w-0 group-hover:max-w-xs overflow-hidden transition-all duration-500 ease-in-out">
+                              Edit nickname
+                            </span>
+                          </div>
                         </button>
                       </div>
 
                       {/* 移动端只显示用户图标和编辑按钮 */}
                       <div className="flex sm:hidden items-center gap-1">
-                        <User className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        <div className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md">
+                          <User className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        </div>
                         <button
                           onClick={() => setIsEditNicknameModalOpen(true)}
-                          className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
-                          title="Edit profile"
+                          className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md"
                         >
-                          <Edit3 className="w-4 h-4" />
+                          <Edit3 className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                         </button>
                       </div>
                     </div>
 
                     <button
                       onClick={handleSignOut}
-                      className="flex items-center space-x-1 text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 transition-colors"
-                      title="Sign out"
+                      className="relative p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md group overflow-hidden w-10 hover:w-auto transition-all duration-500 ease-in-out hover:shadow-lg"
                     >
-                      <LogOut className="w-4 h-4" />
-                      <span className="hidden sm:inline">Sign out</span>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                          <LogOut className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        </div>
+                        {/* 展开的文字区域 */}
+                        <span className="whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-all duration-300 max-w-0 group-hover:max-w-xs overflow-hidden">
+                          Sign out
+                        </span>
+                      </div>
                     </button>
                   </>
                 ) : config.features.authentication ? (
