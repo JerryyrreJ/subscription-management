@@ -31,12 +31,12 @@ export function App() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isEditNicknameModalOpen, setIsEditNicknameModalOpen] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [hasInitialSync, setHasInitialSync] = useState(false);
 
   // 使用数据同步Hook
   const {
     syncStatus,
+    lastSyncTime,
     syncSubscriptions,
     uploadLocalData,
     createSubscription,
@@ -127,19 +127,6 @@ export function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // 在线状态监听
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   // 用户登录后的数据同步 - 只执行一次
   useEffect(() => {
@@ -278,7 +265,7 @@ export function App() {
                     user={user}
                     userProfile={userProfile}
                     syncStatus={syncStatus}
-                    isOnline={isOnline}
+                    lastSyncTime={lastSyncTime}
                     onEditNickname={() => setIsEditNicknameModalOpen(true)}
                     onSignOut={handleSignOut}
                     onSync={syncSubscriptions}

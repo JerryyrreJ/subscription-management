@@ -9,6 +9,7 @@ export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
 interface UseSyncReturn {
   syncStatus: SyncStatus
+  lastSyncTime: Date | null
   syncSubscriptions: () => Promise<Subscription[]>
   uploadLocalData: (subscriptions: Subscription[]) => Promise<Subscription[]>
   createSubscription: (subscription: Omit<Subscription, 'id'>) => Promise<Subscription>
@@ -22,6 +23,7 @@ export function useSubscriptionSync(
   setSubscriptions: (subs: Subscription[]) => void
 ): UseSyncReturn {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
   const isSyncingRef = useRef(false)
   const isUploadingRef = useRef(false)
 
@@ -42,6 +44,7 @@ export function useSubscriptionSync(
       setSubscriptions(syncedSubscriptions)
       saveSubscriptions(syncedSubscriptions)
       setSyncStatus('success')
+      setLastSyncTime(new Date())
 
       // 立即重置同步标志，然后延迟重置状态
       isSyncingRef.current = false
@@ -83,6 +86,7 @@ export function useSubscriptionSync(
       setSubscriptions(cloudSubscriptions)
       saveSubscriptions(cloudSubscriptions)
       setSyncStatus('success')
+      setLastSyncTime(new Date())
 
       // 立即重置上传标志，然后延迟重置状态
       isUploadingRef.current = false
@@ -116,6 +120,7 @@ export function useSubscriptionSync(
         const updatedSubscriptions = [...subscriptions, newSubscription]
         setSubscriptions(updatedSubscriptions)
         saveSubscriptions(updatedSubscriptions) // 同时保存到本地作为缓存
+        setLastSyncTime(new Date())
         return newSubscription
       } catch (error) {
         console.error('Failed to save subscription online:', error)
@@ -153,6 +158,7 @@ export function useSubscriptionSync(
         )
         setSubscriptions(updatedSubscriptions)
         saveSubscriptions(updatedSubscriptions)
+        setLastSyncTime(new Date())
         return updatedSubscription
       } catch (error) {
         console.error('Failed to update subscription online:', error)
@@ -184,6 +190,7 @@ export function useSubscriptionSync(
         const updatedSubscriptions = subscriptions.filter(s => s.id !== id)
         setSubscriptions(updatedSubscriptions)
         saveSubscriptions(updatedSubscriptions)
+        setLastSyncTime(new Date())
       } catch (error) {
         console.error('Failed to delete subscription online:', error)
         // 降级到离线模式
@@ -201,6 +208,7 @@ export function useSubscriptionSync(
 
   return {
     syncStatus,
+    lastSyncTime,
     syncSubscriptions,
     uploadLocalData,
     createSubscription,
