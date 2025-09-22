@@ -59,7 +59,7 @@ export function SyncIndicator({ status, isOnline, onSync }: SyncIndicatorProps) 
     <button
       onClick={onSync}
       disabled={status === 'syncing' || !isOnline}
-      className="relative p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all duration-500 ease-in-out group overflow-hidden w-10 hover:w-auto"
+      className="relative p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all duration-700 hover:duration-500 ease-in-out group overflow-hidden w-10 hover:w-auto"
     >
       <div className="flex items-center space-x-2">
         <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
@@ -67,7 +67,7 @@ export function SyncIndicator({ status, isOnline, onSync }: SyncIndicatorProps) 
         </div>
 
         {/* 展开的文字区域 */}
-        <span className="whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-all duration-500 ease-in-out max-w-0 group-hover:max-w-xs overflow-hidden">
+        <span className="whitespace-nowrap text-sm font-medium text-gray-700 dark:text-gray-300 opacity-0 group-hover:opacity-100 transition-all duration-700 hover:duration-500 ease-in-out max-w-0 group-hover:max-w-xs overflow-hidden">
           {isOnline ? (status === 'syncing' ? 'Syncing...' : 'Click to sync') : 'Offline'}
         </span>
       </div>
