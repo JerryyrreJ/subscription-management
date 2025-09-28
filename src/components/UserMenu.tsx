@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Edit3, LogOut, RotateCcw } from 'lucide-react';
+import { User, Edit3, LogOut, RotateCcw, Mail, Lock } from 'lucide-react';
 
 interface UserProfile {
   nickname?: string;
@@ -15,6 +15,8 @@ interface UserMenuProps {
   syncStatus: 'idle' | 'syncing' | 'success' | 'error';
   lastSyncTime: Date | null;
   onEditNickname: () => void;
+  onEditEmail: () => void;
+  onEditPassword: () => void;
   onSignOut: () => void;
   onSync: () => void;
 }
@@ -25,6 +27,8 @@ export function UserMenu({
   syncStatus,
   lastSyncTime,
   onEditNickname,
+  onEditEmail,
+  onEditPassword,
   onSignOut,
   onSync
 }: UserMenuProps) {
@@ -151,6 +155,22 @@ export function UserMenu({
             >
               <Edit3 className="w-4 h-4 text-gray-400" />
               Edit Nickname
+            </button>
+
+            <button
+              onClick={() => handleMenuItemClick(onEditEmail)}
+              className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Mail className="w-4 h-4 text-gray-400" />
+              Change Email
+            </button>
+
+            <button
+              onClick={() => handleMenuItemClick(onEditPassword)}
+              className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Lock className="w-4 h-4 text-gray-400" />
+              Change Password
             </button>
 
             <button

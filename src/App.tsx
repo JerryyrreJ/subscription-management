@@ -9,6 +9,8 @@ import { EditSubscriptionModal } from './components/EditSubscriptionModal';
 import { ThemeToggle } from './components/ThemeToggle';
 import { AuthModal } from './components/AuthModal';
 import { EditNicknameModal } from './components/EditNicknameModal';
+import { EditEmailModal } from './components/EditEmailModal';
+import { EditPasswordModal } from './components/EditPasswordModal';
 import { UserMenu } from './components/UserMenu';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
@@ -18,7 +20,7 @@ import { Footer } from './components/Footer';
 import { config } from './lib/config';
 
 export function App() {
-  const { user, userProfile, loading, signOut } = useAuth();
+  const { user, userProfile, loading, signOut, updateUserEmail, updateUserPassword } = useAuth();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
   const [theme, setTheme] = useState<Theme>('light');
@@ -31,6 +33,8 @@ export function App() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isEditNicknameModalOpen, setIsEditNicknameModalOpen] = useState(false);
+  const [isEditEmailModalOpen, setIsEditEmailModalOpen] = useState(false);
+  const [isEditPasswordModalOpen, setIsEditPasswordModalOpen] = useState(false);
   const [hasInitialSync, setHasInitialSync] = useState(false);
 
   // 使用数据同步Hook
@@ -267,6 +271,8 @@ export function App() {
                     syncStatus={syncStatus}
                     lastSyncTime={lastSyncTime}
                     onEditNickname={() => setIsEditNicknameModalOpen(true)}
+                    onEditEmail={() => setIsEditEmailModalOpen(true)}
+                    onEditPassword={() => setIsEditPasswordModalOpen(true)}
                     onSignOut={handleSignOut}
                     onSync={syncSubscriptions}
                   />
@@ -351,10 +357,33 @@ export function App() {
         )}
 
         {config.features.authentication && (
-          <EditNicknameModal
-            isOpen={isEditNicknameModalOpen}
-            onClose={() => setIsEditNicknameModalOpen(false)}
-          />
+          <>
+            <EditNicknameModal
+              isOpen={isEditNicknameModalOpen}
+              onClose={() => setIsEditNicknameModalOpen(false)}
+            />
+            <EditEmailModal
+              isOpen={isEditEmailModalOpen}
+              onClose={() => setIsEditEmailModalOpen(false)}
+              currentEmail={user?.email || ''}
+              onUpdateEmail={async (newEmail: string) => {
+                const result = await updateUserEmail(newEmail);
+                if (result.error) {
+                  throw new Error(result.error.message);
+                }
+              }}
+            />
+            <EditPasswordModal
+              isOpen={isEditPasswordModalOpen}
+              onClose={() => setIsEditPasswordModalOpen(false)}
+              onUpdatePassword={async (newPassword: string) => {
+                const result = await updateUserPassword(newPassword);
+                if (result.error) {
+                  throw new Error(result.error.message);
+                }
+              }}
+            />
+          </>
         )}
       </div>
 

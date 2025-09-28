@@ -2,12 +2,18 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.5.1)
+## ✨ Latest Updates (v1.5.2)
 
+- 📧 **Email Management** - Change your email address directly from the user menu with secure confirmation process
+- 🔐 **Password Management** - Update your password with real-time strength validation and confirmation
+- 👤 **Enhanced User Settings** - Expanded user profile management capabilities with security features
+- 🛡️ **Password Security** - Advanced password requirements with uppercase, lowercase, and numeric validation
+
+### Previous Updates (v1.5.1)
 - 📅 **Created Date Sorting** - Sort subscriptions by creation date to track when subscriptions were added to the system
 - 💰 **Enhanced Price Sorting** - Improved price comparison logic using daily cost calculation for accurate cross-period subscription comparison
 
-### Previous Updates (v1.5.0)
+### Earlier Updates (v1.5.0)
 - 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, or category for better expense tracking
 - 📊 **Enhanced Dashboard** - Integrated sorting controls directly into the overview dashboard for seamless user experience
 - 🎨 **Improved UI Integration** - Compact sorting controls positioned in dashboard bottom-right corner for optimal layout
@@ -35,7 +41,9 @@ A modern web application for tracking and managing your recurring subscriptions 
 - 💾 **Local Storage** - Your data is always saved locally for offline access
 
 ### Premium Features (When Cloud Sync is Configured)
-- 👤 **User Authentication** - Secure login system with account management
+- 👤 **User Authentication** - Secure login system with comprehensive account management
+- 📧 **Email Management** - Change your email address with secure confirmation process
+- 🔐 **Password Management** - Update password with advanced security validation
 - 🔐 **Remember Me Login** - Trust device option for persistent login across browser sessions
 - ⏰ **Smart Session Management** - Secure 30-day remember login with automatic expiration
 - ☁️ **Multi-Device Sync** - Seamlessly access your data across all devices
@@ -124,10 +132,12 @@ The app supports the following currencies with real-time exchange rates:
 
 #### Cloud Sync (Premium Feature)
 - **Multi-Device Access**: Your data automatically syncs across all your devices
+- **Account Management**: Complete user profile management including email and password updates
+- **Email Management**: Secure email address updates with confirmation process
+- **Password Security**: Advanced password management with strength validation
 - **Remember Me Login**: Trust device functionality with secure 30-day session persistence
 - **Industry-Standard Security**: Refresh Token + Access Token architecture with automatic token refresh
 - **Secure Backup**: Your data is securely backed up and encrypted in the cloud
-- **Account Management**: User profiles with customizable nicknames
 - **Real-time Sync**: Changes are instantly synchronized across devices
 
 ## License
