@@ -27,6 +27,7 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [categoryError, setCategoryError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 加载类型列表
   useEffect(() => {
@@ -62,47 +63,60 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const nextPaymentDate = calculateNextPaymentDate(
-      formData.lastPaymentDate,
-      formData.period,
-      formData.customDate
-    );
+    setIsSubmitting(true);
 
-    onAdd({
-      id: crypto.randomUUID(),
-      ...formData,
-      amount: parseFloat(formData.amount),
-      nextPaymentDate,
-      createdAt: new Date().toISOString(),
-    });
+    try {
+      const nextPaymentDate = calculateNextPaymentDate(
+        formData.lastPaymentDate,
+        formData.period,
+        formData.customDate
+      );
 
-    setFormData({
-      name: '',
-      category: '',
-      amount: '',
-      currency: DEFAULT_CURRENCY,
-      period: 'monthly',
-      lastPaymentDate: '',
-      customDate: '',
-    });
+      onAdd({
+        id: crypto.randomUUID(),
+        ...formData,
+        amount: parseFloat(formData.amount),
+        nextPaymentDate,
+        createdAt: new Date().toISOString(),
+      });
+
+      // 等待一小段时间确保状态更新完成
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 重置表单并关闭模态框
+      setFormData({
+        name: '',
+        category: '',
+        amount: '',
+        currency: DEFAULT_CURRENCY,
+        period: 'monthly',
+        lastPaymentDate: '',
+        customDate: '',
+      });
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
-    setFormData({
-      name: '',
-      category: '',
-      amount: '',
-      currency: DEFAULT_CURRENCY,
-      period: 'monthly',
-      lastPaymentDate: '',
-      customDate: '',
-    });
-    setShowAddCategory(false);
-    setNewCategoryName('');
-    setCategoryError('');
-    onClose();
+    if (!isSubmitting) {
+      setFormData({
+        name: '',
+        category: '',
+        amount: '',
+        currency: DEFAULT_CURRENCY,
+        period: 'monthly',
+        lastPaymentDate: '',
+        customDate: '',
+      });
+      setShowAddCategory(false);
+      setNewCategoryName('');
+      setCategoryError('');
+      onClose();
+    }
   };
 
   // 获取今天的日期格式化为 YYYY-MM-DD
@@ -304,9 +318,10 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd }: AddSubscription
             <div className="pt-4">
               <button
                 type="submit"
-                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-200"
+                disabled={isSubmitting}
+                className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-200 disabled:bg-indigo-400 disabled:cursor-not-allowed"
               >
-                Add Subscription
+                {isSubmitting ? 'Adding...' : 'Add Subscription'}
               </button>
             </div>
           </form>
