@@ -2,36 +2,17 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.6.0)
+## ✨ Latest Updates (v1.6.1)
 
+- 🐛 **Date Picker Fix** - Fixed timezone issue preventing selection of current date as Last Payment Date
+
+### Previous Updates (v1.6.0)
 - 🗂️ **Advanced Category Management** - Complete category customization with drag-and-drop sorting, add/edit/delete capabilities
 - 🎯 **Smart Category System** - Built-in categories can be hidden (not deleted) and easily restored when needed
 - 🔄 **Intelligent Delete Protection** - Smart detection when deleting categories with automatic subscription reassignment
 - ➕ **Quick Add Categories** - Add new categories directly from the subscription form dropdown for seamless workflow
 - 🖱️ **Drag-and-Drop Sorting** - Intuitive category reordering with visual feedback and smooth animations
 - 🎨 **Category Settings UI** - Dedicated management interface accessible from user menu with comprehensive controls
-
-### Previous Updates (v1.5.2)
-- 📧 **Email Management** - Change your email address directly from the user menu with secure confirmation process
-- 🔐 **Password Management** - Update your password with real-time strength validation and confirmation
-- 👤 **Enhanced User Settings** - Expanded user profile management capabilities with security features
-
-### Earlier Updates (v1.5.1)
-- 📅 **Created Date Sorting** - Sort subscriptions by creation date to track when subscriptions were added to the system
-- 💰 **Enhanced Price Sorting** - Improved price comparison logic using daily cost calculation for accurate cross-period subscription comparison
-
-### Earlier Updates (v1.5.0)
-- 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, or category for better expense tracking
-- 📊 **Enhanced Dashboard** - Integrated sorting controls directly into the overview dashboard for seamless user experience
-- 🎨 **Improved UI Integration** - Compact sorting controls positioned in dashboard bottom-right corner for optimal layout
-- 📱 **Cross-Platform Compatibility** - Fixed dropdown text visibility issues across all browsers including Safari
-- 🔐 **Remember Me Login** - Trust device functionality for persistent login across browser sessions
-- 🔑 **Enhanced Authentication Security** - Industry-standard Refresh Token + Access Token flow
-- ⏰ **Smart Session Management** - Automatic token refresh and 30-day remember login duration
-- 🛡️ **Dynamic Storage Security** - Intelligent choice between sessionStorage and localStorage based user preference
-- 🔄 **Smart Sync Deduplication** - Intelligent content-based duplicate detection prevents data duplication during sync
-- 🚀 **Deployment Flexibility** - Single codebase supports both open-source and premium versions
-- 🌙 **Dark Mode Support** - Toggle between light and dark themes with automatic system preference detection
 
 ## Features
 

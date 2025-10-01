@@ -114,73 +114,23 @@ export class SubscriptionService {
     }
   }
 
-  // 批量同步 - 智能去重策略：内容+ID双重检查
+  // 批量同步 - 纯下载模式（云端为准）
   static async syncSubscriptions(localSubscriptions: Subscription[]): Promise<Subscription[]> {
     if (!config.hasSupabaseConfig || !supabase) {
       throw new Error('Cloud sync not available')
     }
 
     try {
-      // 1. 获取云端数据
+      // 直接获取云端数据，以云端为权威数据源
       const cloudSubscriptions = await this.getSubscriptions()
 
-      // 2. 创建内容指纹，用于检测重复内容
-      const createContentKey = (sub: Subscription) =>
-        `${sub.name}-${sub.amount}-${sub.currency}-${sub.period}`
+      console.log(`Sync completed: ${cloudSubscriptions.length} subscriptions from cloud (authoritative)`)
+      console.log(`Local data (${localSubscriptions.length} items) will be replaced by cloud data`)
 
-      // 3. 创建云端数据的ID和内容映射
-      const cloudIds = new Set(cloudSubscriptions.map(s => s.id))
-      const cloudContentKeys = new Set(cloudSubscriptions.map(createContentKey))
-
-      // 4. 过滤本地数据：排除ID重复或内容重复的订阅
-      const localOnlySubscriptions = localSubscriptions.filter(sub => {
-        const hasIdDuplicate = cloudIds.has(sub.id)
-        const hasContentDuplicate = cloudContentKeys.has(createContentKey(sub))
-
-        if (hasIdDuplicate) {
-          console.log(`Skipping upload for ${sub.name}: ID already exists in cloud`)
-          return false
-        }
-
-        if (hasContentDuplicate) {
-          console.log(`Skipping upload for ${sub.name}: Content already exists in cloud`)
-          return false
-        }
-
-        return true
-      })
-
-      console.log(`Found ${localOnlySubscriptions.length} unique local subscriptions to upload`)
-
-      // 5. 上传真正独有的订阅到云端
-      const uploadPromises = localOnlySubscriptions.map(async sub => {
-        try {
-          return await this.createSubscription(sub)
-        } catch (error) {
-          console.error(`Failed to upload subscription ${sub.name}:`, error)
-          return sub // 如果上传失败，保留本地版本
-        }
-      })
-
-      const uploadedSubscriptions = await Promise.all(uploadPromises)
-
-      // 6. 合并云端数据和上传后的数据，最终去重
-      const allSubscriptions = [...cloudSubscriptions, ...uploadedSubscriptions]
-
-      // 根据ID去重，云端数据优先
-      const uniqueSubscriptions = allSubscriptions.reduce((acc, current) => {
-        const existing = acc.find(item => item.id === current.id)
-        if (!existing) {
-          acc.push(current)
-        }
-        return acc
-      }, [] as Subscription[])
-
-      console.log(`Sync completed: ${uniqueSubscriptions.length} total subscriptions`)
-      return uniqueSubscriptions
+      return cloudSubscriptions
     } catch (error) {
       console.error('Error syncing subscriptions:', error)
-      // 如果同步失败，返回本地数据
+      // 如果同步失败，返回本地数据作为降级方案
       return localSubscriptions
     }
   }

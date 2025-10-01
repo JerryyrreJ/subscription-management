@@ -141,25 +141,28 @@ export function App() {
     // 标记开始同步，防止重复
     setHasInitialSync(true);
 
-    // 使用一个标志来防止重复执行
+    // 首次登录同步策略：云端为准
     const performInitialSync = async () => {
-      const currentSubscriptions = loadSubscriptions(); // 直接从存储加载，避免状态依赖
-      const hasLocalData = currentSubscriptions.some(sub => sub.id.length === 36); // UUID格式检查
+      try {
+        console.log('User logged in, checking cloud data...');
 
-      if (currentSubscriptions.length > 0 && hasLocalData) {
-        console.log('User logged in with local data, uploading...');
-        try {
-          await uploadLocalData(currentSubscriptions);
-        } catch (error) {
-          console.error('Failed to upload local data:', error);
+        // 先同步云端数据（云端为权威数据源）
+        const cloudSubscriptions = await syncSubscriptions();
+
+        // 如果云端为空，则上传本地数据
+        if (cloudSubscriptions.length === 0) {
+          const currentSubscriptions = loadSubscriptions();
+          if (currentSubscriptions.length > 0) {
+            console.log('Cloud is empty, uploading local data...');
+            await uploadLocalData(currentSubscriptions);
+          } else {
+            console.log('Both cloud and local are empty, no action needed');
+          }
+        } else {
+          console.log(`Cloud data loaded: ${cloudSubscriptions.length} subscriptions (cloud is authoritative)`);
         }
-      } else if (currentSubscriptions.length === 0) {
-        console.log('User logged in without local data, syncing from cloud...');
-        try {
-          await syncSubscriptions();
-        } catch (error) {
-          console.error('Failed to sync from cloud:', error);
-        }
+      } catch (error) {
+        console.error('Failed to perform initial sync:', error);
       }
     };
 

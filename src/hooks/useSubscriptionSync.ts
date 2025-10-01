@@ -117,9 +117,12 @@ export function useSubscriptionSync(
       try {
         // 在线模式：直接保存到云端
         const newSubscription = await SubscriptionService.createSubscription(subscription)
-        const updatedSubscriptions = [...subscriptions, newSubscription]
-        setSubscriptions(updatedSubscriptions)
-        saveSubscriptions(updatedSubscriptions) // 同时保存到本地作为缓存
+        // 使用函数式更新，避免依赖陈旧的 subscriptions 状态
+        setSubscriptions(prev => {
+          const updated = [...prev, newSubscription]
+          saveSubscriptions(updated)
+          return updated
+        })
         setLastSyncTime(new Date())
         return newSubscription
       } catch (error) {
@@ -129,9 +132,11 @@ export function useSubscriptionSync(
           id: crypto.randomUUID(),
           ...subscription
         }
-        const updatedSubscriptions = [...subscriptions, offlineSubscription]
-        setSubscriptions(updatedSubscriptions)
-        saveSubscriptions(updatedSubscriptions)
+        setSubscriptions(prev => {
+          const updated = [...prev, offlineSubscription]
+          saveSubscriptions(updated)
+          return updated
+        })
         return offlineSubscription
       }
     } else {
@@ -140,12 +145,14 @@ export function useSubscriptionSync(
         id: crypto.randomUUID(),
         ...subscription
       }
-      const updatedSubscriptions = [...subscriptions, offlineSubscription]
-      setSubscriptions(updatedSubscriptions)
-      saveSubscriptions(updatedSubscriptions)
+      setSubscriptions(prev => {
+        const updated = [...prev, offlineSubscription]
+        saveSubscriptions(updated)
+        return updated
+      })
       return offlineSubscription
     }
-  }, [user, subscriptions, setSubscriptions])
+  }, [user, setSubscriptions])
 
   // 更新订阅（自动同步）
   const updateSubscription = useCallback(async (subscription: Subscription): Promise<Subscription> => {
@@ -153,33 +160,40 @@ export function useSubscriptionSync(
       try {
         // 在线模式：同步到云端
         const updatedSubscription = await SubscriptionService.updateSubscription(subscription)
-        const updatedSubscriptions = subscriptions.map(sub =>
-          sub.id === updatedSubscription.id ? updatedSubscription : sub
-        )
-        setSubscriptions(updatedSubscriptions)
-        saveSubscriptions(updatedSubscriptions)
+        // 使用函数式更新，避免依赖陈旧的 subscriptions 状态
+        setSubscriptions(prev => {
+          const updated = prev.map(sub =>
+            sub.id === updatedSubscription.id ? updatedSubscription : sub
+          )
+          saveSubscriptions(updated)
+          return updated
+        })
         setLastSyncTime(new Date())
         return updatedSubscription
       } catch (error) {
         console.error('Failed to update subscription online:', error)
         // 降级到离线模式
-        const updatedSubscriptions = subscriptions.map(sub =>
-          sub.id === subscription.id ? subscription : sub
-        )
-        setSubscriptions(updatedSubscriptions)
-        saveSubscriptions(updatedSubscriptions)
+        setSubscriptions(prev => {
+          const updated = prev.map(sub =>
+            sub.id === subscription.id ? subscription : sub
+          )
+          saveSubscriptions(updated)
+          return updated
+        })
         return subscription
       }
     } else {
       // 离线模式：只更新本地
-      const updatedSubscriptions = subscriptions.map(sub =>
-        sub.id === subscription.id ? subscription : sub
-      )
-      setSubscriptions(updatedSubscriptions)
-      saveSubscriptions(updatedSubscriptions)
+      setSubscriptions(prev => {
+        const updated = prev.map(sub =>
+          sub.id === subscription.id ? subscription : sub
+        )
+        saveSubscriptions(updated)
+        return updated
+      })
       return subscription
     }
-  }, [user, subscriptions, setSubscriptions])
+  }, [user, setSubscriptions])
 
   // 删除订阅（自动同步）
   const deleteSubscription = useCallback(async (id: string): Promise<void> => {
@@ -187,24 +201,31 @@ export function useSubscriptionSync(
       try {
         // 在线模式：从云端删除
         await SubscriptionService.deleteSubscription(id)
-        const updatedSubscriptions = subscriptions.filter(s => s.id !== id)
-        setSubscriptions(updatedSubscriptions)
-        saveSubscriptions(updatedSubscriptions)
+        // 使用函数式更新，避免依赖陈旧的 subscriptions 状态
+        setSubscriptions(prev => {
+          const updated = prev.filter(s => s.id !== id)
+          saveSubscriptions(updated)
+          return updated
+        })
         setLastSyncTime(new Date())
       } catch (error) {
         console.error('Failed to delete subscription online:', error)
-        // 降级到离线模式
-        const updatedSubscriptions = subscriptions.filter(s => s.id !== id)
-        setSubscriptions(updatedSubscriptions)
-        saveSubscriptions(updatedSubscriptions)
+        // 降级到离线模式：使用函数式更新
+        setSubscriptions(prev => {
+          const updated = prev.filter(s => s.id !== id)
+          saveSubscriptions(updated)
+          return updated
+        })
       }
     } else {
-      // 离线模式：只从本地删除
-      const updatedSubscriptions = subscriptions.filter(s => s.id !== id)
-      setSubscriptions(updatedSubscriptions)
-      saveSubscriptions(updatedSubscriptions)
+      // 离线模式：只从本地删除，使用函数式更新
+      setSubscriptions(prev => {
+        const updated = prev.filter(s => s.id !== id)
+        saveSubscriptions(updated)
+        return updated
+      })
     }
-  }, [user, subscriptions, setSubscriptions])
+  }, [user, setSubscriptions])
 
   return {
     syncStatus,
