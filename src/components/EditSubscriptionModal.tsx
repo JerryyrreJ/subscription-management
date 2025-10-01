@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES } from '../utils/currency';
-import { getAllCategories } from '../utils/categories';
+import { getAllCategories, addCustomCategory } from '../utils/categories';
 import { CustomSelect } from './CustomSelect';
 
 interface EditSubscriptionModalProps {
@@ -30,6 +30,8 @@ export function EditSubscriptionModal({
   });
 
   const [categories, setCategories] = useState<string[]>([]);
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
 
   // 加载类型列表
   useEffect(() => {
@@ -47,7 +49,45 @@ export function EditSubscriptionModal({
       lastPaymentDate: subscription.lastPaymentDate,
       customDate: subscription.customDate || '',
     });
+    setIsAddingNewCategory(false);
+    setNewCategoryInput('');
   }, [subscription]);
+
+  // 处理类型选择变化
+  const handleCategoryChange = (value: string) => {
+    if (value === '__add_new__') {
+      // 选择了 "+ Add New Category"
+      setIsAddingNewCategory(true);
+      setNewCategoryInput('');
+    } else {
+      setFormData({ ...formData, category: value });
+    }
+  };
+
+  // 添加新类型
+  const handleAddNewCategory = () => {
+    const trimmed = newCategoryInput.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const success = addCustomCategory(trimmed);
+    if (success) {
+      const updatedCategories = getAllCategories();
+      setCategories(updatedCategories);
+      setFormData({ ...formData, category: trimmed });
+      setIsAddingNewCategory(false);
+      setNewCategoryInput('');
+    } else {
+      alert('Failed to add category. It may already exist or contain invalid characters.');
+    }
+  };
+
+  // 取消添加新类型
+  const handleCancelAddCategory = () => {
+    setIsAddingNewCategory(false);
+    setNewCategoryInput('');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,12 +144,53 @@ export function EditSubscriptionModal({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Category
               </label>
-              <CustomSelect
-                value={formData.category}
-                onChange={(value) => setFormData({ ...formData, category: value })}
-                options={categories.map(cat => ({ value: cat, label: cat }))}
-                required={true}
-              />
+
+              {isAddingNewCategory ? (
+                // 添加新类型的内联输入框
+                <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newCategoryInput}
+                      onChange={(e) => setNewCategoryInput(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddNewCategory();
+                        }
+                      }}
+                      placeholder="Enter new category name"
+                      autoFocus
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddNewCategory}
+                      className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelAddCategory}
+                      className="px-3 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // 正常的下拉选择框
+                <CustomSelect
+                  value={formData.category}
+                  onChange={handleCategoryChange}
+                  options={[
+                    ...categories.map(cat => ({ value: cat, label: cat })),
+                    { value: '__add_new__', label: '+ Add New Category' }
+                  ]}
+                  required={true}
+                />
+              )}
             </div>
 
             <div className="flex gap-3">

@@ -2,14 +2,21 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.5.2)
+## ✨ Latest Updates (v1.6.0)
 
+- 🗂️ **Advanced Category Management** - Complete category customization with drag-and-drop sorting, add/edit/delete capabilities
+- 🎯 **Smart Category System** - Built-in categories can be hidden (not deleted) and easily restored when needed
+- 🔄 **Intelligent Delete Protection** - Smart detection when deleting categories with automatic subscription reassignment
+- ➕ **Quick Add Categories** - Add new categories directly from the subscription form dropdown for seamless workflow
+- 🖱️ **Drag-and-Drop Sorting** - Intuitive category reordering with visual feedback and smooth animations
+- 🎨 **Category Settings UI** - Dedicated management interface accessible from user menu with comprehensive controls
+
+### Previous Updates (v1.5.2)
 - 📧 **Email Management** - Change your email address directly from the user menu with secure confirmation process
 - 🔐 **Password Management** - Update your password with real-time strength validation and confirmation
 - 👤 **Enhanced User Settings** - Expanded user profile management capabilities with security features
-- 🛡️ **Password Security** - Advanced password requirements with uppercase, lowercase, and numeric validation
 
-### Previous Updates (v1.5.1)
+### Earlier Updates (v1.5.1)
 - 📅 **Created Date Sorting** - Sort subscriptions by creation date to track when subscriptions were added to the system
 - 💰 **Enhanced Price Sorting** - Improved price comparison logic using daily cost calculation for accurate cross-period subscription comparison
 
@@ -29,6 +36,7 @@ A modern web application for tracking and managing your recurring subscriptions 
 ## Features
 
 ### Core Features (Always Available)
+- 🗂️ **Advanced Category Management** - Full category customization with drag-and-drop sorting, quick-add from dropdown, and smart delete protection
 - 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, category, or creation date for comprehensive expense tracking
 - 🌍 **Multi-Currency Support** - Track subscriptions in 10 major currencies
 - 💱 **Smart Currency Conversion** - Real-time exchange rates with automatic conversion
@@ -108,6 +116,15 @@ The application will be available at `http://localhost:5173`
 - **Switch base currency** in the dashboard to view total costs in your preferred currency
 - View total costs in monthly or yearly format with automatic currency conversion
 - **Toggle dark mode** using the theme switcher in the top-right corner for optimal viewing experience
+
+### Managing Categories
+
+- **Quick Add**: Select "+ Add New Category" from the category dropdown when adding/editing subscriptions
+- **Category Settings**: Access from user menu (top-right) → "Category Settings"
+- **Drag to Reorder**: Drag categories by the grip icon to change their order
+- **Hide/Delete**: Built-in categories can be hidden (and restored later), custom categories can be permanently deleted
+- **Smart Delete**: When deleting a category with subscriptions, you'll be prompted to reassign them to another category
+- **Restore Defaults**: One-click restore of all built-in categories
 
 ### Supported Currencies
 

@@ -11,6 +11,7 @@ import { AuthModal } from './components/AuthModal';
 import { EditNicknameModal } from './components/EditNicknameModal';
 import { EditEmailModal } from './components/EditEmailModal';
 import { EditPasswordModal } from './components/EditPasswordModal';
+import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { UserMenu } from './components/UserMenu';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
@@ -35,6 +36,7 @@ export function App() {
   const [isEditNicknameModalOpen, setIsEditNicknameModalOpen] = useState(false);
   const [isEditEmailModalOpen, setIsEditEmailModalOpen] = useState(false);
   const [isEditPasswordModalOpen, setIsEditPasswordModalOpen] = useState(false);
+  const [isCategorySettingsModalOpen, setIsCategorySettingsModalOpen] = useState(false);
   const [hasInitialSync, setHasInitialSync] = useState(false);
 
   // 使用数据同步Hook
@@ -273,6 +275,7 @@ export function App() {
                     onEditNickname={() => setIsEditNicknameModalOpen(true)}
                     onEditEmail={() => setIsEditEmailModalOpen(true)}
                     onEditPassword={() => setIsEditPasswordModalOpen(true)}
+                    onCategorySettings={() => setIsCategorySettingsModalOpen(true)}
                     onSignOut={handleSignOut}
                     onSync={syncSubscriptions}
                   />
@@ -385,6 +388,20 @@ export function App() {
             />
           </>
         )}
+
+        <CategorySettingsModal
+          isOpen={isCategorySettingsModalOpen}
+          onClose={() => setIsCategorySettingsModalOpen(false)}
+          subscriptions={subscriptions}
+          onCategoriesChanged={() => {
+            // 类型变更时，重新加载订阅列表以确保UI更新
+            setSubscriptions([...subscriptions]);
+          }}
+          onUpdateSubscriptions={(updatedSubscriptions) => {
+            setSubscriptions(updatedSubscriptions);
+            saveSubscriptions(updatedSubscriptions);
+          }}
+        />
       </div>
 
       <Footer />

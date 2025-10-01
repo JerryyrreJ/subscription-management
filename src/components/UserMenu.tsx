@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Edit3, LogOut, RotateCcw, Mail, Lock } from 'lucide-react';
+import { User, Edit3, LogOut, RotateCcw, Mail, Lock, Folder } from 'lucide-react';
 
 interface UserProfile {
   nickname?: string;
@@ -17,6 +17,7 @@ interface UserMenuProps {
   onEditNickname: () => void;
   onEditEmail: () => void;
   onEditPassword: () => void;
+  onCategorySettings: () => void;
   onSignOut: () => void;
   onSync: () => void;
 }
@@ -29,6 +30,7 @@ export function UserMenu({
   onEditNickname,
   onEditEmail,
   onEditPassword,
+  onCategorySettings,
   onSignOut,
   onSync
 }: UserMenuProps) {
@@ -172,6 +174,18 @@ export function UserMenu({
               <Lock className="w-4 h-4 text-gray-400" />
               Change Password
             </button>
+
+            <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+
+            <button
+              onClick={() => handleMenuItemClick(onCategorySettings)}
+              className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Folder className="w-4 h-4 text-gray-400" />
+              Category Settings
+            </button>
+
+            <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
 
             <button
               onClick={() => handleMenuItemClick(onSignOut)}
