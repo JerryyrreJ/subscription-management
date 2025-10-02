@@ -2,12 +2,17 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.6.2)
+## ✨ Latest Updates (v1.6.3)
 
+- 📤📥 **Import/Export Data** - Backup and restore your subscriptions and categories as JSON files
+- 🔓 **Offline Access** - Import/Export and Category Settings available without login
+- 🎯 **Unified Menu** - Single user menu interface for both logged-in and guest users
+
+### Previous Updates (v1.6.2)
 - 🔍 **Category Filter** - Filter subscriptions by category with dynamic cost calculation in dashboard
 - 🎯 **Smart UI Controls** - Filter and sort controls remain visible even when filtered results are empty
 
-### Previous Updates (v1.6.0)
+### Earlier Updates (v1.6.0)
 - 🗂️ **Advanced Category Management** - Complete category customization with drag-and-drop sorting, add/edit/delete capabilities
 - 🎯 **Smart Category System** - Built-in categories can be hidden (not deleted) and easily restored when needed
 - 🔄 **Intelligent Delete Protection** - Smart detection when deleting categories with automatic subscription reassignment
@@ -21,9 +26,10 @@ A modern web application for tracking and managing your recurring subscriptions 
 - 🗂️ **Advanced Category Management** - Full category customization with drag-and-drop sorting, quick-add from dropdown, and smart delete protection
 - 🔍 **Category Filtering** - Filter subscriptions by category with real-time cost recalculation in dashboard
 - 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, category, or creation date for comprehensive expense tracking
+- 📤📥 **Import/Export Data** - Backup and restore your data as JSON files, no login required
 - 🌍 **Multi-Currency Support** - Track subscriptions in 10 major currencies
 - 💱 **Smart Currency Conversion** - Real-time exchange rates with automatic conversion
-- 📊 **Enhanced Dashboard** - Monthly/yearly cost overview with integrated sorting controls
+- 📊 **Enhanced Dashboard** - Monthly/yearly cost overview with integrated sorting and filtering controls
 - 💳 **Subscription Management** - Track multiple subscriptions with detailed information
 - 🔄 **Automatic Calculations** - Automatic renewal date calculations
 - 🌙 **Dark Mode Support** - Beautiful light and dark themes with automatic system preference detection

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import { Subscription, ViewMode, Theme, SortConfig } from './types';
 import { Dashboard } from './components/Dashboard';
@@ -12,11 +12,13 @@ import { EditNicknameModal } from './components/EditNicknameModal';
 import { EditEmailModal } from './components/EditEmailModal';
 import { EditPasswordModal } from './components/EditPasswordModal';
 import { CategorySettingsModal } from './components/CategorySettingsModal';
+import { ImportDataModal } from './components/ImportDataModal';
 import { UserMenu } from './components/UserMenu';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
 import { loadSubscriptions, saveSubscriptions } from './utils/storage';
 import { convertCurrency, DEFAULT_CURRENCY } from './utils/currency';
+import { exportData, importData, validateImportData, ExportData } from './utils/exportImport';
 import { Footer } from './components/Footer';
 import { config } from './lib/config';
 
@@ -39,6 +41,9 @@ export function App() {
   const [isCategorySettingsModalOpen, setIsCategorySettingsModalOpen] = useState(false);
   const [hasInitialSync, setHasInitialSync] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importPreviewData, setImportPreviewData] = useState<ExportData | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 使用数据同步Hook
   const {
@@ -250,6 +255,69 @@ export function App() {
     // setSubscriptions([]);
   };
 
+  // 导出数据
+  const handleExportData = () => {
+    try {
+      exportData();
+    } catch (error) {
+      console.error('Failed to export data:', error);
+      alert('Failed to export data. Please try again.');
+    }
+  };
+
+  // 导入数据 - 打开文件选择器
+  const handleImportData = () => {
+    fileInputRef.current?.click();
+  };
+
+  // 文件选择后的处理
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // 验证并预览数据
+      const previewData = await validateImportData(file);
+      setImportPreviewData(previewData);
+      setIsImportModalOpen(true);
+    } catch (error) {
+      console.error('Failed to validate import file:', error);
+      alert(error instanceof Error ? error.message : 'Invalid import file');
+    }
+
+    // 重置文件输入，允许重复选择同一文件
+    event.target.value = '';
+  };
+
+  // 确认导入
+  const handleConfirmImport = async () => {
+    if (!importPreviewData) return;
+
+    try {
+      // 创建临时文件对象用于导入
+      const blob = new Blob([JSON.stringify(importPreviewData)], { type: 'application/json' });
+      const file = new File([blob], 'import.json', { type: 'application/json' });
+
+      await importData(file);
+
+      // 重新加载数据
+      const newSubscriptions = loadSubscriptions();
+      setSubscriptions(newSubscriptions);
+
+      // 关闭模态框
+      setIsImportModalOpen(false);
+      setImportPreviewData(null);
+
+      // 重置筛选状态
+      setSelectedCategory(null);
+
+      alert('Data imported successfully!');
+    } catch (error) {
+      console.error('Failed to import data:', error);
+      alert(error instanceof Error ? error.message : 'Failed to import data');
+    }
+  };
+
   // 显示加载状态
   if (loading) {
     return (
@@ -275,7 +343,8 @@ export function App() {
 
               {/* 按钮组 */}
               <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
-                {config.features.authentication && user ? (
+                {/* 始终显示用户菜单，无论是否登录 */}
+                {config.features.authentication ? (
                   <UserMenu
                     user={user}
                     userProfile={userProfile}
@@ -285,18 +354,29 @@ export function App() {
                     onEditEmail={() => setIsEditEmailModalOpen(true)}
                     onEditPassword={() => setIsEditPasswordModalOpen(true)}
                     onCategorySettings={() => setIsCategorySettingsModalOpen(true)}
+                    onExportData={handleExportData}
+                    onImportData={handleImportData}
                     onSignOut={handleSignOut}
                     onSync={syncSubscriptions}
+                    onLogin={() => setIsAuthModalOpen(true)}
                   />
-                ) : config.features.authentication ? (
-                  <button
-                    onClick={() => setIsAuthModalOpen(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg transition-colors font-medium text-sm"
-                  >
-                    <span className="hidden sm:inline">Login to Sync</span>
-                    <span className="sm:hidden">Login</span>
-                  </button>
-                ) : null}
+                ) : (
+                  /* 无云同步功能时，使用简化的用户菜单（仅本地功能） */
+                  <UserMenu
+                    user={null}
+                    userProfile={null}
+                    syncStatus="idle"
+                    lastSyncTime={null}
+                    onEditNickname={() => {}}
+                    onEditEmail={() => {}}
+                    onEditPassword={() => {}}
+                    onCategorySettings={() => setIsCategorySettingsModalOpen(true)}
+                    onExportData={handleExportData}
+                    onImportData={handleImportData}
+                    onSignOut={() => {}}
+                    onSync={() => {}}
+                  />
+                )}
 
                 <ThemeToggle theme={theme} onToggle={toggleTheme} />
               </div>
@@ -413,6 +493,25 @@ export function App() {
             setSubscriptions(updatedSubscriptions);
             saveSubscriptions(updatedSubscriptions);
           }}
+        />
+
+        <ImportDataModal
+          isOpen={isImportModalOpen}
+          onClose={() => {
+            setIsImportModalOpen(false);
+            setImportPreviewData(null);
+          }}
+          onConfirm={handleConfirmImport}
+          previewData={importPreviewData}
+        />
+
+        {/* 隐藏的文件输入 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
         />
       </div>
 

@@ -30,7 +30,7 @@ export const FALLBACK_CATEGORY = 'Uncategorized'
  * 从 localStorage 加载所有类型数据
  * 包含数据迁移逻辑：从旧版本 v1 迁移到 v2
  */
-function loadCategories(): Category[] {
+export function loadCategories(): Category[] {
   try {
     const stored = localStorage.getItem(CATEGORIES_STORAGE_KEY)
 
@@ -79,7 +79,7 @@ function loadCategories(): Category[] {
 /**
  * 保存类型数据到 localStorage
  */
-function saveCategories(categories: Category[]): void {
+export function saveCategories(categories: Category[]): void {
   try {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories))
   } catch (error) {
