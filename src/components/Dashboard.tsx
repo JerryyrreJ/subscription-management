@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CreditCard, TrendingUp, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { CreditCard, TrendingUp, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react';
 import { Subscription, ViewMode, Currency, ExchangeRates, SortConfig, SortBy } from '../types';
 import { getCachedExchangeRates, convertCurrency, formatCurrency, CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 import { CustomSelect } from './CustomSelect';
+import { getVisibleCategories } from '../utils/categories';
 
 interface DashboardProps {
   subscriptions: Subscription[];
@@ -10,9 +11,12 @@ interface DashboardProps {
   onViewModeChange: (mode: ViewMode) => void;
   sortConfig: SortConfig;
   onSortChange: (config: SortConfig) => void;
+  selectedCategory: string | null;
+  onCategoryChange: (category: string | null) => void;
+  totalSubscriptions: number; // 原始订阅总数（未筛选前）
 }
 
-export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfig, onSortChange }: DashboardProps) {
+export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfig, onSortChange, selectedCategory, onCategoryChange, totalSubscriptions }: DashboardProps) {
   const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
   const [displayCurrency, setDisplayCurrency] = useState<Currency>(DEFAULT_CURRENCY);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
@@ -37,6 +41,19 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfi
   useEffect(() => {
     loadExchangeRates();
   }, [loadExchangeRates]);
+
+  // 类型筛选选项
+  const categoryOptions = [
+    { value: 'all', label: 'All Categories' },
+    ...getVisibleCategories().map(cat => ({
+      value: cat.name,
+      label: cat.name
+    }))
+  ];
+
+  const handleCategoryChange = (value: string) => {
+    onCategoryChange(value === 'all' ? null : value);
+  };
 
   // 排序选项
   const sortOptions = [
@@ -229,9 +246,23 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfi
           </div>
         </div>
 
-        {/* 紧凑排序控件 - 绝对定位到右下角 */}
-        {subscriptions.length > 0 && (
+        {/* 紧凑筛选和排序控件 - 绝对定位到右下角 */}
+        {totalSubscriptions > 0 && (
           <div className="absolute bottom-0 right-0 flex items-center space-x-1.5 sm:space-x-2 bg-white/10 rounded-lg p-1.5 sm:p-2">
+            {/* 类型筛选 */}
+            <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/70" />
+            <div className="min-w-[120px] dashboard-sort-control">
+              <CustomSelect
+                value={selectedCategory || 'all'}
+                onChange={handleCategoryChange}
+                options={categoryOptions}
+              />
+            </div>
+
+            {/* 分隔线 */}
+            <div className="h-6 w-px bg-white/20"></div>
+
+            {/* 排序控件 */}
             <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/70" />
 
             {/* 排序字段选择器 - 小尺寸 */}

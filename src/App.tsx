@@ -38,6 +38,7 @@ export function App() {
   const [isEditPasswordModalOpen, setIsEditPasswordModalOpen] = useState(false);
   const [isCategorySettingsModalOpen, setIsCategorySettingsModalOpen] = useState(false);
   const [hasInitialSync, setHasInitialSync] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // 使用数据同步Hook
   const {
@@ -107,8 +108,13 @@ export function App() {
     });
   };
 
+  // 获取筛选后的订阅列表
+  const filteredSubscriptions = selectedCategory
+    ? subscriptions.filter(sub => sub.category === selectedCategory)
+    : subscriptions;
+
   // 获取排序后的订阅列表
-  const sortedSubscriptions = sortSubscriptions(subscriptions, sortConfig);
+  const sortedSubscriptions = sortSubscriptions(filteredSubscriptions, sortConfig);
 
   // 初始化数据和主题
   useEffect(() => {
@@ -302,6 +308,9 @@ export function App() {
               onViewModeChange={setViewMode}
               sortConfig={sortConfig}
               onSortChange={handleSortChange}
+              selectedCategory={selectedCategory}
+              onCategoryChange={setSelectedCategory}
+              totalSubscriptions={subscriptions.length}
             />
 
             <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
