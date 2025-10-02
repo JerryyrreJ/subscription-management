@@ -36,3 +36,26 @@ export interface CurrencyInfo {
   symbol: string;
   name: string;
 }
+
+export interface ReminderSettings {
+  // 浏览器通知
+  browserNotification: {
+    enabled: boolean;
+    daysBefore: number;
+    permission: NotificationPermission;
+    notificationHistory: {
+      [subscriptionId: string]: string; // 上次通知日期
+    };
+  };
+
+  // Bark 推送
+  barkPush: {
+    enabled: boolean;
+    serverUrl: string;
+    deviceKey: string;
+    daysBefore: number;
+    notificationHistory: {
+      [subscriptionId: string]: string; // 上次通知日期
+    };
+  };
+}

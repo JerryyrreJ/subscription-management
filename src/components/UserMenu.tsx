@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Edit3, LogOut, RotateCcw, Mail, Lock, Folder, Download, Upload, LogIn } from 'lucide-react';
+import { User, Edit3, LogOut, RotateCcw, Mail, Lock, Folder, Download, Upload, LogIn, Bell } from 'lucide-react';
 
 interface UserProfile {
   nickname?: string;
@@ -20,6 +20,7 @@ interface UserMenuProps {
   onCategorySettings: () => void;
   onExportData: () => void;
   onImportData: () => void;
+  onNotificationSettings: () => void; // 新增通知设置
   onSignOut: () => void;
   onSync: () => void;
   onLogin?: () => void; // 新增登录回调
@@ -36,6 +37,7 @@ export function UserMenu({
   onCategorySettings,
   onExportData,
   onImportData,
+  onNotificationSettings,
   onSignOut,
   onSync,
   onLogin
@@ -224,6 +226,14 @@ export function UserMenu({
             </button>
 
             <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+
+            <button
+              onClick={() => handleMenuItemClick(onNotificationSettings)}
+              className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Bell className="w-4 h-4 text-gray-400" />
+              Notification Settings
+            </button>
 
             <button
               onClick={() => handleMenuItemClick(onCategorySettings)}

@@ -2,27 +2,26 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.6.3)
+## ✨ Latest Updates (v1.7.0)
 
+- 🔔 **Notification System** - Comprehensive reminder system for upcoming subscription renewals
+- 🌐 **Browser Notifications** - Native browser notifications with user-controlled permission requests
+- 📱 **Bark Push Integration** - iOS push notifications via Bark app with customizable settings
+- ⚙️ **Flexible Reminder Settings** - Choose reminder timing (1/3/7/14 days before renewal)
+- 🎯 **Independent Notification Channels** - Browser and Bark notifications work independently with separate history tracking
+- 🔕 **Smart Deduplication** - Prevents duplicate notifications (one per subscription per day per channel)
+- 🎨 **Custom App Icon** - Professional app icon for browser tabs, notifications, and push messages
+- 🔄 **Automatic Cleanup** - Periodic cleanup of notification history to maintain performance
+
+### Previous Updates (v1.6.3)
 - 📤📥 **Import/Export Data** - Backup and restore your subscriptions and categories as JSON files
 - 🔓 **Offline Access** - Import/Export and Category Settings available without login
 - 🎯 **Unified Menu** - Single user menu interface for both logged-in and guest users
 
-### Previous Updates (v1.6.2)
-- 🔍 **Category Filter** - Filter subscriptions by category with dynamic cost calculation in dashboard
-- 🎯 **Smart UI Controls** - Filter and sort controls remain visible even when filtered results are empty
-
-### Earlier Updates (v1.6.0)
-- 🗂️ **Advanced Category Management** - Complete category customization with drag-and-drop sorting, add/edit/delete capabilities
-- 🎯 **Smart Category System** - Built-in categories can be hidden (not deleted) and easily restored when needed
-- 🔄 **Intelligent Delete Protection** - Smart detection when deleting categories with automatic subscription reassignment
-- ➕ **Quick Add Categories** - Add new categories directly from the subscription form dropdown for seamless workflow
-- 🖱️ **Drag-and-Drop Sorting** - Intuitive category reordering with visual feedback and smooth animations
-- 🎨 **Category Settings UI** - Dedicated management interface accessible from user menu with comprehensive controls
-
 ## Features
 
 ### Core Features (Always Available)
+- 🔔 **Notification System** - Browser and Bark push notifications for upcoming renewals with customizable timing
 - 🗂️ **Advanced Category Management** - Full category customization with drag-and-drop sorting, quick-add from dropdown, and smart delete protection
 - 🔍 **Category Filtering** - Filter subscriptions by category with real-time cost recalculation in dashboard
 - 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, category, or creation date for comprehensive expense tracking

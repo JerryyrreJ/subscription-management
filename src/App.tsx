@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus } from 'lucide-react';
-import { Subscription, ViewMode, Theme, SortConfig } from './types';
+import { Subscription, ViewMode, Theme, SortConfig, ReminderSettings } from './types';
 import { Dashboard } from './components/Dashboard';
 import { AddSubscriptionModal } from './components/AddSubscriptionModal';
 import { SubscriptionCard } from './components/SubscriptionCard';
@@ -13,12 +13,14 @@ import { EditEmailModal } from './components/EditEmailModal';
 import { EditPasswordModal } from './components/EditPasswordModal';
 import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { ImportDataModal } from './components/ImportDataModal';
+import { NotificationSettingsModal } from './components/NotificationSettingsModal';
 import { UserMenu } from './components/UserMenu';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
 import { loadSubscriptions, saveSubscriptions } from './utils/storage';
 import { convertCurrency, DEFAULT_CURRENCY } from './utils/currency';
 import { exportData, importData, validateImportData, ExportData } from './utils/exportImport';
+import { loadNotificationSettings, saveNotificationSettings, checkAndSendNotifications, cleanupNotificationHistory } from './utils/notificationChecker';
 import { Footer } from './components/Footer';
 import { config } from './lib/config';
 
@@ -44,6 +46,8 @@ export function App() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importPreviewData, setImportPreviewData] = useState<ExportData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [notificationSettings, setNotificationSettings] = useState<ReminderSettings>(loadNotificationSettings());
+  const [isNotificationSettingsModalOpen, setIsNotificationSettingsModalOpen] = useState(false);
 
   // 使用数据同步Hook
   const {
@@ -144,6 +148,26 @@ export function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // 通知检查和清理
+  useEffect(() => {
+    // 初始检查
+    checkAndSendNotifications(subscriptions, notificationSettings);
+
+    // 定期检查 - 每小时检查一次
+    const notificationInterval = setInterval(() => {
+      checkAndSendNotifications(subscriptions, notificationSettings);
+    }, 60 * 60 * 1000); // 1 hour
+
+    // 每天清理一次过期的通知历史
+    const cleanupInterval = setInterval(() => {
+      cleanupNotificationHistory(notificationSettings);
+    }, 24 * 60 * 60 * 1000); // 24 hours
+
+    return () => {
+      clearInterval(notificationInterval);
+      clearInterval(cleanupInterval);
+    };
+  }, [subscriptions, notificationSettings]);
 
   // 用户登录后的数据同步 - 只执行一次
   useEffect(() => {
@@ -356,6 +380,7 @@ export function App() {
                     onCategorySettings={() => setIsCategorySettingsModalOpen(true)}
                     onExportData={handleExportData}
                     onImportData={handleImportData}
+                    onNotificationSettings={() => setIsNotificationSettingsModalOpen(true)}
                     onSignOut={handleSignOut}
                     onSync={syncSubscriptions}
                     onLogin={() => setIsAuthModalOpen(true)}
@@ -373,6 +398,7 @@ export function App() {
                     onCategorySettings={() => setIsCategorySettingsModalOpen(true)}
                     onExportData={handleExportData}
                     onImportData={handleImportData}
+                    onNotificationSettings={() => setIsNotificationSettingsModalOpen(true)}
                     onSignOut={() => {}}
                     onSync={() => {}}
                   />
@@ -503,6 +529,16 @@ export function App() {
           }}
           onConfirm={handleConfirmImport}
           previewData={importPreviewData}
+        />
+
+        <NotificationSettingsModal
+          isOpen={isNotificationSettingsModalOpen}
+          onClose={() => setIsNotificationSettingsModalOpen(false)}
+          settings={notificationSettings}
+          onSave={(newSettings) => {
+            setNotificationSettings(newSettings);
+            saveNotificationSettings(newSettings);
+          }}
         />
 
         {/* 隐藏的文件输入 */}
