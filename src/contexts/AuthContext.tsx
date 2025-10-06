@@ -5,6 +5,8 @@ import { UserProfile, UserProfileService } from '../services/userProfileService'
 import { config } from '../lib/config'
 import { setRememberMe, isRememberMeEnabled, clearRememberMe, shouldAttemptAutoRestore, refreshRememberMeTimestamp } from '../utils/rememberMe'
 
+type OAuthProvider = 'github' | 'google'
+
 interface AuthContextType {
   user: User | null
   userProfile: UserProfile | null
@@ -12,6 +14,7 @@ interface AuthContextType {
   loading: boolean
   signUp: (email: string, password: string, nickname?: string) => Promise<{ error: AuthError | null }>
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: AuthError | null }>
+  signInWithOAuth: (provider: OAuthProvider) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
   refreshUserProfile: () => Promise<void>
   updateUserNickname: (nickname: string) => Promise<void>
@@ -289,6 +292,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return result
   }
 
+  const signInWithOAuth = async (provider: OAuthProvider) => {
+    if (!supabase) {
+      throw new Error('Authentication not available')
+    }
+
+    const result = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin
+      }
+    })
+    return result
+  }
+
   const signOut = async () => {
     if (!supabase) {
       throw new Error('Authentication not available')
@@ -347,6 +364,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       signUp,
       signIn,
+      signInWithOAuth,
       signOut,
       refreshUserProfile,
       updateUserNickname,
