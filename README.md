@@ -2,7 +2,14 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.7.0)
+## ✨ Latest Updates (v1.7.1)
+
+- ☁️ **Category Cloud Sync** - Custom categories now automatically sync across all your devices when logged in
+- 🔧 **Critical Bug Fixes** - Fixed category data being cleared on login, ensuring default categories are always available
+- 🔄 **Enhanced Data Consistency** - Category lists now update in real-time across all modals and components
+- 🛡️ **Improved Sync Logic** - Smart sync strategy prevents data loss during initial login synchronization
+
+### Previous Updates (v1.7.0)
 
 - 🔔 **Notification System** - Comprehensive reminder system for upcoming subscription renewals
 - 🌐 **Browser Notifications** - Native browser notifications with user-controlled permission requests

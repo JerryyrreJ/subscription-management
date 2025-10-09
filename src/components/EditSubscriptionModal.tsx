@@ -3,21 +3,28 @@ import { X } from 'lucide-react';
 import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES } from '../utils/currency';
-import { getAllCategories, addCustomCategory } from '../utils/categories';
+import { getAllCategories, getAllCategoriesWithDetails, addCustomCategory } from '../utils/categories';
 import { CustomSelect } from './CustomSelect';
+import type { Category } from '../utils/categories';
+
+interface CategorySyncMethods {
+  createCategory: (category: Category) => Promise<Category>
+}
 
 interface EditSubscriptionModalProps {
   subscription: Subscription;
   isOpen: boolean;
   onClose: () => void;
   onEdit: (subscription: Subscription) => void;
+  categorySync?: CategorySyncMethods;
 }
 
-export function EditSubscriptionModal({ 
-  subscription, 
-  isOpen, 
-  onClose, 
-  onEdit 
+export function EditSubscriptionModal({
+  subscription,
+  isOpen,
+  onClose,
+  onEdit,
+  categorySync
 }: EditSubscriptionModalProps) {
   const [formData, setFormData] = useState({
     name: subscription.name,
@@ -33,10 +40,12 @@ export function EditSubscriptionModal({
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState('');
 
-  // 加载类型列表
+  // 加载类型列表 - 每次打开模态框时重新加载，确保显示最新类别
   useEffect(() => {
-    setCategories(getAllCategories());
-  }, []);
+    if (isOpen) {
+      setCategories(getAllCategories());
+    }
+  }, [isOpen]);
 
   // 当subscription改变时更新表单数据
   useEffect(() => {
@@ -65,7 +74,7 @@ export function EditSubscriptionModal({
   };
 
   // 添加新类型
-  const handleAddNewCategory = () => {
+  const handleAddNewCategory = async () => {
     const trimmed = newCategoryInput.trim();
     if (!trimmed) {
       return;
@@ -73,6 +82,19 @@ export function EditSubscriptionModal({
 
     const success = addCustomCategory(trimmed);
     if (success) {
+      // 如果有云同步，则同步到云端
+      if (categorySync) {
+        const allCategories = getAllCategoriesWithDetails();
+        const newCategory = allCategories.find(cat => cat.name === trimmed);
+        if (newCategory) {
+          try {
+            await categorySync.createCategory(newCategory);
+          } catch (error) {
+            console.error('Failed to sync new category to cloud:', error);
+          }
+        }
+      }
+
       const updatedCategories = getAllCategories();
       setCategories(updatedCategories);
       setFormData({ ...formData, category: trimmed });

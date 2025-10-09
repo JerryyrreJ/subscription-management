@@ -13,12 +13,20 @@ import {
 import { Subscription } from '../types'
 import { DeleteCategoryDialog } from './DeleteCategoryDialog'
 
+interface CategorySyncMethods {
+  createCategory: (category: Category) => Promise<Category>
+  updateCategory: (category: Category) => Promise<Category>
+  deleteCategory: (categoryId: string) => Promise<void>
+  updateCategoriesOrder: (categories: Category[]) => Promise<void>
+}
+
 interface CategorySettingsModalProps {
   isOpen: boolean
   onClose: () => void
   subscriptions: Subscription[]
   onCategoriesChanged?: () => void
   onUpdateSubscriptions?: (updatedSubscriptions: Subscription[]) => void
+  categorySync?: CategorySyncMethods
 }
 
 export function CategorySettingsModal({
@@ -26,7 +34,8 @@ export function CategorySettingsModal({
   onClose,
   subscriptions,
   onCategoriesChanged,
-  onUpdateSubscriptions
+  onUpdateSubscriptions,
+  categorySync
 }: CategorySettingsModalProps) {
   const [categories, setCategories] = useState<Category[]>([])
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -54,15 +63,29 @@ export function CategorySettingsModal({
     setCategories(allCategories)
   }
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     const trimmed = newCategoryName.trim()
     if (!trimmed) {
       setError('Please enter a category name')
       return
     }
 
+    // 使用本地函数添加类别（包含验证逻辑）
     const success = addCustomCategory(trimmed)
     if (success) {
+      // 如果有云同步，则同步到云端
+      if (categorySync) {
+        const allCategories = getAllCategoriesWithDetails()
+        const newCategory = allCategories.find(cat => cat.name === trimmed)
+        if (newCategory) {
+          try {
+            await categorySync.createCategory(newCategory)
+          } catch (error) {
+            console.error('Failed to sync new category to cloud:', error)
+          }
+        }
+      }
+
       setNewCategoryName('')
       setError('')
       loadCategories()
@@ -84,14 +107,24 @@ export function CategorySettingsModal({
     })
   }
 
-  const handleConfirmDelete = (moveToCategory?: string) => {
+  const handleConfirmDelete = async (moveToCategory?: string) => {
     if (!deleteDialogState.category) return
 
     const categoryName = deleteDialogState.category.name
+    const categoryId = deleteDialogState.category.id
     const targetCategory = moveToCategory || FALLBACK_CATEGORY
 
     // 删除/隐藏类型
     deleteCategory(categoryName)
+
+    // 如果有云同步，则同步到云端
+    if (categorySync) {
+      try {
+        await categorySync.deleteCategory(categoryId)
+      } catch (error) {
+        console.error('Failed to sync category deletion to cloud:', error)
+      }
+    }
 
     // 更新受影响的订阅
     const affectedSubs = subscriptions.filter(sub => sub.category === categoryName)
@@ -114,8 +147,19 @@ export function CategorySettingsModal({
     setDeleteDialogState({ isOpen: false, category: null })
   }
 
-  const handleRestoreCategory = (category: Category) => {
+  const handleRestoreCategory = async (category: Category) => {
     restoreCategory(category.name)
+
+    // 如果有云同步，则同步到云端
+    if (categorySync) {
+      try {
+        const restoredCategory = { ...category, isHidden: false }
+        await categorySync.updateCategory(restoredCategory)
+      } catch (error) {
+        console.error('Failed to sync category restoration to cloud:', error)
+      }
+    }
+
     loadCategories()
     onCategoriesChanged?.()
   }
@@ -143,7 +187,7 @@ export function CategorySettingsModal({
     setDragOverIndex(null)
   }
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault()
 
     if (draggedIndex === null || draggedIndex === dropIndex) {
@@ -158,6 +202,16 @@ export function CategorySettingsModal({
 
     setCategories(newCategories)
     updateCategoriesOrder(newCategories)
+
+    // 如果有云同步，则同步到云端
+    if (categorySync) {
+      try {
+        await categorySync.updateCategoriesOrder(newCategories)
+      } catch (error) {
+        console.error('Failed to sync categories order to cloud:', error)
+      }
+    }
+
     onCategoriesChanged?.()
 
     setDraggedIndex(null)

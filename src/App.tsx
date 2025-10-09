@@ -17,7 +17,10 @@ import { NotificationSettingsModal } from './components/NotificationSettingsModa
 import { UserMenu } from './components/UserMenu';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
+import { useCategorySync } from './hooks/useCategorySync';
 import { loadSubscriptions, saveSubscriptions } from './utils/storage';
+import { loadCategories } from './utils/categories';
+import { CategoryService } from './services/categoryService';
 import { convertCurrency, DEFAULT_CURRENCY } from './utils/currency';
 import { exportData, importData, validateImportData, ExportData } from './utils/exportImport';
 import { loadNotificationSettings, saveNotificationSettings, checkAndSendNotifications, cleanupNotificationHistory } from './utils/notificationChecker';
@@ -59,6 +62,21 @@ export function App() {
     updateSubscription,
     deleteSubscription
   } = useSubscriptionSync(user, subscriptions, setSubscriptions);
+
+  // 使用类别同步Hook
+  const {
+    syncStatus: categorySyncStatus,
+    lastSyncTime: categoryLastSyncTime,
+    syncCategories,
+    uploadLocalCategories,
+    createCategory,
+    updateCategory,
+    deleteCategory: deleteCategorySync,
+    updateCategoriesOrder
+  } = useCategorySync(user, () => {
+    // 类别变更时触发UI更新
+    setSubscriptions([...subscriptions]);
+  });
 
   // 排序函数
   const sortSubscriptions = (subs: Subscription[], config: SortConfig): Subscription[] => {
@@ -181,20 +199,44 @@ export function App() {
       try {
         console.log('User logged in, checking cloud data...');
 
-        // 先同步云端数据（云端为权威数据源）
+        // 1. 同步订阅数据
         const cloudSubscriptions = await syncSubscriptions();
 
         // 如果云端为空，则上传本地数据
         if (cloudSubscriptions.length === 0) {
           const currentSubscriptions = loadSubscriptions();
           if (currentSubscriptions.length > 0) {
-            console.log('Cloud is empty, uploading local data...');
+            console.log('Cloud is empty, uploading local subscriptions...');
             await uploadLocalData(currentSubscriptions);
           } else {
-            console.log('Both cloud and local are empty, no action needed');
+            console.log('Both cloud and local subscriptions are empty');
           }
         } else {
           console.log(`Cloud data loaded: ${cloudSubscriptions.length} subscriptions (cloud is authoritative)`);
+        }
+
+        // 2. 同步类别数据
+        // 先检查云端是否有数据（不保存到本地，避免清空默认类别）
+        try {
+          const cloudCategoriesCheck = await CategoryService.getCategories();
+
+          if (cloudCategoriesCheck.length === 0) {
+            // 云端为空，先上传本地类别到云端
+            const currentCategories = loadCategories();
+            if (currentCategories.length > 0) {
+              console.log('Cloud is empty, uploading local categories first...');
+              await uploadLocalCategories(currentCategories);
+            } else {
+              console.log('Both cloud and local categories are empty');
+            }
+          } else {
+            // 云端有数据，下载并同步到本地
+            console.log(`Cloud has ${cloudCategoriesCheck.length} categories, syncing...`);
+            await syncCategories();
+          }
+        } catch (error) {
+          console.error('Category sync check failed:', error);
+          // 同步失败，保持本地数据不变
         }
       } catch (error) {
         console.error('Failed to perform initial sync:', error);
@@ -451,6 +493,9 @@ export function App() {
           isOpen={isAddModalOpen}
           onClose={() => setIsAddModalOpen(false)}
           onAdd={handleAddSubscription}
+          categorySync={{
+            createCategory
+          }}
         />
 
         <SubscriptionDetailsModal
@@ -467,6 +512,9 @@ export function App() {
             isOpen={isEditModalOpen}
             onClose={() => setIsEditModalOpen(false)}
             onEdit={handleEditSubscription}
+            categorySync={{
+              createCategory
+            }}
           />
         )}
 
@@ -518,6 +566,12 @@ export function App() {
           onUpdateSubscriptions={(updatedSubscriptions) => {
             setSubscriptions(updatedSubscriptions);
             saveSubscriptions(updatedSubscriptions);
+          }}
+          categorySync={{
+            createCategory,
+            updateCategory,
+            deleteCategory: deleteCategorySync,
+            updateCategoriesOrder
           }}
         />
 

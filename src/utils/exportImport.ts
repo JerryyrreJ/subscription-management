@@ -20,7 +20,7 @@ export interface ImportResult {
  */
 export function exportData(): void {
   const data: ExportData = {
-    version: '1.6.2',
+    version: '1.7.1',
     exportDate: new Date().toISOString(),
     subscriptions: loadSubscriptions(),
     categories: loadCategories()
