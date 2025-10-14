@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus } from 'lucide-react';
-import { Subscription, ViewMode, Theme, SortConfig, ReminderSettings } from './types';
+import { Plus, BarChart3 } from 'lucide-react';
+import { Subscription, ViewMode, Theme, SortConfig, ReminderSettings, Currency, ExchangeRates } from './types';
 import { Dashboard } from './components/Dashboard';
 import { AddSubscriptionModal } from './components/AddSubscriptionModal';
 import { SubscriptionCard } from './components/SubscriptionCard';
@@ -14,6 +14,7 @@ import { EditPasswordModal } from './components/EditPasswordModal';
 import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { ImportDataModal } from './components/ImportDataModal';
 import { NotificationSettingsModal } from './components/NotificationSettingsModal';
+import { AdvancedReport } from './components/AdvancedReport';
 import { UserMenu } from './components/UserMenu';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
@@ -21,7 +22,7 @@ import { useCategorySync } from './hooks/useCategorySync';
 import { loadSubscriptions, saveSubscriptions } from './utils/storage';
 import { loadCategories } from './utils/categories';
 import { CategoryService } from './services/categoryService';
-import { convertCurrency, DEFAULT_CURRENCY } from './utils/currency';
+import { convertCurrency, DEFAULT_CURRENCY, getCachedExchangeRates } from './utils/currency';
 import { exportData, importData, validateImportData, ExportData } from './utils/exportImport';
 import { loadNotificationSettings, saveNotificationSettings, checkAndSendNotifications, cleanupNotificationHistory } from './utils/notificationChecker';
 import { Footer } from './components/Footer';
@@ -51,6 +52,9 @@ export function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [notificationSettings, setNotificationSettings] = useState<ReminderSettings>(loadNotificationSettings());
   const [isNotificationSettingsModalOpen, setIsNotificationSettingsModalOpen] = useState(false);
+  const [isAdvancedReportOpen, setIsAdvancedReportOpen] = useState(false);
+  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
 
   // 使用数据同步Hook
   const {
@@ -154,7 +158,14 @@ export function App() {
     } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setTheme('dark');
     }
-  }, []);
+
+    // 加载汇率数据
+    getCachedExchangeRates(baseCurrency).then(rates => {
+      setExchangeRates(rates);
+    }).catch(error => {
+      console.error('Failed to load exchange rates:', error);
+    });
+  }, [baseCurrency]);
 
   // 主题切换效果
   useEffect(() => {
@@ -403,9 +414,21 @@ export function App() {
           <div className="max-w-7xl mx-auto space-y-8">
             {/* 移动端优化的头部布局 */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-                Subscription Manager
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                  Subscription Manager
+                </h1>
+                {subscriptions.length > 0 && (
+                  <button
+                    onClick={() => setIsAdvancedReportOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl text-sm font-medium"
+                    title="查看高级报表"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    <span className="hidden sm:inline">高级报表</span>
+                  </button>
+                )}
+              </div>
 
               {/* 按钮组 */}
               <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
@@ -603,6 +626,16 @@ export function App() {
           onChange={handleFileSelect}
           style={{ display: 'none' }}
         />
+
+        {/* 高级报表 */}
+        {isAdvancedReportOpen && (
+          <AdvancedReport
+            subscriptions={subscriptions}
+            baseCurrency={baseCurrency}
+            exchangeRates={exchangeRates}
+            onClose={() => setIsAdvancedReportOpen(false)}
+          />
+        )}
       </div>
 
       <Footer />
