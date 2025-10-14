@@ -11,7 +11,7 @@ interface CategoryPieChartProps {
 const COLORS = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#6366f1', '#ef4444', '#14b8a6'];
 
 export function CategoryPieChart({ data, baseCurrency }: CategoryPieChartProps) {
-  // 准备饼图数据
+  // Prepare pie chart data
   const pieData = data.map(item => ({
     name: item.category,
     value: item.totalSpend,
@@ -22,7 +22,7 @@ export function CategoryPieChart({ data, baseCurrency }: CategoryPieChartProps) 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        分类支出占比
+        Category Spending Distribution
       </h3>
 
       <ResponsiveContainer width="100%" height={300}>
@@ -52,7 +52,7 @@ export function CategoryPieChart({ data, baseCurrency }: CategoryPieChartProps) 
         </PieChart>
       </ResponsiveContainer>
 
-      {/* 图例列表 */}
+      {/* Legend List */}
       <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
         {data.map((item, index) => (
           <div key={item.category} className="flex items-center justify-between text-sm">

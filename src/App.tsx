@@ -332,6 +332,17 @@ export function App() {
     // setSubscriptions([]);
   };
 
+  // 刷新汇率
+  const handleRefreshRates = async () => {
+    try {
+      const rates = await getCachedExchangeRates(baseCurrency);
+      setExchangeRates(rates);
+    } catch (error) {
+      console.error('Failed to refresh exchange rates:', error);
+      throw error;
+    }
+  };
+
   // 导出数据
   const handleExportData = () => {
     try {
@@ -422,10 +433,10 @@ export function App() {
                   <button
                     onClick={() => setIsAdvancedReportOpen(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl text-sm font-medium"
-                    title="查看高级报表"
+                    title="View Advanced Report"
                   >
                     <BarChart3 className="w-4 h-4" />
-                    <span className="hidden sm:inline">高级报表</span>
+                    <span className="hidden sm:inline">Advanced Report</span>
                   </button>
                 )}
               </div>
@@ -482,6 +493,10 @@ export function App() {
               selectedCategory={selectedCategory}
               onCategoryChange={setSelectedCategory}
               totalSubscriptions={subscriptions.length}
+              baseCurrency={baseCurrency}
+              onBaseCurrencyChange={setBaseCurrency}
+              exchangeRates={exchangeRates}
+              onRefreshRates={handleRefreshRates}
             />
 
             <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">

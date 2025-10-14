@@ -1,7 +1,7 @@
 import { Subscription, Currency, ExchangeRates } from '../types';
 import { convertCurrency } from './currency';
 
-// ===== 类型定义 =====
+// ===== Type Definitions =====
 
 export interface SpendingTrend {
   month: string; // 'YYYY-MM'
@@ -71,10 +71,10 @@ export interface ReportData {
   optimizationSuggestions: OptimizationSuggestion[];
 }
 
-// ===== 辅助函数 =====
+// ===== Helper Functions =====
 
 /**
- * 计算订阅的月度成本
+ * Calculate monthly cost of a subscription
  */
 export const calculateMonthlyCost = (subscription: Subscription): number => {
   switch (subscription.period) {
@@ -326,7 +326,7 @@ export const generateOptimizationSuggestions = (
 ): OptimizationSuggestion[] => {
   const suggestions: OptimizationSuggestion[] = [];
 
-  // 建议1: 检测昂贵的订阅（月度成本超过平均值2倍）
+  // Suggestion 1: Detect expensive subscriptions (monthly cost exceeding twice the average)
   const avgMonthlyCost = subscriptions.reduce((sum, sub) => {
     return sum + convertCurrency(
       calculateMonthlyCost(sub),
@@ -351,13 +351,13 @@ export const generateOptimizationSuggestions = (
   if (expensiveSubs.length > 0) {
     suggestions.push({
       type: 'expensive',
-      title: '高成本订阅检测',
-      description: `检测到 ${expensiveSubs.length} 个高成本订阅，其月度费用超过平均水平的2倍。建议评估这些订阅的必要性。`,
+      title: 'High-Cost Subscription Detection',
+      description: `Detected ${expensiveSubs.length} high-cost subscription${expensiveSubs.length > 1 ? 's' : ''} with monthly fees exceeding twice the average. Consider evaluating whether these subscriptions are necessary.`,
       subscriptions: expensiveSubs.map(s => s.name),
     });
   }
 
-  // 建议2: 同一分类中有多个订阅
+  // Suggestion 2: Multiple subscriptions in the same category
   const categoryMap = new Map<string, Subscription[]>();
   subscriptions.forEach(sub => {
     const category = sub.category || 'Uncategorized';
@@ -381,15 +381,15 @@ export const generateOptimizationSuggestions = (
 
       suggestions.push({
         type: 'multiple_in_category',
-        title: `${category}分类订阅较多`,
-        description: `${category}分类中有 ${subs.length} 个订阅，考虑是否可以合并或精简。`,
-        potentialSaving: totalCost * 0.3, // 假设可以节省30%
+        title: `Many Subscriptions in ${category}`,
+        description: `You have ${subs.length} subscriptions in the ${category} category. Consider whether they can be consolidated or reduced.`,
+        potentialSaving: totalCost * 0.3, // Assume 30% potential savings
         subscriptions: subs.map(s => s.name),
       });
     }
   });
 
-  // 建议3: 月付改年付可以节省
+  // Suggestion 3: Potential savings by switching from monthly to annual billing
   const monthlySubs = subscriptions.filter(sub => sub.period === 'monthly');
   if (monthlySubs.length > 0) {
     const potentialSaving = monthlySubs.reduce((sum, sub) => {
@@ -400,15 +400,15 @@ export const generateOptimizationSuggestions = (
         exchangeRates,
         baseCurrency
       );
-      // 假设年付可以节省15%
+      // Assume 15% savings with annual billing
       return sum + monthlyCost * 12 * 0.15;
     }, 0);
 
     if (potentialSaving > 0) {
       suggestions.push({
         type: 'annual_saving',
-        title: '考虑切换到年付',
-        description: `您有 ${monthlySubs.length} 个月付订阅。如果这些服务支持年付，通常可以节省10-20%的费用。`,
+        title: 'Consider Switching to Annual Billing',
+        description: `You have ${monthlySubs.length} monthly subscription${monthlySubs.length > 1 ? 's' : ''}. If these services offer annual billing, you can typically save 10-20% on costs.`,
         potentialSaving,
         subscriptions: monthlySubs.map(s => s.name),
       });

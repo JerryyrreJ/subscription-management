@@ -61,7 +61,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
         <div className="flex items-center gap-2 mb-4">
           <Lightbulb className="w-5 h-5 text-purple-600" />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            智能分析与建议
+            Insights & Recommendations
           </h3>
         </div>
         <div className="text-center py-8">
@@ -81,14 +81,14 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
             </svg>
           </div>
           <p className="text-gray-600 dark:text-gray-400">
-            太棒了！您的订阅管理看起来很健康，暂无优化建议。
+            Great! Your subscription management looks healthy. No optimization suggestions at this time.
           </p>
         </div>
       </div>
     );
   }
 
-  // 计算总潜在节省
+  // Calculate total potential savings
   const totalPotentialSaving = suggestions.reduce(
     (sum, s) => sum + (s.potentialSaving || 0),
     0
@@ -100,20 +100,20 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
         <div className="flex items-center gap-2">
           <Lightbulb className="w-5 h-5 text-purple-600" />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            智能分析与建议
+            Insights & Recommendations
           </h3>
         </div>
         {totalPotentialSaving > 0 && (
           <div className="px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
             <span className="text-sm font-semibold text-green-700 dark:text-green-300">
-              潜在节省: {formatCurrency(totalPotentialSaving, baseCurrency)}/年
+              Potential Savings: {formatCurrency(totalPotentialSaving, baseCurrency)}/yr
             </span>
           </div>
         )}
       </div>
 
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-        基于您的订阅数据，我们发现了 {suggestions.length} 个优化机会
+        Based on your subscription data, we've identified {suggestions.length} optimization opportunit{suggestions.length > 1 ? 'ies' : 'y'}
       </p>
 
       <div className="space-y-4">
@@ -137,7 +137,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
                     </h4>
                     {suggestion.potentialSaving && suggestion.potentialSaving > 0 && (
                       <span className={`text-xs px-2 py-1 rounded-full ${colors.badge} flex-shrink-0`}>
-                        节省 {formatCurrency(suggestion.potentialSaving, baseCurrency)}
+                        Save {formatCurrency(suggestion.potentialSaving, baseCurrency)}
                       </span>
                     )}
                   </div>
@@ -149,7 +149,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
                   {suggestion.subscriptions.length > 0 && (
                     <div className="mt-2">
                       <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
-                        涉及的订阅:
+                        Affected subscriptions:
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {suggestion.subscriptions.slice(0, 5).map((subName, idx) => (
@@ -162,7 +162,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
                         ))}
                         {suggestion.subscriptions.length > 5 && (
                           <span className="text-xs px-2 py-1 text-gray-500 dark:text-gray-400">
-                            +{suggestion.subscriptions.length - 5} 个
+                            +{suggestion.subscriptions.length - 5} more
                           </span>
                         )}
                       </div>
@@ -175,10 +175,10 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
         })}
       </div>
 
-      {/* 底部提示 */}
+      {/* Bottom tip */}
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-          💡 这些建议基于数据分析生成，具体是否采纳请根据实际需求判断
+          💡 These suggestions are generated based on data analysis. Please evaluate based on your actual needs.
         </p>
       </div>
     </div>

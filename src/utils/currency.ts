@@ -195,10 +195,33 @@ export const convertCurrency = (
     return amount;
   }
 
-  // 如果汇率表为空，使用离线汇率
+  // 如果汇率表为空，使用离线汇率（以baseCurrency为基准）
   if (Object.keys(exchangeRates).length === 0) {
-    const fallbackRates = getFallbackRates(fromCurrency);
-    return amount * (fallbackRates[toCurrency] || 1);
+    const fallbackRates = getFallbackRates(baseCurrency);
+
+    // 如果fromCurrency就是baseCurrency，直接转换
+    if (fromCurrency === baseCurrency) {
+      return amount * (fallbackRates[toCurrency] || 1);
+    }
+
+    // 否则需要两步转换：from -> base -> to
+    const fromToBaseRate = fallbackRates[fromCurrency];
+    if (!fromToBaseRate) {
+      console.warn(`Fallback rate not found for ${fromCurrency}, using 1:1`);
+      return amount;
+    }
+
+    // 先转换到基准货币
+    const amountInBase = amount / fromToBaseRate;
+
+    // 再转换到目标货币
+    const baseToToRate = fallbackRates[toCurrency];
+    if (!baseToToRate) {
+      console.warn(`Fallback rate not found for ${toCurrency}, using 1:1`);
+      return amountInBase;
+    }
+
+    return amountInBase * baseToToRate;
   }
 
   // 汇率表是以baseCurrency为基准的
@@ -211,11 +234,18 @@ export const convertCurrency = (
     const fromRate = exchangeRates[fromCurrency];
     if (!fromRate) {
       console.warn(`Exchange rate not found for ${fromCurrency}, using fallback`);
-      const fallbackRates = getFallbackRates(fromCurrency);
-      return amount * (fallbackRates[toCurrency] || 1);
+      // 使用baseCurrency作为基准的fallback
+      const fallbackRates = getFallbackRates(baseCurrency);
+      const fromToBaseRate = fallbackRates[fromCurrency];
+      if (!fromToBaseRate) {
+        console.warn(`Fallback rate not found for ${fromCurrency}, using 1:1`);
+        return amount;
+      }
+      convertedAmount = amount / fromToBaseRate;
+    } else {
+      // 从原货币转换为基准货币需要除以汇率
+      convertedAmount = amount / fromRate;
     }
-    // 从原货币转换为基准货币需要除以汇率
-    convertedAmount = amount / fromRate;
   }
 
   // 第二步：如果目标货币不是基准货币，从基准货币转换为目标货币
@@ -224,10 +254,16 @@ export const convertCurrency = (
     if (!toRate) {
       console.warn(`Exchange rate not found for ${toCurrency}, using fallback`);
       const fallbackRates = getFallbackRates(baseCurrency);
-      return convertedAmount * (fallbackRates[toCurrency] || 1);
+      const baseToToRate = fallbackRates[toCurrency];
+      if (!baseToToRate) {
+        console.warn(`Fallback rate not found for ${toCurrency}, using 1:1`);
+        return convertedAmount;
+      }
+      convertedAmount = convertedAmount * baseToToRate;
+    } else {
+      // 从基准货币转换为目标货币需要乘以汇率
+      convertedAmount = convertedAmount * toRate;
     }
-    // 从基准货币转换为目标货币需要乘以汇率
-    convertedAmount = convertedAmount * toRate;
   }
 
   return convertedAmount;

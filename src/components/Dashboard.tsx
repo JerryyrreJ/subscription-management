@@ -14,33 +14,33 @@ interface DashboardProps {
   selectedCategory: string | null;
   onCategoryChange: (category: string | null) => void;
   totalSubscriptions: number; // 原始订阅总数（未筛选前）
+  baseCurrency: Currency;
+  onBaseCurrencyChange: (currency: Currency) => void;
+  exchangeRates: ExchangeRates;
+  onRefreshRates: () => Promise<void>;
 }
 
-export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfig, onSortChange, selectedCategory, onCategoryChange, totalSubscriptions }: DashboardProps) {
-  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
-  const [displayCurrency, setDisplayCurrency] = useState<Currency>(DEFAULT_CURRENCY);
-  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
+export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfig, onSortChange, selectedCategory, onCategoryChange, totalSubscriptions, baseCurrency, onBaseCurrencyChange, exchangeRates, onRefreshRates }: DashboardProps) {
+  const [displayCurrency, setDisplayCurrency] = useState<Currency>(baseCurrency);
   const [isLoadingRates, setIsLoadingRates] = useState(false);
 
-  const loadExchangeRates = useCallback(async () => {
+  // 当 baseCurrency 变化时，更新 displayCurrency
+  useEffect(() => {
+    setDisplayCurrency(baseCurrency);
+  }, [baseCurrency]);
+
+  const loadExchangeRates = async () => {
     setIsLoadingRates(true);
     try {
-      const rates = await getCachedExchangeRates(baseCurrency);
-      setExchangeRates(rates);
-      // 只有在汇率加载完成后才更新显示货币
+      await onRefreshRates();
       setDisplayCurrency(baseCurrency);
     } catch (error) {
       console.error('Failed to load exchange rates:', error);
-      // 即使出错也要更新显示货币，避免界面卡住
       setDisplayCurrency(baseCurrency);
     } finally {
       setIsLoadingRates(false);
     }
-  }, [baseCurrency]);
-
-  useEffect(() => {
-    loadExchangeRates();
-  }, [loadExchangeRates]);
+  };
 
   // 类型筛选选项
   const categoryOptions = [
@@ -131,7 +131,7 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfi
           <div className="min-w-[100px]">
             <CustomSelect
               value={baseCurrency}
-              onChange={(value) => setBaseCurrency(value as Currency)}
+              onChange={(value) => onBaseCurrencyChange(value as Currency)}
               options={CURRENCIES.map(currency => ({
                 value: currency.code,
                 label: `${currency.code} (${currency.symbol})`
@@ -187,7 +187,7 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfi
             <div className="min-w-[120px]">
               <CustomSelect
                 value={baseCurrency}
-                onChange={(value) => setBaseCurrency(value as Currency)}
+                onChange={(value) => onBaseCurrencyChange(value as Currency)}
                 options={CURRENCIES.map(currency => ({
                   value: currency.code,
                   label: `${currency.code} (${currency.symbol})`

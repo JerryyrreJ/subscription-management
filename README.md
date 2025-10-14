@@ -2,7 +2,19 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.7.1)
+## ✨ Latest Updates (v1.8.0)
+
+- 📊 **Advanced Analytics & Reporting** - Comprehensive data visualization system with professional charts
+- 📈 **Spending Trend Analysis** - 12-month historical spending trends with dual Y-axis showing spend and subscription count
+- 🥧 **Category Distribution** - Interactive pie chart showing category-based spending breakdown with percentages
+- 🏆 **Top Subscriptions Ranking** - Visual bar chart displaying your 5 most expensive subscriptions
+- 🗓️ **Renewal Heatmap** - GitHub-style calendar heatmap showing renewal patterns across days of the month
+- 💡 **Smart Insights** - AI-driven optimization suggestions for potential savings and subscription consolidation
+- 🌈 **Professional Visualizations** - Powered by Recharts with full dark mode support and responsive design
+- 💱 **Multi-Currency Reports** - All analytics correctly convert amounts to your selected base currency
+- 🎨 **Intuitive UI** - Clean English interface with gradient color schemes and hover interactions
+
+### Previous Updates (v1.7.1)
 
 - ☁️ **Category Cloud Sync** - Custom categories now automatically sync across all your devices when logged in
 - 🔧 **Critical Bug Fixes** - Fixed category data being cleared on login, ensuring default categories are always available
@@ -28,6 +40,7 @@ A modern web application for tracking and managing your recurring subscriptions 
 ## Features
 
 ### Core Features (Always Available)
+- 📊 **Advanced Analytics & Reporting** - Professional data visualization with spending trends, category distribution, top subscriptions, renewal heatmap, and smart optimization insights
 - 🔔 **Notification System** - Browser and Bark push notifications for upcoming renewals with customizable timing
 - 🗂️ **Advanced Category Management** - Full category customization with drag-and-drop sorting, quick-add from dropdown, and smart delete protection
 - 🔍 **Category Filtering** - Filter subscriptions by category with real-time cost recalculation in dashboard
@@ -60,6 +73,7 @@ A modern web application for tracking and managing your recurring subscriptions 
 - Tailwind CSS
 - Vite
 - Lucide Icons
+- Recharts (for data visualization)
 - Exchange Rate API integration
 - Local Storage for data persistence
 
@@ -108,8 +122,10 @@ The application will be available at `http://localhost:5173`
 - Use the edit button to modify subscription details (including currency)
 - Use the delete button to remove subscriptions
 - **Sort subscriptions** using the integrated controls in the dashboard bottom-right corner
+- **Filter by category** using the category dropdown in the dashboard
 - **Switch base currency** in the dashboard to view total costs in your preferred currency
 - View total costs in monthly or yearly format with automatic currency conversion
+- **View Advanced Report** by clicking the "Advanced Report" button in the header to see comprehensive analytics
 - **Toggle dark mode** using the theme switcher in the top-right corner for optimal viewing experience
 
 ### Managing Categories

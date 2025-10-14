@@ -12,7 +12,7 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        支出趋势 (近12个月)
+        Spending Trend (Last 12 Months)
       </h3>
 
       <ResponsiveContainer width="100%" height={300}>
@@ -42,7 +42,7 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
               borderRadius: '0.5rem',
             }}
             formatter={(value: number, name: string) => {
-              if (name === '月度支出') {
+              if (name === 'Monthly Spend') {
                 return [formatCurrency(value, baseCurrency), name];
               }
               return [value, name];
@@ -56,7 +56,7 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
             dataKey="totalSpend"
             stroke="#8b5cf6"
             strokeWidth={2}
-            name="月度支出"
+            name="Monthly Spend"
             dot={{ fill: '#8b5cf6', r: 4 }}
             activeDot={{ r: 6 }}
           />
@@ -66,7 +66,7 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
             dataKey="subscriptionCount"
             stroke="#10b981"
             strokeWidth={2}
-            name="订阅数量"
+            name="Subscription Count"
             dot={{ fill: '#10b981', r: 4 }}
             activeDot={{ r: 6 }}
           />
@@ -76,11 +76,11 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 bg-purple-600 rounded-full"></div>
-          <span className="text-gray-600 dark:text-gray-400">月度支出趋势</span>
+          <span className="text-gray-600 dark:text-gray-400">Monthly Spend Trend</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 bg-green-600 rounded-full"></div>
-          <span className="text-gray-600 dark:text-gray-400">订阅数量变化</span>
+          <span className="text-gray-600 dark:text-gray-400">Subscription Count Change</span>
         </div>
       </div>
     </div>
