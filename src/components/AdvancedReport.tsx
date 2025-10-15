@@ -6,8 +6,10 @@ import { CategoryPieChart } from './CategoryPieChart';
 import { TopSubscriptionsChart } from './TopSubscriptionsChart';
 import { RenewalHeatmap } from './RenewalHeatmap';
 import { InsightsSection } from './InsightsSection';
-import { X, TrendingUp, Calendar, DollarSign, Package, HelpCircle } from 'lucide-react';
-import { useMemo } from 'react';
+import { X, TrendingUp, Calendar, DollarSign, Package, HelpCircle, Download } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import { exportReportToPDF, generatePDFFilename } from '../utils/pdfExport';
+import { PDFReportTemplate } from './PDFReportTemplate';
 
 interface AdvancedReportProps {
   subscriptions: Subscription[];
@@ -22,15 +24,72 @@ export function AdvancedReport({
   exchangeRates,
   onClose,
 }: AdvancedReportProps) {
+  const [isClosing, setIsClosing] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
   // 生成报表数据
   const reportData: ReportData = useMemo(
     () => generateReportData(subscriptions, baseCurrency, exchangeRates),
     [subscriptions, baseCurrency, exchangeRates]
   );
 
+  // 入场动画
+  useEffect(() => {
+    // 延迟一帧触发动画，确保初始状态已渲染
+    requestAnimationFrame(() => {
+      setIsVisible(true);
+    });
+  }, []);
+
+  // 处理关闭动画
+  const handleClose = () => {
+    setIsClosing(true);
+    setIsVisible(false);
+    // 等待动画完成后再真正关闭
+    setTimeout(() => {
+      onClose();
+    }, 300); // 匹配 CSS transition 时间
+  };
+
+  // 处理 PDF 导出
+  const handleExportPDF = async () => {
+    try {
+      setIsExporting(true);
+      const filename = generatePDFFilename('subscription-report');
+
+      // Generate current date for PDF
+      const generatedDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
+      await exportReportToPDF('pdf-report-template', {
+        filename,
+        title: `Subscription Analytics Report - ${baseCurrency}`,
+      });
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-50 dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden">
+    <div
+      className={`fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-out ${
+        isVisible ? 'opacity-100' : 'opacity-0'
+      }`}
+      onClick={handleClose}
+    >
+      <div
+        className={`bg-gray-50 dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden transition-all duration-300 ease-out ${
+          isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* 头部 - 固定在顶部 */}
         <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-t-2xl">
           <div className="flex items-center justify-between">
@@ -51,7 +110,7 @@ export function AdvancedReport({
               </div>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="p-2 hover:bg-white/20 rounded-lg transition-colors"
               aria-label="Close report"
             >
@@ -61,7 +120,7 @@ export function AdvancedReport({
         </div>
 
         {/* 可滚动内容区域 */}
-        <div className="flex-1 overflow-y-auto">
+        <div id="report-content" className="flex-1 overflow-y-auto">
           {/* Overview Cards */}
           <div className="p-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -151,23 +210,43 @@ export function AdvancedReport({
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="flex-1 px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
             >
               Close Report
             </button>
             <button
-              onClick={() => {
-                alert('PDF export feature coming soon');
-              }}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all font-medium shadow-lg hover:shadow-xl"
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Export PDF Report (Coming Soon)
+              {isExporting ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Generating PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-5 h-5" />
+                  <span>Export PDF Report</span>
+                </>
+              )}
             </button>
           </div>
         </div>
         </div>
       </div>
+
+      {/* Hidden PDF Template for Export */}
+      <PDFReportTemplate
+        reportData={reportData}
+        baseCurrency={baseCurrency}
+        generatedDate={new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })}
+      />
     </div>
   );
 }

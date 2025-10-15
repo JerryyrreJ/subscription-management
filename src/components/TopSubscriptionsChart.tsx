@@ -45,16 +45,29 @@ export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsCh
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              backgroundColor: 'rgba(255, 255, 255, 0.98)',
               border: '1px solid #e5e7eb',
               borderRadius: '0.5rem',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              padding: '8px 12px',
             }}
             formatter={(value: number) => [formatCurrency(value, baseCurrency), 'Monthly Cost']}
-            labelStyle={{ color: '#374151', fontWeight: 'bold' }}
+            labelStyle={{ color: '#374151', fontWeight: 'bold', fontSize: '14px' }}
+            cursor={{ fill: 'transparent' }}
           />
-          <Bar dataKey="monthlyCost" radius={[0, 4, 4, 0]}>
+          <Bar
+            dataKey="monthlyCost"
+            radius={[0, 4, 4, 0]}
+            activeBar={{
+              opacity: 0.8,
+            }}
+          >
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              <Cell
+                key={`cell-${index}`}
+                fill={COLORS[index % COLORS.length]}
+                style={{ transition: 'opacity 0.2s ease' }}
+              />
             ))}
           </Bar>
         </BarChart>
