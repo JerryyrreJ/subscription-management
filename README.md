@@ -2,7 +2,13 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.8.0)
+## ✨ Latest Updates (v1.8.1)
+
+- 📄 **PDF Report Export (Beta)** - Export your analytics report as a professional PDF document with custom layout
+- 🎨 **Magazine-Style Layout** - Beautifully designed A4 landscape PDF with asymmetric component placement
+- 🖨️ **Print-Ready Quality** - High-resolution output optimized for both digital viewing and printing
+
+### Previous Updates (v1.8.0)
 
 - 📊 **Advanced Analytics & Reporting** - Comprehensive data visualization system with professional charts
 - 📈 **Spending Trend Analysis** - 12-month historical spending trends with dual Y-axis showing spend and subscription count
@@ -41,6 +47,7 @@ A modern web application for tracking and managing your recurring subscriptions 
 
 ### Core Features (Always Available)
 - 📊 **Advanced Analytics & Reporting** - Professional data visualization with spending trends, category distribution, top subscriptions, renewal heatmap, and smart optimization insights
+- 📄 **PDF Report Export (Beta)** - Export analytics as professional A4 landscape PDF with magazine-style layout
 - 🔔 **Notification System** - Browser and Bark push notifications for upcoming renewals with customizable timing
 - 🗂️ **Advanced Category Management** - Full category customization with drag-and-drop sorting, quick-add from dropdown, and smart delete protection
 - 🔍 **Category Filtering** - Filter subscriptions by category with real-time cost recalculation in dashboard
@@ -74,6 +81,7 @@ A modern web application for tracking and managing your recurring subscriptions 
 - Vite
 - Lucide Icons
 - Recharts (for data visualization)
+- jsPDF & html2canvas (for PDF export)
 - Exchange Rate API integration
 - Local Storage for data persistence
 
