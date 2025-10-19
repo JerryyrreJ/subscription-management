@@ -109,13 +109,13 @@ export async function exportReportToPDF(
     const xOffset = (pdfWidth - imgWidth) / 2;
     const yOffset = (pdfHeight - imgHeight) / 2;
 
-    // Convert canvas to image with maximum quality
-    const imgData = canvas.toDataURL('image/jpeg', 0.98); // Use JPEG with 98% quality for better file size
+    // Convert canvas to PNG for better text clarity
+    const imgData = canvas.toDataURL('image/png');
 
     // Add image to PDF (single page, centered)
     pdf.addImage(
       imgData,
-      'JPEG',
+      'PNG',
       xOffset,
       yOffset,
       imgWidth,

@@ -15,6 +15,7 @@ import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { ImportDataModal } from './components/ImportDataModal';
 import { NotificationSettingsModal } from './components/NotificationSettingsModal';
 import { AdvancedReport } from './components/AdvancedReport';
+import { PricingModal } from './components/PricingModal';
 import { UserMenu } from './components/UserMenu';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
@@ -53,6 +54,7 @@ export function App() {
   const [notificationSettings, setNotificationSettings] = useState<ReminderSettings>(loadNotificationSettings());
   const [isNotificationSettingsModalOpen, setIsNotificationSettingsModalOpen] = useState(false);
   const [isAdvancedReportOpen, setIsAdvancedReportOpen] = useState(false);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
 
@@ -457,6 +459,7 @@ export function App() {
                     onExportData={handleExportData}
                     onImportData={handleImportData}
                     onNotificationSettings={() => setIsNotificationSettingsModalOpen(true)}
+                    onPricingClick={() => setIsPricingModalOpen(true)}
                     onSignOut={handleSignOut}
                     onSync={syncSubscriptions}
                     onLogin={() => setIsAuthModalOpen(true)}
@@ -475,6 +478,7 @@ export function App() {
                     onExportData={handleExportData}
                     onImportData={handleImportData}
                     onNotificationSettings={() => setIsNotificationSettingsModalOpen(true)}
+                    onPricingClick={() => setIsPricingModalOpen(true)}
                     onSignOut={() => {}}
                     onSync={() => {}}
                   />
@@ -651,6 +655,18 @@ export function App() {
             onClose={() => setIsAdvancedReportOpen(false)}
           />
         )}
+
+        {/* Pricing Modal */}
+        <PricingModal
+          isOpen={isPricingModalOpen}
+          onClose={() => setIsPricingModalOpen(false)}
+          onUpgrade={() => {
+            setIsPricingModalOpen(false);
+            if (!user) {
+              setIsAuthModalOpen(true);
+            }
+          }}
+        />
       </div>
 
       <Footer />

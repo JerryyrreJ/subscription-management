@@ -123,7 +123,7 @@ export function PDFReportTemplate({
           <div style={{ fontSize: '36px', fontWeight: 'bold', color: '#9333ea', marginBottom: '8px' }}>
             {formatCurrency(reportData.overview.totalMonthlySpend, baseCurrency)}
           </div>
-          <div style={{ fontSize: '11px', color: '#6b7280' }}>
+          <div style={{ fontSize: '12px', color: '#6b7280' }}>
             Annual: {formatCurrency(reportData.overview.totalYearlySpend, baseCurrency)}
           </div>
         </div>
@@ -142,11 +142,11 @@ export function PDFReportTemplate({
             padding: '14px',
           }}
         >
-          <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '8px' }}>Active</div>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>Active</div>
           <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#2563eb', lineHeight: '1' }}>
             {reportData.overview.activeSubscriptions}
           </div>
-          <div style={{ fontSize: '9px', color: '#6b7280', marginTop: '6px' }}>Subscriptions</div>
+          <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '6px' }}>Subscriptions</div>
         </div>
 
         <div
@@ -162,11 +162,11 @@ export function PDFReportTemplate({
             padding: '14px',
           }}
         >
-          <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '8px' }}>Avg Cost</div>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>Avg Cost</div>
           <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#059669', lineHeight: '1' }}>
             {formatCurrency(reportData.overview.avgSubscriptionCost, baseCurrency)}
           </div>
-          <div style={{ fontSize: '9px', color: '#6b7280', marginTop: '6px' }}>per month</div>
+          <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '6px' }}>per month</div>
         </div>
 
         {/* Left Column - Category Pie Chart */}
@@ -181,29 +181,33 @@ export function PDFReportTemplate({
             border: '1px solid #e5e7eb',
             borderRadius: '12px',
             padding: '16px',
+            overflow: 'hidden',
           }}
         >
-          <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '12px' }}>
+          <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>
             Category Distribution
           </div>
-          <div style={{ width: '248px', height: '260px' }}>
-            <PieChart width={248} height={260}>
+          <div style={{ width: '248px', height: '270px' }}>
+            <PieChart width={248} height={270}>
               <Pie
                 data={reportData.categoryAnalysis}
                 cx="50%"
-                cy="45%"
-                outerRadius={70}
+                cy="38%"
+                outerRadius={65}
                 dataKey="amount"
                 label={false}
+                isAnimationActive={false}
               >
                 {reportData.categoryAnalysis.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={CHART_COLORS.primary[index % CHART_COLORS.primary.length]} />
                 ))}
               </Pie>
               <Legend
-                wrapperStyle={{ fontSize: '9px', lineHeight: '1.3' }}
+                wrapperStyle={{ fontSize: '11px', lineHeight: '1.4' }}
                 formatter={(value, entry: any) => entry.payload.category}
-                iconSize={8}
+                iconSize={10}
+                verticalAlign="bottom"
+                height={100}
               />
             </PieChart>
           </div>
@@ -238,14 +242,14 @@ export function PDFReportTemplate({
             </div>
           </div>
           <div style={{ width: '334px', height: '320px' }}>
-            <LineChart width={334} height={320} data={reportData.spendingTrend.slice(-6)} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+            <LineChart width={334} height={320} data={reportData.spendingTrend} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis
                 dataKey="month"
-                tick={{ fontSize: 11, fill: '#6b7280' }}
+                tick={{ fontSize: 12, fill: '#6b7280' }}
                 tickFormatter={(value) => value.substring(0, 3)}
               />
-              <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} width={50} />
+              <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} width={55} />
               <RechartsTooltip
                 contentStyle={{ fontSize: '11px', borderRadius: '8px', border: '1px solid #e5e7eb' }}
                 formatter={(value: any) => formatCurrency(value, baseCurrency)}
@@ -257,6 +261,7 @@ export function PDFReportTemplate({
                 strokeWidth={3}
                 dot={{ fill: CHART_COLORS.spending, r: 4 }}
                 activeDot={{ r: 6 }}
+                isAnimationActive={false}
               />
             </LineChart>
           </div>
@@ -342,19 +347,19 @@ export function PDFReportTemplate({
               margin={{ top: 0, right: 10, left: 90, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={true} vertical={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: '#6b7280' }} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#6b7280' }} />
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fontSize: 10, fill: '#6b7280' }}
-                width={85}
-                tickFormatter={(value) => (value.length > 12 ? value.substring(0, 12) + '...' : value)}
+                tick={{ fontSize: 11, fill: '#6b7280' }}
+                width={90}
+                tickFormatter={(value) => (value.length > 11 ? value.substring(0, 11) + '...' : value)}
               />
               <RechartsTooltip
                 contentStyle={{ fontSize: '11px', borderRadius: '8px', border: '1px solid #e5e7eb' }}
                 formatter={(value: any) => formatCurrency(value, baseCurrency)}
               />
-              <Bar dataKey="monthlyCost" radius={[0, 6, 6, 0]}>
+              <Bar dataKey="monthlyCost" radius={[0, 6, 6, 0]} isAnimationActive={false}>
                 {reportData.topSubscriptions.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={CHART_COLORS.primary[index % CHART_COLORS.primary.length]} />
                 ))}
@@ -392,12 +397,12 @@ export function PDFReportTemplate({
                   padding: '12px',
                 }}
               >
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#111827', marginBottom: '6px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '600', color: '#111827', marginBottom: '6px' }}>
                   {suggestion.title}
                 </div>
                 <div
                   style={{
-                    fontSize: '9px',
+                    fontSize: '10px',
                     color: '#6b7280',
                     lineHeight: '1.5',
                     marginBottom: '8px',
@@ -406,7 +411,7 @@ export function PDFReportTemplate({
                   {suggestion.description}
                 </div>
                 {suggestion.potentialSavings > 0 && (
-                  <div style={{ fontSize: '10px', fontWeight: '600', color: '#059669' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#059669' }}>
                     💰 Save {formatCurrency(suggestion.potentialSavings, baseCurrency)}/year
                   </div>
                 )}
