@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (IMPORTANT: Never commit these!)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env*.local
+
+# Netlify
+.netlify
+
 # Editor directories and files
 CLAUDE.md
 .bolt
@@ -25,4 +36,21 @@ CLAUDE.md
 *.njsproj
 *.sln
 *.sw?
-.env.local
+
+# OS files
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Backup files
+*.bak
+*.backup
+
+# Documentation files (except README.md)
+*.md
+!README.md
