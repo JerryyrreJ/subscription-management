@@ -2,11 +2,13 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.8.1)
+## ✨ Latest Updates (v1.8.3)
 
-- 📄 **PDF Report Export (Beta)** - Export your analytics report as a professional PDF document with custom layout
-- 🎨 **Magazine-Style Layout** - Beautifully designed A4 landscape PDF with asymmetric component placement
-- 🖨️ **Print-Ready Quality** - High-resolution output optimized for both digital viewing and printing
+- 📄 **Professional PDF Export** - High-quality PDF generation using Playwright and serverless Chromium
+- ⚡ **Serverless Architecture** - PDF generation powered by Netlify Functions for optimal performance
+- 🎯 **Perfect Rendering** - Exact browser-to-PDF output with vector graphics (no pixelation)
+- 🚀 **Zero Client Overhead** - PDF generation handled entirely on the server side
+- 📦 **Reduced Bundle Size** - Removed html2canvas and jsPDF (saved ~200KB)
 
 ### Previous Updates (v1.8.0)
 
@@ -47,7 +49,7 @@ A modern web application for tracking and managing your recurring subscriptions 
 
 ### Core Features (Always Available)
 - 📊 **Advanced Analytics & Reporting** - Professional data visualization with spending trends, category distribution, top subscriptions, renewal heatmap, and smart optimization insights
-- 📄 **PDF Report Export (Beta)** - Export analytics as professional A4 landscape PDF with magazine-style layout
+- 📄 **Professional PDF Export** - Export analytics as high-quality A4 landscape PDF using serverless Chromium rendering
 - 🔔 **Notification System** - Browser and Bark push notifications for upcoming renewals with customizable timing
 - 🗂️ **Advanced Category Management** - Full category customization with drag-and-drop sorting, quick-add from dropdown, and smart delete protection
 - 🔍 **Category Filtering** - Filter subscriptions by category with real-time cost recalculation in dashboard
@@ -81,7 +83,8 @@ A modern web application for tracking and managing your recurring subscriptions 
 - Vite
 - Lucide Icons
 - Recharts (for data visualization)
-- jsPDF & html2canvas (for PDF export)
+- Playwright & Chromium (for serverless PDF generation)
+- Netlify Functions (serverless backend)
 - Exchange Rate API integration
 - Local Storage for data persistence
 
