@@ -65,9 +65,21 @@ export function AdvancedReport({
         day: 'numeric',
       });
 
-      await exportReportToPDF('pdf-report-template', {
+      // Create PDF template component
+      const pdfTemplate = (
+        <PDFReportTemplate
+          reportData={reportData}
+          baseCurrency={baseCurrency}
+          generatedDate={generatedDate}
+        />
+      );
+
+      await exportReportToPDF(pdfTemplate, {
         filename,
-        title: `Subscription Analytics Report - ${baseCurrency}`,
+        pageConfig: {
+          size: 'A4',
+          orientation: 'landscape',
+        },
       });
     } catch (error) {
       console.error('Failed to export PDF:', error);
@@ -236,17 +248,6 @@ export function AdvancedReport({
         </div>
         </div>
       </div>
-
-      {/* Hidden PDF Template for Export */}
-      <PDFReportTemplate
-        reportData={reportData}
-        baseCurrency={baseCurrency}
-        generatedDate={new Date().toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        })}
-      />
     </div>
   );
 }

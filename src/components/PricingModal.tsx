@@ -282,7 +282,7 @@ function PricingCard({ tier, index, isVisible }: PricingCardProps) {
 
       {/* Card */}
       <div
-        className={`h-full rounded-2xl p-6 sm:p-8 backdrop-blur-sm transition-all duration-300 ${
+        className={`h-full rounded-2xl p-6 sm:p-8 backdrop-blur-sm transition-colors duration-300 ${
           tier.highlighted
             ? 'bg-white/10 border-2 border-purple-500/50 shadow-2xl shadow-purple-500/20 hover:shadow-purple-500/30'
             : 'bg-white/5 border border-white/10 hover:bg-white/10'

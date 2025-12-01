@@ -5,16 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:full": "netlify dev",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^141.0.0",
     "@stripe/stripe-js": "^8.1.0",
     "@supabase/supabase-js": "^2.57.4",
-    "html2canvas": "^1.4.1",
-    "jspdf": "^3.0.3",
+    "chromium-bidi": "^11.0.1",
     "lucide-react": "^0.344.0",
+    "playwright-core": "^1.57.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^3.2.1",

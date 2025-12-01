@@ -51,6 +51,8 @@ Thumbs.db
 *.bak
 *.backup
 
-# Documentation files (except README.md)
+# Documentation files (keep only README.md and docs/ folder)
 *.md
 !README.md
+!docs/**/*.md
+docs/
