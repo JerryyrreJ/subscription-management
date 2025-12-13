@@ -15,6 +15,7 @@ export const loadSubscriptions = (): Subscription[] => {
       ...subscription,
       currency: subscription.currency || DEFAULT_CURRENCY,
       createdAt: subscription.createdAt || new Date().toISOString(),
+      notificationEnabled: subscription.notificationEnabled ?? true, // 默认启用通知
     })) as Subscription[];
   } catch (error) {
     console.error('Error loading subscriptions:', error);

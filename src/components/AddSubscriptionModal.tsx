@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Bell, BellOff } from 'lucide-react';
 import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
@@ -27,6 +27,7 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync }: A
     period: 'monthly' as Period,
     lastPaymentDate: '',
     customDate: '',
+    notificationEnabled: true, // 默认启用通知
   });
 
   const [categories, setCategories] = useState<string[]>([]);
@@ -121,6 +122,7 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync }: A
         period: 'monthly',
         lastPaymentDate: '',
         customDate: '',
+        notificationEnabled: true,
       });
       onClose();
     } finally {
@@ -138,6 +140,7 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync }: A
         period: 'monthly',
         lastPaymentDate: '',
         customDate: '',
+        notificationEnabled: true,
       });
       setIsAddingNewCategory(false);
       setNewCategoryInput('');
@@ -317,6 +320,46 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync }: A
                 onChange={(e) => setFormData({ ...formData, lastPaymentDate: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
+            </div>
+
+            {/* 通知开关 */}
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg p-4 border border-indigo-200 dark:border-indigo-800">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  {formData.notificationEnabled ? (
+                    <Bell className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  ) : (
+                    <BellOff className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-900 dark:text-white cursor-pointer">
+                      Enable notifications
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, notificationEnabled: !formData.notificationEnabled })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                        formData.notificationEnabled
+                          ? 'bg-indigo-600'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          formData.notificationEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                    {formData.notificationEnabled
+                      ? 'You will receive reminders for this subscription'
+                      : 'No reminders will be sent for this subscription'}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="pt-4">

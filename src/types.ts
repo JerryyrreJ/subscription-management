@@ -13,6 +13,7 @@ export interface Subscription {
   nextPaymentDate: string;
   customDate?: string;
   createdAt?: string;
+  notificationEnabled?: boolean; // 是否启用通知提醒（默认 true）
 }
 
 export type ViewMode = 'monthly' | 'yearly';
@@ -38,24 +39,14 @@ export interface CurrencyInfo {
 }
 
 export interface ReminderSettings {
-  // 浏览器通知
-  browserNotification: {
-    enabled: boolean;
-    daysBefore: number;
-    permission: NotificationPermission;
-    notificationHistory: {
-      [subscriptionId: string]: string; // 上次通知日期
-    };
-  };
-
-  // Bark 推送
+  // Bark 推送（移除浏览器通知，只保留 Bark）
   barkPush: {
     enabled: boolean;
     serverUrl: string;
     deviceKey: string;
     daysBefore: number;
     notificationHistory: {
-      [subscriptionId: string]: string; // 上次通知日期
+      [subscriptionId: string]: string; // 上次通知日期（由后端管理）
     };
   };
 }

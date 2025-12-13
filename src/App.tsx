@@ -25,7 +25,7 @@ import { loadCategories } from './utils/categories';
 import { CategoryService } from './services/categoryService';
 import { convertCurrency, DEFAULT_CURRENCY, getCachedExchangeRates } from './utils/currency';
 import { exportData, importData, validateImportData, ExportData } from './utils/exportImport';
-import { loadNotificationSettings, saveNotificationSettings, checkAndSendNotifications, cleanupNotificationHistory } from './utils/notificationChecker';
+import { loadNotificationSettings, saveNotificationSettings } from './utils/notificationChecker';
 import { Footer } from './components/Footer';
 import { config } from './lib/config';
 
@@ -178,27 +178,6 @@ export function App() {
     }
     localStorage.setItem('theme', theme);
   }, [theme]);
-
-  // 通知检查和清理
-  useEffect(() => {
-    // 初始检查
-    checkAndSendNotifications(subscriptions, notificationSettings);
-
-    // 定期检查 - 每小时检查一次
-    const notificationInterval = setInterval(() => {
-      checkAndSendNotifications(subscriptions, notificationSettings);
-    }, 60 * 60 * 1000); // 1 hour
-
-    // 每天清理一次过期的通知历史
-    const cleanupInterval = setInterval(() => {
-      cleanupNotificationHistory(notificationSettings);
-    }, 24 * 60 * 60 * 1000); // 24 hours
-
-    return () => {
-      clearInterval(notificationInterval);
-      clearInterval(cleanupInterval);
-    };
-  }, [subscriptions, notificationSettings]);
 
   // 用户登录后的数据同步 - 只执行一次
   useEffect(() => {

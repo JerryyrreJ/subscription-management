@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, Bell, Send, AlertCircle } from 'lucide-react';
+import { X, Bell, Send } from 'lucide-react';
 import { ReminderSettings } from '../types';
-import { requestNotificationPermission, isNotificationSupported } from '../utils/notifications';
 import { testBarkPush, validateBarkConfig } from '../utils/barkPush';
 import { CustomSelect } from './CustomSelect';
 
@@ -29,28 +28,6 @@ export function NotificationSettingsModal({
   const handleSave = () => {
     onSave(localSettings);
     onClose();
-  };
-
-  const handleRequestPermission = async () => {
-    const permission = await requestNotificationPermission();
-    setLocalSettings({
-      ...localSettings,
-      browserNotification: {
-        ...localSettings.browserNotification,
-        permission
-      }
-    });
-
-    if (permission === 'granted') {
-      setLocalSettings({
-        ...localSettings,
-        browserNotification: {
-          ...localSettings.browserNotification,
-          enabled: true,
-          permission
-        }
-      });
-    }
   };
 
   const handleTestBark = async () => {
@@ -117,101 +94,22 @@ export function NotificationSettingsModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Browser Notifications */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Browser Notifications
-            </h3>
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-4">
-              {!isNotificationSupported() && (
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    Browser notifications are not supported in your browser.
-                  </p>
-                </div>
-              )}
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={localSettings.browserNotification.enabled}
-                  onChange={(e) => setLocalSettings({
-                    ...localSettings,
-                    browserNotification: {
-                      ...localSettings.browserNotification,
-                      enabled: e.target.checked
-                    }
-                  })}
-                  disabled={!isNotificationSupported() || localSettings.browserNotification.permission !== 'granted'}
-                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Enable browser notifications
-                </span>
-              </label>
-
-              {localSettings.browserNotification.enabled && (
-                <div className="space-y-3 ml-7">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Remind me</span>
-                    <div className="w-48">
-                      <CustomSelect
-                        value={localSettings.browserNotification.daysBefore.toString()}
-                        onChange={(value) => setLocalSettings({
-                          ...localSettings,
-                          browserNotification: {
-                            ...localSettings.browserNotification,
-                            daysBefore: parseInt(value)
-                          }
-                        })}
-                        options={daysOptions}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Permission Status */}
-              <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Status:</span>
-                    {localSettings.browserNotification.permission === 'granted' && (
-                      <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
-                        ✓ Granted
-                      </span>
-                    )}
-                    {localSettings.browserNotification.permission === 'denied' && (
-                      <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
-                        ✗ Denied
-                      </span>
-                    )}
-                    {localSettings.browserNotification.permission === 'default' && (
-                      <span className="text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
-                        ⚠️ Not requested
-                      </span>
-                    )}
-                  </div>
-
-                  {localSettings.browserNotification.permission !== 'granted' && isNotificationSupported() && (
-                    <button
-                      onClick={handleRequestPermission}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
-                    >
-                      Request Permission
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+          {/* 全局提示 */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              <strong>Note:</strong> Notifications are sent automatically from our server. You don't need to keep the app open.
+              Additionally, you can enable/disable notifications for individual subscriptions when adding or editing them.
+            </p>
           </div>
 
           {/* Bark Push */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              Bark Push (iOS)
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              Bark Push Notifications (iOS)
             </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Receive push notifications on your iOS device via Bark app
+            </p>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-4">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -270,7 +168,7 @@ export function NotificationSettingsModal({
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Get your device key from the Bark app
+                      You can use the official server (https://api.day.app) or your own self-hosted Bark server
                     </p>
                   </div>
 

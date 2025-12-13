@@ -13,6 +13,7 @@ export interface SupabaseSubscription {
   last_payment_date: string
   next_payment_date: string
   custom_date?: string
+  notification_enabled: boolean
   created_at: string
   updated_at: string
 }
@@ -222,6 +223,7 @@ export class SubscriptionService {
       lastPaymentDate: data.last_payment_date,
       nextPaymentDate: data.next_payment_date,
       customDate: data.custom_date,
+      notificationEnabled: data.notification_enabled ?? true, // 默认 true
       createdAt: data.created_at
     }
   }
@@ -236,7 +238,8 @@ export class SubscriptionService {
       period: subscription.period,
       last_payment_date: subscription.lastPaymentDate,
       next_payment_date: subscription.nextPaymentDate,
-      custom_date: subscription.customDate || null
+      custom_date: subscription.customDate || null,
+      notification_enabled: subscription.notificationEnabled ?? true // 默认 true
     }
   }
 
