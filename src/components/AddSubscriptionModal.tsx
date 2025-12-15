@@ -5,6 +5,7 @@ import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 import { getAllCategories, getAllCategoriesWithDetails, addCustomCategory } from '../utils/categories';
 import { CustomSelect } from './CustomSelect';
+import { CustomDatePicker } from './CustomDatePicker';
 import type { Category } from '../utils/categories';
 
 interface CategorySyncMethods {
@@ -312,13 +313,11 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync }: A
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Last Payment Date
               </label>
-              <input
-                type="date"
-                required
-                max={today}
+              <CustomDatePicker
                 value={formData.lastPaymentDate}
-                onChange={(e) => setFormData({ ...formData, lastPaymentDate: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                onChange={(value) => setFormData({ ...formData, lastPaymentDate: value })}
+                maxDate={today}
+                required={true}
               />
             </div>
 

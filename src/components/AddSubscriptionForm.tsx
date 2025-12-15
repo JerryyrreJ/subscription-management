@@ -5,6 +5,7 @@ import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 import { getAllCategories } from '../utils/categories';
 import { CustomSelect } from './CustomSelect';
+import { CustomDatePicker } from './CustomDatePicker';
 
 interface AddSubscriptionFormProps {
   onAdd: (subscription: Subscription) => void;
@@ -22,6 +23,15 @@ export function AddSubscriptionForm({ onAdd }: AddSubscriptionFormProps) {
   });
 
   const [categories, setCategories] = useState<string[]>([]);
+
+  // 获取今天的日期，格式化为 YYYY-MM-DD (使用本地时区)
+  const today = (() => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })();
 
   // 加载类型列表
   useEffect(() => {
@@ -161,16 +171,12 @@ export function AddSubscriptionForm({ onAdd }: AddSubscriptionFormProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Last Payment Date
           </label>
-          <div className="relative">
-            <input
-              type="date"
-              required
-              value={formData.lastPaymentDate}
-              onChange={(e) => setFormData({ ...formData, lastPaymentDate: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-            <CalendarDays className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" />
-          </div>
+          <CustomDatePicker
+            value={formData.lastPaymentDate}
+            onChange={(value) => setFormData({ ...formData, lastPaymentDate: value })}
+            maxDate={today}
+            required={true}
+          />
         </div>
       </div>
 

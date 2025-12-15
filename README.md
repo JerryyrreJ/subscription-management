@@ -2,7 +2,15 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.8.3)
+## ✨ Latest Updates (v1.8.5)
+
+- 📅 **Custom Date Picker** - Beautiful, unified date selection component replacing native browser date pickers
+- 🎨 **Cross-Platform Consistency** - Identical date picker experience across all browsers and devices
+- 🔄 **Smart Auto-Scroll** - Calendar dropdown automatically scrolls into view for optimal UX
+- 🎯 **Enhanced Usability** - Quick "Today" button and intuitive calendar navigation
+- 🌙 **Dark Mode Support** - Fully themed date picker matching the app's design language
+
+### Previous Updates (v1.8.3)
 
 - 📄 **Professional PDF Export** - High-quality PDF generation using Playwright and serverless Chromium
 - ⚡ **Serverless Architecture** - PDF generation powered by Netlify Functions for optimal performance
