@@ -25,31 +25,31 @@ const getSuggestionColor = (type: OptimizationSuggestion['type']) => {
   switch (type) {
     case 'expensive':
       return {
-        bg: 'bg-orange-50 dark:bg-orange-900/20',
-        border: 'border-orange-200 dark:border-orange-800',
-        icon: 'text-orange-600 dark:text-orange-400',
-        badge: 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300',
+        bg: 'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30',
+        border: 'border-amber-200/50 dark:border-amber-800/50',
+        icon: 'text-amber-600 dark:text-amber-400',
+        badge: 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md',
       };
     case 'multiple_in_category':
       return {
-        bg: 'bg-blue-50 dark:bg-blue-900/20',
-        border: 'border-blue-200 dark:border-blue-800',
-        icon: 'text-blue-600 dark:text-blue-400',
-        badge: 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300',
+        bg: 'bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-950/30 dark:to-blue-950/30',
+        border: 'border-sky-200/50 dark:border-sky-800/50',
+        icon: 'text-sky-600 dark:text-sky-400',
+        badge: 'bg-gradient-to-r from-sky-500 to-blue-500 text-white shadow-md',
       };
     case 'annual_saving':
       return {
-        bg: 'bg-green-50 dark:bg-green-900/20',
-        border: 'border-green-200 dark:border-green-800',
-        icon: 'text-green-600 dark:text-green-400',
-        badge: 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300',
+        bg: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30',
+        border: 'border-emerald-200/50 dark:border-emerald-800/50',
+        icon: 'text-emerald-600 dark:text-emerald-400',
+        badge: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md',
       };
     default:
       return {
-        bg: 'bg-purple-50 dark:bg-purple-900/20',
-        border: 'border-purple-200 dark:border-purple-800',
-        icon: 'text-purple-600 dark:text-purple-400',
-        badge: 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300',
+        bg: 'bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/30 dark:to-violet-950/30',
+        border: 'border-indigo-200/50 dark:border-indigo-800/50',
+        icon: 'text-indigo-600 dark:text-indigo-400',
+        badge: 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md',
       };
   }
 };
@@ -57,17 +57,17 @@ const getSuggestionColor = (type: OptimizationSuggestion['type']) => {
 export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionProps) {
   if (suggestions.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-gray-100 dark:border-gray-700">
         <div className="flex items-center gap-2 mb-4">
-          <Lightbulb className="w-5 h-5 text-purple-600" />
+          <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Insights & Recommendations
           </h3>
         </div>
         <div className="text-center py-8">
-          <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-3">
+          <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
             <svg
-              className="w-8 h-8 text-green-600 dark:text-green-400"
+              className="w-8 h-8 text-white"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -80,7 +80,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
               />
             </svg>
           </div>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-gray-600 dark:text-gray-400 font-medium">
             Great! Your subscription management looks healthy. No optimization suggestions at this time.
           </p>
         </div>
@@ -95,17 +95,17 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
   );
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-gray-100 dark:border-gray-700">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Lightbulb className="w-5 h-5 text-purple-600" />
+          <div className="w-1 h-6 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Insights & Recommendations
           </h3>
         </div>
         {totalPotentialSaving > 0 && (
-          <div className="px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
-            <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+          <div className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl shadow-md hover:shadow-lg transition-shadow">
+            <span className="text-sm font-semibold text-white">
               Potential Savings: {formatCurrency(totalPotentialSaving, baseCurrency)}/yr
             </span>
           </div>
@@ -123,7 +123,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
           return (
             <div
               key={index}
-              className={`p-4 rounded-lg border ${colors.bg} ${colors.border}`}
+              className={`p-4 rounded-xl border ${colors.bg} ${colors.border} shadow-md hover:shadow-lg transition-all`}
             >
               <div className="flex items-start gap-3">
                 <div className={`${colors.icon} flex-shrink-0 mt-0.5`}>
@@ -136,7 +136,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
                       {suggestion.title}
                     </h4>
                     {suggestion.potentialSaving && suggestion.potentialSaving > 0 && (
-                      <span className={`text-xs px-2 py-1 rounded-full ${colors.badge} flex-shrink-0`}>
+                      <span className={`text-xs px-3 py-1.5 rounded-lg ${colors.badge} flex-shrink-0 font-medium`}>
                         Save {formatCurrency(suggestion.potentialSaving, baseCurrency)}
                       </span>
                     )}
@@ -148,20 +148,20 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
 
                   {suggestion.subscriptions.length > 0 && (
                     <div className="mt-2">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">
                         Affected subscriptions:
                       </p>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1.5">
                         {suggestion.subscriptions.slice(0, 5).map((subName, idx) => (
                           <span
                             key={idx}
-                            className="text-xs px-2 py-1 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+                            className="text-xs px-2.5 py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 shadow-sm"
                           >
                             {subName}
                           </span>
                         ))}
                         {suggestion.subscriptions.length > 5 && (
-                          <span className="text-xs px-2 py-1 text-gray-500 dark:text-gray-400">
+                          <span className="text-xs px-2.5 py-1 text-gray-500 dark:text-gray-400 font-medium">
                             +{suggestion.subscriptions.length - 5} more
                           </span>
                         )}

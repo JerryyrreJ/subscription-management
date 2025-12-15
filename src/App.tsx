@@ -413,7 +413,7 @@ export function App() {
                 {subscriptions.length > 0 && (
                   <button
                     onClick={() => setIsAdvancedReportOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg hover:shadow-xl text-sm font-medium"
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-md transition-all text-sm font-medium"
                     title="View Advanced Report"
                   >
                     <BarChart3 className="w-4 h-4" />

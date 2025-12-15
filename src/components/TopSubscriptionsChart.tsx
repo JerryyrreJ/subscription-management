@@ -9,14 +9,14 @@ interface TopSubscriptionsChartProps {
   baseCurrency: Currency;
 }
 
-// Gradient colors for bars
-const COLORS = ['#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe'];
+// Refined gradient colors - teal to emerald spectrum
+const COLORS = ['#14b8a6', '#0d9488', '#10b981', '#059669', '#06b6d4'];
 
 export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsChartProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-gray-100 dark:border-gray-700">
       <div className="flex items-center gap-2 mb-4">
-        <TrendingUp className="w-5 h-5 text-purple-600" />
+        <div className="w-1 h-6 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Top 5 Subscriptions
         </h3>
@@ -47,8 +47,8 @@ export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsCh
             contentStyle={{
               backgroundColor: 'rgba(255, 255, 255, 0.98)',
               border: '1px solid #e5e7eb',
-              borderRadius: '0.5rem',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              borderRadius: '0.75rem',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
               padding: '8px 12px',
             }}
             formatter={(value: number) => [formatCurrency(value, baseCurrency), 'Monthly Cost']}
@@ -57,7 +57,7 @@ export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsCh
           />
           <Bar
             dataKey="monthlyCost"
-            radius={[0, 4, 4, 0]}
+            radius={[0, 8, 8, 0]}
             activeBar={{
               opacity: 0.8,
             }}
@@ -73,16 +73,16 @@ export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsCh
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Detailed list */}
+      {/* Refined detailed list */}
       <div className="mt-6 space-y-2.5">
         {data.map((sub, index) => (
           <div
             key={sub.name}
-            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800/50 rounded-xl border border-gray-200/50 dark:border-gray-700/50 hover:shadow-md hover:scale-[1.01] transition-all"
           >
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div
-                className="flex items-center justify-center w-7 h-7 rounded-full font-semibold text-sm flex-shrink-0 text-white"
+                className="flex items-center justify-center w-8 h-8 rounded-lg font-semibold text-sm flex-shrink-0 text-white shadow-md"
                 style={{ backgroundColor: COLORS[index % COLORS.length] }}
               >
                 {index + 1}

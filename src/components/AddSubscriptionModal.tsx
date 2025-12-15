@@ -323,11 +323,11 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync }: A
             </div>
 
             {/* 通知开关 */}
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg p-4 border border-indigo-200 dark:border-indigo-800">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
                   {formData.notificationEnabled ? (
-                    <Bell className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <Bell className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                   ) : (
                     <BellOff className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                   )}
@@ -340,9 +340,9 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync }: A
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, notificationEnabled: !formData.notificationEnabled })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 ${
                         formData.notificationEnabled
-                          ? 'bg-indigo-600'
+                          ? 'bg-teal-600'
                           : 'bg-gray-300 dark:bg-gray-600'
                       }`}
                     >
