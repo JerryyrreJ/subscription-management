@@ -8,8 +8,6 @@ import { RenewalHeatmap } from './RenewalHeatmap';
 import { InsightsSection } from './InsightsSection';
 import { X, TrendingUp, Calendar, DollarSign, Package, HelpCircle, Download } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
-import { exportReportToPDF, generatePDFFilename } from '../utils/pdfExport';
-import { PDFReportTemplate } from './PDFReportTemplate';
 
 interface AdvancedReportProps {
   subscriptions: Subscription[];
@@ -24,9 +22,7 @@ export function AdvancedReport({
   exchangeRates,
   onClose,
 }: AdvancedReportProps) {
-  const [isClosing, setIsClosing] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
 
   // 生成报表数据
   const reportData: ReportData = useMemo(
@@ -44,7 +40,6 @@ export function AdvancedReport({
 
   // 处理关闭动画
   const handleClose = () => {
-    setIsClosing(true);
     setIsVisible(false);
     // 等待动画完成后再真正关闭
     setTimeout(() => {
@@ -52,41 +47,10 @@ export function AdvancedReport({
     }, 300); // 匹配 CSS transition 时间
   };
 
-  // 处理 PDF 导出
+  // 处理 PDF 导出 - 预留接口，功能待实现
   const handleExportPDF = async () => {
-    try {
-      setIsExporting(true);
-      const filename = generatePDFFilename('subscription-report');
-
-      // Generate current date for PDF
-      const generatedDate = new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-
-      // Create PDF template component
-      const pdfTemplate = (
-        <PDFReportTemplate
-          reportData={reportData}
-          baseCurrency={baseCurrency}
-          generatedDate={generatedDate}
-        />
-      );
-
-      await exportReportToPDF(pdfTemplate, {
-        filename,
-        pageConfig: {
-          size: 'A4',
-          orientation: 'landscape',
-        },
-      });
-    } catch (error) {
-      console.error('Failed to export PDF:', error);
-      alert('Failed to export PDF. Please try again.');
-    } finally {
-      setIsExporting(false);
-    }
+    // TODO: 实现新的PDF导出功能
+    alert('PDF export feature is under development. Stay tuned!');
   };
 
   return (
@@ -238,20 +202,10 @@ export function AdvancedReport({
             </button>
             <button
               onClick={handleExportPDF}
-              disabled={isExporting}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-xl hover:from-teal-700 hover:to-emerald-700 transition-all font-medium shadow-lg hover:shadow-xl hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-xl hover:from-teal-700 hover:to-emerald-700 transition-all font-medium shadow-lg hover:shadow-xl hover:scale-[1.02] flex items-center justify-center gap-2"
             >
-              {isExporting ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Generating PDF...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-5 h-5" />
-                  <span>Export PDF Report</span>
-                </>
-              )}
+              <Download className="w-5 h-5" />
+              <span>Export PDF Report</span>
             </button>
           </div>
         </div>

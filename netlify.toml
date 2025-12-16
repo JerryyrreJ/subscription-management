@@ -37,11 +37,3 @@
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Headers = "stripe-signature"
     Access-Control-Allow-Methods = "POST"
-
-# Headers for PDF generation endpoint
-[[headers]]
-  for = "/.netlify/functions/generate-pdf"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Headers = "Content-Type"
-    Access-Control-Allow-Methods = "POST"
