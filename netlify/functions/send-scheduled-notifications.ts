@@ -102,18 +102,18 @@ export default async () => {
 
     if (settingsError) {
       console.error('[Scheduled Notifications] Error fetching notification settings:', settingsError)
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: 'Failed to fetch notification settings' })
-      }
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch notification settings' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     if (!notificationSettingsList || notificationSettingsList.length === 0) {
       console.log('[Scheduled Notifications] No users with Bark enabled')
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'No users with notifications enabled' })
-      }
+      return new Response(
+        JSON.stringify({ message: 'No users with notifications enabled' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     console.log(`[Scheduled Notifications] Found ${notificationSettingsList.length} users with Bark enabled`)
@@ -250,20 +250,19 @@ export default async () => {
 
     console.log('[Scheduled Notifications] Summary:', summary)
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(summary)
-    }
+    return new Response(
+      JSON.stringify(summary),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
   } catch (error) {
     console.error('[Scheduled Notifications] Fatal error:', error)
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error', details: error })
-    }
+    return new Response(
+      JSON.stringify({ error: 'Internal server error', details: error }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 }
 
 // Netlify Scheduled Function 配置
-export const config = {
-  schedule: '@hourly' // 每小时运行一次
-}
+// 导出 schedule 字符串来定义执行频率
+export const schedule = '@hourly' // 每小时运行一次

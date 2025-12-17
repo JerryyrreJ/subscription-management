@@ -38,13 +38,7 @@
     Access-Control-Allow-Headers = "stripe-signature"
     Access-Control-Allow-Methods = "POST"
 
-# Scheduled Functions
-# Docs: https://docs.netlify.com/functions/scheduled-functions/
-[[functions]]
-  # Path to the function (relative to functions directory)
-  path = "send-scheduled-notifications"
-
-  # Schedule (runs every hour at minute 0)
-  # Format: "minute hour day month weekday"
-  # @hourly = "0 * * * *"
-  schedule = "0 * * * *"
+# Scheduled Functions Configuration
+# For scheduled functions, the schedule is defined in the function file itself
+# using the `schedule` export. No additional netlify.toml config needed.
+# See: netlify/functions/send-scheduled-notifications.ts

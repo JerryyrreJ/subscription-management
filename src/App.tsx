@@ -26,6 +26,7 @@ import { CategoryService } from './services/categoryService';
 import { convertCurrency, DEFAULT_CURRENCY, getCachedExchangeRates } from './utils/currency';
 import { exportData, importData, validateImportData, ExportData } from './utils/exportImport';
 import { loadNotificationSettings, saveNotificationSettings } from './utils/notificationChecker';
+import { NotificationSettingsService } from './services/notificationSettingsService';
 import { Footer } from './components/Footer';
 import { config } from './lib/config';
 
@@ -228,6 +229,27 @@ export function App() {
           }
         } catch (error) {
           console.error('Category sync check failed:', error);
+          // 同步失败，保持本地数据不变
+        }
+
+        // 3. 同步通知设置
+        try {
+          const cloudNotificationSettings = await NotificationSettingsService.getSettings();
+          if (cloudNotificationSettings) {
+            console.log('Cloud notification settings loaded');
+            setNotificationSettings(cloudNotificationSettings);
+            // 同时保存到本地以保持一致性
+            saveNotificationSettings(cloudNotificationSettings);
+          } else {
+            // 云端为空，上传本地设置
+            const localNotificationSettings = loadNotificationSettings();
+            if (localNotificationSettings.barkPush.enabled) {
+              console.log('Cloud notification settings empty, uploading local settings...');
+              await NotificationSettingsService.saveSettings(localNotificationSettings);
+            }
+          }
+        } catch (error) {
+          console.error('Notification settings sync failed:', error);
           // 同步失败，保持本地数据不变
         }
       } catch (error) {
@@ -610,9 +632,18 @@ export function App() {
           isOpen={isNotificationSettingsModalOpen}
           onClose={() => setIsNotificationSettingsModalOpen(false)}
           settings={notificationSettings}
-          onSave={(newSettings) => {
+          onSave={async (newSettings) => {
             setNotificationSettings(newSettings);
             saveNotificationSettings(newSettings);
+
+            // 如果用户已登录且云同步可用，同时保存到云端
+            if (user && config.hasSupabaseConfig) {
+              try {
+                await NotificationSettingsService.saveSettings(newSettings);
+              } catch (error) {
+                console.error('Failed to sync notification settings to cloud:', error);
+              }
+            }
           }}
         />
 
