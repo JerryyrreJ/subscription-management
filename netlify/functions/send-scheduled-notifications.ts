@@ -87,10 +87,10 @@ function formatCurrency(amount: number, currency: string): string {
 }
 
 /**
- * Netlify Scheduled Function
+ * Netlify Scheduled Function (Handler 格式)
  * 每小时运行一次，检查所有用户的订阅并发送 Bark 推送
  */
-export default async () => {
+export const handler = async () => {
   console.log('[Scheduled Notifications] Starting notification check...', new Date().toISOString())
 
   try {
@@ -154,13 +154,22 @@ export default async () => {
       for (const subscription of subscriptions as Subscription[]) {
         const daysUntil = getDaysUntilPayment(subscription.next_payment_date)
 
+        // 🔍 调试日志: 输出每个订阅的详细信息
+        console.log(`[Scheduled Notifications] 订阅: ${subscription.name}`)
+        console.log(`  - 下次付款日期: ${subscription.next_payment_date}`)
+        console.log(`  - 距离续费天数: ${daysUntil} 天`)
+        console.log(`  - 设置的提醒天数: ${bark_days_before} 天`)
+        console.log(`  - 今天是否已推送: ${wasNotifiedToday(subscription.id, bark_history)}`)
+
         // 跳过已过期或距离太远的订阅
         if (daysUntil < 0 || daysUntil > 14) {
+          console.log(`  ⏭️  跳过: 距离续费 ${daysUntil} 天 (超出范围)`)
           continue
         }
 
         // 检查是否需要发送推送
         if (daysUntil === bark_days_before && !wasNotifiedToday(subscription.id, bark_history)) {
+          console.log(`  ✅ 匹配推送条件！准备发送通知...`)
           console.log(`[Scheduled Notifications] Sending notification for subscription: ${subscription.name} (${daysUntil} days until renewal)`)
 
           const title = 'Subscription Manager'
@@ -194,6 +203,13 @@ export default async () => {
           } catch (error) {
             console.error(`[Scheduled Notifications] Error sending notification for ${subscription.name}:`, error)
             totalErrors++
+          }
+        } else {
+          // 不满足推送条件，输出原因
+          if (daysUntil !== bark_days_before) {
+            console.log(`  ⏭️  跳过: 距离续费 ${daysUntil} 天 ≠ 设置的 ${bark_days_before} 天`)
+          } else if (wasNotifiedToday(subscription.id, bark_history)) {
+            console.log(`  ⏭️  跳过: 今天已经推送过`)
           }
         }
       }
