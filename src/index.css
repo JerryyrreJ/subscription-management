@@ -9,6 +9,79 @@ body {
   transition: background-color 0.3s ease;
 }
 
+/* Animated flowing gradient background - Pink to Orange */
+.animated-gradient-bg {
+  background: linear-gradient(-45deg,
+    #fff5f5,  /* Very light pink */
+    #fffaf0,  /* Warm cream */
+    #fff4ed,  /* Light peach */
+    #fef6ee,  /* Soft orange tint */
+    #fef3f2   /* Rose tint */
+  );
+  background-size: 400% 400%;
+  animation: gradientFlow 20s ease infinite;
+}
+
+/* Alternative mesh gradient approach with overlapping gradients */
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 75%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 25%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Optional: Add subtle floating orbs for extra depth */
+.animated-gradient-bg::before,
+.animated-gradient-bg::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.3;
+  animation: float 25s ease-in-out infinite;
+}
+
+.animated-gradient-bg::before {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(251, 207, 232, 0.5) 0%, transparent 70%);
+  top: -200px;
+  left: -200px;
+  animation: float 25s ease-in-out infinite;
+}
+
+.animated-gradient-bg::after {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(254, 215, 170, 0.5) 0%, transparent 70%);
+  bottom: -150px;
+  right: -150px;
+  animation: float 30s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+}
+
 @keyframes fadeSlideIn {
   from {
     opacity: 0;
@@ -67,7 +140,7 @@ body {
   animation: dropdownCloseAnimation 0.2s ease-in;
 }
 
-/* Dashboard select styles */
+/* Dashboard select styles (legacy - old gradient style) */
 .dashboard-select button {
   background: rgba(255, 255, 255, 0.1) !important;
   color: white !important;
@@ -86,6 +159,57 @@ body {
 
 .dashboard-select svg {
   color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Dashboard select styles - Glassmorphism */
+.dashboard-select-glass button {
+  background: rgba(241, 245, 249, 0.8) !important;
+  color: #475569 !important;
+  border: 1px solid rgba(226, 232, 240, 0.5) !important;
+  font-size: 0.875rem !important;
+  padding: 0.25rem 0.75rem !important;
+  backdrop-filter: blur(8px) !important;
+  transition: all 0.2s ease !important;
+}
+
+.dark .dashboard-select-glass button {
+  background: rgba(55, 65, 81, 0.8) !important;
+  color: #d1d5db !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
+}
+
+.dashboard-select-glass button:hover {
+  background: rgba(226, 232, 240, 0.9) !important;
+}
+
+.dark .dashboard-select-glass button:hover {
+  background: rgba(75, 85, 99, 0.9) !important;
+}
+
+.dashboard-select-glass button:focus {
+  --tw-ring-color: rgba(100, 116, 139, 0.3) !important;
+  border-color: rgba(100, 116, 139, 0.5) !important;
+}
+
+.dark .dashboard-select-glass button:focus {
+  --tw-ring-color: rgba(148, 163, 184, 0.3) !important;
+  border-color: rgba(148, 163, 184, 0.5) !important;
+}
+
+.dashboard-select-glass span {
+  color: #475569 !important;
+}
+
+.dark .dashboard-select-glass span {
+  color: #d1d5db !important;
+}
+
+.dashboard-select-glass svg {
+  color: #64748b !important;
+}
+
+.dark .dashboard-select-glass svg {
+  color: #9ca3af !important;
 }
 
 
@@ -147,6 +271,78 @@ body {
   color: #f9fafb !important;
 }
 
+/* Dashboard-glass dropdown styles */
+.dashboard-select-glass .absolute {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(226, 232, 240, 0.6) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  margin-top: 8px !important;
+  z-index: 60 !important;
+}
+
+.dark .dashboard-select-glass .absolute {
+  background: rgba(55, 65, 81, 0.95) !important;
+  border-color: rgba(75, 85, 99, 0.6) !important;
+}
+
+.dashboard-select-glass .absolute button {
+  background: transparent !important;
+  color: #475569 !important;
+  font-size: 0.875rem !important;
+  font-weight: 400 !important;
+  padding: 8px 12px !important;
+  text-align: left !important;
+  width: 100% !important;
+  border: none !important;
+  border-radius: 6px !important;
+  min-height: auto !important;
+  margin: 2px 4px !important;
+  transition: all 0.15s ease !important;
+}
+
+.dashboard-select-glass .absolute button span {
+  color: #475569 !important;
+}
+
+.dashboard-select-glass .absolute button:hover {
+  background: rgba(226, 232, 240, 0.7) !important;
+  color: #334155 !important;
+}
+
+.dashboard-select-glass .absolute button:hover span {
+  color: #334155 !important;
+}
+
+.dark .dashboard-select-glass .absolute button {
+  color: #e5e7eb !important;
+}
+
+.dark .dashboard-select-glass .absolute button span {
+  color: #e5e7eb !important;
+}
+
+.dark .dashboard-select-glass .absolute button:hover {
+  background: rgba(75, 85, 99, 0.7) !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .dashboard-select-glass .absolute button:hover span {
+  color: #f3f4f6 !important;
+}
+
+/* Selected option in glass dropdown */
+.dashboard-select-glass .absolute button[aria-selected="true"] {
+  background: rgba(100, 116, 139, 0.15) !important;
+  color: #334155 !important;
+}
+
+.dark .dashboard-select-glass .absolute button[aria-selected="true"] {
+  background: rgba(148, 163, 184, 0.2) !important;
+  color: #f3f4f6 !important;
+}
+
 /* Sort control styles */
 .sort-select button {
   background: white !important;
@@ -178,98 +374,122 @@ body {
   color: #9ca3af !important;
 }
 
-/* Dashboard排序控件的CustomSelect样式 - 原始半透明样式 */
+/* Dashboard排序控件的CustomSelect样式 - Glassmorphism */
 .dashboard-sort-control button {
-  background: rgba(255, 255, 255, 0.15) !important;
-  color: white !important;
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  color: #475569 !important;
+  border: 1px solid rgba(226, 232, 240, 0.5) !important;
   font-size: 12px !important;
   font-weight: 500 !important;
   padding: 4px 8px !important;
   min-height: 28px !important;
-  border-radius: 4px !important;
+  border-radius: 6px !important;
+  backdrop-filter: blur(8px) !important;
+  transition: all 0.2s ease !important;
 }
 
 .dashboard-sort-control button:hover {
-  background: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
 }
 
 .dark .dashboard-sort-control button {
-  background: rgba(255, 255, 255, 0.15) !important;
-  color: white !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: rgba(55, 65, 81, 0.6) !important;
+  color: #d1d5db !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
 }
 
 .dark .dashboard-sort-control button:hover {
-  background: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(75, 85, 99, 0.9) !important;
 }
 
 .dashboard-sort-control span {
-  color: white !important;
+  color: #475569 !important;
   font-size: 12px !important;
   font-weight: 500 !important;
 }
 
+.dark .dashboard-sort-control span {
+  color: #d1d5db !important;
+}
+
 .dashboard-sort-control svg {
-  color: rgba(255, 255, 255, 0.8) !important;
+  color: #64748b !important;
   width: 12px !important;
   height: 12px !important;
 }
 
-/* Dashboard排序控件下拉选项 - 原始样式 */
+.dark .dashboard-sort-control svg {
+  color: #9ca3af !important;
+}
+
+/* Dashboard排序控件下拉选项 - Glassmorphism */
 .dashboard-sort-control .absolute {
-  background: white !important;
-  border: 1px solid #e5e7eb !important;
-  border-radius: 6px !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
-  margin-top: 4px !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(226, 232, 240, 0.6) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  margin-top: 6px !important;
   z-index: 60 !important;
 }
 
 .dark .dashboard-sort-control .absolute {
-  background: #374151 !important;
-  border-color: #4b5563 !important;
+  background: rgba(55, 65, 81, 0.95) !important;
+  border-color: rgba(75, 85, 99, 0.6) !important;
 }
 
 .dashboard-sort-control .absolute button {
   background: transparent !important;
-  color: #374151 !important;
+  color: #475569 !important;
   font-size: 12px !important;
   font-weight: 400 !important;
   padding: 6px 8px !important;
   text-align: left !important;
   width: 100% !important;
   border: none !important;
-  border-radius: 0 !important;
+  border-radius: 5px !important;
   min-height: auto !important;
+  margin: 2px 4px !important;
+  transition: all 0.15s ease !important;
 }
 
 .dashboard-sort-control .absolute button span {
-  color: #374151 !important;
+  color: #475569 !important;
 }
 
 .dashboard-sort-control .absolute button:hover {
-  background: #f9fafb !important;
-  color: #374151 !important;
+  background: rgba(226, 232, 240, 0.7) !important;
+  color: #334155 !important;
 }
 
 .dashboard-sort-control .absolute button:hover span {
-  color: #374151 !important;
+  color: #334155 !important;
 }
 
 .dark .dashboard-sort-control .absolute button {
-  color: #f9fafb !important;
+  color: #e5e7eb !important;
 }
 
 .dark .dashboard-sort-control .absolute button span {
-  color: #f9fafb !important;
+  color: #e5e7eb !important;
 }
 
 .dark .dashboard-sort-control .absolute button:hover {
-  background: #4b5563 !important;
-  color: #f9fafb !important;
+  background: rgba(75, 85, 99, 0.7) !important;
+  color: #f3f4f6 !important;
 }
 
 .dark .dashboard-sort-control .absolute button:hover span {
-  color: #f9fafb !important;
+  color: #f3f4f6 !important;
+}
+
+/* Selected option in sort dropdown */
+.dashboard-sort-control .absolute button[aria-selected="true"] {
+  background: rgba(100, 116, 139, 0.15) !important;
+  color: #334155 !important;
+}
+
+.dark .dashboard-sort-control .absolute button[aria-selected="true"] {
+  background: rgba(148, 163, 184, 0.2) !important;
+  color: #f3f4f6 !important;
 }

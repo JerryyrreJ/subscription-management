@@ -423,7 +423,11 @@ export function App() {
 
   return (
     <>
-      <div className="min-h-screen pb-20 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+      <div className="min-h-screen pb-20 relative overflow-hidden transition-colors duration-300">
+        {/* Animated flowing gradient background */}
+        <div className="fixed inset-0 -z-10 dark:opacity-0 animated-gradient-bg"></div>
+        {/* Dark mode fallback */}
+        <div className="fixed inset-0 -z-10 bg-gray-900 dark:opacity-100 opacity-0 transition-opacity duration-300"></div>
         <div className="px-4 py-8">
           <div className="max-w-7xl mx-auto space-y-8">
             {/* 移动端优化的头部布局 */}
