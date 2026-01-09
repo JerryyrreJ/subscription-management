@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendBarkNotification } from '../../src/utils/barkPush'
+import type { Config } from '@netlify/functions'
 
 // Supabase 配置（使用 Service Role Key 绕过 RLS）
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
@@ -20,6 +21,7 @@ interface Subscription {
   period: string
   next_payment_date: string
   notification_enabled: boolean
+  custom_date?: string
 }
 
 interface NotificationSettings {
@@ -32,13 +34,63 @@ interface NotificationSettings {
 }
 
 /**
- * 计算距离下次付款的天数
+ * 自动续费：如果订阅已过期，计算最新的续费日期
+ * 逻辑与前端 src/utils/dates.ts 中的 getAutoRenewedDates() 保持一致
  */
-function getDaysUntilPayment(nextPaymentDate: string): number {
+function getAutoRenewedDate(
+  nextPaymentDate: string,
+  period: string,
+  customDate?: string
+): string {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const paymentDate = new Date(nextPaymentDate)
+  const nextPayment = new Date(nextPaymentDate)
+  nextPayment.setHours(0, 0, 0, 0)
+
+  // 如果还没到期，返回原始日期
+  if (nextPayment >= today) {
+    return nextPaymentDate
+  }
+
+  // 计算需要续期的次数，循环直到找到未来的日期
+  const renewedDate = new Date(nextPayment)
+
+  while (renewedDate < today) {
+    switch (period) {
+      case 'monthly':
+        renewedDate.setMonth(renewedDate.getMonth() + 1)
+        break
+      case 'yearly':
+        renewedDate.setFullYear(renewedDate.getFullYear() + 1)
+        break
+      case 'custom':
+        if (customDate) {
+          const customDays = parseInt(customDate)
+          renewedDate.setDate(renewedDate.getDate() + customDays)
+        }
+        break
+    }
+  }
+
+  return renewedDate.toISOString().split('T')[0]
+}
+
+/**
+ * 计算距离下次付款的天数（考虑自动续费）
+ */
+function getDaysUntilPayment(
+  nextPaymentDate: string,
+  period: string,
+  customDate?: string
+): number {
+  // 先自动续费，获取最新的续费日期
+  const renewedDate = getAutoRenewedDate(nextPaymentDate, period, customDate)
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const paymentDate = new Date(renewedDate)
   paymentDate.setHours(0, 0, 0, 0)
 
   const diffTime = paymentDate.getTime() - today.getTime()
@@ -87,11 +139,24 @@ function formatCurrency(amount: number, currency: string): string {
 }
 
 /**
- * Netlify Scheduled Function (Handler 格式)
+ * Netlify Scheduled Function (v2 格式)
  * 每小时运行一次，检查所有用户的订阅并发送 Bark 推送
  */
-export const handler = async () => {
+export default async (req: Request): Promise<Response> => {
   console.log('[Scheduled Notifications] Starting notification check...', new Date().toISOString())
+
+  // Parse scheduled event payload (optional, contains next_run timestamp)
+  try {
+    const body = await req.text()
+    if (body) {
+      const payload = JSON.parse(body)
+      if (payload.next_run) {
+        console.log('[Scheduled Notifications] Next scheduled run:', payload.next_run)
+      }
+    }
+  } catch (e) {
+    // Ignore parsing errors (e.g., when testing locally without payload)
+  }
 
   try {
     // 1. 获取所有启用了 Bark 推送的用户
@@ -152,11 +217,22 @@ export const handler = async () => {
 
       // 4. 检查每个订阅
       for (const subscription of subscriptions as Subscription[]) {
-        const daysUntil = getDaysUntilPayment(subscription.next_payment_date)
+        // 使用自动续费逻辑计算实际的续费日期
+        const renewedDate = getAutoRenewedDate(
+          subscription.next_payment_date,
+          subscription.period,
+          subscription.custom_date
+        )
+        const daysUntil = getDaysUntilPayment(
+          subscription.next_payment_date,
+          subscription.period,
+          subscription.custom_date
+        )
 
         // 🔍 调试日志: 输出每个订阅的详细信息
         console.log(`[Scheduled Notifications] 订阅: ${subscription.name}`)
-        console.log(`  - 下次付款日期: ${subscription.next_payment_date}`)
+        console.log(`  - 数据库中的日期: ${subscription.next_payment_date}`)
+        console.log(`  - 自动续费后的日期: ${renewedDate}`)
         console.log(`  - 距离续费天数: ${daysUntil} 天`)
         console.log(`  - 设置的提醒天数: ${bark_days_before} 天`)
         console.log(`  - 今天是否已推送: ${wasNotifiedToday(subscription.id, bark_history)}`)
@@ -279,6 +355,8 @@ export const handler = async () => {
   }
 }
 
-// Netlify Scheduled Function 配置
-// 导出 schedule 字符串来定义执行频率
-export const schedule = '@hourly' // 每小时运行一次
+// Netlify Scheduled Function 配置 (v2 格式)
+// 使用 Config 类型导出来定义执行频率
+export const config: Config = {
+  schedule: '@hourly' // 每小时运行一次
+}

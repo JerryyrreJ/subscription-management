@@ -40,5 +40,5 @@
 
 # Scheduled Functions Configuration
 # For scheduled functions, the schedule is defined in the function file itself
-# using the `schedule` export. No additional netlify.toml config needed.
+# using the `config` export (Netlify Functions v2). No additional netlify.toml config needed.
 # See: netlify/functions/send-scheduled-notifications.ts
