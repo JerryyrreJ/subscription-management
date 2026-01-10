@@ -218,10 +218,9 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
           features: [
             { text: 'Everything in Open Source', included: true },
             { text: 'Advanced analytics & reports', included: true },
-            { text: 'PDF export (beta)', included: true },
             { text: 'Cloud backup & multi-device sync', included: true },
-            { text: 'Category sync', included: true },
             { text: 'Renewal notifications', included: true },
+            { text: 'PDF export (beta)', included: true },
             { text: 'Priority support', included: true },
             { text: 'Future premium features', included: true },
           ],

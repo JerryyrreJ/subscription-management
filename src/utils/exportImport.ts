@@ -1,6 +1,7 @@
 import { Subscription } from '../types';
 import { loadSubscriptions, saveSubscriptions } from './storage';
 import { loadCategories, saveCategories, Category } from './categories';
+import packageJson from '../../package.json';
 
 export interface ExportData {
   version: string;
@@ -20,7 +21,7 @@ export interface ImportResult {
  */
 export function exportData(): void {
   const data: ExportData = {
-    version: '1.7.1',
+    version: packageJson.version,
     exportDate: new Date().toISOString(),
     subscriptions: loadSubscriptions(),
     categories: loadCategories()

@@ -12,6 +12,7 @@ import {
 } from '../utils/categories'
 import { Subscription } from '../types'
 import { DeleteCategoryDialog } from './DeleteCategoryDialog'
+import { RestoreDefaultsDialog } from './RestoreDefaultsDialog'
 
 interface CategorySyncMethods {
   createCategory: (category: Category) => Promise<Category>
@@ -48,6 +49,7 @@ export function CategorySettingsModal({
     isOpen: false,
     category: null
   })
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
@@ -165,12 +167,18 @@ export function CategorySettingsModal({
   }
 
   const handleRestoreDefaults = () => {
-    const confirmed = window.confirm('Restore all default categories? This will not affect your custom categories.')
-    if (confirmed) {
-      restoreDefaultCategories()
-      loadCategories()
-      onCategoriesChanged?.()
-    }
+    setRestoreDialogOpen(true)
+  }
+
+  const handleConfirmRestore = () => {
+    restoreDefaultCategories()
+    loadCategories()
+    onCategoriesChanged?.()
+    setRestoreDialogOpen(false)
+  }
+
+  const handleCancelRestore = () => {
+    setRestoreDialogOpen(false)
   }
 
   // 拖拽处理函数
@@ -429,6 +437,13 @@ export function CategorySettingsModal({
           onCancel={handleCancelDelete}
         />
       )}
+
+      {/* Restore Defaults Dialog */}
+      <RestoreDefaultsDialog
+        isOpen={restoreDialogOpen}
+        onConfirm={handleConfirmRestore}
+        onCancel={handleCancelRestore}
+      />
     </div>
   )
 }
