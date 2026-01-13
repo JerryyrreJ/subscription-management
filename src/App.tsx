@@ -543,6 +543,7 @@ export function App() {
           categorySync={{
             createCategory
           }}
+          isBarkEnabled={notificationSettings.barkPush.enabled}
         />
 
         <SubscriptionDetailsModal
@@ -562,6 +563,7 @@ export function App() {
             categorySync={{
               createCategory
             }}
+            isBarkEnabled={notificationSettings.barkPush.enabled}
           />
         )}
 

@@ -17,9 +17,10 @@ interface AddSubscriptionModalProps {
   onClose: () => void;
   onAdd: (subscription: Subscription) => void;
   categorySync?: CategorySyncMethods;
+  isBarkEnabled: boolean;
 }
 
-export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync }: AddSubscriptionModalProps) {
+export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isBarkEnabled }: AddSubscriptionModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -339,11 +340,12 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync }: A
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, notificationEnabled: !formData.notificationEnabled })}
+                      disabled={!isBarkEnabled}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 ${
-                        formData.notificationEnabled
+                        formData.notificationEnabled && isBarkEnabled
                           ? 'bg-teal-600'
                           : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
+                      } ${!isBarkEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -352,11 +354,17 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync }: A
                       />
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                    {formData.notificationEnabled
-                      ? 'You will receive reminders for this subscription'
-                      : 'No reminders will be sent for this subscription'}
-                  </p>
+                  {!isBarkEnabled ? (
+                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                      Global notification is disabled. Please enable Bark notifications in Notification Settings first.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                      {formData.notificationEnabled
+                        ? 'You will receive reminders for this subscription'
+                        : 'No reminders will be sent for this subscription'}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
