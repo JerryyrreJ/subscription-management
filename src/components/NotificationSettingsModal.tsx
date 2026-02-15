@@ -1,22 +1,26 @@
 import { useState, useEffect } from 'react';
-import { X, Bell, Send, ChevronDown, ChevronUp, Download, Key, Copy, Globe, ExternalLink } from 'lucide-react';
+import { X, Bell, Send, ChevronDown, ChevronUp, Download, Key, Copy, Globe, ExternalLink, Lock, LogIn } from 'lucide-react';
 import { ReminderSettings } from '../types';
 import { testBarkPush, validateBarkConfig } from '../utils/barkPush';
 import { CustomSelect } from './CustomSelect';
+import { useAuth } from '../contexts/AuthContext';
 
 interface NotificationSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   settings: ReminderSettings;
   onSave: (settings: ReminderSettings) => void;
+  onOpenAuth?: () => void;
 }
 
 export function NotificationSettingsModal({
   isOpen,
   onClose,
   settings,
-  onSave
+  onSave,
+  onOpenAuth
 }: NotificationSettingsModalProps) {
+  const { user } = useAuth();
   const [localSettings, setLocalSettings] = useState<ReminderSettings>(settings);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -70,6 +74,15 @@ export function NotificationSettingsModal({
   }, [settings]);
 
   const handleSave = () => {
+    // If user is not logged in, redirect to login
+    if (!user) {
+      onClose();
+      if (onOpenAuth) {
+        onOpenAuth();
+      }
+      return;
+    }
+
     onSave(localSettings);
     onClose();
   };
@@ -135,6 +148,67 @@ export function NotificationSettingsModal({
             <X className="w-6 h-6" />
           </button>
         </div>
+
+        {/* Login Required Banner - Only show when not logged in */}
+        {!user && (
+          <div className="mx-6 mt-6 mb-0 relative overflow-hidden rounded-xl border-2 border-orange-200 dark:border-orange-900/50 bg-gradient-to-br from-orange-50 via-amber-50 to-red-50 dark:from-orange-950/20 dark:via-amber-950/20 dark:to-red-950/20">
+            {/* Decorative background pattern */}
+            <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
+              <div className="absolute inset-0" style={{
+                backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, currentColor 10px, currentColor 11px)`,
+                color: '#f97316'
+              }} />
+            </div>
+
+            <div className="relative p-5">
+              <div className="flex gap-4">
+                {/* Icon */}
+                <div className="flex-shrink-0">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                    <Lock className="w-6 h-6 text-white" strokeWidth={2.5} />
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1.5 tracking-tight">
+                    Login Required for Automatic Notifications
+                  </h3>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
+                    You can configure and test your settings now, but <strong className="text-orange-900 dark:text-orange-300">automatic push notifications won't work</strong> until you log in.
+                    Our server sends notifications 24/7 — it needs your account to know where to send them.
+                  </p>
+
+                  {/* Feature breakdown */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="flex items-start gap-2">
+                      <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Test push works now</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0" />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Auto notifications need login</span>
+                    </div>
+                  </div>
+
+                  {/* Login button */}
+                  {onOpenAuth && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenAuth();
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white text-sm font-semibold rounded-lg transition-all shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      Login to Enable
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="p-6 space-y-6">
@@ -377,9 +451,20 @@ export function NotificationSettingsModal({
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
+            className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${
+              user
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                : 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white shadow-md hover:shadow-lg'
+            }`}
           >
-            Save Settings
+            {user ? (
+              'Save Settings'
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <LogIn className="w-4 h-4" />
+                Login to Save
+              </span>
+            )}
           </button>
         </div>
       </div>

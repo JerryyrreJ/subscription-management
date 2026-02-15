@@ -638,6 +638,7 @@ export function App() {
           isOpen={isNotificationSettingsModalOpen}
           onClose={() => setIsNotificationSettingsModalOpen(false)}
           settings={notificationSettings}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
           onSave={async (newSettings) => {
             setNotificationSettings(newSettings);
             saveNotificationSettings(newSettings);
