@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 interface UseScrollAnimationOptions {
-  threshold?: number;
-  triggerOnce?: boolean;
+ threshold?: number;
+ triggerOnce?: boolean;
 }
 
 /**
@@ -11,38 +11,38 @@ interface UseScrollAnimationOptions {
  * @param triggerOnce - If true, animation only triggers once, default true
  */
 export function useScrollAnimation({
-  threshold = 0.1,
-  triggerOnce = true
+ threshold = 0.1,
+ triggerOnce = true
 }: UseScrollAnimationOptions = {}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
+ const ref = useRef<HTMLDivElement>(null);
+ const [isVisible, setIsVisible] = useState(false);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          if (triggerOnce && ref.current) {
-            observer.unobserve(ref.current);
-          }
-        } else if (!triggerOnce) {
-          setIsVisible(false);
-        }
-      },
-      { threshold }
-    );
+ useEffect(() => {
+ const observer = new IntersectionObserver(
+ ([entry]) => {
+ if (entry.isIntersecting) {
+ setIsVisible(true);
+ if (triggerOnce && ref.current) {
+ observer.unobserve(ref.current);
+ }
+ } else if (!triggerOnce) {
+ setIsVisible(false);
+ }
+ },
+ { threshold }
+ );
 
-    const currentRef = ref.current;
-    if (currentRef) {
-      observer.observe(currentRef);
-    }
+ const currentRef = ref.current;
+ if (currentRef) {
+ observer.observe(currentRef);
+ }
 
-    return () => {
-      if (currentRef) {
-        observer.unobserve(currentRef);
-      }
-    };
-  }, [threshold, triggerOnce]);
+ return () => {
+ if (currentRef) {
+ observer.unobserve(currentRef);
+ }
+ };
+ }, [threshold, triggerOnce]);
 
-  return { ref, isVisible };
+ return { ref, isVisible };
 }

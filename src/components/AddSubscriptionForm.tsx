@@ -8,186 +8,186 @@ import { CustomSelect } from './CustomSelect';
 import { CustomDatePicker } from './CustomDatePicker';
 
 interface AddSubscriptionFormProps {
-  onAdd: (subscription: Subscription) => void;
+ onAdd: (subscription: Subscription) => void;
 }
 
 export function AddSubscriptionForm({ onAdd }: AddSubscriptionFormProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    category: '',
-    amount: '',
-    currency: DEFAULT_CURRENCY as Currency,
-    period: 'monthly' as Period,
-    lastPaymentDate: '',
-    customDate: '',
-  });
+ const [formData, setFormData] = useState({
+ name: '',
+ category: '',
+ amount: '',
+ currency: DEFAULT_CURRENCY as Currency,
+ period: 'monthly' as Period,
+ lastPaymentDate: '',
+ customDate: '',
+ });
 
-  const [categories, setCategories] = useState<string[]>([]);
+ const [categories, setCategories] = useState<string[]>([]);
 
-  // 获取今天的日期，格式化为 YYYY-MM-DD (使用本地时区)
-  const today = (() => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  })();
+ // 获取今天的日期，格式化为 YYYY-MM-DD (使用本地时区)
+ const today = (() => {
+ const date = new Date();
+ const year = date.getFullYear();
+ const month = String(date.getMonth() + 1).padStart(2, '0');
+ const day = String(date.getDate()).padStart(2, '0');
+ return `${year}-${month}-${day}`;
+ })();
 
-  // 加载类型列表
-  useEffect(() => {
-    setCategories(getAllCategories());
-  }, []);
+ // 加载类型列表
+ useEffect(() => {
+ setCategories(getAllCategories());
+ }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const nextPaymentDate = calculateNextPaymentDate(
-      formData.lastPaymentDate,
-      formData.period,
-      formData.customDate
-    );
+ const handleSubmit = (e: React.FormEvent) => {
+ e.preventDefault();
+ const nextPaymentDate = calculateNextPaymentDate(
+ formData.lastPaymentDate,
+ formData.period,
+ formData.customDate
+ );
 
-    onAdd({
-      id: crypto.randomUUID(),
-      ...formData,
-      amount: parseFloat(formData.amount),
-      nextPaymentDate,
-    });
+ onAdd({
+ id: crypto.randomUUID(),
+ ...formData,
+ amount: parseFloat(formData.amount),
+ nextPaymentDate,
+ });
 
-    setFormData({
-      name: '',
-      category: '',
-      amount: '',
-      currency: DEFAULT_CURRENCY,
-      period: 'monthly',
-      lastPaymentDate: '',
-      customDate: '',
-    });
-  };
+ setFormData({
+ name: '',
+ category: '',
+ amount: '',
+ currency: DEFAULT_CURRENCY,
+ period: 'monthly',
+ lastPaymentDate: '',
+ customDate: '',
+ });
+ };
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-xl shadow-lg max-w-md w-full">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Add Subscription</h2>
-        <Plus className="w-6 h-6 text-indigo-600" />
-      </div>
+ return (
+ <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-3xl shadow-fey max-w-md w-full">
+ <div className="flex items-center justify-between mb-6">
+ <h2 className="text-2xl font-bold text-gray-800 tracking-tight">Add Subscription</h2>
+ <Plus className="w-6 h-6 text-emerald-700 dark:text-emerald-400"/>
+ </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Subscription Name
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            placeholder="Netflix"
-          />
-        </div>
+ <div className="space-y-4">
+ <div>
+ <label className="block text-sm font-medium text-gray-700 mb-1">
+ Subscription Name
+ </label>
+ <input
+ type="text"
+ required
+ value={formData.name}
+ onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+ className="w-full px-4 py-2 border border-gray-300 rounded-2xl-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+ placeholder="Netflix"
+ />
+ </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Category
-          </label>
-          <CustomSelect
-            value={formData.category}
-            onChange={(value) => setFormData({ ...formData, category: value })}
-            options={[
-              { value: '', label: 'Select category' },
-              ...categories.map(cat => ({ value: cat, label: cat }))
-            ]}
-            placeholder="Select category"
-            required={true}
-          />
-        </div>
+ <div>
+ <label className="block text-sm font-medium text-gray-700 mb-1">
+ Category
+ </label>
+ <CustomSelect
+ value={formData.category}
+ onChange={(value) => setFormData({ ...formData, category: value })}
+ options={[
+ { value: '', label: 'Select category' },
+ ...categories.map(cat => ({ value: cat, label: cat }))
+ ]}
+ placeholder="Select category"
+ required={true}
+ />
+ </div>
 
-        <div className="flex gap-3">
-          <div className="w-[30%]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Currency
-            </label>
-            <CustomSelect
-              value={formData.currency}
-              onChange={(value) => setFormData({ ...formData, currency: value as Currency })}
-              options={CURRENCIES.map(currency => ({
-                value: currency.code,
-                label: currency.code
-              }))}
-              required={true}
-            />
-          </div>
-          <div className="w-[70%]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Amount
-            </label>
-            <input
-              type="number"
-              required
-              step="0.01"
-              min="0"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="29.99"
-            />
-          </div>
-        </div>
+ <div className="flex gap-3">
+ <div className="w-[30%]">
+ <label className="block text-sm font-medium text-gray-700 mb-1">
+ Currency
+ </label>
+ <CustomSelect
+ value={formData.currency}
+ onChange={(value) => setFormData({ ...formData, currency: value as Currency })}
+ options={CURRENCIES.map(currency => ({
+ value: currency.code,
+ label: currency.code
+ }))}
+ required={true}
+ />
+ </div>
+ <div className="w-[70%]">
+ <label className="block text-sm font-medium text-gray-700 mb-1">
+ Amount
+ </label>
+ <input
+ type="number"
+ required
+ step="0.01"
+ min="0"
+ value={formData.amount}
+ onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+ className="w-full px-4 py-2 border border-gray-300 rounded-2xl-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+ placeholder="29.99"
+ />
+ </div>
+ </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Payment Period
-          </label>
-          <CustomSelect
-            value={formData.period}
-            onChange={(value) => setFormData({ ...formData, period: value as Period })}
-            options={[
-              { value: 'monthly', label: 'Monthly' },
-              { value: 'yearly', label: 'Yearly' },
-              { value: 'custom', label: 'Custom' }
-            ]}
-            required={true}
-          />
-        </div>
+ <div>
+ <label className="block text-sm font-medium text-gray-700 mb-1">
+ Payment Period
+ </label>
+ <CustomSelect
+ value={formData.period}
+ onChange={(value) => setFormData({ ...formData, period: value as Period })}
+ options={[
+ { value: 'monthly', label: 'Monthly' },
+ { value: 'yearly', label: 'Yearly' },
+ { value: 'custom', label: 'Custom' }
+ ]}
+ required={true}
+ />
+ </div>
 
-        {formData.period === 'custom' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Custom Period (days)
-            </label>
-            <input
-              type="number"
-              required
-              min="1"
-              value={formData.customDate}
-              onChange={(e) => setFormData({ ...formData, customDate: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="30"
-            />
-          </div>
-        )}
+ {formData.period === 'custom' && (
+ <div>
+ <label className="block text-sm font-medium text-gray-700 mb-1">
+ Custom Period (days)
+ </label>
+ <input
+ type="number"
+ required
+ min="1"
+ value={formData.customDate}
+ onChange={(e) => setFormData({ ...formData, customDate: e.target.value })}
+ className="w-full px-4 py-2 border border-gray-300 rounded-2xl-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+ placeholder="30"
+ />
+ </div>
+ )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Last Payment Date
-          </label>
-          <CustomDatePicker
-            value={formData.lastPaymentDate}
-            onChange={(value) => setFormData({ ...formData, lastPaymentDate: value })}
-            maxDate={today}
-            required={true}
-          />
-        </div>
-      </div>
+ <div>
+ <label className="block text-sm font-medium text-gray-700 mb-1">
+ Last Payment Date
+ </label>
+ <CustomDatePicker
+ value={formData.lastPaymentDate}
+ onChange={(value) => setFormData({ ...formData, lastPaymentDate: value })}
+ maxDate={today}
+ required={true}
+ />
+ </div>
+ </div>
 
-      <button
-        type="submit"
-        className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-200"
-      >
-        Add Subscription
-      </button>
-    </form>
-  );
+ <button
+ type="submit"
+ className="w-full bg-emerald-600 dark:bg-emerald-500 text-white py-2 px-4 rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors duration-200"
+ >
+ Add Subscription
+ </button>
+ </form>
+ );
 }
 
 export default AddSubscriptionForm;

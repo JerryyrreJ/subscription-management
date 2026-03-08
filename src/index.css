@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  @apply bg-gray-50 dark:bg-gray-900;
+  @apply bg-[#fcfcfc] dark:bg-zinc-950;
   margin: 0;
   padding: 0;
   transition: background-color 0.3s ease;
@@ -12,11 +12,11 @@ body {
 /* Animated flowing gradient background - Pink to Orange */
 .animated-gradient-bg {
   background: linear-gradient(-45deg,
-    #fff5f5,  /* Very light pink */
-    #fffaf0,  /* Warm cream */
-    #fff4ed,  /* Light peach */
-    #fef6ee,  /* Soft orange tint */
-    #fef3f2   /* Rose tint */
+    #ffffff,  /* Very light pink */
+    #fcfcfc,  /* Warm cream */
+    #f5f5f5,  /* Light peach */
+    #fafafa,  /* Soft orange tint */
+    #fcfcfc   /* Rose tint */
   );
   background-size: 400% 400%;
   animation: gradientFlow 20s ease infinite;
@@ -55,7 +55,7 @@ body {
 .animated-gradient-bg::before {
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, rgba(251, 207, 232, 0.5) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(200, 200, 200, 0.15) 0%, transparent 70%);
   top: -200px;
   left: -200px;
   animation: float 25s ease-in-out infinite;
@@ -64,7 +64,7 @@ body {
 .animated-gradient-bg::after {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(254, 215, 170, 0.5) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(150, 150, 150, 0.1) 0%, transparent 70%);
   bottom: -150px;
   right: -150px;
   animation: float 30s ease-in-out infinite reverse;
@@ -167,7 +167,12 @@ body {
   color: #475569 !important;
   border: 1px solid rgba(226, 232, 240, 0.5) !important;
   font-size: 0.875rem !important;
-  padding: 0.25rem 0.75rem !important;
+  padding: 0 1rem !important;
+  height: 38px !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
   backdrop-filter: blur(8px) !important;
   transition: all 0.2s ease !important;
 }
@@ -383,7 +388,7 @@ body {
   font-weight: 500 !important;
   padding: 4px 8px !important;
   min-height: 28px !important;
-  border-radius: 6px !important;
+  border-radius: 9999px !important;
   backdrop-filter: blur(8px) !important;
   transition: all 0.2s ease !important;
 }

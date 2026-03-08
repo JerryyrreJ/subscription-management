@@ -8,9 +8,9 @@ const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element not found');
 
 createRoot(rootElement).render(
-  <StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  </StrictMode>
+ <StrictMode>
+ <AuthProvider>
+ <App />
+ </AuthProvider>
+ </StrictMode>
 );
