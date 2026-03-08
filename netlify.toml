@@ -38,6 +38,16 @@
     Access-Control-Allow-Headers = "stripe-signature"
     Access-Control-Allow-Methods = "POST"
 
+# Prerender Extension Configuration (optional)
+# The Prerender extension works automatically, but you can customize if needed
+# [[plugins]]
+#   package = "@netlify/plugin-prerender"
+#   [plugins.inputs]
+#     # Specific routes to prerender (if you want to limit)
+#     # routes = ["/", "/pricing", "/about"]
+#     # User agents to trigger prerendering for (defaults include common crawlers)
+#     # userAgents = ["googlebot", "bingbot", "twitterbot"]
+
 # Scheduled Functions Configuration
 # For scheduled functions, the schedule is defined in the function file itself
 # using the `config` export (Netlify Functions v2). No additional netlify.toml config needed.
