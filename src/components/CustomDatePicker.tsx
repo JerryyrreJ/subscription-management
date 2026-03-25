@@ -9,18 +9,30 @@ interface CustomDatePickerProps {
 }
 
 export function CustomDatePicker({ value, onChange, maxDate, required }: CustomDatePickerProps) {
+ const parseLocalDate = (dateStr: string) => {
+ const [year, month, day] = dateStr.split('-').map(Number);
+ return new Date(year, month - 1, day);
+ };
+
+ const formatLocalDate = (date: Date) => {
+ const year = date.getFullYear();
+ const month = String(date.getMonth() + 1).padStart(2, '0');
+ const day = String(date.getDate()).padStart(2, '0');
+ return `${year}-${month}-${day}`;
+ };
+
  const [isOpen, setIsOpen] = useState(false);
  const [currentMonth, setCurrentMonth] = useState<Date>(() => {
- return value ? new Date(value) : new Date();
+ return value ? parseLocalDate(value) : new Date();
  });
  const dropdownRef = useRef<HTMLDivElement>(null);
  const calendarRef = useRef<HTMLDivElement>(null);
 
  // Parse the value to get selected date
- const selectedDate = value ? new Date(value) : null;
+ const selectedDate = value ? parseLocalDate(value) : null;
 
  // Parse maxDate
- const maxDateObj = maxDate ? new Date(maxDate) : new Date();
+ const maxDateObj = maxDate ? parseLocalDate(maxDate) : new Date();
 
  // Get today's date string for comparison (YYYY-MM-DD format)
  const todayStr = (() => {
@@ -63,16 +75,13 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  // Format date for display
  const formatDate = (date: Date | null) => {
  if (!date) return '';
- const year = date.getFullYear();
- const month = String(date.getMonth() + 1).padStart(2, '0');
- const day = String(date.getDate()).padStart(2, '0');
- return `${year}-${month}-${day}`;
+ return formatLocalDate(date);
  };
 
  // Format date for display in input (more readable)
  const formatDisplayDate = (dateStr: string) => {
  if (!dateStr) return 'Select date';
- const date = new Date(dateStr);
+ const date = parseLocalDate(dateStr);
  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
  return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
  };

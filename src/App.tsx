@@ -29,6 +29,7 @@ import { loadNotificationSettings, saveNotificationSettings } from './utils/noti
 import { NotificationSettingsService } from './services/notificationSettingsService';
 import { Footer } from './components/Footer';
 import { config } from './lib/config';
+import { parseDateOnly } from './utils/dates';
 
 export function App() {
  const { user, userProfile, loading, signOut, updateUserEmail, updateUserPassword } = useAuth();
@@ -123,8 +124,8 @@ export function App() {
  break;
  }
  case 'nextPaymentDate': {
- const dateA = new Date(a.nextPaymentDate).getTime();
- const dateB = new Date(b.nextPaymentDate).getTime();
+ const dateA = parseDateOnly(a.nextPaymentDate).getTime();
+ const dateB = parseDateOnly(b.nextPaymentDate).getTime();
  comparison = dateA - dateB;
  break;
  }
@@ -312,13 +313,30 @@ export function App() {
  subscriptionId: string,
  newDates: { lastPaymentDate: string; nextPaymentDate: string }
  ) => {
- const updatedSubscriptions = subscriptions.map(sub =>
- sub.id === subscriptionId
- ? { ...sub, ...newDates }
- : sub
- );
- setSubscriptions(updatedSubscriptions);
+ setSubscriptions(previousSubscriptions => {
+ const updatedSubscriptions = previousSubscriptions.map(sub => {
+ if (sub.id !== subscriptionId) {
+ return sub;
+ }
+
+ if (
+ sub.lastPaymentDate === newDates.lastPaymentDate &&
+ sub.nextPaymentDate === newDates.nextPaymentDate
+ ) {
+ return sub;
+ }
+
+ return { ...sub, ...newDates };
+ });
+
+ const hasChanges = updatedSubscriptions.some((sub, index) => sub !== previousSubscriptions[index]);
+ if (!hasChanges) {
+ return previousSubscriptions;
+ }
+
  saveSubscriptions(updatedSubscriptions);
+ return updatedSubscriptions;
+ });
  };
 
  const toggleTheme = () => {

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendBarkNotification } from '../../src/utils/barkPush'
+import { addBillingPeriodToDate, compareDateOnly, formatDateOnly, getDaysUntil, getTodayDateOnly } from '../../src/utils/dates'
 import type { Config } from '@netlify/functions'
 
 // Supabase 配置（使用 Service Role Key 绕过 RLS）
@@ -42,38 +43,26 @@ function getAutoRenewedDate(
   period: string,
   customDate?: string
 ): string {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const nextPayment = new Date(nextPaymentDate)
-  nextPayment.setHours(0, 0, 0, 0)
+  const today = formatDateOnly(getTodayDateOnly())
 
   // 如果还没到期，返回原始日期
-  if (nextPayment >= today) {
+  if (compareDateOnly(nextPaymentDate, today) >= 0) {
     return nextPaymentDate
   }
 
-  // 计算需要续期的次数，循环直到找到未来的日期
-  const renewedDate = new Date(nextPayment)
+  let renewedDate = nextPaymentDate
 
-  while (renewedDate < today) {
-    switch (period) {
-      case 'monthly':
-        renewedDate.setMonth(renewedDate.getMonth() + 1)
-        break
-      case 'yearly':
-        renewedDate.setFullYear(renewedDate.getFullYear() + 1)
-        break
-      case 'custom':
-        if (customDate) {
-          const customDays = parseInt(customDate)
-          renewedDate.setDate(renewedDate.getDate() + customDays)
-        }
-        break
+  while (compareDateOnly(renewedDate, today) < 0) {
+    const advancedDate = addBillingPeriodToDate(renewedDate, period, customDate)
+
+    if (advancedDate === renewedDate) {
+      break
     }
+
+    renewedDate = advancedDate
   }
 
-  return renewedDate.toISOString().split('T')[0]
+  return renewedDate
 }
 
 /**
@@ -86,17 +75,7 @@ function getDaysUntilPayment(
 ): number {
   // 先自动续费，获取最新的续费日期
   const renewedDate = getAutoRenewedDate(nextPaymentDate, period, customDate)
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const paymentDate = new Date(renewedDate)
-  paymentDate.setHours(0, 0, 0, 0)
-
-  const diffTime = paymentDate.getTime() - today.getTime()
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-  return diffDays
+  return getDaysUntil(renewedDate)
 }
 
 /**

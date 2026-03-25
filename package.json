@@ -8,6 +8,7 @@
     "dev:full": "netlify dev",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "node --experimental-strip-types --test tests/utils/dates.test.ts",
     "preview": "vite preview",
     "test:notifications": "tsx scripts/test-scheduled-function-v2.ts"
   },

@@ -1,4 +1,5 @@
 import { ReminderSettings } from '../types';
+import { getDaysUntil, getTodayDateOnly } from './dates';
 
 const NOTIFICATION_STORAGE_KEY = 'notification_settings';
 
@@ -66,24 +67,15 @@ export function saveNotificationSettings(settings: ReminderSettings): void {
  * 计算距离下次付款的天数
  */
 export function getDaysUntilPayment(nextPaymentDate: string): number {
- const today = new Date();
- today.setHours(0, 0, 0, 0);
-
- const paymentDate = new Date(nextPaymentDate);
- paymentDate.setHours(0, 0, 0, 0);
-
- const diffTime = paymentDate.getTime() - today.getTime();
- const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
- return diffDays;
+ return getDaysUntil(nextPaymentDate);
 }
 
 /**
  * 清理过期的通知历史（超过30天的记录）
  */
 export function cleanupNotificationHistory(settings: ReminderSettings): void {
- const thirtyDaysAgo = new Date();
- thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+ const thirtyDaysAgo = getTodayDateOnly();
+ thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
 
  // 清理 Bark 推送历史
  const cleanedBarkHistory: { [key: string]: string } = {};
@@ -97,4 +89,3 @@ export function cleanupNotificationHistory(settings: ReminderSettings): void {
 
  saveNotificationSettings(settings);
 }
-

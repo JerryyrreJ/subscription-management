@@ -52,10 +52,10 @@ export function SubscriptionDetailsModal({
  <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500"/>
  <div className="space-y-1">
  <div className="text-gray-600 dark:text-gray-300">
- Last payment: {formatDate(new Date(subscription.lastPaymentDate))}
+ Last payment: {formatDate(subscription.lastPaymentDate)}
  </div>
  <div className="text-gray-600 dark:text-gray-300">
- Next payment: {formatDate(new Date(subscription.nextPaymentDate))}
+ Next payment: {formatDate(subscription.nextPaymentDate)}
  </div>
  </div>
  </div>

@@ -3,6 +3,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { sendBarkNotification } from '../src/utils/barkPush'
+import { addBillingPeriodToDate, compareDateOnly, formatDateOnly, getDaysUntil, getTodayDateOnly } from '../src/utils/dates'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
@@ -85,35 +86,22 @@ async function testNotificationLogic() {
     // Check each subscription
     for (const sub of subscriptions) {
       // 自动续费逻辑：如果订阅已过期，计算最新的续费日期
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-
-      let nextPayment = new Date(sub.next_payment_date)
-      nextPayment.setHours(0, 0, 0, 0)
+      const today = formatDateOnly(getTodayDateOnly())
+      let nextPayment = sub.next_payment_date
 
       // 如果已过期，循环续费直到找到未来的日期
-      while (nextPayment < today) {
-        switch (sub.period) {
-          case 'monthly':
-            nextPayment.setMonth(nextPayment.getMonth() + 1)
-            break
-          case 'yearly':
-            nextPayment.setFullYear(nextPayment.getFullYear() + 1)
-            break
-          case 'custom':
-            if (sub.custom_date) {
-              const customDays = parseInt(sub.custom_date)
-              nextPayment.setDate(nextPayment.getDate() + customDays)
-            }
-            break
+      while (compareDateOnly(nextPayment, today) < 0) {
+        const advancedDate = addBillingPeriodToDate(nextPayment, sub.period, sub.custom_date)
+
+        if (advancedDate === nextPayment) {
+          break
         }
+
+        nextPayment = advancedDate
       }
 
-      const renewedDateStr = nextPayment.toISOString().split('T')[0]
-      const daysUntil = Math.ceil(
-        (nextPayment.getTime() - today.getTime()) /
-        (1000 * 60 * 60 * 24)
-      )
+      const renewedDateStr = nextPayment
+      const daysUntil = getDaysUntil(nextPayment)
 
       console.log(`\n  📋 ${sub.name}`)
       console.log(`     Database Date: ${sub.next_payment_date}`)

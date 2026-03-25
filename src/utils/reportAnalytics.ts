@@ -1,5 +1,6 @@
 import { Subscription, Currency, ExchangeRates } from '../types';
 import { convertCurrency } from './currency';
+import { getDateOnlyDay, parseDateOnly } from './dates';
 
 // ===== Type Definitions =====
 
@@ -125,7 +126,7 @@ const isActiveInMonth = (subscription: Subscription, monthStr: string): boolean 
  const monthStart = new Date(year, month - 1, 1);
  const monthEnd = new Date(year, month, 0);
 
- const createdDate = subscription.createdAt ? new Date(subscription.createdAt) : new Date(subscription.lastPaymentDate);
+ const createdDate = subscription.createdAt ? new Date(subscription.createdAt) : parseDateOnly(subscription.lastPaymentDate);
 
  // 如果订阅创建日期晚于月末，说明这个月还不存在该订阅
  if (createdDate > monthEnd) {
@@ -291,8 +292,7 @@ export const generateRenewalHeatmap = (
  }));
 
  subscriptions.forEach(sub => {
- const nextPaymentDate = new Date(sub.nextPaymentDate);
- const dayOfMonth = nextPaymentDate.getDate();
+ const dayOfMonth = getDateOnlyDay(sub.nextPaymentDate);
 
  if (dayOfMonth >= 1 && dayOfMonth <= 31) {
  const monthlyCost = convertCurrency(

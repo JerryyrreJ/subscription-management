@@ -1,6 +1,7 @@
+import { useEffect, useRef } from 'react';
 import { Calendar, AlertCircle } from 'lucide-react';
 import { Subscription } from '../types';
-import { formatDate, getDaysUntil, getAutoRenewedDates } from '../utils/dates';
+import { formatDate, getDaysUntil, getAutoRenewedDates, parseDateOnly, getTodayDateOnly } from '../utils/dates';
 import { formatCurrency } from '../utils/currency';
 
 interface SubscriptionCardProps {
@@ -18,19 +19,31 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  subscription.period,
  subscription.period === 'custom' ? subscription.customDate : undefined
  );
+ const shouldAutoRenew = renewedDates.nextPaymentDate !== subscription.nextPaymentDate;
+ const autoRenewKey = `${subscription.id}:${renewedDates.lastPaymentDate}:${renewedDates.nextPaymentDate}`;
+ const lastAutoRenewKeyRef = useRef<string | null>(null);
 
- // 如果日期发生变化，触发自动续期
- if (renewedDates.nextPaymentDate !== subscription.nextPaymentDate) {
- onAutoRenew(subscription.id, renewedDates);
+ useEffect(() => {
+ if (!shouldAutoRenew) {
+ lastAutoRenewKeyRef.current = null;
+ return;
  }
+
+ if (lastAutoRenewKeyRef.current === autoRenewKey) {
+ return;
+ }
+
+ lastAutoRenewKeyRef.current = autoRenewKey;
+ onAutoRenew(subscription.id, renewedDates);
+ }, [autoRenewKey, onAutoRenew, renewedDates, shouldAutoRenew, subscription.id]);
 
  const daysUntil = getDaysUntil(renewedDates.nextPaymentDate);
  const isUpcoming = daysUntil <= 7 && daysUntil >= 0;
 
  // Calculate progress
- const lastPaymentDate = new Date(renewedDates.lastPaymentDate);
- const nextPaymentDate = new Date(renewedDates.nextPaymentDate);
- const today = new Date();
+ const lastPaymentDate = parseDateOnly(renewedDates.lastPaymentDate);
+ const nextPaymentDate = parseDateOnly(renewedDates.nextPaymentDate);
+ const today = getTodayDateOnly();
  const totalDays = (nextPaymentDate.getTime() - lastPaymentDate.getTime()) / (1000 * 60 * 60 * 24);
  const daysElapsed = (today.getTime() - lastPaymentDate.getTime()) / (1000 * 60 * 60 * 24);
  const progress = Math.min(Math.max((daysElapsed / totalDays) * 100, 0), 100);
@@ -60,8 +73,8 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  <div className="flex items-center space-x-2">
  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-gray-500 flex-shrink-0"/>
  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
- Next: {formatDate(nextPaymentDate)}
- </span>
+    Next: {formatDate(renewedDates.nextPaymentDate)}
+    </span>
  </div>
 
  {isUpcoming && (
