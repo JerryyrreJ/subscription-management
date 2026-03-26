@@ -32,8 +32,50 @@ export function useSubscriptionSync(
 ): UseSyncReturn {
  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
- const isSyncingRef = useRef(false)
- const isUploadingRef = useRef(false)
+ const activeCloudTaskRef = useRef<Promise<Subscription[]> | null>(null)
+ const statusResetTimeoutRef = useRef<number | null>(null)
+
+ const scheduleStatusReset = useCallback((nextStatus: SyncStatus, delayMs: number) => {
+  setSyncStatus(nextStatus)
+
+  if (statusResetTimeoutRef.current) {
+   window.clearTimeout(statusResetTimeoutRef.current)
+  }
+
+  statusResetTimeoutRef.current = window.setTimeout(() => {
+   setSyncStatus('idle')
+   statusResetTimeoutRef.current = null
+  }, delayMs)
+ }, [])
+
+ const runCloudTask = useCallback(async (
+  task: () => Promise<Subscription[]>,
+  fallback: () => Subscription[]
+ ): Promise<Subscription[]> => {
+  if (activeCloudTaskRef.current) {
+   return activeCloudTaskRef.current
+  }
+
+  const activeTask = (async () => {
+   setSyncStatus('syncing')
+
+   try {
+    const result = await task()
+    setLastSyncTime(new Date())
+    scheduleStatusReset('success', 3000)
+    return result
+   } catch (error) {
+    console.error('Cloud subscription task failed:', error)
+    scheduleStatusReset('error', 5000)
+    return fallback()
+   } finally {
+    activeCloudTaskRef.current = null
+   }
+  })()
+
+  activeCloudTaskRef.current = activeTask
+  return activeTask
+ }, [scheduleStatusReset])
 
  const queueOperation = useCallback((operation: Omit<PendingSyncOperation, 'id'>): PendingSyncOperation[] => {
  const pendingOperation: PendingSyncOperation = {
@@ -53,94 +95,53 @@ export function useSubscriptionSync(
 
  // 同步订阅数据
  const syncSubscriptions = useCallback(async (): Promise<Subscription[]> => {
- if (!config.features.cloudSync || !user || isSyncingRef.current) {
- console.log('Sync skipped:', { cloudSync: config.features.cloudSync, user: !!user, isSyncing: isSyncingRef.current })
- return loadSubscriptions() // 直接从存储返回，避免状态依赖
- }
+  if (!config.features.cloudSync || !user) {
+   console.log('Sync skipped:', { cloudSync: config.features.cloudSync, user: !!user })
+   return loadSubscriptions()
+  }
 
- console.log('Starting sync for user:', user.email)
- isSyncingRef.current = true
- setSyncStatus('syncing')
+  if (activeCloudTaskRef.current) {
+   console.log('Sync joined existing cloud task')
+   return activeCloudTaskRef.current
+  }
 
- try {
- const currentSubscriptions = loadSubscriptions() // 从存储获取最新数据
- const pendingOperations = loadPendingSyncOperations()
- const syncResult = await SubscriptionService.syncSubscriptions(
- currentSubscriptions,
- pendingOperations
- )
+  console.log('Starting sync for user:', user.email)
+  return runCloudTask(async () => {
+   const currentSubscriptions = loadSubscriptions()
+   const pendingOperations = loadPendingSyncOperations()
+   const syncResult = await SubscriptionService.syncSubscriptions(
+    currentSubscriptions,
+    pendingOperations
+   )
 
- setSubscriptions(syncResult.subscriptions)
- saveSubscriptions(syncResult.subscriptions)
- savePendingSyncOperations(syncResult.pendingOperations)
- setSyncStatus('success')
- setLastSyncTime(new Date())
+   setSubscriptions(syncResult.subscriptions)
+   saveSubscriptions(syncResult.subscriptions)
+   savePendingSyncOperations(syncResult.pendingOperations)
 
- // 立即重置同步标志，然后延迟重置状态
- isSyncingRef.current = false
-
- // 3秒后重置状态
- setTimeout(() => {
- setSyncStatus('idle')
- }, 3000)
-
- return syncResult.subscriptions
- } catch (error) {
- console.error('Sync failed:', error)
- setSyncStatus('error')
-
- // 立即重置同步标志，然后延迟重置状态
- isSyncingRef.current = false
-
- // 5秒后重置状态
- setTimeout(() => {
- setSyncStatus('idle')
- }, 5000)
-
- return loadSubscriptions() // 返回存储中的数据
- }
- }, [user, setSubscriptions]) // 移除subscriptions依赖避免无限重新创建
+   return syncResult.subscriptions
+  }, () => loadSubscriptions())
+ }, [runCloudTask, user, setSubscriptions])
 
  // 上传本地数据到云端（用户首次登录时）
  const uploadLocalData = useCallback(async (localSubscriptions: Subscription[]): Promise<Subscription[]> => {
- if (!config.features.cloudSync || !user || localSubscriptions.length === 0 || isUploadingRef.current) {
- return localSubscriptions
- }
+  if (!config.features.cloudSync || !user || localSubscriptions.length === 0) {
+   return localSubscriptions
+  }
 
- isUploadingRef.current = true
- setSyncStatus('syncing')
+  if (activeCloudTaskRef.current) {
+   console.log('Upload joined existing cloud task')
+   return activeCloudTaskRef.current
+  }
 
- try {
- console.log('Uploading local data to cloud...')
- const cloudSubscriptions = await SubscriptionService.uploadLocalSubscriptions(localSubscriptions)
- setSubscriptions(cloudSubscriptions)
- saveSubscriptions(cloudSubscriptions)
- clearPendingSyncOperations()
- setSyncStatus('success')
- setLastSyncTime(new Date())
-
- // 立即重置上传标志，然后延迟重置状态
- isUploadingRef.current = false
-
- setTimeout(() => {
- setSyncStatus('idle')
- }, 3000)
-
- return cloudSubscriptions
- } catch (error) {
- console.error('Upload failed:', error)
- setSyncStatus('error')
-
- // 立即重置上传标志，然后延迟重置状态
- isUploadingRef.current = false
-
- setTimeout(() => {
- setSyncStatus('idle')
- }, 5000)
-
- return localSubscriptions
- }
- }, [user, setSubscriptions])
+  console.log('Uploading local data to cloud...')
+  return runCloudTask(async () => {
+   const cloudSubscriptions = await SubscriptionService.uploadLocalSubscriptions(localSubscriptions)
+   setSubscriptions(cloudSubscriptions)
+   saveSubscriptions(cloudSubscriptions)
+   clearPendingSyncOperations()
+   return cloudSubscriptions
+  }, () => localSubscriptions)
+ }, [runCloudTask, user, setSubscriptions])
 
  // 创建订阅（自动同步）
  const createSubscription = useCallback(async (subscription: Subscription | Omit<Subscription, 'id'>): Promise<Subscription> => {

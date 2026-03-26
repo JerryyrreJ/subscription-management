@@ -2,6 +2,21 @@ import { ReminderSettings } from '../types';
 import { getDaysUntil, getTodayDateOnly } from './dates';
 
 const NOTIFICATION_STORAGE_KEY = 'notification_settings';
+const NOTIFICATION_HISTORY_RETENTION_DAYS = 30;
+
+const normalizeNotificationSettings = (settings: Partial<ReminderSettings> & { browserNotification?: unknown }): ReminderSettings => {
+ const defaultSettings = getDefaultNotificationSettings();
+
+ return {
+  barkPush: {
+   enabled: settings.barkPush?.enabled ?? defaultSettings.barkPush.enabled,
+   serverUrl: settings.barkPush?.serverUrl || defaultSettings.barkPush.serverUrl,
+   deviceKey: settings.barkPush?.deviceKey || defaultSettings.barkPush.deviceKey,
+   daysBefore: settings.barkPush?.daysBefore ?? defaultSettings.barkPush.daysBefore,
+   notificationHistory: settings.barkPush?.notificationHistory || {}
+  }
+ };
+};
 
 /**
  * 获取默认通知设置（简化版 - 只保留 Bark）
@@ -28,24 +43,14 @@ export function loadNotificationSettings(): ReminderSettings {
  return getDefaultNotificationSettings();
  }
 
- const settings = JSON.parse(stored) as any;
+ const parsedSettings = JSON.parse(stored) as Partial<ReminderSettings> & { browserNotification?: unknown };
+ const cleanedSettings = cleanupNotificationHistory(normalizeNotificationSettings(parsedSettings));
 
- // 数据迁移：移除旧的 browserNotification 字段
- if (settings.browserNotification) {
- delete settings.browserNotification;
+ if (JSON.stringify(parsedSettings) !== JSON.stringify(cleanedSettings)) {
+  localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(cleanedSettings));
  }
 
- // 确保 barkPush 字段存在
- if (!settings.barkPush) {
- settings.barkPush = getDefaultNotificationSettings().barkPush;
- }
-
- // 确保 notificationHistory 字段存在
- if (!settings.barkPush.notificationHistory) {
- settings.barkPush.notificationHistory = {};
- }
-
- return settings as ReminderSettings;
+ return cleanedSettings;
  } catch (error) {
  console.error('Failed to load notification settings:', error);
  return getDefaultNotificationSettings();
@@ -57,7 +62,8 @@ export function loadNotificationSettings(): ReminderSettings {
  */
 export function saveNotificationSettings(settings: ReminderSettings): void {
  try {
- localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(settings));
+ const cleanedSettings = cleanupNotificationHistory(normalizeNotificationSettings(settings));
+ localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(cleanedSettings));
  } catch (error) {
  console.error('Failed to save notification settings:', error);
  }
@@ -73,19 +79,24 @@ export function getDaysUntilPayment(nextPaymentDate: string): number {
 /**
  * 清理过期的通知历史（超过30天的记录）
  */
-export function cleanupNotificationHistory(settings: ReminderSettings): void {
- const thirtyDaysAgo = getTodayDateOnly();
- thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+export function cleanupNotificationHistory(settings: ReminderSettings): ReminderSettings {
+ const retentionStart = getTodayDateOnly();
+ retentionStart.setUTCDate(retentionStart.getUTCDate() - NOTIFICATION_HISTORY_RETENTION_DAYS);
 
  // 清理 Bark 推送历史
  const cleanedBarkHistory: { [key: string]: string } = {};
  Object.entries(settings.barkPush.notificationHistory).forEach(([id, dateStr]) => {
  const date = new Date(dateStr);
- if (date >= thirtyDaysAgo) {
+ if (!Number.isNaN(date.getTime()) && date >= retentionStart) {
  cleanedBarkHistory[id] = dateStr;
  }
  });
- settings.barkPush.notificationHistory = cleanedBarkHistory;
 
- saveNotificationSettings(settings);
+ return {
+  ...settings,
+  barkPush: {
+   ...settings.barkPush,
+   notificationHistory: cleanedBarkHistory
+  }
+ };
 }

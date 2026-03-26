@@ -189,26 +189,13 @@ export class SubscriptionService {
  // 1. 获取云端现有数据进行去重检查
  const cloudSubscriptions = await this.getSubscriptions()
 
- // 2. 创建内容指纹，用于检测重复内容
- const createContentKey = (sub: Subscription) =>
- `${sub.name}-${sub.amount}-${sub.currency}-${sub.period}`
-
- // 3. 创建云端数据的内容映射
- const cloudContentKeys = new Set(cloudSubscriptions.map(createContentKey))
+ // 2. 仅按订阅ID去重，允许不同订阅拥有相同内容
  const cloudIds = new Set(cloudSubscriptions.map(s => s.id))
 
- // 4. 过滤需要上传的订阅（避免重复）
+ // 3. 过滤需要上传的订阅（避免重复）
  const subsToUpload = subscriptions.filter(sub => {
- const hasIdDuplicate = cloudIds.has(sub.id)
- const hasContentDuplicate = cloudContentKeys.has(createContentKey(sub))
-
- if (hasIdDuplicate) {
+ if (cloudIds.has(sub.id)) {
  console.log(`Skipping upload for ${sub.name}: ID already exists in cloud`)
- return false
- }
-
- if (hasContentDuplicate) {
- console.log(`Skipping upload for ${sub.name}: Content already exists in cloud`)
  return false
  }
 

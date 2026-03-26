@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { ReminderSettings } from '../types'
 import { config } from '../lib/config'
+import { cleanupNotificationHistory } from '../utils/notificationChecker'
 
 export interface SupabaseNotificationSettings {
  id: string
@@ -35,7 +36,13 @@ export class NotificationSettingsService {
  throw error
  }
 
- return this.transformFromSupabase(data)
+ const settings = cleanupNotificationHistory(this.transformFromSupabase(data))
+
+ if (!this.hasSameHistory(data.bark_history || {}, settings.barkPush.notificationHistory)) {
+  await this.persistHistory(data.user_id, settings.barkPush.notificationHistory)
+ }
+
+ return settings
  }
 
  // 保存/更新通知设置
@@ -49,7 +56,8 @@ export class NotificationSettingsService {
  throw new Error('User not authenticated')
  }
 
- const supabaseData = this.transformToSupabase(settings, user.id)
+ const cleanedSettings = cleanupNotificationHistory(settings)
+ const supabaseData = this.transformToSupabase(cleanedSettings, user.id)
 
  // 使用 upsert 自动处理插入/更新
  const { data, error } = await supabase
@@ -63,7 +71,7 @@ export class NotificationSettingsService {
  throw error
  }
 
- return this.transformFromSupabase(data)
+ return cleanupNotificationHistory(this.transformFromSupabase(data))
  }
 
  // 更新推送历史记录（用于后端定时任务）
@@ -84,21 +92,18 @@ export class NotificationSettingsService {
  }
 
  // 更新历史记录
- const updatedHistory = {
- ...settings.barkPush.notificationHistory,
- [subscriptionId]: timestamp
- }
+ const updatedSettings = cleanupNotificationHistory({
+  ...settings,
+  barkPush: {
+   ...settings.barkPush,
+   notificationHistory: {
+    ...settings.barkPush.notificationHistory,
+    [subscriptionId]: timestamp
+   }
+  }
+ })
 
- // 保存回云端
- const { error } = await supabase
- .from('user_notification_settings')
- .update({ bark_history: updatedHistory })
- .eq('user_id', user.id)
-
- if (error) {
- console.error('Error updating notification history:', error)
- throw error
- }
+ await this.persistHistory(user.id, updatedSettings.barkPush.notificationHistory)
  }
 
  // 数据格式转换：Supabase -> App
@@ -124,6 +129,36 @@ export class NotificationSettingsService {
  bark_days_before: settings.barkPush.daysBefore,
  bark_history: settings.barkPush.notificationHistory || {}
  }
+ }
+
+ private static hasSameHistory(
+  left: Record<string, string>,
+  right: Record<string, string>
+ ): boolean {
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+
+  if (leftKeys.length !== rightKeys.length) {
+   return false
+  }
+
+  return leftKeys.every(key => left[key] === right[key])
+ }
+
+ private static async persistHistory(userId: string, history: Record<string, string>): Promise<void> {
+  if (!supabase) {
+   throw new Error('Cloud sync not available')
+  }
+
+  const { error } = await supabase
+  .from('user_notification_settings')
+  .update({ bark_history: history })
+  .eq('user_id', userId)
+
+  if (error) {
+   console.error('Error updating notification history:', error)
+   throw error
+  }
  }
 
  // 检查用户是否配置了通知设置

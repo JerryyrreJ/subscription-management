@@ -23,92 +23,92 @@ export function useCategorySync(
 ): UseCategorySyncReturn {
  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
- const isSyncingRef = useRef(false)
- const isUploadingRef = useRef(false)
+ const activeCloudTaskRef = useRef<Promise<Category[]> | null>(null)
+ const statusResetTimeoutRef = useRef<number | null>(null)
+
+ const scheduleStatusReset = useCallback((nextStatus: SyncStatus, delayMs: number) => {
+  setSyncStatus(nextStatus)
+
+  if (statusResetTimeoutRef.current) {
+   window.clearTimeout(statusResetTimeoutRef.current)
+  }
+
+  statusResetTimeoutRef.current = window.setTimeout(() => {
+   setSyncStatus('idle')
+   statusResetTimeoutRef.current = null
+  }, delayMs)
+ }, [])
+
+ const runCloudTask = useCallback(async (
+  task: () => Promise<Category[]>,
+  fallback: () => Category[]
+ ): Promise<Category[]> => {
+  if (activeCloudTaskRef.current) {
+   return activeCloudTaskRef.current
+  }
+
+  const activeTask = (async () => {
+   setSyncStatus('syncing')
+
+   try {
+    const result = await task()
+    setLastSyncTime(new Date())
+    scheduleStatusReset('success', 3000)
+    return result
+   } catch (error) {
+    console.error('Cloud category task failed:', error)
+    scheduleStatusReset('error', 5000)
+    return fallback()
+   } finally {
+    activeCloudTaskRef.current = null
+   }
+  })()
+
+  activeCloudTaskRef.current = activeTask
+  return activeTask
+ }, [scheduleStatusReset])
 
  // 同步类别数据
  const syncCategories = useCallback(async (): Promise<Category[]> => {
- if (!config.features.cloudSync || !user || isSyncingRef.current) {
- console.log('Category sync skipped:', { cloudSync: config.features.cloudSync, user: !!user, isSyncing: isSyncingRef.current })
- return loadCategories()
- }
+  if (!config.features.cloudSync || !user) {
+   console.log('Category sync skipped:', { cloudSync: config.features.cloudSync, user: !!user })
+   return loadCategories()
+  }
 
- console.log('Starting category sync for user:', user.email)
- isSyncingRef.current = true
- setSyncStatus('syncing')
+  if (activeCloudTaskRef.current) {
+   console.log('Category sync joined existing cloud task')
+   return activeCloudTaskRef.current
+  }
 
- try {
- const currentCategories = loadCategories()
- const syncedCategories = await CategoryService.syncCategories(currentCategories)
- saveCategories(syncedCategories)
- onCategoriesChange?.(syncedCategories)
- setSyncStatus('success')
- setLastSyncTime(new Date())
-
- // 立即重置同步标志，然后延迟重置状态
- isSyncingRef.current = false
-
- // 3秒后重置状态
- setTimeout(() => {
- setSyncStatus('idle')
- }, 3000)
-
- return syncedCategories
- } catch (error) {
- console.error('Category sync failed:', error)
- setSyncStatus('error')
-
- // 立即重置同步标志，然后延迟重置状态
- isSyncingRef.current = false
-
- // 5秒后重置状态
- setTimeout(() => {
- setSyncStatus('idle')
- }, 5000)
-
- return loadCategories()
- }
- }, [user, onCategoriesChange])
+  console.log('Starting category sync for user:', user.email)
+  return runCloudTask(async () => {
+   const currentCategories = loadCategories()
+   const syncedCategories = await CategoryService.syncCategories(currentCategories)
+   saveCategories(syncedCategories)
+   onCategoriesChange?.(syncedCategories)
+   return syncedCategories
+  }, () => loadCategories())
+ }, [runCloudTask, user, onCategoriesChange])
 
  // 上传本地类别到云端（用户首次登录时）
  const uploadLocalCategories = useCallback(async (localCategories: Category[]): Promise<Category[]> => {
- if (!config.features.cloudSync || !user || localCategories.length === 0 || isUploadingRef.current) {
- return localCategories
- }
+  if (!config.features.cloudSync || !user || localCategories.length === 0) {
+   return localCategories
+  }
 
- isUploadingRef.current = true
- setSyncStatus('syncing')
+  if (activeCloudTaskRef.current) {
+   console.log('Category upload joined existing cloud task')
+   return activeCloudTaskRef.current
+  }
 
- try {
- console.log('Uploading local categories to cloud...')
- const cloudCategories = await CategoryService.uploadLocalCategories(localCategories)
- saveCategories(cloudCategories)
- onCategoriesChange?.(cloudCategories)
- setSyncStatus('success')
- setLastSyncTime(new Date())
-
- // 立即重置上传标志，然后延迟重置状态
- isUploadingRef.current = false
-
- setTimeout(() => {
- setSyncStatus('idle')
- }, 3000)
-
- return cloudCategories
- } catch (error) {
- console.error('Category upload failed:', error)
- setSyncStatus('error')
-
- // 立即重置上传标志，然后延迟重置状态
- isUploadingRef.current = false
-
- setTimeout(() => {
- setSyncStatus('idle')
- }, 5000)
-
- return localCategories
- }
- }, [user, onCategoriesChange])
+  console.log('Uploading local categories to cloud...')
+  return runCloudTask(async () => {
+   const cloudCategories = await CategoryService.uploadLocalCategories(localCategories)
+   saveCategories(cloudCategories)
+   onCategoriesChange?.(cloudCategories)
+   return cloudCategories
+  }, () => localCategories)
+ }, [runCloudTask, user, onCategoriesChange])
 
  // 创建类别（自动同步）
  const createCategory = useCallback(async (category: Category): Promise<Category> => {

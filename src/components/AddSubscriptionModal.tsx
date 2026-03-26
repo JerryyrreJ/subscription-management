@@ -4,6 +4,7 @@ import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 import { getAllCategories, getAllCategoriesWithDetails, addCustomCategory } from '../utils/categories';
+import { MAX_SUBSCRIPTION_AMOUNT, validateSubscriptionAmount } from '../utils/subscriptionValidation';
 import { CustomSelect } from './CustomSelect';
 import { CustomDatePicker } from './CustomDatePicker';
 import type { Category } from '../utils/categories';
@@ -98,6 +99,12 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isB
  setIsSubmitting(true);
 
  try {
+ const amountError = validateSubscriptionAmount(formData.amount);
+ if (amountError) {
+  alert(amountError);
+  return;
+ }
+
  const nextPaymentDate = calculateNextPaymentDate(
  formData.lastPaymentDate,
  formData.period,
@@ -107,7 +114,7 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isB
  onAdd({
  id: crypto.randomUUID(),
  ...formData,
- amount: parseFloat(formData.amount),
+ amount: Number(formData.amount),
  nextPaymentDate,
  createdAt: new Date().toISOString(),
  });
@@ -264,14 +271,15 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isB
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
  Amount
  </label>
- <input
- type="number"
- required
- step="0.01"
- min="0"
- value={formData.amount}
- onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
- className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+  <input
+  type="number"
+  required
+  step="0.01"
+  min="0"
+  max={MAX_SUBSCRIPTION_AMOUNT}
+  value={formData.amount}
+  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
  placeholder="29.99"
  />
  </div>

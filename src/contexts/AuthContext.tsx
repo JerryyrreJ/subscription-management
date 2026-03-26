@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { UserProfile, UserProfileService } from '../services/userProfileService'
@@ -29,14 +29,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
  const [session, setSession] = useState<Session | null>(null)
  const [loading, setLoading] = useState(true)
+ const hasCleanedAuthUrlRef = useRef(false)
+
+ const hasAuthParamsInUrl = () => {
+  if (typeof window === 'undefined') {
+   return false
+  }
+
+  const url = new URL(window.location.href)
+  return url.hash.includes('access_token') ||
+   url.hash.includes('refresh_token') ||
+   url.searchParams.has('code')
+ }
 
  // 清理URL中的敏感认证参数
  const cleanUrlFromAuthParams = () => {
  if (typeof window !== 'undefined') {
  const url = new URL(window.location.href)
- const hasAuthParams = url.hash.includes('access_token') ||
- url.hash.includes('refresh_token') ||
- url.searchParams.has('code')
+ const hasAuthParams = hasAuthParamsInUrl()
 
  if (hasAuthParams) {
  console.log('🔒 Cleaning sensitive auth parameters from URL for security')
@@ -63,6 +73,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  console.log('✅ Security: URL cleaned successfully')
  }
  }
+ }
+
+ const cleanAuthUrlAfterSessionEstablished = (nextSession: Session | null, source: 'getSession' | 'authStateChange') => {
+  if (!nextSession?.user || hasCleanedAuthUrlRef.current || !hasAuthParamsInUrl()) {
+   return
+  }
+
+  console.log(`🔒 Cleaning auth URL after session established via ${source}`)
+  cleanUrlFromAuthParams()
+  hasCleanedAuthUrlRef.current = true
  }
 
  // 安全检查函数
@@ -189,16 +209,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  setUser(null)
  setUserProfile(null)
  } else {
- setSession(session)
- setUser(session?.user ?? null)
+  setSession(session)
+  setUser(session?.user ?? null)
 
- // 如果有用户，异步获取用户资料并清理URL（不阻塞认证完成）
- if (session?.user) {
- cleanUrlFromAuthParams()
- // 异步获取用户资料，不阻塞认证流程
- fetchUserProfile(session.user.id).catch(profileError => {
- console.error('Error fetching user profile:', profileError)
- })
+  cleanAuthUrlAfterSessionEstablished(session, 'getSession')
+
+  // 如果有用户，异步获取用户资料（不阻塞认证完成）
+  if (session?.user) {
+  fetchUserProfile(session.user.id).catch(profileError => {
+  console.error('Error fetching user profile:', profileError)
+  })
  }
  }
  } catch (error) {
@@ -220,15 +240,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  async (event, session) => {
  console.log('Auth state changed:', event, session?.user?.email)
 
- try {
- // 在处理认证状态变化后立即清理URL
- if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
- cleanUrlFromAuthParams()
- // 刷新记住登录时间戳
- refreshRememberMeTimestamp()
- }
+  try {
+  if (event === 'SIGNED_IN') {
+  cleanAuthUrlAfterSessionEstablished(session, 'authStateChange')
+  refreshRememberMeTimestamp()
+  }
 
- // 执行安全检查
+  // 执行安全检查
  const isSecure = performSecurityChecks(session)
  if (session?.user && !isSecure) {
  console.error('❌ Security: Session failed security checks, signing out')
@@ -239,15 +257,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  setSession(session)
  setUser(session?.user ?? null)
 
- if (session?.user) {
- // 用户登录，异步获取资料（不阻塞状态变化）
- fetchUserProfile(session.user.id).catch(profileError => {
- console.error('Error fetching user profile during auth state change:', profileError)
- })
- } else {
- // 用户登出，清空资料
- setUserProfile(null)
- }
+  if (session?.user) {
+  // 用户登录，异步获取资料（不阻塞状态变化）
+  fetchUserProfile(session.user.id).catch(profileError => {
+  console.error('Error fetching user profile during auth state change:', profileError)
+  })
+  } else {
+  // 用户登出，清空资料
+  hasCleanedAuthUrlRef.current = false
+  setUserProfile(null)
+  }
  } catch (error) {
  console.error('Error during auth state change:', error)
  } finally {
