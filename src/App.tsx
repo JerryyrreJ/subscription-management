@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, BarChart3 } from 'lucide-react';
-import { Subscription, ViewMode, Theme, SortConfig, ReminderSettings, Currency, ExchangeRates } from './types';
+import {
+ Subscription,
+ ViewMode,
+ Theme,
+ SortConfig,
+ ReminderSettings,
+ Currency,
+ ExchangeRates,
+ ExchangeRateSource
+} from './types';
 import { Dashboard } from './components/Dashboard';
 import { AddSubscriptionModal } from './components/AddSubscriptionModal';
 import { SubscriptionCard } from './components/SubscriptionCard';
@@ -20,11 +29,21 @@ import { UserMenu } from './components/UserMenu';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
 import { useCategorySync } from './hooks/useCategorySync';
-import { loadSubscriptions, saveSubscriptions } from './utils/storage';
+import { loadSubscriptions } from './utils/storage';
 import { loadCategories } from './utils/categories';
 import { CategoryService } from './services/categoryService';
-import { convertCurrency, DEFAULT_CURRENCY, getCachedExchangeRates } from './utils/currency';
-import { exportData, importData, validateImportData, ExportData } from './utils/exportImport';
+import {
+ convertCurrency,
+ DEFAULT_CURRENCY,
+ getCachedExchangeRatesWithStatus
+} from './utils/currency';
+import {
+ buildCategoryImportPlan,
+ buildSubscriptionImportPlan,
+ exportData,
+ validateImportData,
+ ExportData
+} from './utils/exportImport';
 import { loadNotificationSettings, saveNotificationSettings } from './utils/notificationChecker';
 import { NotificationSettingsService } from './services/notificationSettingsService';
 import { Footer } from './components/Footer';
@@ -59,6 +78,8 @@ export function App() {
  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
+ const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');
+ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>();
 
  // 使用数据同步Hook
  const {
@@ -68,13 +89,12 @@ export function App() {
  uploadLocalData,
  createSubscription,
  updateSubscription,
+ updateSubscriptionsBatch,
  deleteSubscription
- } = useSubscriptionSync(user, subscriptions, setSubscriptions);
+ } = useSubscriptionSync(user, setSubscriptions);
 
  // 使用类别同步Hook
  const {
- syncStatus: categorySyncStatus,
- lastSyncTime: categoryLastSyncTime,
  syncCategories,
  uploadLocalCategories,
  createCategory,
@@ -164,10 +184,15 @@ export function App() {
  }
 
  // 加载汇率数据
- getCachedExchangeRates(baseCurrency).then(rates => {
- setExchangeRates(rates);
+ getCachedExchangeRatesWithStatus(baseCurrency).then(result => {
+ setExchangeRates(result.rates);
+ setExchangeRateSource(result.source);
+ setExchangeRateError(result.error);
  }).catch(error => {
  console.error('Failed to load exchange rates:', error);
+ setExchangeRates({});
+ setExchangeRateSource('fallback');
+ setExchangeRateError(error instanceof Error ? error.message : 'Failed to load exchange rates');
  });
  }, [baseCurrency]);
 
@@ -309,34 +334,30 @@ export function App() {
  setIsEditModalOpen(true);
  };
 
- const handleAutoRenew = (
+ const handleAutoRenew = async (
  subscriptionId: string,
  newDates: { lastPaymentDate: string; nextPaymentDate: string }
  ) => {
- setSubscriptions(previousSubscriptions => {
- const updatedSubscriptions = previousSubscriptions.map(sub => {
- if (sub.id !== subscriptionId) {
- return sub;
+ const targetSubscription = subscriptions.find(sub => sub.id === subscriptionId);
+ if (!targetSubscription) {
+ return;
  }
 
  if (
- sub.lastPaymentDate === newDates.lastPaymentDate &&
- sub.nextPaymentDate === newDates.nextPaymentDate
+ targetSubscription.lastPaymentDate === newDates.lastPaymentDate &&
+ targetSubscription.nextPaymentDate === newDates.nextPaymentDate
  ) {
- return sub;
+ return;
  }
 
- return { ...sub, ...newDates };
+ try {
+ await updateSubscription({
+ ...targetSubscription,
+ ...newDates
  });
-
- const hasChanges = updatedSubscriptions.some((sub, index) => sub !== previousSubscriptions[index]);
- if (!hasChanges) {
- return previousSubscriptions;
+ } catch (error) {
+ console.error('Failed to auto renew subscription:', error);
  }
-
- saveSubscriptions(updatedSubscriptions);
- return updatedSubscriptions;
- });
  };
 
  const toggleTheme = () => {
@@ -356,10 +377,14 @@ export function App() {
  // 刷新汇率
  const handleRefreshRates = async () => {
  try {
- const rates = await getCachedExchangeRates(baseCurrency);
- setExchangeRates(rates);
+ const result = await getCachedExchangeRatesWithStatus(baseCurrency);
+ setExchangeRates(result.rates);
+ setExchangeRateSource(result.source);
+ setExchangeRateError(result.error);
  } catch (error) {
  console.error('Failed to refresh exchange rates:', error);
+ setExchangeRateSource('fallback');
+ setExchangeRateError(error instanceof Error ? error.message : 'Failed to refresh exchange rates');
  throw error;
  }
  };
@@ -403,15 +428,45 @@ export function App() {
  if (!importPreviewData) return;
 
  try {
- // 创建临时文件对象用于导入
- const blob = new Blob([JSON.stringify(importPreviewData)], { type: 'application/json' });
- const file = new File([blob], 'import.json', { type: 'application/json' });
+ const currentSubscriptions = loadSubscriptions();
+ const subscriptionPlan = buildSubscriptionImportPlan(
+  currentSubscriptions,
+  importPreviewData.subscriptions
+ );
 
- await importData(file);
+ for (const subscriptionId of subscriptionPlan.deleteIds) {
+  await deleteSubscription(subscriptionId);
+ }
 
- // 重新加载数据
- const newSubscriptions = loadSubscriptions();
- setSubscriptions(newSubscriptions);
+ for (const subscription of subscriptionPlan.update) {
+  await updateSubscription(subscription);
+ }
+
+ for (const subscription of subscriptionPlan.create) {
+  await createSubscription(subscription);
+ }
+
+ if (importPreviewData.categories) {
+  const currentCategories = loadCategories();
+  const categoryPlan = buildCategoryImportPlan(
+   currentCategories,
+   importPreviewData.categories
+  );
+
+  for (const categoryId of categoryPlan.deleteIds) {
+   await deleteCategorySync(categoryId);
+  }
+
+  for (const category of categoryPlan.update) {
+   await updateCategory(category);
+  }
+
+  for (const category of categoryPlan.create) {
+   await createCategory(category);
+  }
+ }
+
+ setSubscriptions(loadSubscriptions());
 
  // 关闭模态框
  setIsImportModalOpen(false);
@@ -522,6 +577,8 @@ export function App() {
  baseCurrency={baseCurrency}
  onBaseCurrencyChange={setBaseCurrency}
  exchangeRates={exchangeRates}
+ exchangeRateSource={exchangeRateSource}
+ exchangeRateError={exchangeRateError}
  onRefreshRates={handleRefreshRates}
  />
 
@@ -629,9 +686,8 @@ export function App() {
  // 类型变更时，重新加载订阅列表以确保UI更新
  setSubscriptions([...subscriptions]);
  }}
- onUpdateSubscriptions={(updatedSubscriptions) => {
- setSubscriptions(updatedSubscriptions);
- saveSubscriptions(updatedSubscriptions);
+ onUpdateSubscriptions={async (updatedSubscriptions) => {
+ await updateSubscriptionsBatch(updatedSubscriptions);
  }}
  categorySync={{
  createCategory,

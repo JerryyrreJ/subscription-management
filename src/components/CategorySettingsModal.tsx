@@ -26,7 +26,7 @@ interface CategorySettingsModalProps {
  onClose: () => void
  subscriptions: Subscription[]
  onCategoriesChanged?: () => void
- onUpdateSubscriptions?: (updatedSubscriptions: Subscription[]) => void
+ onUpdateSubscriptions?: (updatedSubscriptions: Subscription[]) => Promise<void>
  categorySync?: CategorySyncMethods
 }
 
@@ -136,7 +136,7 @@ export function CategorySettingsModal({
  ? { ...sub, category: targetCategory }
  : sub
  )
- onUpdateSubscriptions(updatedSubscriptions)
+ await onUpdateSubscriptions(updatedSubscriptions)
  }
 
  // 关闭对话框并刷新

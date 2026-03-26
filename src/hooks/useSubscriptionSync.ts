@@ -1,9 +1,17 @@
-import { useState, useCallback, useRef } from 'react'
+import { Dispatch, SetStateAction, useState, useCallback, useRef } from 'react'
 import { User } from '@supabase/supabase-js'
-import { Subscription } from '../types'
+import { PendingSyncOperation, Subscription } from '../types'
 import { SubscriptionService } from '../services/subscriptionService'
-import { loadSubscriptions, saveSubscriptions } from '../utils/storage'
+import {
+ clearPendingSyncOperations,
+ enqueuePendingSyncOperation,
+ loadPendingSyncOperations,
+ loadSubscriptions,
+ savePendingSyncOperations,
+ saveSubscriptions
+} from '../utils/storage'
 import { config } from '../lib/config'
+import { normalizeSubscription } from '../utils/subscriptionSync'
 
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
@@ -12,20 +20,36 @@ interface UseSyncReturn {
  lastSyncTime: Date | null
  syncSubscriptions: () => Promise<Subscription[]>
  uploadLocalData: (subscriptions: Subscription[]) => Promise<Subscription[]>
- createSubscription: (subscription: Omit<Subscription, 'id'>) => Promise<Subscription>
+ createSubscription: (subscription: Subscription | Omit<Subscription, 'id'>) => Promise<Subscription>
  updateSubscription: (subscription: Subscription) => Promise<Subscription>
+ updateSubscriptionsBatch: (subscriptions: Subscription[]) => Promise<Subscription[]>
  deleteSubscription: (id: string) => Promise<void>
 }
 
 export function useSubscriptionSync(
  user: User | null,
- subscriptions: Subscription[],
- setSubscriptions: (subs: Subscription[]) => void
+ setSubscriptions: Dispatch<SetStateAction<Subscription[]>>
 ): UseSyncReturn {
  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
  const isSyncingRef = useRef(false)
  const isUploadingRef = useRef(false)
+
+ const queueOperation = useCallback((operation: Omit<PendingSyncOperation, 'id'>): PendingSyncOperation[] => {
+ const pendingOperation: PendingSyncOperation = {
+ id: crypto.randomUUID(),
+ ...operation
+ }
+
+ return enqueuePendingSyncOperation(pendingOperation)
+ }, [])
+
+ const removeQueuedOperations = useCallback((subscriptionId: string) => {
+ const remainingOperations = loadPendingSyncOperations().filter(
+ operation => operation.subscriptionId !== subscriptionId
+ )
+ savePendingSyncOperations(remainingOperations)
+ }, [])
 
  // 同步订阅数据
  const syncSubscriptions = useCallback(async (): Promise<Subscription[]> => {
@@ -40,9 +64,15 @@ export function useSubscriptionSync(
 
  try {
  const currentSubscriptions = loadSubscriptions() // 从存储获取最新数据
- const syncedSubscriptions = await SubscriptionService.syncSubscriptions(currentSubscriptions)
- setSubscriptions(syncedSubscriptions)
- saveSubscriptions(syncedSubscriptions)
+ const pendingOperations = loadPendingSyncOperations()
+ const syncResult = await SubscriptionService.syncSubscriptions(
+ currentSubscriptions,
+ pendingOperations
+ )
+
+ setSubscriptions(syncResult.subscriptions)
+ saveSubscriptions(syncResult.subscriptions)
+ savePendingSyncOperations(syncResult.pendingOperations)
  setSyncStatus('success')
  setLastSyncTime(new Date())
 
@@ -54,7 +84,7 @@ export function useSubscriptionSync(
  setSyncStatus('idle')
  }, 3000)
 
- return syncedSubscriptions
+ return syncResult.subscriptions
  } catch (error) {
  console.error('Sync failed:', error)
  setSyncStatus('error')
@@ -85,6 +115,7 @@ export function useSubscriptionSync(
  const cloudSubscriptions = await SubscriptionService.uploadLocalSubscriptions(localSubscriptions)
  setSubscriptions(cloudSubscriptions)
  saveSubscriptions(cloudSubscriptions)
+ clearPendingSyncOperations()
  setSyncStatus('success')
  setLastSyncTime(new Date())
 
@@ -112,54 +143,74 @@ export function useSubscriptionSync(
  }, [user, setSubscriptions])
 
  // 创建订阅（自动同步）
- const createSubscription = useCallback(async (subscription: Omit<Subscription, 'id'>): Promise<Subscription> => {
+ const createSubscription = useCallback(async (subscription: Subscription | Omit<Subscription, 'id'>): Promise<Subscription> => {
+ const normalizedSubscription = normalizeSubscription({
+ ...subscription,
+ id: 'id' in subscription ? subscription.id : crypto.randomUUID(),
+ createdAt: subscription.createdAt || new Date().toISOString(),
+ updatedAt: new Date().toISOString()
+ })
+
  if (config.features.cloudSync && user) {
  try {
  // 在线模式：直接保存到云端
- const newSubscription = await SubscriptionService.createSubscription(subscription)
+ const newSubscription = await SubscriptionService.createSubscription(normalizedSubscription)
  // 使用函数式更新，避免依赖陈旧的 subscriptions 状态
  setSubscriptions(prev => {
  const updated = [...prev, newSubscription]
  saveSubscriptions(updated)
  return updated
  })
+ removeQueuedOperations(newSubscription.id)
  setLastSyncTime(new Date())
  return newSubscription
  } catch (error) {
  console.error('Failed to save subscription online:', error)
  // 降级到离线模式
- const offlineSubscription: Subscription = {
- id: crypto.randomUUID(),
- ...subscription
- }
  setSubscriptions(prev => {
- const updated = [...prev, offlineSubscription]
+ const updated = [...prev, normalizedSubscription]
  saveSubscriptions(updated)
  return updated
  })
- return offlineSubscription
+ queueOperation({
+ type: 'create',
+ subscriptionId: normalizedSubscription.id,
+ subscription: normalizedSubscription,
+ queuedAt: normalizedSubscription.updatedAt || new Date().toISOString()
+ })
+ return normalizedSubscription
  }
  } else {
  // 离线模式：只保存到本地
- const offlineSubscription: Subscription = {
- id: crypto.randomUUID(),
- ...subscription
- }
  setSubscriptions(prev => {
- const updated = [...prev, offlineSubscription]
+ const updated = [...prev, normalizedSubscription]
  saveSubscriptions(updated)
  return updated
  })
- return offlineSubscription
+ queueOperation({
+ type: 'create',
+ subscriptionId: normalizedSubscription.id,
+ subscription: normalizedSubscription,
+ queuedAt: normalizedSubscription.updatedAt || new Date().toISOString()
+ })
+ return normalizedSubscription
  }
- }, [user, setSubscriptions])
+ }, [queueOperation, removeQueuedOperations, user, setSubscriptions])
 
  // 更新订阅（自动同步）
  const updateSubscription = useCallback(async (subscription: Subscription): Promise<Subscription> => {
+ const currentSubscriptions = loadSubscriptions()
+ const existingSubscription = currentSubscriptions.find(sub => sub.id === subscription.id)
+ const normalizedSubscription = normalizeSubscription({
+ ...existingSubscription,
+ ...subscription,
+ updatedAt: new Date().toISOString()
+ })
+
  if (config.features.cloudSync && user) {
  try {
  // 在线模式：同步到云端
- const updatedSubscription = await SubscriptionService.updateSubscription(subscription)
+ const updatedSubscription = await SubscriptionService.updateSubscription(normalizedSubscription)
  // 使用函数式更新，避免依赖陈旧的 subscriptions 状态
  setSubscriptions(prev => {
  const updated = prev.map(sub =>
@@ -168,6 +219,7 @@ export function useSubscriptionSync(
  saveSubscriptions(updated)
  return updated
  })
+ removeQueuedOperations(updatedSubscription.id)
  setLastSyncTime(new Date())
  return updatedSubscription
  } catch (error) {
@@ -175,28 +227,66 @@ export function useSubscriptionSync(
  // 降级到离线模式
  setSubscriptions(prev => {
  const updated = prev.map(sub =>
- sub.id === subscription.id ? subscription : sub
+ sub.id === normalizedSubscription.id ? normalizedSubscription : sub
  )
  saveSubscriptions(updated)
  return updated
  })
- return subscription
+ queueOperation({
+ type: 'update',
+ subscriptionId: normalizedSubscription.id,
+ subscription: normalizedSubscription,
+ baseUpdatedAt: existingSubscription?.updatedAt,
+ queuedAt: normalizedSubscription.updatedAt || new Date().toISOString()
+ })
+ return normalizedSubscription
  }
  } else {
  // 离线模式：只更新本地
  setSubscriptions(prev => {
  const updated = prev.map(sub =>
- sub.id === subscription.id ? subscription : sub
+ sub.id === normalizedSubscription.id ? normalizedSubscription : sub
  )
  saveSubscriptions(updated)
  return updated
  })
- return subscription
+ queueOperation({
+ type: 'update',
+ subscriptionId: normalizedSubscription.id,
+ subscription: normalizedSubscription,
+ baseUpdatedAt: existingSubscription?.updatedAt,
+ queuedAt: normalizedSubscription.updatedAt || new Date().toISOString()
+ })
+ return normalizedSubscription
  }
- }, [user, setSubscriptions])
+ }, [queueOperation, removeQueuedOperations, user, setSubscriptions])
+
+ const updateSubscriptionsBatch = useCallback(async (updatedSubscriptions: Subscription[]): Promise<Subscription[]> => {
+ const currentSubscriptions = loadSubscriptions()
+ const currentSubscriptionMap = new Map(currentSubscriptions.map(subscription => [subscription.id, subscription]))
+ const changedSubscriptions = updatedSubscriptions.filter(updatedSubscription => {
+ const currentSubscription = currentSubscriptionMap.get(updatedSubscription.id)
+
+ if (!currentSubscription) {
+ return true
+ }
+
+ return JSON.stringify(currentSubscription) !== JSON.stringify(updatedSubscription)
+ })
+
+ if (changedSubscriptions.length === 0) {
+ return currentSubscriptions
+ }
+
+ await Promise.all(changedSubscriptions.map(subscription => updateSubscription(subscription)))
+ return loadSubscriptions()
+ }, [updateSubscription])
 
  // 删除订阅（自动同步）
  const deleteSubscription = useCallback(async (id: string): Promise<void> => {
+ const currentSubscriptions = loadSubscriptions()
+ const existingSubscription = currentSubscriptions.find(subscription => subscription.id === id)
+
  if (config.features.cloudSync && user) {
  try {
  // 在线模式：从云端删除
@@ -207,6 +297,7 @@ export function useSubscriptionSync(
  saveSubscriptions(updated)
  return updated
  })
+ removeQueuedOperations(id)
  setLastSyncTime(new Date())
  } catch (error) {
  console.error('Failed to delete subscription online:', error)
@@ -216,6 +307,12 @@ export function useSubscriptionSync(
  saveSubscriptions(updated)
  return updated
  })
+ queueOperation({
+ type: 'delete',
+ subscriptionId: id,
+ baseUpdatedAt: existingSubscription?.updatedAt,
+ queuedAt: new Date().toISOString()
+ })
  }
  } else {
  // 离线模式：只从本地删除，使用函数式更新
@@ -224,8 +321,14 @@ export function useSubscriptionSync(
  saveSubscriptions(updated)
  return updated
  })
+ queueOperation({
+ type: 'delete',
+ subscriptionId: id,
+ baseUpdatedAt: existingSubscription?.updatedAt,
+ queuedAt: new Date().toISOString()
+ })
  }
- }, [user, setSubscriptions])
+ }, [queueOperation, removeQueuedOperations, user, setSubscriptions])
 
  return {
  syncStatus,
@@ -234,6 +337,7 @@ export function useSubscriptionSync(
  uploadLocalData,
  createSubscription,
  updateSubscription,
+ updateSubscriptionsBatch,
  deleteSubscription
  }
 }

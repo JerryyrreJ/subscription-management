@@ -1,8 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CreditCard, TrendingUp, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react';
 import CountUp from 'react-countup';
-import { Subscription, ViewMode, Currency, ExchangeRates, SortConfig, SortBy } from '../types';
-import { getCachedExchangeRates, convertCurrency, formatCurrency, CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
+import {
+ Subscription,
+ ViewMode,
+ Currency,
+ ExchangeRateSource,
+ ExchangeRates,
+ SortConfig,
+ SortBy
+} from '../types';
+import {
+ convertCurrencySafe,
+ formatCurrency,
+ CURRENCIES
+} from '../utils/currency';
 import { CustomSelect } from './CustomSelect';
 import { getVisibleCategories } from '../utils/categories';
 
@@ -18,10 +30,27 @@ interface DashboardProps {
  baseCurrency: Currency;
  onBaseCurrencyChange: (currency: Currency) => void;
  exchangeRates: ExchangeRates;
+ exchangeRateSource: ExchangeRateSource;
+ exchangeRateError?: string;
  onRefreshRates: () => Promise<void>;
 }
 
-export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfig, onSortChange, selectedCategory, onCategoryChange, totalSubscriptions, baseCurrency, onBaseCurrencyChange, exchangeRates, onRefreshRates }: DashboardProps) {
+export function Dashboard({
+ subscriptions,
+ viewMode,
+ onViewModeChange,
+ sortConfig,
+ onSortChange,
+ selectedCategory,
+ onCategoryChange,
+ totalSubscriptions,
+ baseCurrency,
+ onBaseCurrencyChange,
+ exchangeRates,
+ exchangeRateSource,
+ exchangeRateError,
+ onRefreshRates
+}: DashboardProps) {
  const [displayCurrency, setDisplayCurrency] = useState<Currency>(baseCurrency);
  const [isLoadingRates, setIsLoadingRates] = useState(false);
 
@@ -80,12 +109,23 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfi
  };
 
  const totalAmount = useCallback(() => {
- return subscriptions.reduce((total, sub) => {
+ let usesFallbackRates = false;
+
+ const amount = subscriptions.reduce((total, sub) => {
  let amount = sub.amount;
 
  // 转换为显示货币
  if (sub.currency !== displayCurrency) {
- amount = convertCurrency(amount, sub.currency, displayCurrency, exchangeRates, baseCurrency);
+ const conversionResult = convertCurrencySafe(
+ amount,
+ sub.currency,
+ displayCurrency,
+ exchangeRates,
+ baseCurrency
+ );
+
+ amount = conversionResult.amount;
+ usesFallbackRates = usesFallbackRates || conversionResult.usedFallback || !conversionResult.isAccurate;
  }
 
  // 根据订阅周期和查看模式调整金额
@@ -117,9 +157,14 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfi
 
  return total + amount;
  }, 0);
+ return {
+ total: amount,
+ usesFallbackRates
+ };
  }, [subscriptions, displayCurrency, exchangeRates, baseCurrency, viewMode]);
 
- const currentTotal = totalAmount();
+ const totalAmountResult = totalAmount();
+ const currentTotal = totalAmountResult.total;
 
  // Memoize formatting function to prevent CountUp from restarting on every render
  const formatValue = useCallback(
@@ -128,19 +173,27 @@ export function Dashboard({ subscriptions, viewMode, onViewModeChange, sortConfi
  );
 
  return (
- <div className="relative rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-slate-200/60 dark:border-gray-700/60 bg-white/70 dark:bg-[#1a1c1e]/70 backdrop-blur-xl p-6 z-20">
+  <div className="relative rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-slate-200/60 dark:border-gray-700/60 bg-white/70 dark:bg-[#1a1c1e]/70 backdrop-blur-xl p-6 z-20">
  {/* Subtle background gradient overlay for depth */}
  <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 via-transparent to-slate-100/30 dark:from-gray-800/50 dark:to-gray-900/30 pointer-events-none rounded-2xl -z-10"></div>
 
  <div className="relative z-10">
  {/* 桌面端：原始布局（标题和控件在同一行） */}
  <div className="hidden sm:flex justify-between items-center mb-6">
- <div className="flex items-center space-x-2.5">
- <div className="p-2 bg-slate-100/80 dark:bg-gray-700/80 rounded-3xl">
- <CreditCard className="w-5 h-5 text-slate-600 dark:text-gray-300"/>
- </div>
- <h2 className="text-xl font-semibold text-slate-800 dark:text-gray-100 tracking-tight">Overview</h2>
- </div>
+     <div className="flex items-center space-x-2.5">
+      <div className="p-2 bg-slate-100/80 dark:bg-gray-700/80 rounded-3xl">
+       <CreditCard className="w-5 h-5 text-slate-600 dark:text-gray-300"/>
+      </div>
+      <div>
+       <h2 className="text-xl font-semibold text-slate-800 dark:text-gray-100 tracking-tight">Overview</h2>
+       {(exchangeRateSource === 'fallback' || totalAmountResult.usesFallbackRates) && (
+        <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+         Using offline exchange rates. Totals may be approximate.
+         {exchangeRateError ? ` ${exchangeRateError}` : ''}
+        </p>
+       )}
+      </div>
+     </div>
  <div className="flex items-center space-x-2">
  {/* 基准货币选择 */}
  <div className="min-w-[100px]">

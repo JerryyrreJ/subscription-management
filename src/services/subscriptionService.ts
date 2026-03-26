@@ -1,6 +1,12 @@
 import { supabase } from '../lib/supabase'
-import { Subscription } from '../types'
+import { PendingSyncOperation, Subscription, SyncSubscriptionsResult } from '../types'
 import { config } from '../lib/config'
+import {
+ applyPendingOperationsToSubscriptions,
+ chooseConflictWinner,
+ normalizeSubscription,
+ sortPendingOperations
+} from '../utils/subscriptionSync'
 
 export interface SupabaseSubscription {
  id: string
@@ -39,7 +45,7 @@ export class SubscriptionService {
  }
 
  // 创建订阅
- static async createSubscription(subscription: Omit<Subscription, 'id'>): Promise<Subscription> {
+ static async createSubscription(subscription: Subscription | Omit<Subscription, 'id'>): Promise<Subscription> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -58,12 +64,15 @@ export class SubscriptionService {
  }
  console.log('Creating subscription for user:', user.id)
 
+ const insertPayload = {
+  ...supabaseData,
+  user_id: user.id,
+  ...('id' in subscription ? { id: subscription.id } : {})
+ }
+
  const { data, error } = await supabase
  .from('subscriptions')
- .insert([{
- ...supabaseData,
- user_id: user.id
- }])
+ .insert([insertPayload])
  .select()
  .single()
 
@@ -116,23 +125,51 @@ export class SubscriptionService {
  }
 
  // 批量同步 - 纯下载模式（云端为准）
- static async syncSubscriptions(localSubscriptions: Subscription[]): Promise<Subscription[]> {
+ static async syncSubscriptions(
+ localSubscriptions: Subscription[],
+ pendingOperations: PendingSyncOperation[] = []
+ ): Promise<SyncSubscriptionsResult> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
  try {
- // 直接获取云端数据，以云端为权威数据源
- const cloudSubscriptions = await this.getSubscriptions()
+ let cloudSubscriptions = await this.getSubscriptions()
+ const remainingOperations: PendingSyncOperation[] = []
 
- console.log(`Sync completed: ${cloudSubscriptions.length} subscriptions from cloud (authoritative)`)
- console.log(`Local data (${localSubscriptions.length} items) will be replaced by cloud data`)
+ for (const operation of sortPendingOperations(pendingOperations)) {
+ try {
+ const operationResult = await this.applyPendingOperation(operation, cloudSubscriptions)
+ cloudSubscriptions = operationResult.cloudSubscriptions
+ if (!operationResult.applied && operationResult.keepPending) {
+ remainingOperations.push(operation)
+ }
+ } catch (error) {
+ console.error(`Failed to sync pending ${operation.type} for ${operation.subscriptionId}:`, error)
+ remainingOperations.push(operation)
+ }
+ }
 
- return cloudSubscriptions
+ const refreshedCloudSubscriptions = await this.getSubscriptions()
+ const resolvedSubscriptions = applyPendingOperationsToSubscriptions(
+ refreshedCloudSubscriptions,
+ remainingOperations
+ )
+
+ console.log(`Sync completed: ${refreshedCloudSubscriptions.length} subscriptions from cloud`)
+ console.log(`Pending operations remaining after sync: ${remainingOperations.length}`)
+
+ return {
+ subscriptions: resolvedSubscriptions,
+ pendingOperations: remainingOperations
+ }
  } catch (error) {
  console.error('Error syncing subscriptions:', error)
- // 如果同步失败，返回本地数据作为降级方案
- return localSubscriptions
+
+ return {
+ subscriptions: applyPendingOperationsToSubscriptions(localSubscriptions, pendingOperations),
+ pendingOperations
+ }
  }
  }
 
@@ -223,6 +260,7 @@ export class SubscriptionService {
  lastPaymentDate: data.last_payment_date,
  nextPaymentDate: data.next_payment_date,
  customDate: data.custom_date,
+ updatedAt: data.updated_at,
  notificationEnabled: data.notification_enabled ?? true, // 默认 true
  createdAt: data.created_at
  }
@@ -241,6 +279,177 @@ export class SubscriptionService {
  custom_date: subscription.customDate || null,
  notification_enabled: subscription.notificationEnabled ?? true // 默认 true
  }
+ }
+
+ private static shouldApplyLocalChange(
+ operation: PendingSyncOperation,
+ cloudSubscription?: Subscription
+ ): boolean {
+ if (!cloudSubscription) {
+ return true
+ }
+
+ if (operation.baseUpdatedAt && cloudSubscription.updatedAt) {
+ if (operation.baseUpdatedAt === cloudSubscription.updatedAt) {
+ return true
+ }
+ }
+
+ const localTimestamp = operation.subscription?.updatedAt || operation.queuedAt
+ const cloudTimestamp = cloudSubscription.updatedAt || cloudSubscription.createdAt
+
+ return chooseConflictWinner(localTimestamp, cloudTimestamp) === 'local'
+ }
+
+ private static async applyPendingOperation(
+ operation: PendingSyncOperation,
+ cloudSubscriptions: Subscription[]
+ ): Promise<{ applied: boolean; keepPending: boolean; cloudSubscriptions: Subscription[] }> {
+ const normalizedCloudSubscriptions = cloudSubscriptions.map(subscription => normalizeSubscription(subscription))
+ const cloudSubscription = normalizedCloudSubscriptions.find(
+ subscription => subscription.id === operation.subscriptionId
+ )
+
+ switch (operation.type) {
+ case 'create': {
+ if (!operation.subscription) {
+ return {
+ applied: false,
+ keepPending: false,
+ cloudSubscriptions: normalizedCloudSubscriptions
+ }
+ }
+
+ if (!cloudSubscription) {
+ const createdSubscription = await this.createSubscription(operation.subscription)
+ return {
+ applied: true,
+ keepPending: false,
+ cloudSubscriptions: this.replaceCloudSubscription(
+ normalizedCloudSubscriptions,
+ createdSubscription
+ )
+ }
+ }
+
+ if (!this.shouldApplyLocalChange(operation, cloudSubscription)) {
+ return {
+ applied: false,
+ keepPending: false,
+ cloudSubscriptions: normalizedCloudSubscriptions
+ }
+ }
+
+ const updatedSubscription = await this.updateSubscription({
+ ...cloudSubscription,
+ ...operation.subscription,
+ id: operation.subscriptionId
+ })
+
+ return {
+ applied: true,
+ keepPending: false,
+ cloudSubscriptions: this.replaceCloudSubscription(
+ normalizedCloudSubscriptions,
+ updatedSubscription
+ )
+ }
+ }
+ case 'update': {
+ if (!operation.subscription) {
+ return {
+ applied: false,
+ keepPending: false,
+ cloudSubscriptions: normalizedCloudSubscriptions
+ }
+ }
+
+ if (!cloudSubscription) {
+ const createdSubscription = await this.createSubscription(operation.subscription)
+ return {
+ applied: true,
+ keepPending: false,
+ cloudSubscriptions: this.replaceCloudSubscription(
+ normalizedCloudSubscriptions,
+ createdSubscription
+ )
+ }
+ }
+
+ if (!this.shouldApplyLocalChange(operation, cloudSubscription)) {
+ return {
+ applied: false,
+ keepPending: false,
+ cloudSubscriptions: normalizedCloudSubscriptions
+ }
+ }
+
+ const updatedSubscription = await this.updateSubscription({
+ ...cloudSubscription,
+ ...operation.subscription
+ })
+
+ return {
+ applied: true,
+ keepPending: false,
+ cloudSubscriptions: this.replaceCloudSubscription(
+ normalizedCloudSubscriptions,
+ updatedSubscription
+ )
+ }
+ }
+ case 'delete': {
+ if (!cloudSubscription) {
+ return {
+ applied: true,
+ keepPending: false,
+ cloudSubscriptions: normalizedCloudSubscriptions
+ }
+ }
+
+ if (!this.shouldApplyLocalChange(operation, cloudSubscription)) {
+ return {
+ applied: false,
+ keepPending: false,
+ cloudSubscriptions: normalizedCloudSubscriptions
+ }
+ }
+
+ await this.deleteSubscription(operation.subscriptionId)
+
+ return {
+ applied: true,
+ keepPending: false,
+ cloudSubscriptions: normalizedCloudSubscriptions.filter(
+ subscription => subscription.id !== operation.subscriptionId
+ )
+ }
+ }
+ default:
+ return {
+ applied: false,
+ keepPending: false,
+ cloudSubscriptions: normalizedCloudSubscriptions
+ }
+ }
+ }
+
+ private static replaceCloudSubscription(
+ cloudSubscriptions: Subscription[],
+ nextSubscription: Subscription
+ ): Subscription[] {
+ const normalizedSubscription = normalizeSubscription(nextSubscription)
+ const existingIndex = cloudSubscriptions.findIndex(
+ subscription => subscription.id === normalizedSubscription.id
+ )
+
+ if (existingIndex === -1) {
+ return [normalizedSubscription, ...cloudSubscriptions]
+ }
+
+ const updatedSubscriptions = [...cloudSubscriptions]
+ updatedSubscriptions[existingIndex] = normalizedSubscription
+ return updatedSubscriptions
  }
 
  // 检查用户是否在线

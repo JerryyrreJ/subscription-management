@@ -13,7 +13,24 @@ export interface Subscription {
  nextPaymentDate: string;
  customDate?: string;
  createdAt?: string;
+ updatedAt?: string;
  notificationEnabled?: boolean; // 是否启用通知提醒（默认 true）
+}
+
+export type PendingSyncOperationType = 'create' | 'update' | 'delete';
+
+export interface PendingSyncOperation {
+ id: string;
+ type: PendingSyncOperationType;
+ subscriptionId: string;
+ subscription?: Subscription;
+ baseUpdatedAt?: string;
+ queuedAt: string;
+}
+
+export interface SyncSubscriptionsResult {
+ subscriptions: Subscription[];
+ pendingOperations: PendingSyncOperation[];
 }
 
 export type ViewMode = 'monthly' | 'yearly';
@@ -30,6 +47,21 @@ export type Theme = 'light' | 'dark';
 
 export interface ExchangeRates {
  [key: string]: number;
+}
+
+export type ExchangeRateSource = 'live' | 'fallback';
+
+export interface ExchangeRateLoadResult {
+ rates: ExchangeRates;
+ source: ExchangeRateSource;
+ error?: string;
+}
+
+export interface CurrencyConversionResult {
+ amount: number;
+ usedFallback: boolean;
+ isAccurate: boolean;
+ error?: string;
 }
 
 export interface CurrencyInfo {

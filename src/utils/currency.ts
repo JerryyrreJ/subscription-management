@@ -1,4 +1,10 @@
-import { Currency, CurrencyInfo, ExchangeRates } from '../types';
+import {
+ Currency,
+ CurrencyConversionResult,
+ CurrencyInfo,
+ ExchangeRateLoadResult,
+ ExchangeRates,
+} from '../types';
 
 export const CURRENCIES: CurrencyInfo[] = [
  { code: 'CNY', symbol: '¥', name: '人民币' },
@@ -31,7 +37,7 @@ export const formatCurrency = (amount: number, currency: Currency): string => {
 
 const EXCHANGE_RATE_API_URL = 'https://api.exchangerate-api.com/v4/latest';
 
-export const fetchExchangeRates = async (baseCurrency: Currency = 'USD'): Promise<ExchangeRates> => {
+export const fetchExchangeRatesWithStatus = async (baseCurrency: Currency = 'USD'): Promise<ExchangeRateLoadResult> => {
  try {
  const response = await fetch(`${EXCHANGE_RATE_API_URL}/${baseCurrency}`);
 
@@ -45,11 +51,23 @@ export const fetchExchangeRates = async (baseCurrency: Currency = 'USD'): Promis
  // 确保基准货币本身的汇率为1.0
  rates[baseCurrency] = 1.0;
 
- return rates;
+ return {
+  rates,
+  source: 'live'
+ };
  } catch (error) {
  console.error('Failed to fetch exchange rates:', error);
- return getFallbackRates(baseCurrency);
+ return {
+  rates: getFallbackRates(baseCurrency),
+  source: 'fallback',
+  error: error instanceof Error ? error.message : 'Failed to fetch exchange rates'
+ };
  }
+};
+
+export const fetchExchangeRates = async (baseCurrency: Currency = 'USD'): Promise<ExchangeRates> => {
+ const result = await fetchExchangeRatesWithStatus(baseCurrency);
+ return result.rates;
 };
 
 const getFallbackRates = (baseCurrency: Currency): ExchangeRates => {
@@ -184,6 +202,117 @@ const getFallbackRates = (baseCurrency: Currency): ExchangeRates => {
  return rates;
 };
 
+const resolveRate = (
+ currency: Currency,
+ exchangeRates: ExchangeRates,
+ fallbackRates: ExchangeRates,
+ baseCurrency: Currency
+): {
+ rate?: number;
+ usedFallback: boolean;
+ error?: string;
+} => {
+ if (currency === baseCurrency) {
+  return {
+   rate: 1,
+   usedFallback: false
+  };
+ }
+
+ const liveRate = exchangeRates[currency];
+ if (typeof liveRate === 'number' && liveRate > 0) {
+  return {
+   rate: liveRate,
+   usedFallback: false
+  };
+ }
+
+ const fallbackRate = fallbackRates[currency];
+ if (typeof fallbackRate === 'number' && fallbackRate > 0) {
+  return {
+   rate: fallbackRate,
+   usedFallback: true,
+   error: `Exchange rate not found for ${currency}, using fallback rate`
+  };
+ }
+
+ return {
+  usedFallback: true,
+  error: `Exchange rate not available for ${currency}`
+ };
+};
+
+export const convertCurrencySafe = (
+ amount: number,
+ fromCurrency: Currency,
+ toCurrency: Currency,
+ exchangeRates: ExchangeRates,
+ baseCurrency: Currency = 'USD'
+): CurrencyConversionResult => {
+ if (fromCurrency === toCurrency) {
+ return {
+  amount,
+  usedFallback: false,
+  isAccurate: true
+ };
+ }
+
+ const fallbackRates = getFallbackRates(baseCurrency);
+ const rateErrors: string[] = [];
+ let usedFallback = false;
+
+ let convertedAmount = amount;
+
+ // 第一步：如果原货币不是基准货币，先转换为基准货币
+ if (fromCurrency !== baseCurrency) {
+ const fromRate = resolveRate(fromCurrency, exchangeRates, fallbackRates, baseCurrency);
+ if (!fromRate.rate) {
+  return {
+   amount,
+   usedFallback: true,
+   isAccurate: false,
+   error: fromRate.error || `Exchange rate not available for ${fromCurrency}`
+  };
+ }
+
+ usedFallback = usedFallback || fromRate.usedFallback;
+ if (fromRate.error) {
+  rateErrors.push(fromRate.error);
+ }
+
+ // 从原货币转换为基准货币需要除以汇率
+ convertedAmount = amount / fromRate.rate;
+ }
+
+ // 第二步：如果目标货币不是基准货币，从基准货币转换为目标货币
+ if (toCurrency !== baseCurrency) {
+ const toRate = resolveRate(toCurrency, exchangeRates, fallbackRates, baseCurrency);
+ if (!toRate.rate) {
+  return {
+   amount: convertedAmount,
+   usedFallback: true,
+   isAccurate: false,
+   error: toRate.error || `Exchange rate not available for ${toCurrency}`
+  };
+ }
+
+ usedFallback = usedFallback || toRate.usedFallback;
+ if (toRate.error) {
+  rateErrors.push(toRate.error);
+ }
+
+ // 从基准货币转换为目标货币需要乘以汇率
+ convertedAmount = convertedAmount * toRate.rate;
+ }
+
+ return {
+  amount: convertedAmount,
+  usedFallback,
+  isAccurate: !usedFallback && rateErrors.length === 0,
+  error: rateErrors[0]
+ };
+};
+
 export const convertCurrency = (
  amount: number,
  fromCurrency: Currency,
@@ -191,110 +320,56 @@ export const convertCurrency = (
  exchangeRates: ExchangeRates,
  baseCurrency: Currency = 'USD'
 ): number => {
- if (fromCurrency === toCurrency) {
- return amount;
+ const result = convertCurrencySafe(amount, fromCurrency, toCurrency, exchangeRates, baseCurrency);
+
+ if (result.error) {
+  console.warn(result.error);
  }
 
- // 如果汇率表为空，使用离线汇率（以baseCurrency为基准）
- if (Object.keys(exchangeRates).length === 0) {
- const fallbackRates = getFallbackRates(baseCurrency);
-
- // 如果fromCurrency就是baseCurrency，直接转换
- if (fromCurrency === baseCurrency) {
- return amount * (fallbackRates[toCurrency] || 1);
- }
-
- // 否则需要两步转换：from -> base -> to
- const fromToBaseRate = fallbackRates[fromCurrency];
- if (!fromToBaseRate) {
- console.warn(`Fallback rate not found for ${fromCurrency}, using 1:1`);
- return amount;
- }
-
- // 先转换到基准货币
- const amountInBase = amount / fromToBaseRate;
-
- // 再转换到目标货币
- const baseToToRate = fallbackRates[toCurrency];
- if (!baseToToRate) {
- console.warn(`Fallback rate not found for ${toCurrency}, using 1:1`);
- return amountInBase;
- }
-
- return amountInBase * baseToToRate;
- }
-
- // 汇率表是以baseCurrency为基准的
- // 例如：baseCurrency = USD, exchangeRates = {CNY: 7.2, EUR: 0.85}
-
- let convertedAmount = amount;
-
- // 第一步：如果原货币不是基准货币，先转换为基准货币
- if (fromCurrency !== baseCurrency) {
- const fromRate = exchangeRates[fromCurrency];
- if (!fromRate) {
- console.warn(`Exchange rate not found for ${fromCurrency}, using fallback`);
- // 使用baseCurrency作为基准的fallback
- const fallbackRates = getFallbackRates(baseCurrency);
- const fromToBaseRate = fallbackRates[fromCurrency];
- if (!fromToBaseRate) {
- console.warn(`Fallback rate not found for ${fromCurrency}, using 1:1`);
- return amount;
- }
- convertedAmount = amount / fromToBaseRate;
- } else {
- // 从原货币转换为基准货币需要除以汇率
- convertedAmount = amount / fromRate;
- }
- }
-
- // 第二步：如果目标货币不是基准货币，从基准货币转换为目标货币
- if (toCurrency !== baseCurrency) {
- const toRate = exchangeRates[toCurrency];
- if (!toRate) {
- console.warn(`Exchange rate not found for ${toCurrency}, using fallback`);
- const fallbackRates = getFallbackRates(baseCurrency);
- const baseToToRate = fallbackRates[toCurrency];
- if (!baseToToRate) {
- console.warn(`Fallback rate not found for ${toCurrency}, using 1:1`);
- return convertedAmount;
- }
- convertedAmount = convertedAmount * baseToToRate;
- } else {
- // 从基准货币转换为目标货币需要乘以汇率
- convertedAmount = convertedAmount * toRate;
- }
- }
-
- return convertedAmount;
+ return result.amount;
 };
 
 const RATES_STORAGE_KEY = 'exchange-rates';
 const RATES_TIMESTAMP_KEY = 'exchange-rates-timestamp';
+const RATES_SOURCE_KEY = 'exchange-rates-source';
 const RATES_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
-export const getCachedExchangeRates = async (baseCurrency: Currency = 'USD'): Promise<ExchangeRates> => {
+export const getCachedExchangeRatesWithStatus = async (baseCurrency: Currency = 'USD'): Promise<ExchangeRateLoadResult> => {
  try {
  const cachedRates = localStorage.getItem(`${RATES_STORAGE_KEY}-${baseCurrency}`);
  const cachedTimestamp = localStorage.getItem(`${RATES_TIMESTAMP_KEY}-${baseCurrency}`);
+ const cachedSource = localStorage.getItem(`${RATES_SOURCE_KEY}-${baseCurrency}`);
 
  if (cachedRates && cachedTimestamp) {
  const timestamp = parseInt(cachedTimestamp);
  const now = Date.now();
 
  if (now - timestamp < RATES_CACHE_DURATION) {
- return JSON.parse(cachedRates);
+  return {
+   rates: JSON.parse(cachedRates),
+   source: cachedSource === 'fallback' ? 'fallback' : 'live'
+  };
  }
  }
 
- const freshRates = await fetchExchangeRates(baseCurrency);
+ const freshRates = await fetchExchangeRatesWithStatus(baseCurrency);
 
- localStorage.setItem(`${RATES_STORAGE_KEY}-${baseCurrency}`, JSON.stringify(freshRates));
+ localStorage.setItem(`${RATES_STORAGE_KEY}-${baseCurrency}`, JSON.stringify(freshRates.rates));
  localStorage.setItem(`${RATES_TIMESTAMP_KEY}-${baseCurrency}`, Date.now().toString());
+ localStorage.setItem(`${RATES_SOURCE_KEY}-${baseCurrency}`, freshRates.source);
 
  return freshRates;
  } catch (error) {
  console.error('Error with cached exchange rates:', error);
- return getFallbackRates(baseCurrency);
+ return {
+  rates: getFallbackRates(baseCurrency),
+  source: 'fallback',
+  error: error instanceof Error ? error.message : 'Failed to read cached exchange rates'
+ };
  }
+};
+
+export const getCachedExchangeRates = async (baseCurrency: Currency = 'USD'): Promise<ExchangeRates> => {
+ const result = await getCachedExchangeRatesWithStatus(baseCurrency);
+ return result.rates;
 };
