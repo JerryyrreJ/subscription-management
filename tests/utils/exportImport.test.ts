@@ -85,3 +85,34 @@ test('buildCategoryImportPlan deletes existing categories when an empty category
  assert.deepEqual(plan.update, []);
  assert.deepEqual(plan.deleteIds, ['entertainment', 'software']);
 });
+
+test('buildCategoryImportPlan marks reordered and hidden categories for update', () => {
+ const currentCategories = [
+  createCategory(),
+  createCategory({
+   id: 'software',
+   name: 'Software',
+   order: 1,
+  }),
+ ];
+
+ const importedCategories = [
+  createCategory({
+   id: 'entertainment',
+   name: 'Entertainment',
+   order: 1,
+   isHidden: true,
+  }),
+  createCategory({
+   id: 'software',
+   name: 'Software',
+   order: 0,
+  }),
+ ];
+
+ const plan = buildCategoryImportPlan(currentCategories, importedCategories);
+
+ assert.deepEqual(plan.create, []);
+ assert.deepEqual(plan.deleteIds, []);
+ assert.deepEqual(plan.update.map(category => category.id), ['entertainment', 'software']);
+});

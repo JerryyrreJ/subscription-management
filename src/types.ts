@@ -33,6 +33,11 @@ export interface SyncSubscriptionsResult {
  pendingOperations: PendingSyncOperation[];
 }
 
+export interface UploadLocalSubscriptionsResult {
+ subscriptions: Subscription[];
+ failedSubscriptions: Subscription[];
+}
+
 export type ViewMode = 'monthly' | 'yearly';
 
 export type SortBy = 'name' | 'amount' | 'nextPaymentDate' | 'category' | 'createdAt';

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { PendingSyncOperation, Subscription, SyncSubscriptionsResult } from '../types'
+import { PendingSyncOperation, Subscription, SyncSubscriptionsResult, UploadLocalSubscriptionsResult } from '../types'
 import { config } from '../lib/config'
 import {
  applyPendingOperationsToSubscriptions,
@@ -7,6 +7,7 @@ import {
  normalizeSubscription,
  sortPendingOperations
 } from '../utils/subscriptionSync'
+import { scopeSubscriptionQueryToUser, scopeSubscriptionQueryToUserAndId } from '../utils/subscriptionTenantScope'
 
 export interface SupabaseSubscription {
  id: string
@@ -25,16 +26,39 @@ export interface SupabaseSubscription {
 }
 
 export class SubscriptionService {
+ private static async getAuthenticatedUserId(): Promise<string> {
+ if (!supabase) {
+ throw new Error('Cloud sync not available')
+ }
+
+ const { data: { user }, error: authError } = await supabase.auth.getUser()
+ if (authError) {
+ console.error('Auth error:', authError)
+ throw new Error(`Authentication failed: ${authError.message}`)
+ }
+ if (!user) {
+ console.error('No authenticated user found')
+ throw new Error('User not authenticated')
+ }
+
+ return user.id
+ }
+
  // 获取云端数据
  static async getSubscriptions(): Promise<Subscription[]> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
- const { data, error } = await supabase
+ const userId = await this.getAuthenticatedUserId()
+
+ const { data, error } = await scopeSubscriptionQueryToUser(
+  supabase
  .from('subscriptions')
  .select('*')
- .order('created_at', { ascending: false })
+ .order('created_at', { ascending: false }),
+  userId
+ )
 
  if (error) {
  console.error('Error fetching subscriptions:', error)
@@ -52,21 +76,12 @@ export class SubscriptionService {
 
  const supabaseData = this.transformToSupabase(subscription)
 
- // 获取当前用户ID
- const { data: { user }, error: authError } = await supabase.auth.getUser()
- if (authError) {
- console.error('Auth error:', authError)
- throw new Error(`Authentication failed: ${authError.message}`)
- }
- if (!user) {
- console.error('No authenticated user found')
- throw new Error('User not authenticated')
- }
- console.log('Creating subscription for user:', user.id)
+ const userId = await this.getAuthenticatedUserId()
+ console.log('Creating subscription for user:', userId)
 
  const insertPayload = {
   ...supabaseData,
-  user_id: user.id,
+  user_id: userId,
   ...('id' in subscription ? { id: subscription.id } : {})
  }
 
@@ -90,12 +105,16 @@ export class SubscriptionService {
  throw new Error('Cloud sync not available')
  }
 
+ const userId = await this.getAuthenticatedUserId()
  const supabaseData = this.transformToSupabase(subscription)
 
- const { data, error } = await supabase
+ const { data, error } = await scopeSubscriptionQueryToUserAndId(
+  supabase
  .from('subscriptions')
- .update(supabaseData)
- .eq('id', subscription.id)
+ .update(supabaseData),
+  userId,
+  subscription.id
+ )
  .select()
  .single()
 
@@ -113,10 +132,14 @@ export class SubscriptionService {
  throw new Error('Cloud sync not available')
  }
 
- const { error } = await supabase
+ const userId = await this.getAuthenticatedUserId()
+ const { error } = await scopeSubscriptionQueryToUserAndId(
+  supabase
  .from('subscriptions')
- .delete()
- .eq('id', id)
+ .delete(),
+  userId,
+  id
+ )
 
  if (error) {
  console.error('Error deleting subscription:', error)
@@ -174,17 +197,13 @@ export class SubscriptionService {
  }
 
  // 批量上传本地数据到云端（带去重检查）
- static async uploadLocalSubscriptions(subscriptions: Subscription[]): Promise<Subscription[]> {
+ static async uploadLocalSubscriptions(subscriptions: Subscription[]): Promise<UploadLocalSubscriptionsResult> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
  try {
- // 获取当前用户ID
- const { data: { user } } = await supabase.auth.getUser()
- if (!user) {
- throw new Error('User not authenticated')
- }
+ await this.getAuthenticatedUserId()
 
  // 1. 获取云端现有数据进行去重检查
  const cloudSubscriptions = await this.getSubscriptions()
@@ -205,12 +224,14 @@ export class SubscriptionService {
  console.log(`Uploading ${subsToUpload.length} unique local subscriptions`)
 
  // 5. 上传独有的订阅
+ const failedSubscriptions: Subscription[] = []
  const uploadPromises = subsToUpload.map(async (sub) => {
  try {
- return await this.createSubscription(sub)
+  return await this.createSubscription(sub)
  } catch (error) {
- console.error(`Failed to upload subscription ${sub.name}:`, error)
- return sub // 保留原始数据
+  console.error(`Failed to upload subscription ${sub.name}:`, error)
+ failedSubscriptions.push(sub)
+ return sub // 保留原始数据在本地
  }
  })
 
@@ -228,10 +249,16 @@ export class SubscriptionService {
  return acc
  }, [] as Subscription[])
 
- return uniqueSubscriptions
+ return {
+ subscriptions: uniqueSubscriptions,
+ failedSubscriptions
+ }
  } catch (error) {
  console.error('Error uploading subscriptions:', error)
- return subscriptions
+ return {
+ subscriptions,
+ failedSubscriptions: subscriptions
+ }
  }
  }
 
@@ -446,7 +473,11 @@ export class SubscriptionService {
  }
 
  try {
- const { error } = await supabase.from('subscriptions').select('id').limit(1)
+ const userId = await this.getAuthenticatedUserId()
+ const { error } = await scopeSubscriptionQueryToUser(
+  supabase.from('subscriptions').select('id').limit(1),
+  userId
+ )
  return !error
  } catch {
  return false

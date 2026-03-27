@@ -11,7 +11,7 @@ import {
  saveSubscriptions
 } from '../utils/storage'
 import { config } from '../lib/config'
-import { normalizeSubscription } from '../utils/subscriptionSync'
+import { buildPendingCreateOperations, normalizeSubscription } from '../utils/subscriptionSync'
 
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
@@ -133,13 +133,21 @@ export function useSubscriptionSync(
    return activeCloudTaskRef.current
   }
 
-  console.log('Uploading local data to cloud...')
-  return runCloudTask(async () => {
-   const cloudSubscriptions = await SubscriptionService.uploadLocalSubscriptions(localSubscriptions)
-   setSubscriptions(cloudSubscriptions)
-   saveSubscriptions(cloudSubscriptions)
-   clearPendingSyncOperations()
-   return cloudSubscriptions
+ console.log('Uploading local data to cloud...')
+ return runCloudTask(async () => {
+   const uploadResult = await SubscriptionService.uploadLocalSubscriptions(localSubscriptions)
+   const pendingOperations = buildPendingCreateOperations(uploadResult.failedSubscriptions)
+
+   setSubscriptions(uploadResult.subscriptions)
+   saveSubscriptions(uploadResult.subscriptions)
+
+   if (pendingOperations.length > 0) {
+    savePendingSyncOperations(pendingOperations)
+   } else {
+    clearPendingSyncOperations()
+   }
+
+   return uploadResult.subscriptions
   }, () => localSubscriptions)
  }, [runCloudTask, user, setSubscriptions])
 

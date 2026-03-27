@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase'
 import { Category } from '../utils/categories'
 import { config } from '../lib/config'
+import { buildCategoryImportPlan } from '../utils/exportImport'
+import { scopeCategoryQueryToUser, scopeCategoryQueryToUserAndId } from '../utils/categoryTenantScope'
 
 export interface SupabaseCategory {
  id: string
@@ -15,16 +17,34 @@ export interface SupabaseCategory {
 }
 
 export class CategoryService {
+ private static async getAuthenticatedUserId(): Promise<string> {
+ if (!supabase) {
+ throw new Error('Cloud sync not available')
+ }
+
+ const { data: { user }, error: authError } = await supabase.auth.getUser()
+ if (authError || !user) {
+ throw new Error('User not authenticated')
+ }
+
+ return user.id
+ }
+
  // 获取云端类别数据
  static async getCategories(): Promise<Category[]> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
- const { data, error } = await supabase
+ const userId = await this.getAuthenticatedUserId()
+
+ const { data, error } = await scopeCategoryQueryToUser(
+  supabase
  .from('user_categories')
  .select('*')
- .order('order', { ascending: true })
+ .order('order', { ascending: true }),
+  userId
+ )
 
  if (error) {
  console.error('Error fetching categories:', error)
@@ -40,16 +60,12 @@ export class CategoryService {
  throw new Error('Cloud sync not available')
  }
 
- // 获取当前用户ID
- const { data: { user }, error: authError } = await supabase.auth.getUser()
- if (authError || !user) {
- throw new Error('User not authenticated')
- }
+ const userId = await this.getAuthenticatedUserId()
 
  const { data, error } = await supabase
  .from('user_categories')
  .insert([{
- user_id: user.id,
+ user_id: userId,
  category_id: category.id,
  name: category.name,
  order: category.order,
@@ -73,14 +89,20 @@ export class CategoryService {
  throw new Error('Cloud sync not available')
  }
 
- const { data, error } = await supabase
+ const userId = await this.getAuthenticatedUserId()
+
+ const { data, error } = await scopeCategoryQueryToUserAndId(
+  supabase
  .from('user_categories')
  .update({
  name: category.name,
  order: category.order,
  is_hidden: category.isHidden
  })
- .eq('category_id', category.id)
+ ,
+  userId,
+  category.id
+ )
  .select()
  .single()
 
@@ -98,10 +120,15 @@ export class CategoryService {
  throw new Error('Cloud sync not available')
  }
 
- const { error } = await supabase
+ const userId = await this.getAuthenticatedUserId()
+
+ const { error } = await scopeCategoryQueryToUserAndId(
+  supabase
  .from('user_categories')
- .delete()
- .eq('category_id', categoryId)
+ .delete(),
+  userId,
+  categoryId
+ )
 
  if (error) {
  console.error('Error deleting category:', error)
@@ -130,6 +157,29 @@ export class CategoryService {
  }
  }
 
+ static async reconcileCategories(localCategories: Category[]): Promise<Category[]> {
+ if (!config.hasSupabaseConfig || !supabase) {
+ throw new Error('Cloud sync not available')
+ }
+
+ const cloudCategories = await this.getCategories()
+ const syncPlan = buildCategoryImportPlan(cloudCategories, localCategories)
+
+ for (const categoryId of syncPlan.deleteIds) {
+ await this.deleteCategory(categoryId)
+ }
+
+ for (const category of syncPlan.update) {
+ await this.updateCategory(category)
+ }
+
+ for (const category of syncPlan.create) {
+ await this.createCategory(category)
+ }
+
+ return this.getCategories()
+ }
+
  // 批量上传本地类别到云端（带去重检查）
  static async uploadLocalCategories(categories: Category[]): Promise<Category[]> {
  if (!config.hasSupabaseConfig || !supabase) {
@@ -137,11 +187,7 @@ export class CategoryService {
  }
 
  try {
- // 获取当前用户ID
- const { data: { user } } = await supabase.auth.getUser()
- if (!user) {
- throw new Error('User not authenticated')
- }
+ await this.getAuthenticatedUserId()
 
  // 1. 获取云端现有数据进行去重检查
  const cloudCategories = await this.getCategories()
@@ -197,13 +243,22 @@ export class CategoryService {
  throw new Error('Cloud sync not available')
  }
 
+ const userId = await this.getAuthenticatedUserId()
+
  try {
  // 批量更新每个类别的 order 字段
  const updatePromises = categories.map(async (cat) => {
- return await supabase
+ const { error } = await scopeCategoryQueryToUserAndId(
+  supabase
  .from('user_categories')
- .update({ order: cat.order })
- .eq('category_id', cat.id)
+ .update({ order: cat.order }),
+  userId,
+  cat.id
+ )
+
+ if (error) {
+ throw error
+ }
  })
 
  await Promise.all(updatePromises)

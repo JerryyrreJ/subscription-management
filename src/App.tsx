@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Plus, BarChart3 } from 'lucide-react';
 import {
  Subscription,
@@ -22,9 +22,6 @@ import { EditEmailModal } from './components/EditEmailModal';
 import { EditPasswordModal } from './components/EditPasswordModal';
 import { CategorySettingsModal } from './components/CategorySettingsModal';
 import { ImportDataModal } from './components/ImportDataModal';
-import { NotificationSettingsModal } from './components/NotificationSettingsModal';
-import { AdvancedReport } from './components/AdvancedReport';
-import { PricingModal } from './components/PricingModal';
 import { UserMenu } from './components/UserMenu';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
@@ -48,7 +45,43 @@ import { loadNotificationSettings, saveNotificationSettings } from './utils/noti
 import { NotificationSettingsService } from './services/notificationSettingsService';
 import { Footer } from './components/Footer';
 import { config } from './lib/config';
-import { parseDateOnly } from './utils/dates';
+import { sortSubscriptions } from './utils/subscriptionSorting';
+
+const AdvancedReport = lazy(() =>
+ import('./components/AdvancedReport').then(module => ({ default: module.AdvancedReport }))
+);
+const PricingModal = lazy(() =>
+ import('./components/PricingModal').then(module => ({ default: module.PricingModal }))
+);
+const NotificationSettingsModal = lazy(() =>
+ import('./components/NotificationSettingsModal').then(module => ({ default: module.NotificationSettingsModal }))
+);
+
+function LazyModalFallback({
+ title,
+ description,
+ onClose,
+}: {
+ title: string;
+ description: string;
+ onClose: () => void;
+}) {
+ return (
+ <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
+ <div className="w-full max-w-md rounded-3xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-[#1a1c1e]/95 shadow-apple-xl p-8 text-center">
+ <div className="w-10 h-10 border-4 border-emerald-600 dark:border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+ <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{title}</h2>
+ <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">{description}</p>
+ <button
+ onClick={onClose}
+ className="px-5 py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white transition-colors"
+ >
+ Cancel
+ </button>
+ </div>
+ </div>
+ );
+}
 
 export function App() {
  const { user, userProfile, loading, signOut, updateUserEmail, updateUserPassword } = useAuth();
@@ -106,70 +139,13 @@ export function App() {
  setSubscriptions([...subscriptions]);
  });
 
- // 排序函数
- const sortSubscriptions = (subs: Subscription[], config: SortConfig): Subscription[] => {
- return [...subs].sort((a, b) => {
- let comparison = 0;
-
- switch (config.sortBy) {
- case 'name':
- comparison = a.name.localeCompare(b.name);
- break;
- case 'category':
- comparison = a.category.localeCompare(b.category);
- break;
- case 'amount': {
- // 计算每日价格进行比较
- const getDailyPrice = (sub: Subscription) => {
- // 先转换为基准货币
- const amount = sub.currency === DEFAULT_CURRENCY
- ? sub.amount
- : convertCurrency(sub.amount, sub.currency, DEFAULT_CURRENCY, {}, DEFAULT_CURRENCY);
-
- // 转换为每日价格
- if (sub.period === 'monthly') {
- return amount / 30; // 月费 / 30天
- } else if (sub.period === 'yearly') {
- return amount / 365; // 年费 / 365天
- } else if (sub.period === 'custom') {
- const daysInPeriod = parseInt(sub.customDate || '30');
- return amount / daysInPeriod; // 自定义周期费用 / 自定义天数
- }
- return amount / 30; // 默认按月计算
- };
-
- const dailyPriceA = getDailyPrice(a);
- const dailyPriceB = getDailyPrice(b);
- comparison = dailyPriceA - dailyPriceB;
- break;
- }
- case 'nextPaymentDate': {
- const dateA = parseDateOnly(a.nextPaymentDate).getTime();
- const dateB = parseDateOnly(b.nextPaymentDate).getTime();
- comparison = dateA - dateB;
- break;
- }
- case 'createdAt': {
- const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
- const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
- comparison = createdA - createdB;
- break;
- }
- default:
- comparison = 0;
- }
-
- return config.sortOrder === 'desc' ? -comparison : comparison;
- });
- };
-
  // 获取筛选后的订阅列表
  const filteredSubscriptions = selectedCategory
  ? subscriptions.filter(sub => sub.category === selectedCategory)
  : subscriptions;
 
  // 获取排序后的订阅列表
- const sortedSubscriptions = sortSubscriptions(filteredSubscriptions, sortConfig);
+ const sortedSubscriptions = sortSubscriptions(filteredSubscriptions, sortConfig, baseCurrency, exchangeRates);
 
  // 初始化数据和主题
  useEffect(() => {
@@ -707,25 +683,37 @@ export function App() {
  previewData={importPreviewData}
  />
 
- <NotificationSettingsModal
- isOpen={isNotificationSettingsModalOpen}
- onClose={() => setIsNotificationSettingsModalOpen(false)}
- settings={notificationSettings}
- onOpenAuth={() => setIsAuthModalOpen(true)}
- onSave={async (newSettings) => {
- setNotificationSettings(newSettings);
- saveNotificationSettings(newSettings);
+ {isNotificationSettingsModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title="Loading Notification Settings"
+   description="Preparing your notification preferences..."
+   onClose={() => setIsNotificationSettingsModalOpen(false)}
+  />
+ )}
+ >
+  <NotificationSettingsModal
+  isOpen={isNotificationSettingsModalOpen}
+  onClose={() => setIsNotificationSettingsModalOpen(false)}
+  settings={notificationSettings}
+  onOpenAuth={() => setIsAuthModalOpen(true)}
+  onSave={async (newSettings) => {
+  setNotificationSettings(newSettings);
+  saveNotificationSettings(newSettings);
 
- // 如果用户已登录且云同步可用，同时保存到云端
- if (user && config.hasSupabaseConfig) {
- try {
- await NotificationSettingsService.saveSettings(newSettings);
- } catch (error) {
- console.error('Failed to sync notification settings to cloud:', error);
- }
- }
- }}
- />
+  // 如果用户已登录且云同步可用，同时保存到云端
+  if (user && config.hasSupabaseConfig) {
+  try {
+  await NotificationSettingsService.saveSettings(newSettings);
+  } catch (error) {
+  console.error('Failed to sync notification settings to cloud:', error);
+  }
+  }
+  }}
+  />
+ </Suspense>
+ )}
 
  {/* 隐藏的文件输入 */}
  <input
@@ -738,25 +726,47 @@ export function App() {
 
  {/* 高级报表 */}
  {isAdvancedReportOpen && (
- <AdvancedReport
- subscriptions={subscriptions}
- baseCurrency={baseCurrency}
- exchangeRates={exchangeRates}
- onClose={() => setIsAdvancedReportOpen(false)}
- />
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title="Loading Report"
+   description="Preparing analytics and charts..."
+   onClose={() => setIsAdvancedReportOpen(false)}
+  />
+ )}
+ >
+  <AdvancedReport
+  subscriptions={subscriptions}
+  baseCurrency={baseCurrency}
+  exchangeRates={exchangeRates}
+  onClose={() => setIsAdvancedReportOpen(false)}
+  />
+ </Suspense>
  )}
 
  {/* Pricing Modal */}
- <PricingModal
- isOpen={isPricingModalOpen}
- onClose={() => setIsPricingModalOpen(false)}
- onUpgrade={() => {
- setIsPricingModalOpen(false);
- if (!user) {
- setIsAuthModalOpen(true);
- }
- }}
- />
+ {isPricingModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title="Loading Pricing"
+   description="Fetching plan details..."
+   onClose={() => setIsPricingModalOpen(false)}
+  />
+ )}
+ >
+  <PricingModal
+  isOpen={isPricingModalOpen}
+  onClose={() => setIsPricingModalOpen(false)}
+  onUpgrade={() => {
+  setIsPricingModalOpen(false);
+  if (!user) {
+  setIsAuthModalOpen(true);
+  }
+  }}
+  />
+ </Suspense>
+ )}
  </div>
 
  <Footer />

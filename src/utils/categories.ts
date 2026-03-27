@@ -4,6 +4,7 @@
  */
 
 const CATEGORIES_STORAGE_KEY = 'subscription_categories_v2'
+const PENDING_CATEGORY_SYNC_KEY = 'subscription_categories_pending_sync'
 
 // 类型数据结构
 export interface Category {
@@ -84,6 +85,56 @@ export function saveCategories(categories: Category[]): void {
  localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories))
  } catch (error) {
  console.error('Error saving categories:', error)
+ }
+}
+
+/**
+ * 加载待同步的类别快照
+ */
+export function loadPendingCategorySync(): Category[] | null {
+ try {
+ const stored = localStorage.getItem(PENDING_CATEGORY_SYNC_KEY)
+ if (!stored) {
+ return null
+ }
+
+ const categories = JSON.parse(stored)
+ if (!Array.isArray(categories)) {
+  return null
+ }
+
+ return categories.map((category, index) => ({
+  id: typeof category?.id === 'string' ? category.id : `invalid-${index}`,
+  name: typeof category?.name === 'string' ? category.name : 'Unnamed',
+  order: typeof category?.order === 'number' ? category.order : index,
+  isBuiltIn: category?.isBuiltIn ?? false,
+  isHidden: category?.isHidden ?? false
+ }))
+ } catch (error) {
+ console.error('Error loading pending category sync state:', error)
+ return null
+ }
+}
+
+/**
+ * 保存待同步的类别快照
+ */
+export function savePendingCategorySync(categories: Category[]): void {
+ try {
+ localStorage.setItem(PENDING_CATEGORY_SYNC_KEY, JSON.stringify(categories))
+ } catch (error) {
+ console.error('Error saving pending category sync state:', error)
+ }
+}
+
+/**
+ * 清除待同步的类别快照
+ */
+export function clearPendingCategorySync(): void {
+ try {
+ localStorage.removeItem(PENDING_CATEGORY_SYNC_KEY)
+ } catch (error) {
+ console.error('Error clearing pending category sync state:', error)
  }
 }
 

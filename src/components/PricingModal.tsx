@@ -143,7 +143,8 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  const containerRef = useRef<HTMLDivElement>(null);
  const [isVisible, setIsVisible] = useState(false);
  const [isProcessing, setIsProcessing] = useState(false);
- const { user } = config.features.authentication ? useAuth() : { user: null };
+ const { user } = useAuth();
+ const authenticatedUser = config.features.authentication ? user : null;
 
  // 当模态框打开时，滚动到顶部并触发动画
  useEffect(() => {
@@ -172,8 +173,8 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
 
  await redirectToCheckout({
  priceId,
- userId: user?.id,
- userEmail: user?.email,
+ userId: authenticatedUser?.id,
+ userEmail: authenticatedUser?.email,
  });
  } catch (error) {
  console.error('Payment error:', error);

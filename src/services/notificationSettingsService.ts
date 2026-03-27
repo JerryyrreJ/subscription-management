@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase'
 import { ReminderSettings } from '../types'
 import { config } from '../lib/config'
 import { cleanupNotificationHistory } from '../utils/notificationChecker'
+import { scopeNotificationSettingsQueryToUser } from '../utils/notificationSettingsTenantScope'
 
 export interface SupabaseNotificationSettings {
  id: string
@@ -16,15 +17,32 @@ export interface SupabaseNotificationSettings {
 }
 
 export class NotificationSettingsService {
+ private static async getAuthenticatedUserId(): Promise<string> {
+ if (!supabase) {
+ throw new Error('Cloud sync not available')
+ }
+
+ const { data: { user }, error: authError } = await supabase.auth.getUser()
+ if (authError || !user) {
+ throw new Error('User not authenticated')
+ }
+
+ return user.id
+ }
+
  // 获取云端通知设置
  static async getSettings(): Promise<ReminderSettings | null> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
- const { data, error } = await supabase
+ const userId = await this.getAuthenticatedUserId()
+ const { data, error } = await scopeNotificationSettingsQueryToUser(
+  supabase
  .from('user_notification_settings')
- .select('*')
+ .select('*'),
+  userId
+ )
  .single()
 
  if (error) {
@@ -51,13 +69,10 @@ export class NotificationSettingsService {
  throw new Error('Cloud sync not available')
  }
 
- const { data: { user }, error: authError } = await supabase.auth.getUser()
- if (authError || !user) {
- throw new Error('User not authenticated')
- }
+ const userId = await this.getAuthenticatedUserId()
 
  const cleanedSettings = cleanupNotificationHistory(settings)
- const supabaseData = this.transformToSupabase(cleanedSettings, user.id)
+ const supabaseData = this.transformToSupabase(cleanedSettings, userId)
 
  // 使用 upsert 自动处理插入/更新
  const { data, error } = await supabase
@@ -80,10 +95,7 @@ export class NotificationSettingsService {
  throw new Error('Cloud sync not available')
  }
 
- const { data: { user }, error: authError } = await supabase.auth.getUser()
- if (authError || !user) {
- throw new Error('User not authenticated')
- }
+ const userId = await this.getAuthenticatedUserId()
 
  // 获取当前历史记录
  const settings = await this.getSettings()
@@ -103,7 +115,7 @@ export class NotificationSettingsService {
   }
  })
 
- await this.persistHistory(user.id, updatedSettings.barkPush.notificationHistory)
+ await this.persistHistory(userId, updatedSettings.barkPush.notificationHistory)
  }
 
  // 数据格式转换：Supabase -> App
@@ -168,9 +180,13 @@ export class NotificationSettingsService {
  }
 
  try {
- const { data, error } = await supabase
+ const userId = await this.getAuthenticatedUserId()
+ const { data, error } = await scopeNotificationSettingsQueryToUser(
+  supabase
  .from('user_notification_settings')
- .select('id')
+ .select('id'),
+  userId
+ )
  .single()
 
  return !error && !!data

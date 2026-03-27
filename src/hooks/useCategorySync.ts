@@ -1,8 +1,21 @@
 import { useState, useCallback, useRef } from 'react'
 import { User } from '@supabase/supabase-js'
-import { Category, loadCategories, saveCategories } from '../utils/categories'
+import {
+ Category,
+ clearPendingCategorySync,
+ loadCategories,
+ loadPendingCategorySync,
+ saveCategories,
+ savePendingCategorySync
+} from '../utils/categories'
 import { CategoryService } from '../services/categoryService'
 import { config } from '../lib/config'
+import {
+ executeCategorySync,
+ executeCategoryUpload,
+ finalizeCategoryCloudMutation,
+ stageCategorySnapshot
+} from '../utils/categorySyncState'
 
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
@@ -64,9 +77,25 @@ export function useCategorySync(
    }
   })()
 
-  activeCloudTaskRef.current = activeTask
-  return activeTask
+ activeCloudTaskRef.current = activeTask
+ return activeTask
  }, [scheduleStatusReset])
+
+ const persistCategories = useCallback((categories: Category[]) => {
+  saveCategories(categories)
+  onCategoriesChange?.(categories)
+ }, [onCategoriesChange])
+
+ const replaceOrAppendCategory = useCallback((categories: Category[], nextCategory: Category) => {
+  const existingIndex = categories.findIndex(category => category.id === nextCategory.id)
+  if (existingIndex === -1) {
+   return [...categories, nextCategory]
+  }
+
+  return categories.map(category =>
+   category.id === nextCategory.id ? nextCategory : category
+  )
+ }, [])
 
  // 同步类别数据
  const syncCategories = useCallback(async (): Promise<Category[]> => {
@@ -82,13 +111,16 @@ export function useCategorySync(
 
   console.log('Starting category sync for user:', user.email)
   return runCloudTask(async () => {
-   const currentCategories = loadCategories()
-   const syncedCategories = await CategoryService.syncCategories(currentCategories)
-   saveCategories(syncedCategories)
-   onCategoriesChange?.(syncedCategories)
-   return syncedCategories
+   return executeCategorySync({
+    loadLocalCategories: loadCategories,
+    loadPendingSnapshot: loadPendingCategorySync,
+    syncCloudCategories: CategoryService.syncCategories,
+    reconcilePendingCategories: CategoryService.reconcileCategories,
+    persistCategories,
+    clearPendingSnapshot: clearPendingCategorySync,
+   })
   }, () => loadCategories())
- }, [runCloudTask, user, onCategoriesChange])
+ }, [persistCategories, runCloudTask, user])
 
  // 上传本地类别到云端（用户首次登录时）
  const uploadLocalCategories = useCallback(async (localCategories: Category[]): Promise<Category[]> => {
@@ -103,141 +135,123 @@ export function useCategorySync(
 
   console.log('Uploading local categories to cloud...')
   return runCloudTask(async () => {
-   const cloudCategories = await CategoryService.uploadLocalCategories(localCategories)
-   saveCategories(cloudCategories)
-   onCategoriesChange?.(cloudCategories)
-   return cloudCategories
+   return executeCategoryUpload(localCategories, {
+    loadPendingSnapshot: loadPendingCategorySync,
+    reconcilePendingCategories: CategoryService.reconcileCategories,
+    persistCategories,
+    clearPendingSnapshot: clearPendingCategorySync,
+   })
   }, () => localCategories)
- }, [runCloudTask, user, onCategoriesChange])
+ }, [persistCategories, runCloudTask, user])
 
  // 创建类别（自动同步）
  const createCategory = useCallback(async (category: Category): Promise<Category> => {
+ const hadPendingSync = Boolean(loadPendingCategorySync())
+ const categories = loadCategories()
+ const updatedCategories = stageCategorySnapshot(
+  replaceOrAppendCategory(categories, category),
+  {
+   persistCategories,
+   savePendingSnapshot: savePendingCategorySync,
+  }
+ )
+
  if (config.features.cloudSync && user) {
- try {
- // 在线模式：直接保存到云端
- const newCategory = await CategoryService.createCategory(category)
- const categories = loadCategories()
- const updated = [...categories, newCategory]
- saveCategories(updated)
- onCategoriesChange?.(updated)
- setLastSyncTime(new Date())
- return newCategory
- } catch (error) {
- console.error('Failed to save category online:', error)
- // 降级到离线模式
- const categories = loadCategories()
- const updated = [...categories, category]
- saveCategories(updated)
- onCategoriesChange?.(updated)
- return category
+  try {
+   // 在线模式：直接保存到云端
+   const newCategory = await finalizeCategoryCloudMutation({
+    hadPendingSnapshot: hadPendingSync,
+    executeCloudMutation: () => CategoryService.createCategory(category),
+    clearPendingSnapshot: clearPendingCategorySync,
+    markSyncSuccess: () => {
+     setLastSyncTime(new Date())
+    }
+   })
+   const syncedCategories = replaceOrAppendCategory(updatedCategories, newCategory)
+   persistCategories(syncedCategories)
+   return newCategory
+  } catch (error) {
+   console.error('Failed to save category online:', error)
+   return category
+  }
  }
- } else {
- // 离线模式：只保存到本地
- const categories = loadCategories()
- const updated = [...categories, category]
- saveCategories(updated)
- onCategoriesChange?.(updated)
+
  return category
- }
- }, [user, onCategoriesChange])
+ }, [persistCategories, replaceOrAppendCategory, user])
 
  // 更新类别（自动同步）
  const updateCategory = useCallback(async (category: Category): Promise<Category> => {
+ const hadPendingSync = Boolean(loadPendingCategorySync())
+ const categories = loadCategories()
+ const updatedCategories = stageCategorySnapshot(
+  replaceOrAppendCategory(categories, category),
+  {
+   persistCategories,
+   savePendingSnapshot: savePendingCategorySync,
+  }
+ )
+
  if (config.features.cloudSync && user) {
- try {
- // 在线模式：同步到云端
- const updatedCategory = await CategoryService.updateCategory(category)
- const categories = loadCategories()
- const updated = categories.map(cat =>
- cat.id === updatedCategory.id ? updatedCategory : cat
- )
- saveCategories(updated)
- onCategoriesChange?.(updated)
- setLastSyncTime(new Date())
- return updatedCategory
- } catch (error) {
- console.error('Failed to update category online:', error)
- // 降级到离线模式
- const categories = loadCategories()
- const updated = categories.map(cat =>
- cat.id === category.id ? category : cat
- )
- saveCategories(updated)
- onCategoriesChange?.(updated)
- return category
+  try {
+   // 在线模式：同步到云端
+   const updatedCategory = await finalizeCategoryCloudMutation({
+    hadPendingSnapshot: hadPendingSync,
+    executeCloudMutation: () => CategoryService.updateCategory(category),
+    clearPendingSnapshot: clearPendingCategorySync,
+    markSyncSuccess: () => {
+     setLastSyncTime(new Date())
+    }
+   })
+   const syncedCategories = replaceOrAppendCategory(updatedCategories, updatedCategory)
+   persistCategories(syncedCategories)
+   return updatedCategory
+  } catch (error) {
+   console.error('Failed to update category online:', error)
+   return category
+  }
  }
- } else {
- // 离线模式：只更新本地
- const categories = loadCategories()
- const updated = categories.map(cat =>
- cat.id === category.id ? category : cat
- )
- saveCategories(updated)
- onCategoriesChange?.(updated)
+
  return category
- }
- }, [user, onCategoriesChange])
+ }, [persistCategories, replaceOrAppendCategory, user])
 
  // 删除类别（自动同步）
  const deleteCategory = useCallback(async (categoryId: string): Promise<void> => {
+ const hadPendingSync = Boolean(loadPendingCategorySync())
+ const categories = loadCategories()
+ const category = categories.find(cat => cat.id === categoryId)
+
+ if (!category) {
+  return
+ }
+
+ const updatedCategories = stageCategorySnapshot(
+  category.isBuiltIn
+   ? categories.map(cat =>
+    cat.id === categoryId ? { ...cat, isHidden: true } : cat
+   )
+   : categories.filter(cat => cat.id !== categoryId),
+  {
+   persistCategories,
+   savePendingSnapshot: savePendingCategorySync,
+  }
+ )
+
  if (config.features.cloudSync && user) {
- try {
- // 在线模式：从云端删除
- await CategoryService.deleteCategory(categoryId)
- const categories = loadCategories()
- const category = categories.find(cat => cat.id === categoryId)
-
- if (category?.isBuiltIn) {
- // 内置类别：软删除
- const updated = categories.map(cat =>
- cat.id === categoryId ? { ...cat, isHidden: true } : cat
- )
- saveCategories(updated)
- onCategoriesChange?.(updated)
- } else {
- // 自定义类别：彻底删除
- const updated = categories.filter(cat => cat.id !== categoryId)
- saveCategories(updated)
- onCategoriesChange?.(updated)
+  try {
+   // 在线模式：从云端删除
+   await finalizeCategoryCloudMutation({
+    hadPendingSnapshot: hadPendingSync,
+    executeCloudMutation: () => CategoryService.deleteCategory(categoryId),
+    clearPendingSnapshot: clearPendingCategorySync,
+    markSyncSuccess: () => {
+     setLastSyncTime(new Date())
+    }
+   })
+  } catch (error) {
+   console.error('Failed to delete category online:', error)
+  }
  }
-
- setLastSyncTime(new Date())
- } catch (error) {
- console.error('Failed to delete category online:', error)
- // 降级到离线模式
- const categories = loadCategories()
- const category = categories.find(cat => cat.id === categoryId)
-
- if (category?.isBuiltIn) {
- const updated = categories.map(cat =>
- cat.id === categoryId ? { ...cat, isHidden: true } : cat
- )
- saveCategories(updated)
- onCategoriesChange?.(updated)
- } else {
- const updated = categories.filter(cat => cat.id !== categoryId)
- saveCategories(updated)
- onCategoriesChange?.(updated)
- }
- }
- } else {
- // 离线模式：只从本地删除
- const categories = loadCategories()
- const category = categories.find(cat => cat.id === categoryId)
-
- if (category?.isBuiltIn) {
- const updated = categories.map(cat =>
- cat.id === categoryId ? { ...cat, isHidden: true } : cat
- )
- saveCategories(updated)
- onCategoriesChange?.(updated)
- } else {
- const updated = categories.filter(cat => cat.id !== categoryId)
- saveCategories(updated)
- onCategoriesChange?.(updated)
- }
- }
- }, [user, onCategoriesChange])
+ }, [persistCategories, user])
 
  // 更新类别顺序（拖拽排序）
  const updateCategoriesOrder = useCallback(async (categories: Category[]): Promise<void> => {
@@ -247,25 +261,28 @@ export function useCategorySync(
  order: index
  }))
 
+ const hadPendingSync = Boolean(loadPendingCategorySync())
+ stageCategorySnapshot(reorderedCategories, {
+  persistCategories,
+  savePendingSnapshot: savePendingCategorySync,
+ })
+
  if (config.features.cloudSync && user) {
  try {
  // 在线模式：同步到云端
- await CategoryService.updateCategoriesOrder(reorderedCategories)
- saveCategories(reorderedCategories)
- onCategoriesChange?.(reorderedCategories)
+ await finalizeCategoryCloudMutation({
+ hadPendingSnapshot: hadPendingSync,
+ executeCloudMutation: () => CategoryService.updateCategoriesOrder(reorderedCategories),
+ clearPendingSnapshot: clearPendingCategorySync,
+ markSyncSuccess: () => {
  setLastSyncTime(new Date())
+ }
+ })
  } catch (error) {
  console.error('Failed to update categories order online:', error)
- // 降级到离线模式
- saveCategories(reorderedCategories)
- onCategoriesChange?.(reorderedCategories)
  }
- } else {
- // 离线模式：只更新本地
- saveCategories(reorderedCategories)
- onCategoriesChange?.(reorderedCategories)
  }
- }, [user, onCategoriesChange])
+ }, [persistCategories, user])
 
  return {
  syncStatus,

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PendingSyncOperation, Subscription } from '../../src/types.ts';
 import {
+ buildPendingCreateOperations,
  applyPendingOperationsToSubscriptions,
  chooseConflictWinner,
  mergePendingOperation,
@@ -104,6 +105,31 @@ test('applyPendingOperationsToSubscriptions overlays queued edits on top of clou
  assert.equal(resolvedSubscriptions[0].id, 'sub-3');
  assert.equal(resolvedSubscriptions[1].amount, 20);
  assert.equal(resolvedSubscriptions.some(subscription => subscription.id === 'sub-2'), false);
+});
+
+test('buildPendingCreateOperations rebuilds retry queue for failed uploads', () => {
+ const failedSubscriptions = [
+  createSubscription({
+   id: 'sub-failed-1',
+   updatedAt: '2026-03-07T00:00:00.000Z',
+  }),
+  createSubscription({
+   id: 'sub-failed-2',
+   name: 'Spotify',
+   updatedAt: '2026-03-08T00:00:00.000Z',
+  }),
+ ];
+
+ const operations = buildPendingCreateOperations(failedSubscriptions);
+
+ assert.equal(operations.length, 2);
+ assert.deepEqual(
+  operations.map(operation => operation.subscriptionId),
+  ['sub-failed-1', 'sub-failed-2']
+ );
+ assert.equal(operations.every(operation => operation.type === 'create'), true);
+ assert.equal(operations[1].subscription?.name, 'Spotify');
+ assert.equal(operations[1].queuedAt, '2026-03-08T00:00:00.000Z');
 });
 
 test('chooseConflictWinner prefers the newer timestamp', () => {

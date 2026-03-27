@@ -130,6 +130,24 @@ export const applyPendingOperationsToSubscriptions = (
  return sortSubscriptionsByRecency(Array.from(subscriptionMap.values()));
 };
 
+export const buildPendingCreateOperations = (
+ subscriptions: Subscription[]
+): PendingSyncOperation[] => {
+ return sortPendingOperations(
+  subscriptions.map(subscription => {
+   const normalizedSubscription = normalizeSubscription(subscription);
+
+   return {
+    id: crypto.randomUUID(),
+    type: 'create' as const,
+    subscriptionId: normalizedSubscription.id,
+    subscription: normalizedSubscription,
+    queuedAt: normalizedSubscription.updatedAt || normalizedSubscription.createdAt,
+   };
+  })
+ );
+};
+
 export const chooseConflictWinner = (
  localTimestamp?: string,
  cloudTimestamp?: string
