@@ -46,6 +46,7 @@ import { NotificationSettingsService } from './services/notificationSettingsServ
 import { Footer } from './components/Footer';
 import { config } from './lib/config';
 import { sortSubscriptions } from './utils/subscriptionSorting';
+import { GUEST_DATA_SCOPE, getUserDataScope, setActiveDataScope } from './utils/dataScope';
 
 const AdvancedReport = lazy(() =>
  import('./components/AdvancedReport').then(module => ({ default: module.AdvancedReport }))
@@ -149,9 +150,6 @@ export function App() {
 
  // 初始化数据和主题
  useEffect(() => {
- const localSubs = loadSubscriptions();
- setSubscriptions(localSubs);
-
  const savedTheme = localStorage.getItem('theme') as Theme | null;
  if (savedTheme) {
  setTheme(savedTheme);
@@ -172,6 +170,18 @@ export function App() {
  });
  }, [baseCurrency]);
 
+ // 根据当前用户切换本地数据作用域
+ useEffect(() => {
+ if (loading) {
+ return;
+ }
+
+ const nextScope = user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE;
+ setActiveDataScope(nextScope);
+ setSubscriptions(loadSubscriptions());
+ setNotificationSettings(loadNotificationSettings());
+ }, [user, loading]);
+
  // 主题切换效果
  useEffect(() => {
  if (theme === 'dark') {
@@ -184,7 +194,7 @@ export function App() {
 
  // 用户登录后的数据同步 - 只执行一次
  useEffect(() => {
- if (!user || hasInitialSync) return; // 如果用户未登录或已经同步过，直接返回
+ if (loading || !user || hasInitialSync) return; // 如果认证未完成、用户未登录或已经同步过，直接返回
 
  // 标记开始同步，防止重复
  setHasInitialSync(true);
@@ -260,7 +270,7 @@ export function App() {
  };
 
  performInitialSync();
- }, [user]); // 只依赖user，避免循环
+ }, [user, loading]); // 依赖认证状态，确保作用域切换后再同步
 
  // 重置同步状态当用户登出时
  useEffect(() => {

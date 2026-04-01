@@ -1,12 +1,13 @@
 import { PendingSyncOperation, Subscription } from '../types';
 import { mergePendingOperation, normalizeSubscription } from './subscriptionSync';
+import { DataScope, resolveScopedStorageKey } from './dataScope';
 
 const STORAGE_KEY = 'subscription-tracker-data';
 const PENDING_SYNC_OPERATIONS_KEY = 'subscription-tracker-pending-sync-operations';
 
-export const loadSubscriptions = (): Subscription[] => {
+export const loadSubscriptions = (scope?: DataScope): Subscription[] => {
  try {
- const data = localStorage.getItem(STORAGE_KEY);
+ const data = localStorage.getItem(resolveScopedStorageKey(STORAGE_KEY, scope));
  if (!data) return [];
 
  const subscriptions = JSON.parse(data);
@@ -18,10 +19,10 @@ export const loadSubscriptions = (): Subscription[] => {
  }
 };
 
-export const saveSubscriptions = (subscriptions: Subscription[]): void => {
+export const saveSubscriptions = (subscriptions: Subscription[], scope?: DataScope): void => {
  try {
- localStorage.setItem(
-  STORAGE_KEY,
+  localStorage.setItem(
+  resolveScopedStorageKey(STORAGE_KEY, scope),
   JSON.stringify(subscriptions.map(subscription => normalizeSubscription(subscription)))
  );
  } catch (error) {
@@ -29,9 +30,9 @@ export const saveSubscriptions = (subscriptions: Subscription[]): void => {
  }
 };
 
-export const loadPendingSyncOperations = (): PendingSyncOperation[] => {
+export const loadPendingSyncOperations = (scope?: DataScope): PendingSyncOperation[] => {
  try {
-  const data = localStorage.getItem(PENDING_SYNC_OPERATIONS_KEY);
+  const data = localStorage.getItem(resolveScopedStorageKey(PENDING_SYNC_OPERATIONS_KEY, scope));
   if (!data) {
    return [];
   }
@@ -49,23 +50,23 @@ export const loadPendingSyncOperations = (): PendingSyncOperation[] => {
  }
 };
 
-export const savePendingSyncOperations = (operations: PendingSyncOperation[]): void => {
+export const savePendingSyncOperations = (operations: PendingSyncOperation[], scope?: DataScope): void => {
  try {
-  localStorage.setItem(PENDING_SYNC_OPERATIONS_KEY, JSON.stringify(operations));
+  localStorage.setItem(resolveScopedStorageKey(PENDING_SYNC_OPERATIONS_KEY, scope), JSON.stringify(operations));
  } catch (error) {
   console.error('Error saving pending sync operations:', error);
  }
 };
 
-export const enqueuePendingSyncOperation = (operation: PendingSyncOperation): PendingSyncOperation[] => {
- const mergedOperations = mergePendingOperation(loadPendingSyncOperations(), operation);
- savePendingSyncOperations(mergedOperations);
+export const enqueuePendingSyncOperation = (operation: PendingSyncOperation, scope?: DataScope): PendingSyncOperation[] => {
+ const mergedOperations = mergePendingOperation(loadPendingSyncOperations(scope), operation);
+ savePendingSyncOperations(mergedOperations, scope);
  return mergedOperations;
 };
 
-export const clearPendingSyncOperations = (): void => {
+export const clearPendingSyncOperations = (scope?: DataScope): void => {
  try {
-  localStorage.removeItem(PENDING_SYNC_OPERATIONS_KEY);
+  localStorage.removeItem(resolveScopedStorageKey(PENDING_SYNC_OPERATIONS_KEY, scope));
  } catch (error) {
   console.error('Error clearing pending sync operations:', error);
  }

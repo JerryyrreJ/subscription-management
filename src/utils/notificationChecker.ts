@@ -1,5 +1,6 @@
 import { ReminderSettings } from '../types';
 import { getDaysUntil } from './dates';
+import { DataScope, resolveScopedStorageKey } from './dataScope';
 import { cleanupNotificationHistoryEntries } from './notificationHistory';
 
 const NOTIFICATION_STORAGE_KEY = 'notification_settings';
@@ -36,9 +37,9 @@ export function getDefaultNotificationSettings(): ReminderSettings {
 /**
  * 加载通知设置（从 localStorage）
  */
-export function loadNotificationSettings(): ReminderSettings {
+export function loadNotificationSettings(scope?: DataScope): ReminderSettings {
  try {
- const stored = localStorage.getItem(NOTIFICATION_STORAGE_KEY);
+ const stored = localStorage.getItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope));
  if (!stored) {
  return getDefaultNotificationSettings();
  }
@@ -47,7 +48,7 @@ export function loadNotificationSettings(): ReminderSettings {
  const cleanedSettings = cleanupNotificationHistory(normalizeNotificationSettings(parsedSettings));
 
  if (JSON.stringify(parsedSettings) !== JSON.stringify(cleanedSettings)) {
-  localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(cleanedSettings));
+  localStorage.setItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope), JSON.stringify(cleanedSettings));
  }
 
  return cleanedSettings;
@@ -60,10 +61,10 @@ export function loadNotificationSettings(): ReminderSettings {
 /**
  * 保存通知设置（到 localStorage）
  */
-export function saveNotificationSettings(settings: ReminderSettings): void {
+export function saveNotificationSettings(settings: ReminderSettings, scope?: DataScope): void {
  try {
  const cleanedSettings = cleanupNotificationHistory(normalizeNotificationSettings(settings));
- localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(cleanedSettings));
+ localStorage.setItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope), JSON.stringify(cleanedSettings));
  } catch (error) {
  console.error('Failed to save notification settings:', error);
  }

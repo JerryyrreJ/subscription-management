@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { config } from '../lib/config'
+import { resolveUserProfileNickname } from '../utils/userProfile'
 
 export interface UserProfile {
  id: string
@@ -41,12 +42,14 @@ export class UserProfileService {
  throw new Error('User profiles not available')
  }
 
+ const normalizedNickname = resolveUserProfileNickname(nickname)
+
  const { data, error } = await supabase
  .from('user_profiles')
- .insert([{
+ .upsert({
  user_id: userId,
- nickname: nickname
- }])
+ nickname: normalizedNickname
+ }, { onConflict: 'user_id' })
  .select()
  .single()
 
@@ -64,33 +67,7 @@ export class UserProfileService {
  throw new Error('User profiles not available')
  }
 
- // 首先检查用户资料是否存在
- const existingProfile = await this.getUserProfile(userId)
-
- if (!existingProfile) {
- // 如果不存在，创建新的资料
- console.log('Profile does not exist, creating new profile')
  return await this.createUserProfile(userId, nickname)
- }
-
- // 如果存在，更新现有资料
- const { data, error } = await supabase
- .from('user_profiles')
- .update({ nickname })
- .eq('user_id', userId)
- .select()
- .maybeSingle()
-
- if (error) {
- console.error('Error updating user profile:', error)
- throw error
- }
-
- if (!data) {
- throw new Error('Profile update failed - no data returned')
- }
-
- return data
  }
 
  // 获取或创建用户资料
@@ -107,11 +84,7 @@ export class UserProfileService {
  }
 
  // 如果没有资料且提供了昵称，则创建新资料
- if (nickname) {
- return await this.createUserProfile(userId, nickname)
- }
-
- return null
+ return await this.createUserProfile(userId, nickname || resolveUserProfileNickname(undefined))
  } catch (error) {
  console.error('Error in getOrCreateUserProfile:', error)
  return null

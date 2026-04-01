@@ -1,3 +1,5 @@
+import { DataScope, GUEST_DATA_SCOPE, getActiveDataScope, resolveScopedStorageKey } from './dataScope'
+
 /**
  * 订阅类型管理工具函数
  * 支持默认类型、用户自定义类型、软删除、拖拽排序
@@ -31,9 +33,10 @@ export const FALLBACK_CATEGORY = 'Uncategorized'
  * 从 localStorage 加载所有类型数据
  * 包含数据迁移逻辑：从旧版本 v1 迁移到 v2
  */
-export function loadCategories(): Category[] {
+export function loadCategories(scope?: DataScope): Category[] {
  try {
- const stored = localStorage.getItem(CATEGORIES_STORAGE_KEY)
+ const dataScope = scope ?? getActiveDataScope()
+ const stored = localStorage.getItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope))
 
  if (stored) {
  const categories: Category[] = JSON.parse(stored)
@@ -41,7 +44,9 @@ export function loadCategories(): Category[] {
  }
 
  // 数据迁移：检查是否有旧版本数据
- const oldCustomCategories = localStorage.getItem('subscription_custom_categories')
+ const oldCustomCategories = dataScope === GUEST_DATA_SCOPE
+  ? localStorage.getItem('subscription_custom_categories')
+  : null
  if (oldCustomCategories) {
  console.log('Migrating categories from v1 to v2...')
  const oldCustom: string[] = JSON.parse(oldCustomCategories)
@@ -59,7 +64,7 @@ export function loadCategories(): Category[] {
  ]
 
  // 保存迁移后的数据
- saveCategories(migratedCategories)
+ saveCategories(migratedCategories, scope)
 
  // 删除旧数据
  localStorage.removeItem('subscription_custom_categories')
@@ -69,7 +74,7 @@ export function loadCategories(): Category[] {
 
  // 首次使用，返回默认类型
  const defaultCategories = [...DEFAULT_CATEGORIES]
- saveCategories(defaultCategories)
+ saveCategories(defaultCategories, scope)
  return defaultCategories
  } catch (error) {
  console.error('Error loading categories:', error)
@@ -80,9 +85,9 @@ export function loadCategories(): Category[] {
 /**
  * 保存类型数据到 localStorage
  */
-export function saveCategories(categories: Category[]): void {
+export function saveCategories(categories: Category[], scope?: DataScope): void {
  try {
- localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories))
+ localStorage.setItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope), JSON.stringify(categories))
  } catch (error) {
  console.error('Error saving categories:', error)
  }
@@ -91,9 +96,9 @@ export function saveCategories(categories: Category[]): void {
 /**
  * 加载待同步的类别快照
  */
-export function loadPendingCategorySync(): Category[] | null {
+export function loadPendingCategorySync(scope?: DataScope): Category[] | null {
  try {
- const stored = localStorage.getItem(PENDING_CATEGORY_SYNC_KEY)
+ const stored = localStorage.getItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope))
  if (!stored) {
  return null
  }
@@ -119,9 +124,9 @@ export function loadPendingCategorySync(): Category[] | null {
 /**
  * 保存待同步的类别快照
  */
-export function savePendingCategorySync(categories: Category[]): void {
+export function savePendingCategorySync(categories: Category[], scope?: DataScope): void {
  try {
- localStorage.setItem(PENDING_CATEGORY_SYNC_KEY, JSON.stringify(categories))
+ localStorage.setItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope), JSON.stringify(categories))
  } catch (error) {
  console.error('Error saving pending category sync state:', error)
  }
@@ -130,9 +135,9 @@ export function savePendingCategorySync(categories: Category[]): void {
 /**
  * 清除待同步的类别快照
  */
-export function clearPendingCategorySync(): void {
+export function clearPendingCategorySync(scope?: DataScope): void {
  try {
- localStorage.removeItem(PENDING_CATEGORY_SYNC_KEY)
+ localStorage.removeItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope))
  } catch (error) {
  console.error('Error clearing pending category sync state:', error)
  }

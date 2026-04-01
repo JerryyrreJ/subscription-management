@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { UserProfile, UserProfileService } from '../services/userProfileService'
 import { config } from '../lib/config'
 import { setRememberMe, isRememberMeEnabled, clearRememberMe, shouldAttemptAutoRestore, refreshRememberMeTimestamp } from '../utils/rememberMe'
+import { resolveUserProfileNickname } from '../utils/userProfile'
 
 type OAuthProvider = 'github' | 'google'
 
@@ -111,15 +112,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  }
 
  // 获取用户资料
- const fetchUserProfile = async (userId: string) => {
+ const fetchUserProfile = async (authenticatedUser: User) => {
  try {
- let profile = await UserProfileService.getUserProfile(userId)
+ const preferredNickname = resolveUserProfileNickname(authenticatedUser.user_metadata?.nickname)
+ let profile = await UserProfileService.getUserProfile(authenticatedUser.id)
 
  // 如果没有找到资料，尝试创建一个默认资料
  if (!profile) {
- console.log('No profile found, creating default profile')
+ console.log('No profile found, creating profile from authenticated user data')
  try {
- profile = await UserProfileService.createUserProfile(userId, 'User')
+ profile = await UserProfileService.createUserProfile(authenticatedUser.id, preferredNickname)
  } catch (createError) {
  console.error('Failed to create default profile:', createError)
  // 即使创建失败，也设置一个null值，避免无限等待
@@ -138,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  // 刷新用户资料
  const refreshUserProfile = async () => {
  if (user) {
- await fetchUserProfile(user.id)
+ await fetchUserProfile(user)
  }
  }
 
@@ -193,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  if (!refreshError && refreshData.session) {
  setSession(refreshData.session)
  setUser(refreshData.session.user)
- fetchUserProfile(refreshData.session.user.id).catch(profileError => {
+ fetchUserProfile(refreshData.session.user).catch(profileError => {
  console.error('Error fetching user profile after refresh:', profileError)
  })
  return
@@ -216,7 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // 如果有用户，异步获取用户资料（不阻塞认证完成）
   if (session?.user) {
-  fetchUserProfile(session.user.id).catch(profileError => {
+  fetchUserProfile(session.user).catch(profileError => {
   console.error('Error fetching user profile:', profileError)
   })
  }
@@ -259,7 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   if (session?.user) {
   // 用户登录，异步获取资料（不阻塞状态变化）
-  fetchUserProfile(session.user.id).catch(profileError => {
+  fetchUserProfile(session.user).catch(profileError => {
   console.error('Error fetching user profile during auth state change:', profileError)
   })
   } else {
