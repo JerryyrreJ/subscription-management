@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendBarkNotification } from '../../src/utils/barkPush'
 import { addBillingPeriodToDate, compareDateOnly, formatDateOnly, getDaysUntil, getTodayDateOnly } from '../../src/utils/dates'
+import { cleanupNotificationHistoryEntries, mergeNotificationHistoryEntries, wasNotifiedToday } from '../../src/utils/notificationHistory'
 import type { Config } from '@netlify/functions'
 
 // Supabase 配置（使用 Service Role Key 绕过 RLS）
@@ -78,22 +79,61 @@ function getDaysUntilPayment(
   return getDaysUntil(renewedDate)
 }
 
-/**
- * 检查今天是否已经推送过该订阅
- */
-function wasNotifiedToday(
-  subscriptionId: string,
-  notificationHistory: Record<string, string>
+function hasSameHistory(
+  left: Record<string, string>,
+  right: Record<string, string>
 ): boolean {
-  const lastNotificationDate = notificationHistory[subscriptionId]
-  if (!lastNotificationDate) {
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+
+  if (leftKeys.length !== rightKeys.length) {
     return false
   }
 
-  const today = new Date().toDateString()
-  const lastDate = new Date(lastNotificationDate).toDateString()
+  return leftKeys.every(key => left[key] === right[key])
+}
 
-  return today === lastDate
+async function reserveNotificationDelivery(
+  userId: string,
+  subscriptionId: string,
+  deliveryDate: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('notification_delivery_locks')
+    .insert({
+      user_id: userId,
+      subscription_id: subscriptionId,
+      channel: 'bark',
+      delivery_date: deliveryDate
+    })
+
+  if (!error) {
+    return true
+  }
+
+  if (error.code === '23505') {
+    return false
+  }
+
+  throw error
+}
+
+async function releaseNotificationDelivery(
+  userId: string,
+  subscriptionId: string,
+  deliveryDate: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('notification_delivery_locks')
+    .delete()
+    .eq('user_id', userId)
+    .eq('subscription_id', subscriptionId)
+    .eq('channel', 'bark')
+    .eq('delivery_date', deliveryDate)
+
+  if (error) {
+    throw error
+  }
 }
 
 /**
@@ -191,7 +231,8 @@ export default async (req: Request): Promise<Response> => {
 
       console.log(`[Scheduled Notifications] Found ${subscriptions.length} subscriptions for user ${user_id}`)
 
-      const updatedHistory = { ...bark_history }
+      const updatedHistory = { ...cleanupNotificationHistoryEntries(bark_history || {}) }
+      const newHistoryEntries: Record<string, string> = {}
       let userNotificationsSent = 0
 
       // 4. 检查每个订阅
@@ -214,7 +255,7 @@ export default async (req: Request): Promise<Response> => {
         console.log(`  - 自动续费后的日期: ${renewedDate}`)
         console.log(`  - 距离续费天数: ${daysUntil} 天`)
         console.log(`  - 设置的提醒天数: ${bark_days_before} 天`)
-        console.log(`  - 今天是否已推送: ${wasNotifiedToday(subscription.id, bark_history)}`)
+        console.log(`  - 今天是否已推送: ${wasNotifiedToday(subscription.id, updatedHistory)}`)
 
         // 跳过已过期或距离太远的订阅
         if (daysUntil < 0 || daysUntil > 14) {
@@ -223,15 +264,26 @@ export default async (req: Request): Promise<Response> => {
         }
 
         // 检查是否需要发送推送
-        if (daysUntil === bark_days_before && !wasNotifiedToday(subscription.id, bark_history)) {
+        if (daysUntil === bark_days_before && !wasNotifiedToday(subscription.id, updatedHistory)) {
           console.log(`  ✅ 匹配推送条件！准备发送通知...`)
           console.log(`[Scheduled Notifications] Sending notification for subscription: ${subscription.name} (${daysUntil} days until renewal)`)
 
           const title = 'Subscription Manager'
           const periodText = subscription.period === 'monthly' ? 'month' : subscription.period === 'yearly' ? 'year' : subscription.period
           const body = `${subscription.name} expires in ${daysUntil} day${daysUntil > 1 ? 's' : ''}\n${formatCurrency(subscription.amount, subscription.currency)}/${periodText}`
+          const deliveryDate = formatDateOnly(getTodayDateOnly())
+          let deliveryReserved = false
 
           try {
+            const reserved = await reserveNotificationDelivery(user_id, subscription.id, deliveryDate)
+
+            if (!reserved) {
+              console.log(`  ⏭️  跳过: 今天的 Bark 推送已被其他任务占用或发送`)
+              continue
+            }
+
+            deliveryReserved = true
+
             // 发送 Bark 推送
             const success = await sendBarkNotification(
               bark_server_url,
@@ -247,15 +299,25 @@ export default async (req: Request): Promise<Response> => {
 
             if (success) {
               // 记录推送历史
-              updatedHistory[subscription.id] = new Date().toISOString()
+              const sentAt = new Date().toISOString()
+              updatedHistory[subscription.id] = sentAt
+              newHistoryEntries[subscription.id] = sentAt
               userNotificationsSent++
               totalNotificationsSent++
               console.log(`[Scheduled Notifications] Successfully sent notification for: ${subscription.name}`)
             } else {
+              await releaseNotificationDelivery(user_id, subscription.id, deliveryDate)
               console.error(`[Scheduled Notifications] Failed to send notification for: ${subscription.name}`)
               totalErrors++
             }
           } catch (error) {
+            if (deliveryReserved) {
+              try {
+                await releaseNotificationDelivery(user_id, subscription.id, deliveryDate)
+              } catch (releaseError) {
+                console.error(`[Scheduled Notifications] Error releasing delivery lock for ${subscription.name}:`, releaseError)
+              }
+            }
             console.error(`[Scheduled Notifications] Error sending notification for ${subscription.name}:`, error)
             totalErrors++
           }
@@ -263,17 +325,21 @@ export default async (req: Request): Promise<Response> => {
           // 不满足推送条件，输出原因
           if (daysUntil !== bark_days_before) {
             console.log(`  ⏭️  跳过: 距离续费 ${daysUntil} 天 ≠ 设置的 ${bark_days_before} 天`)
-          } else if (wasNotifiedToday(subscription.id, bark_history)) {
+          } else if (wasNotifiedToday(subscription.id, updatedHistory)) {
             console.log(`  ⏭️  跳过: 今天已经推送过`)
           }
         }
       }
 
       // 5. 更新用户的推送历史记录
-      if (userNotificationsSent > 0) {
+      const cleanedUpdatedHistory = mergeNotificationHistoryEntries(
+        bark_history || {},
+        newHistoryEntries
+      )
+      if (userNotificationsSent > 0 || !hasSameHistory(bark_history || {}, cleanedUpdatedHistory)) {
         const { error: updateError } = await supabase
           .from('user_notification_settings')
-          .update({ bark_history: updatedHistory })
+          .update({ bark_history: cleanedUpdatedHistory })
           .eq('user_id', user_id)
 
         if (updateError) {
@@ -282,32 +348,6 @@ export default async (req: Request): Promise<Response> => {
         } else {
           console.log(`[Scheduled Notifications] Updated notification history for user ${user_id}`)
         }
-      }
-    }
-
-    // 6. 清理过期的通知历史（超过 30 天）
-    console.log('[Scheduled Notifications] Cleaning up old notification history...')
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-    for (const settings of notificationSettingsList as NotificationSettings[]) {
-      const { user_id, bark_history } = settings
-      const cleanedHistory: Record<string, string> = {}
-
-      Object.entries(bark_history || {}).forEach(([id, dateStr]) => {
-        const date = new Date(dateStr)
-        if (date >= thirtyDaysAgo) {
-          cleanedHistory[id] = dateStr
-        }
-      })
-
-      if (Object.keys(cleanedHistory).length !== Object.keys(bark_history || {}).length) {
-        await supabase
-          .from('user_notification_settings')
-          .update({ bark_history: cleanedHistory })
-          .eq('user_id', user_id)
-
-        console.log(`[Scheduled Notifications] Cleaned up old history for user ${user_id}`)
       }
     }
 

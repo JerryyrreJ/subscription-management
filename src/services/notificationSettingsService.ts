@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase'
 import { ReminderSettings } from '../types'
 import { config } from '../lib/config'
 import { cleanupNotificationHistory } from '../utils/notificationChecker'
+import { buildNotificationSettingsConfigPayload, NotificationSettingsConfigPayload } from '../utils/notificationSettingsPayload'
 import { scopeNotificationSettingsQueryToUser } from '../utils/notificationSettingsTenantScope'
 
 export interface SupabaseNotificationSettings {
@@ -72,7 +73,7 @@ export class NotificationSettingsService {
  const userId = await this.getAuthenticatedUserId()
 
  const cleanedSettings = cleanupNotificationHistory(settings)
- const supabaseData = this.transformToSupabase(cleanedSettings, userId)
+ const supabaseData: NotificationSettingsConfigPayload = buildNotificationSettingsConfigPayload(cleanedSettings, userId)
 
  // 使用 upsert 自动处理插入/更新
  const { data, error } = await supabase
@@ -128,18 +129,6 @@ export class NotificationSettingsService {
  daysBefore: data.bark_days_before,
  notificationHistory: data.bark_history || {}
  }
- }
- }
-
- // 数据格式转换：App -> Supabase
- private static transformToSupabase(settings: ReminderSettings, userId: string): Omit<SupabaseNotificationSettings, 'id' | 'created_at' | 'updated_at'> {
- return {
- user_id: userId,
- bark_enabled: settings.barkPush.enabled,
- bark_server_url: settings.barkPush.serverUrl,
- bark_device_key: settings.barkPush.deviceKey,
- bark_days_before: settings.barkPush.daysBefore,
- bark_history: settings.barkPush.notificationHistory || {}
  }
  }
 

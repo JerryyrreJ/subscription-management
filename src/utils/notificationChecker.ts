@@ -1,8 +1,8 @@
 import { ReminderSettings } from '../types';
-import { getDaysUntil, getTodayDateOnly } from './dates';
+import { getDaysUntil } from './dates';
+import { cleanupNotificationHistoryEntries } from './notificationHistory';
 
 const NOTIFICATION_STORAGE_KEY = 'notification_settings';
-const NOTIFICATION_HISTORY_RETENTION_DAYS = 30;
 
 const normalizeNotificationSettings = (settings: Partial<ReminderSettings> & { browserNotification?: unknown }): ReminderSettings => {
  const defaultSettings = getDefaultNotificationSettings();
@@ -80,17 +80,7 @@ export function getDaysUntilPayment(nextPaymentDate: string): number {
  * 清理过期的通知历史（超过30天的记录）
  */
 export function cleanupNotificationHistory(settings: ReminderSettings): ReminderSettings {
- const retentionStart = getTodayDateOnly();
- retentionStart.setUTCDate(retentionStart.getUTCDate() - NOTIFICATION_HISTORY_RETENTION_DAYS);
-
- // 清理 Bark 推送历史
- const cleanedBarkHistory: { [key: string]: string } = {};
- Object.entries(settings.barkPush.notificationHistory).forEach(([id, dateStr]) => {
- const date = new Date(dateStr);
- if (!Number.isNaN(date.getTime()) && date >= retentionStart) {
- cleanedBarkHistory[id] = dateStr;
- }
- });
+ const cleanedBarkHistory = cleanupNotificationHistoryEntries(settings.barkPush.notificationHistory);
 
  return {
   ...settings,

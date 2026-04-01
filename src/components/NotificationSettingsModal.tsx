@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Bell, Send, ChevronDown, ChevronUp, Download, Key, Copy, Globe, ExternalLink, Lock, LogIn } from 'lucide-react';
 import { ReminderSettings } from '../types';
 import { testBarkPush, validateBarkConfig } from '../utils/barkPush';
+import { parseBarkUrl, updateBarkPushFromUrl } from '../utils/barkConfig';
 import { CustomSelect } from './CustomSelect';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -27,41 +28,17 @@ export function NotificationSettingsModal({
  const [isGuideExpanded, setIsGuideExpanded] = useState(true);
  const [barkUrl, setBarkUrl] = useState('');
 
- // Parse Bark URL to extract server and device key
- const parseBarkUrl = (url: string) => {
- try {
- // Remove trailing content after device key (e.g., /推送标题/推送内容)
- // Expected format: https://api.day.app/DEVICE_KEY or https://api.day.app/DEVICE_KEY/...
- const trimmedUrl = url.trim();
-
- // Try to parse as URL
- const urlObj = new URL(trimmedUrl);
- const serverUrl = `${urlObj.protocol}//${urlObj.host}`;
-
- // Extract device key (first path segment after /)
- const pathParts = urlObj.pathname.split('/').filter(part => part.length > 0);
- const deviceKey = pathParts[0] || '';
-
- return { serverUrl, deviceKey, valid: deviceKey.length > 0 };
- } catch (error) {
- return { serverUrl: '', deviceKey: '', valid: false };
- }
- };
-
  // Handle Bark URL input change
  const handleBarkUrlChange = (url: string) => {
  setBarkUrl(url);
- const parsed = parseBarkUrl(url);
 
- if (parsed.valid) {
- setLocalSettings({
- ...localSettings,
- barkPush: {
- ...localSettings.barkPush,
- serverUrl: parsed.serverUrl,
- deviceKey: parsed.deviceKey
- }
- });
+ setLocalSettings(prev => ({
+ ...prev,
+ barkPush: updateBarkPushFromUrl(prev.barkPush, url)
+ }));
+
+ if (testResult) {
+ setTestResult(null);
  }
  };
 
@@ -81,6 +58,18 @@ export function NotificationSettingsModal({
  onOpenAuth();
  }
  return;
+ }
+
+ if (localSettings.barkPush.enabled) {
+ const validation = validateBarkConfig(
+ localSettings.barkPush.serverUrl,
+ localSettings.barkPush.deviceKey
+ );
+
+ if (!validation.valid) {
+ setTestResult({ success: false, message: validation.error || 'Invalid Bark configuration' });
+ return;
+ }
  }
 
  onSave(localSettings);

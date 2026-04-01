@@ -10,6 +10,14 @@ export interface BarkPushOptions {
  copy?: string; // 复制内容
 }
 
+const maskDeviceKey = (deviceKey: string): string => {
+ if (deviceKey.length <= 8) {
+ return `${deviceKey.slice(0, 2)}***${deviceKey.slice(-2)}`
+ }
+
+ return `${deviceKey.slice(0, 4)}***${deviceKey.slice(-4)}`
+}
+
 /**
  * 发送 Bark 推送通知
  * Bark API 文档: https://github.com/Finb/Bark
@@ -40,7 +48,10 @@ export async function sendBarkNotification(
  if (options?.automaticallyCopy) url.searchParams.set('automaticallyCopy', options.automaticallyCopy);
  if (options?.copy) url.searchParams.set('copy', options.copy);
 
- console.log('Sending Bark push to:', url.toString());
+ console.log('Sending Bark push:', {
+ serverUrl: baseUrl,
+ deviceKey: maskDeviceKey(deviceKey)
+ });
 
  const response = await fetch(url.toString(), {
  method: 'GET'
