@@ -173,19 +173,19 @@ export function Dashboard({
  );
 
  return (
-  <div className="relative rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-slate-200/60 dark:border-gray-700/60 bg-white/70 dark:bg-[#1a1c1e]/70 backdrop-blur-xl p-6 z-20">
+  <div className="relative rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-slate-200/60 dark:border-gray-700/60 bg-white/70 dark:bg-[#1a1c1e]/70 backdrop-blur-xl p-6 z-20 app-dark-panel">
  {/* Subtle background gradient overlay for depth */}
- <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 via-transparent to-slate-100/30 dark:from-gray-800/50 dark:to-gray-900/30 pointer-events-none rounded-2xl -z-10"></div>
+ <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 via-transparent to-slate-100/30 dark:from-slate-700/10 dark:via-transparent dark:to-slate-900/20 pointer-events-none rounded-2xl -z-10"></div>
 
  <div className="relative z-10">
  {/* 桌面端：原始布局（标题和控件在同一行） */}
  <div className="hidden sm:flex justify-between items-center mb-6">
      <div className="flex items-center space-x-2.5">
-      <div className="p-2 bg-slate-100/80 dark:bg-gray-700/80 rounded-3xl">
-       <CreditCard className="w-5 h-5 text-slate-600 dark:text-gray-300"/>
+      <div className="p-2 bg-slate-100/80 dark:bg-gray-700/80 rounded-3xl app-dark-icon-shell">
+       <CreditCard className="w-5 h-5 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
       </div>
       <div>
-       <h2 className="text-xl font-semibold text-slate-800 dark:text-gray-100 tracking-tight">Overview</h2>
+       <h2 className="text-xl font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-dark-text-primary">Overview</h2>
        {(exchangeRateSource === 'fallback' || totalAmountResult.usesFallbackRates) && (
         <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
          Using offline exchange rates. Totals may be approximate.
@@ -212,31 +212,31 @@ export function Dashboard({
  <button
  onClick={loadExchangeRates}
  disabled={isLoadingRates}
- className="bg-slate-100/80 hover:bg-slate-200/80 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 disabled:opacity-50 h-[38px] w-[38px] flex items-center justify-center rounded-full transition-all duration-200 backdrop-blur-sm border border-slate-200/50 dark:border-gray-600/50"
+ className="bg-slate-100/80 hover:bg-slate-200/80 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 disabled:opacity-50 h-[38px] w-[38px] flex items-center justify-center rounded-full transition-all duration-200 backdrop-blur-sm border border-slate-200/50 dark:border-gray-600/50 app-dark-chip"
  title="刷新汇率"
  >
- <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-gray-300 ${isLoadingRates ? 'animate-spin' : ''}`} />
+ <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-gray-300 app-dark-text-secondary ${isLoadingRates ? 'animate-spin' : ''}`} />
  </button>
 
  {/* 视图模式切换 */}
- <div className="bg-slate-100/60 dark:bg-gray-700/60 rounded-full p-1 backdrop-blur-sm border border-slate-200/40 dark:border-gray-600/40 flex items-center h-[38px]">
- <button
- onClick={() => onViewModeChange('monthly')}
- className={`px-4 h-full rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
- viewMode === 'monthly'
- ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm'
+ <div className="bg-slate-100/60 dark:bg-gray-700/60 rounded-full p-1 backdrop-blur-sm border border-slate-200/40 dark:border-gray-600/40 flex items-center h-[38px] app-dark-chip">
+<button
+onClick={() => onViewModeChange('monthly')}
+className={`px-4 h-full rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+viewMode === 'monthly'
+ ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-dark-chip-active'
  : 'text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
- }`}
+}`}
  >
  Monthly
  </button>
  <button
  onClick={() => onViewModeChange('yearly')}
  className={`px-4 h-full rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
- viewMode === 'yearly'
- ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm'
+viewMode === 'yearly'
+ ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-dark-chip-active'
  : 'text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
- }`}
+}`}
  >
  Yearly
  </button>
@@ -248,10 +248,10 @@ export function Dashboard({
  <div className="flex sm:hidden flex-col space-y-4 mb-6">
  {/* 标题行 */}
  <div className="flex items-center space-x-2.5">
- <div className="p-1.5 bg-slate-100/80 dark:bg-gray-700/80 rounded-2xl">
- <CreditCard className="w-4 h-4 text-slate-600 dark:text-gray-300"/>
+ <div className="p-1.5 bg-slate-100/80 dark:bg-gray-700/80 rounded-2xl app-dark-icon-shell">
+ <CreditCard className="w-4 h-4 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
  </div>
- <h2 className="text-lg font-semibold text-slate-800 dark:text-gray-100 tracking-tight">Overview</h2>
+ <h2 className="text-lg font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-dark-text-primary">Overview</h2>
  </div>
 
  {/* 控制行 - 移动端垂直布局 */}
@@ -272,20 +272,20 @@ export function Dashboard({
  <button
  onClick={loadExchangeRates}
  disabled={isLoadingRates}
- className="bg-slate-100/80 hover:bg-slate-200/80 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 disabled:opacity-50 h-[38px] w-[38px] flex items-center justify-center rounded-full transition-all duration-200 backdrop-blur-sm border border-slate-200/50 dark:border-gray-600/50 flex-shrink-0"
+ className="bg-slate-100/80 hover:bg-slate-200/80 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 disabled:opacity-50 h-[38px] w-[38px] flex items-center justify-center rounded-full transition-all duration-200 backdrop-blur-sm border border-slate-200/50 dark:border-gray-600/50 flex-shrink-0 app-dark-chip"
  title="刷新汇率"
  >
- <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-gray-300 ${isLoadingRates ? 'animate-spin' : ''}`} />
+ <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-gray-300 app-dark-text-secondary ${isLoadingRates ? 'animate-spin' : ''}`} />
  </button>
  </div>
 
  {/* 视图模式切换 - 移动端全宽 */}
- <div className="bg-slate-100/60 dark:bg-gray-700/60 rounded-full p-1 w-full backdrop-blur-sm border border-slate-200/40 dark:border-gray-600/40 flex items-center h-[38px]">
+ <div className="bg-slate-100/60 dark:bg-gray-700/60 rounded-full p-1 w-full backdrop-blur-sm border border-slate-200/40 dark:border-gray-600/40 flex items-center h-[38px] app-dark-chip">
  <button
  onClick={() => onViewModeChange('monthly')}
  className={`w-1/2 h-full flex items-center justify-center text-sm font-medium rounded-full transition-all duration-200 ${
  viewMode === 'monthly'
- ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm'
+ ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-dark-chip-active'
  : 'text-slate-600 dark:text-gray-400'
  }`}
  >
@@ -295,7 +295,7 @@ export function Dashboard({
  onClick={() => onViewModeChange('yearly')}
  className={`w-1/2 h-full flex items-center justify-center text-sm font-medium rounded-full transition-all duration-200 ${
  viewMode === 'yearly'
- ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm'
+ ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-dark-chip-active'
  : 'text-slate-600 dark:text-gray-400'
  }`}
  >
@@ -307,11 +307,11 @@ export function Dashboard({
 
  <div className="relative">
  <div className="flex flex-col">
- <p className="text-sm font-medium text-slate-500 dark:text-gray-400 mb-2">Total {viewMode} cost</p>
+ <p className="text-sm font-medium text-slate-500 dark:text-gray-400 mb-2 app-dark-text-muted">Total {viewMode} cost</p>
  <div className="flex items-center space-x-4 flex-wrap gap-y-2">
- <h3 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-gray-100 leading-none tracking-tight flex items-baseline">
+ <h3 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-gray-100 leading-none tracking-tight flex items-baseline app-dark-text-primary">
  {isLoadingRates && baseCurrency !== displayCurrency ? (
- <span className="animate-pulse text-slate-400 dark:text-gray-500">Loading...</span>
+ <span className="animate-pulse text-slate-400 dark:text-gray-500 app-dark-text-muted">Loading...</span>
  ) : (
  <CountUp
  end={currentTotal}
@@ -325,8 +325,8 @@ export function Dashboard({
  )}
  </h3>
 
- <div className="flex items-center text-slate-700 dark:text-gray-300 bg-slate-100/80 dark:bg-gray-700/80 px-3.5 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/60 dark:border-gray-600/60">
- <TrendingUp className="w-4 h-4 mr-1.5 text-slate-600 dark:text-gray-400"/>
+ <div className="flex items-center text-slate-700 dark:text-gray-300 bg-slate-100/80 dark:bg-gray-700/80 px-3.5 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/60 dark:border-gray-600/60 app-dark-chip">
+ <TrendingUp className="w-4 h-4 mr-1.5 text-slate-600 dark:text-gray-400 app-dark-text-muted"/>
  <span className="text-sm font-medium">{subscriptions.length} active</span>
  </div>
  </div>
@@ -334,9 +334,9 @@ export function Dashboard({
 
  {/* 紧凑筛选和排序控件 - 绝对定位到右下角 */}
  {totalSubscriptions > 0 && (
- <div className="absolute bottom-0 right-0 flex items-center space-x-1.5 sm:space-x-2 bg-slate-100/60 dark:bg-gray-700/60 rounded-3xl p-1.5 sm:p-2 backdrop-blur-md border border-slate-200/50 dark:border-gray-600/50">
+ <div className="absolute bottom-0 right-0 flex items-center space-x-1.5 sm:space-x-2 bg-slate-100/60 dark:bg-gray-700/60 rounded-3xl p-1.5 sm:p-2 backdrop-blur-md border border-slate-200/50 dark:border-gray-600/50 app-dark-chip">
  {/* 类型筛选 */}
- <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 dark:text-gray-400"/>
+ <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 dark:text-gray-400 app-dark-text-muted"/>
  <div className="min-w-[120px] dashboard-sort-control">
  <CustomSelect
  value={selectedCategory || 'all'}
@@ -349,7 +349,7 @@ export function Dashboard({
  <div className="h-6 w-px bg-slate-300/50 dark:bg-gray-600/50"></div>
 
  {/* 排序控件 */}
- <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 dark:text-gray-400"/>
+ <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 dark:text-gray-400 app-dark-text-muted"/>
 
  {/* 排序字段选择器 - 小尺寸 */}
  <div className="min-w-[110px] dashboard-sort-control">
@@ -366,14 +366,14 @@ export function Dashboard({
  {/* 排序顺序切换按钮 - 小尺寸 */}
  <button
  onClick={handleSortOrderToggle}
- className="bg-white/60 dark:bg-[#1a1c1e]/60 hover:bg-white/90 dark:hover:bg-gray-700/90 p-1 sm:p-1.5 rounded-2xl transition-all duration-200 border border-slate-200/50 dark:border-gray-600/50"
+ className="bg-white/60 dark:bg-[#1a1c1e]/60 hover:bg-white/90 dark:hover:bg-gray-700/90 p-1 sm:p-1.5 rounded-2xl transition-all duration-200 border border-slate-200/50 dark:border-gray-600/50 app-dark-chip"
  title={`Sort ${sortConfig.sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
  >
  {sortConfig.sortOrder === 'asc' ? (
- <ArrowUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-600 dark:text-gray-300"/>
- ) : (
- <ArrowDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-600 dark:text-gray-300"/>
- )}
+ <ArrowUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
+) : (
+ <ArrowDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
+)}
  </button>
  </div>
  )}
@@ -381,7 +381,7 @@ export function Dashboard({
 
  {/* 汇率状态指示 */}
  {Object.keys(exchangeRates).length === 0 && !isLoadingRates && (
- <div className="mt-4 text-sm text-slate-500 dark:text-gray-400 font-medium">
+ <div className="mt-4 text-sm text-slate-500 dark:text-gray-400 font-medium app-dark-text-muted">
  使用离线汇率数据
  </div>
  )}
