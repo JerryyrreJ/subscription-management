@@ -59,6 +59,8 @@ export type ExchangeRateSource = 'live' | 'fallback';
 export interface ExchangeRateLoadResult {
  rates: ExchangeRates;
  source: ExchangeRateSource;
+ updatedAt?: number;
+ stale?: boolean;
  error?: string;
 }
 

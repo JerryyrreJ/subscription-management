@@ -12,6 +12,8 @@ import {
 } from '../utils/storage'
 import { config } from '../lib/config'
 import { buildPendingCreateOperations, normalizeSubscription } from '../utils/subscriptionSync'
+import { DataScope, GUEST_DATA_SCOPE, getUserDataScope } from '../utils/dataScope'
+import { createScopedTaskGate } from '../utils/scopedTaskGate'
 
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
@@ -25,6 +27,11 @@ interface UseSyncReturn {
  updateSubscriptionsBatch: (subscriptions: Subscription[]) => Promise<Subscription[]>
  deleteSubscription: (id: string) => Promise<void>
 }
+
+const subscriptionCloudTaskGate = createScopedTaskGate<DataScope>()
+
+const resolveUserScope = (user: User | null): DataScope =>
+ user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE
 
 export function useSubscriptionSync(
  user: User | null,
@@ -78,26 +85,30 @@ export function useSubscriptionSync(
  }, [scheduleStatusReset])
 
  const queueOperation = useCallback((operation: Omit<PendingSyncOperation, 'id'>): PendingSyncOperation[] => {
+ const scope = resolveUserScope(user)
  const pendingOperation: PendingSyncOperation = {
  id: crypto.randomUUID(),
  ...operation
  }
 
- return enqueuePendingSyncOperation(pendingOperation)
- }, [])
+ return enqueuePendingSyncOperation(pendingOperation, scope)
+ }, [user])
 
  const removeQueuedOperations = useCallback((subscriptionId: string) => {
- const remainingOperations = loadPendingSyncOperations().filter(
+ const scope = resolveUserScope(user)
+ const remainingOperations = loadPendingSyncOperations(scope).filter(
  operation => operation.subscriptionId !== subscriptionId
  )
- savePendingSyncOperations(remainingOperations)
- }, [])
+ savePendingSyncOperations(remainingOperations, scope)
+ }, [user])
 
  // 同步订阅数据
  const syncSubscriptions = useCallback(async (): Promise<Subscription[]> => {
+  const scope = resolveUserScope(user)
+
   if (!config.features.cloudSync || !user) {
    console.log('Sync skipped:', { cloudSync: config.features.cloudSync, user: !!user })
-   return loadSubscriptions()
+   return loadSubscriptions(scope)
   }
 
   if (activeCloudTaskRef.current) {
@@ -106,24 +117,31 @@ export function useSubscriptionSync(
   }
 
   console.log('Starting sync for user:', user.email)
+  const taskToken = subscriptionCloudTaskGate.claim(scope)
   return runCloudTask(async () => {
-   const currentSubscriptions = loadSubscriptions()
-   const pendingOperations = loadPendingSyncOperations()
+   const currentSubscriptions = loadSubscriptions(scope)
+   const pendingOperations = loadPendingSyncOperations(scope)
    const syncResult = await SubscriptionService.syncSubscriptions(
     currentSubscriptions,
     pendingOperations
    )
 
+   if (!subscriptionCloudTaskGate.isCurrent(scope, taskToken)) {
+    return loadSubscriptions(scope)
+   }
+
    setSubscriptions(syncResult.subscriptions)
-   saveSubscriptions(syncResult.subscriptions)
-   savePendingSyncOperations(syncResult.pendingOperations)
+   saveSubscriptions(syncResult.subscriptions, scope)
+   savePendingSyncOperations(syncResult.pendingOperations, scope)
 
    return syncResult.subscriptions
-  }, () => loadSubscriptions())
+  }, () => loadSubscriptions(scope))
  }, [runCloudTask, user, setSubscriptions])
 
  // 上传本地数据到云端（用户首次登录时）
  const uploadLocalData = useCallback(async (localSubscriptions: Subscription[]): Promise<Subscription[]> => {
+  const scope = resolveUserScope(user)
+
   if (!config.features.cloudSync || !user || localSubscriptions.length === 0) {
    return localSubscriptions
   }
@@ -134,17 +152,22 @@ export function useSubscriptionSync(
   }
 
  console.log('Uploading local data to cloud...')
+ const taskToken = subscriptionCloudTaskGate.claim(scope)
  return runCloudTask(async () => {
    const uploadResult = await SubscriptionService.uploadLocalSubscriptions(localSubscriptions)
    const pendingOperations = buildPendingCreateOperations(uploadResult.failedSubscriptions)
 
+   if (!subscriptionCloudTaskGate.isCurrent(scope, taskToken)) {
+    return loadSubscriptions(scope)
+   }
+
    setSubscriptions(uploadResult.subscriptions)
-   saveSubscriptions(uploadResult.subscriptions)
+   saveSubscriptions(uploadResult.subscriptions, scope)
 
    if (pendingOperations.length > 0) {
-    savePendingSyncOperations(pendingOperations)
+    savePendingSyncOperations(pendingOperations, scope)
    } else {
-    clearPendingSyncOperations()
+    clearPendingSyncOperations(scope)
    }
 
    return uploadResult.subscriptions
@@ -153,6 +176,7 @@ export function useSubscriptionSync(
 
  // 创建订阅（自动同步）
  const createSubscription = useCallback(async (subscription: Subscription | Omit<Subscription, 'id'>): Promise<Subscription> => {
+ const scope = resolveUserScope(user)
  const normalizedSubscription = normalizeSubscription({
  ...subscription,
  id: 'id' in subscription ? subscription.id : crypto.randomUUID(),
@@ -167,7 +191,7 @@ export function useSubscriptionSync(
  // 使用函数式更新，避免依赖陈旧的 subscriptions 状态
  setSubscriptions(prev => {
  const updated = [...prev, newSubscription]
- saveSubscriptions(updated)
+ saveSubscriptions(updated, scope)
  return updated
  })
  removeQueuedOperations(newSubscription.id)
@@ -178,7 +202,7 @@ export function useSubscriptionSync(
  // 降级到离线模式
  setSubscriptions(prev => {
  const updated = [...prev, normalizedSubscription]
- saveSubscriptions(updated)
+ saveSubscriptions(updated, scope)
  return updated
  })
  queueOperation({
@@ -193,7 +217,7 @@ export function useSubscriptionSync(
  // 离线模式：只保存到本地
  setSubscriptions(prev => {
  const updated = [...prev, normalizedSubscription]
- saveSubscriptions(updated)
+ saveSubscriptions(updated, scope)
  return updated
  })
  queueOperation({
@@ -208,7 +232,8 @@ export function useSubscriptionSync(
 
  // 更新订阅（自动同步）
  const updateSubscription = useCallback(async (subscription: Subscription): Promise<Subscription> => {
- const currentSubscriptions = loadSubscriptions()
+ const scope = resolveUserScope(user)
+ const currentSubscriptions = loadSubscriptions(scope)
  const existingSubscription = currentSubscriptions.find(sub => sub.id === subscription.id)
  const normalizedSubscription = normalizeSubscription({
  ...existingSubscription,
@@ -225,7 +250,7 @@ export function useSubscriptionSync(
  const updated = prev.map(sub =>
  sub.id === updatedSubscription.id ? updatedSubscription : sub
  )
- saveSubscriptions(updated)
+ saveSubscriptions(updated, scope)
  return updated
  })
  removeQueuedOperations(updatedSubscription.id)
@@ -238,7 +263,7 @@ export function useSubscriptionSync(
  const updated = prev.map(sub =>
  sub.id === normalizedSubscription.id ? normalizedSubscription : sub
  )
- saveSubscriptions(updated)
+ saveSubscriptions(updated, scope)
  return updated
  })
  queueOperation({
@@ -256,7 +281,7 @@ export function useSubscriptionSync(
  const updated = prev.map(sub =>
  sub.id === normalizedSubscription.id ? normalizedSubscription : sub
  )
- saveSubscriptions(updated)
+ saveSubscriptions(updated, scope)
  return updated
  })
  queueOperation({
@@ -271,7 +296,8 @@ export function useSubscriptionSync(
  }, [queueOperation, removeQueuedOperations, user, setSubscriptions])
 
  const updateSubscriptionsBatch = useCallback(async (updatedSubscriptions: Subscription[]): Promise<Subscription[]> => {
- const currentSubscriptions = loadSubscriptions()
+ const scope = resolveUserScope(user)
+ const currentSubscriptions = loadSubscriptions(scope)
  const currentSubscriptionMap = new Map(currentSubscriptions.map(subscription => [subscription.id, subscription]))
  const changedSubscriptions = updatedSubscriptions.filter(updatedSubscription => {
  const currentSubscription = currentSubscriptionMap.get(updatedSubscription.id)
@@ -288,12 +314,13 @@ export function useSubscriptionSync(
  }
 
  await Promise.all(changedSubscriptions.map(subscription => updateSubscription(subscription)))
- return loadSubscriptions()
+ return loadSubscriptions(scope)
  }, [updateSubscription])
 
  // 删除订阅（自动同步）
  const deleteSubscription = useCallback(async (id: string): Promise<void> => {
- const currentSubscriptions = loadSubscriptions()
+ const scope = resolveUserScope(user)
+ const currentSubscriptions = loadSubscriptions(scope)
  const existingSubscription = currentSubscriptions.find(subscription => subscription.id === id)
 
  if (config.features.cloudSync && user) {
@@ -303,7 +330,7 @@ export function useSubscriptionSync(
  // 使用函数式更新，避免依赖陈旧的 subscriptions 状态
  setSubscriptions(prev => {
  const updated = prev.filter(s => s.id !== id)
- saveSubscriptions(updated)
+ saveSubscriptions(updated, scope)
  return updated
  })
  removeQueuedOperations(id)
@@ -313,7 +340,7 @@ export function useSubscriptionSync(
  // 降级到离线模式：使用函数式更新
  setSubscriptions(prev => {
  const updated = prev.filter(s => s.id !== id)
- saveSubscriptions(updated)
+ saveSubscriptions(updated, scope)
  return updated
  })
  queueOperation({
@@ -327,7 +354,7 @@ export function useSubscriptionSync(
  // 离线模式：只从本地删除，使用函数式更新
  setSubscriptions(prev => {
  const updated = prev.filter(s => s.id !== id)
- saveSubscriptions(updated)
+ saveSubscriptions(updated, scope)
  return updated
  })
  queueOperation({

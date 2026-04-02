@@ -334,39 +334,105 @@ const RATES_TIMESTAMP_KEY = 'exchange-rates-timestamp';
 const RATES_SOURCE_KEY = 'exchange-rates-source';
 const RATES_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
+const getExchangeRatesStorageKeys = (baseCurrency: Currency) => ({
+ rates: `${RATES_STORAGE_KEY}-${baseCurrency}`,
+ timestamp: `${RATES_TIMESTAMP_KEY}-${baseCurrency}`,
+ source: `${RATES_SOURCE_KEY}-${baseCurrency}`
+});
+
+export const getStoredExchangeRatesSnapshot = (baseCurrency: Currency): ExchangeRateLoadResult | null => {
+ const keys = getExchangeRatesStorageKeys(baseCurrency);
+ const cachedRates = localStorage.getItem(keys.rates);
+ const cachedTimestamp = localStorage.getItem(keys.timestamp);
+ const cachedSource = localStorage.getItem(keys.source);
+
+ if (!cachedRates || !cachedTimestamp) {
+  return null;
+ }
+
+ const timestamp = parseInt(cachedTimestamp, 10);
+ if (!Number.isFinite(timestamp)) {
+  return null;
+ }
+
+ return {
+  rates: JSON.parse(cachedRates),
+  updatedAt: timestamp,
+  source: cachedSource === 'fallback' ? 'fallback' : 'live'
+ };
+};
+
+const persistExchangeRatesSnapshot = (
+ baseCurrency: Currency,
+ result: ExchangeRateLoadResult
+): void => {
+ const keys = getExchangeRatesStorageKeys(baseCurrency);
+ localStorage.setItem(keys.rates, JSON.stringify(result.rates));
+ localStorage.setItem(keys.timestamp, Date.now().toString());
+ localStorage.setItem(keys.source, result.source);
+};
+
 export const getCachedExchangeRatesWithStatus = async (baseCurrency: Currency = 'USD'): Promise<ExchangeRateLoadResult> => {
  try {
- const cachedRates = localStorage.getItem(`${RATES_STORAGE_KEY}-${baseCurrency}`);
- const cachedTimestamp = localStorage.getItem(`${RATES_TIMESTAMP_KEY}-${baseCurrency}`);
- const cachedSource = localStorage.getItem(`${RATES_SOURCE_KEY}-${baseCurrency}`);
+ const cachedSnapshot = getStoredExchangeRatesSnapshot(baseCurrency);
 
- if (cachedRates && cachedTimestamp) {
- const timestamp = parseInt(cachedTimestamp);
+ if (cachedSnapshot?.source === 'live' && cachedSnapshot.updatedAt) {
  const now = Date.now();
 
- if (now - timestamp < RATES_CACHE_DURATION) {
+ if (now - cachedSnapshot.updatedAt < RATES_CACHE_DURATION) {
   return {
-   rates: JSON.parse(cachedRates),
-   source: cachedSource === 'fallback' ? 'fallback' : 'live'
+   rates: cachedSnapshot.rates,
+   source: cachedSnapshot.source,
+   updatedAt: cachedSnapshot.updatedAt,
+   stale: false
   };
  }
  }
 
- const freshRates = await fetchExchangeRatesWithStatus(baseCurrency);
-
- localStorage.setItem(`${RATES_STORAGE_KEY}-${baseCurrency}`, JSON.stringify(freshRates.rates));
- localStorage.setItem(`${RATES_TIMESTAMP_KEY}-${baseCurrency}`, Date.now().toString());
- localStorage.setItem(`${RATES_SOURCE_KEY}-${baseCurrency}`, freshRates.source);
-
- return freshRates;
+ return refreshExchangeRatesWithStatus(baseCurrency);
  } catch (error) {
  console.error('Error with cached exchange rates:', error);
  return {
   rates: getFallbackRates(baseCurrency),
   source: 'fallback',
+  updatedAt: Date.now(),
+  stale: true,
   error: error instanceof Error ? error.message : 'Failed to read cached exchange rates'
  };
  }
+};
+
+export const refreshExchangeRatesWithStatus = async (baseCurrency: Currency = 'USD'): Promise<ExchangeRateLoadResult> => {
+ const cachedSnapshot = getStoredExchangeRatesSnapshot(baseCurrency);
+ const freshRates = await fetchExchangeRatesWithStatus(baseCurrency);
+
+ if (freshRates.source === 'live') {
+  const nextResult: ExchangeRateLoadResult = {
+   ...freshRates,
+   updatedAt: Date.now(),
+   stale: false
+  };
+  persistExchangeRatesSnapshot(baseCurrency, nextResult);
+  return nextResult;
+ }
+
+ if (cachedSnapshot?.source === 'live') {
+  return {
+   rates: cachedSnapshot.rates,
+   source: 'live',
+   updatedAt: cachedSnapshot.updatedAt,
+   stale: true,
+   error: freshRates.error || 'Failed to refresh exchange rates'
+  };
+ }
+
+ const fallbackResult: ExchangeRateLoadResult = {
+  ...freshRates,
+  updatedAt: Date.now(),
+  stale: true
+ };
+ persistExchangeRatesSnapshot(baseCurrency, fallbackResult);
+ return fallbackResult;
 };
 
 export const getCachedExchangeRates = async (baseCurrency: Currency = 'USD'): Promise<ExchangeRates> => {

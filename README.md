@@ -2,7 +2,15 @@
 
 A modern web application for tracking and managing your recurring subscriptions with **multi-currency support**. Built with React, TypeScript, and Tailwind CSS, this app helps you keep track of your subscription expenses across different currencies with real-time exchange rates.
 
-## ✨ Latest Updates (v1.8.5)
+## ✨ Latest Updates (v1.8.7)
+
+- 🔐 **Account-Scoped Local Data** - Guest data and signed-in user data are now isolated to prevent cross-account sync mistakes
+- 🔄 **Hardened Initial Sync** - Fixed refresh-time race conditions that could temporarily clear subscriptions after login
+- 🔔 **Safer Bark Notification Sync** - Improved notification deduplication, settings validation, and backend history handling
+- 💱 **Automatic Exchange Rate Refresh** - Exchange rates now refresh in the background on load, reconnect, tab focus, and at regular intervals
+- 🌓 **Sharper Dark Mode Contrast** - Main dashboard surfaces and text hierarchy are clearer in dark mode
+
+### Previous Updates (v1.8.5)
 
 - 📅 **Custom Date Picker** - Beautiful, unified date selection component replacing native browser date pickers
 - 🎨 **Cross-Platform Consistency** - Identical date picker experience across all browsers and devices
@@ -64,7 +72,7 @@ A modern web application for tracking and managing your recurring subscriptions 
 - 🎯 **Advanced Sorting System** - Sort subscriptions by name, amount, due date, category, or creation date for comprehensive expense tracking
 - 📤📥 **Import/Export Data** - Backup and restore your data as JSON files, no login required
 - 🌍 **Multi-Currency Support** - Track subscriptions in 10 major currencies
-- 💱 **Smart Currency Conversion** - Real-time exchange rates with automatic conversion
+- 💱 **Smart Currency Conversion** - Automatic background exchange-rate refresh with graceful fallback handling
 - 📊 **Enhanced Dashboard** - Monthly/yearly cost overview with integrated sorting and filtering controls
 - 💳 **Subscription Management** - Track multiple subscriptions with detailed information
 - 🔄 **Automatic Calculations** - Automatic renewal date calculations
@@ -143,6 +151,7 @@ The application will be available at `http://localhost:5173`
 - **Sort subscriptions** using the integrated controls in the dashboard bottom-right corner
 - **Filter by category** using the category dropdown in the dashboard
 - **Switch base currency** in the dashboard to view total costs in your preferred currency
+- Exchange rates refresh automatically in the background, so no manual refresh is required
 - View total costs in monthly or yearly format with automatic currency conversion
 - **View Advanced Report** by clicking the "Advanced Report" button in the header to see comprehensive analytics
 - **Toggle dark mode** using the theme switcher in the top-right corner for optimal viewing experience

@@ -120,11 +120,15 @@ export function CustomSelect({
  aria-expanded={isOpen}
  aria-label={selectedOption ? selectedOption.label : placeholder}
  >
- <span className={selectedOption ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}>
+ <span
+ className={`min-w-0 flex-1 truncate whitespace-nowrap pr-3 ${
+ selectedOption ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
+ }`}
+ >
  {selectedOption ? selectedOption.label : placeholder}
  </span>
  <ChevronDown
- className={`w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${
+ className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${
  isOpen ? 'transform rotate-180' : ''
  }`}
  />
@@ -132,7 +136,7 @@ export function CustomSelect({
 
  {/* 下拉选项列表 */}
  {isOpen && (
- <div className="absolute z-50 w-full mt-1 bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-apple-lg max-h-60 overflow-auto p-1.5 flex flex-col gap-0.5">
+ <div className="absolute left-0 z-50 mt-1 min-w-full w-max max-w-[min(18rem,calc(100vw-2rem))] bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-apple-lg max-h-60 overflow-auto p-1.5 flex flex-col gap-0.5">
  {options.length === 0 ? (
  <div className="px-3 py-2 text-gray-500 dark:text-gray-400 text-sm">
  No options available
@@ -144,7 +148,7 @@ export function CustomSelect({
  type="button"
  onClick={() => handleOptionClick(option.value)}
  className={`
- w-full flex items-center justify-between px-3 py-2 text-left text-sm rounded-2xl transition-colors
+ w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-sm rounded-2xl transition-colors
  hover:bg-gray-100 dark:hover:bg-gray-800
  focus:bg-gray-100 dark:focus:bg-gray-800 focus:outline-none
  ${value === option.value ? 'bg-[#f4f5f7] dark:bg-[#202225] dark:bg-zinc-800/20 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400' : 'text-gray-900 dark:text-white'}
@@ -153,9 +157,9 @@ export function CustomSelect({
  role="option"
  aria-selected={value === option.value}
  >
- <span>{option.label}</span>
+ <span className="min-w-0 flex-1 whitespace-nowrap">{option.label}</span>
  {value === option.value && (
- <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400"/>
+ <Check className="w-4 h-4 flex-shrink-0 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400"/>
  )}
  </button>
  ))

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
 import { Plus, BarChart3 } from 'lucide-react';
 import {
  Subscription,
@@ -8,7 +8,8 @@ import {
  ReminderSettings,
  Currency,
  ExchangeRates,
- ExchangeRateSource
+ ExchangeRateSource,
+ ExchangeRateLoadResult
 } from './types';
 import { Dashboard } from './components/Dashboard';
 import { AddSubscriptionModal } from './components/AddSubscriptionModal';
@@ -30,9 +31,9 @@ import { loadSubscriptions } from './utils/storage';
 import { loadCategories } from './utils/categories';
 import { CategoryService } from './services/categoryService';
 import {
- convertCurrency,
  DEFAULT_CURRENCY,
- getCachedExchangeRatesWithStatus
+ getStoredExchangeRatesSnapshot,
+ refreshExchangeRatesWithStatus
 } from './utils/currency';
 import {
  buildCategoryImportPlan,
@@ -47,6 +48,7 @@ import { Footer } from './components/Footer';
 import { config } from './lib/config';
 import { sortSubscriptions } from './utils/subscriptionSorting';
 import { GUEST_DATA_SCOPE, getUserDataScope, setActiveDataScope } from './utils/dataScope';
+import { createScopedTaskGate } from './utils/scopedTaskGate';
 
 const AdvancedReport = lazy(() =>
  import('./components/AdvancedReport').then(module => ({ default: module.AdvancedReport }))
@@ -57,6 +59,10 @@ const PricingModal = lazy(() =>
 const NotificationSettingsModal = lazy(() =>
  import('./components/NotificationSettingsModal').then(module => ({ default: module.NotificationSettingsModal }))
 );
+
+const initialSyncTaskGate = createScopedTaskGate<string>();
+const exchangeRateTaskGate = createScopedTaskGate<'exchange-rates'>();
+const EXCHANGE_RATE_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
 
 function LazyModalFallback({
  title,
@@ -85,7 +91,7 @@ function LazyModalFallback({
 }
 
 export function App() {
- const { user, userProfile, loading, signOut, updateUserEmail, updateUserPassword } = useAuth();
+ const { user, userProfile, session, loading, signOut, updateUserEmail, updateUserPassword } = useAuth();
  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
  const [theme, setTheme] = useState<Theme>('light');
@@ -113,6 +119,9 @@ export function App() {
  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
  const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');
+ const [exchangeRatesUpdatedAt, setExchangeRatesUpdatedAt] = useState<number | null>(null);
+ const [isExchangeRatesRefreshing, setIsExchangeRatesRefreshing] = useState(false);
+ const [exchangeRatesStale, setExchangeRatesStale] = useState(false);
  const [exchangeRateError, setExchangeRateError] = useState<string | undefined>();
 
  // 使用数据同步Hook
@@ -148,6 +157,14 @@ export function App() {
  // 获取排序后的订阅列表
  const sortedSubscriptions = sortSubscriptions(filteredSubscriptions, sortConfig, baseCurrency, exchangeRates);
 
+ const applyExchangeRateResult = useCallback((result: ExchangeRateLoadResult) => {
+ setExchangeRates(result.rates);
+ setExchangeRateSource(result.source);
+ setExchangeRatesUpdatedAt(result.updatedAt ?? null);
+ setExchangeRatesStale(Boolean(result.stale));
+ setExchangeRateError(result.error);
+ }, []);
+
  // 初始化数据和主题
  useEffect(() => {
  const savedTheme = localStorage.getItem('theme') as Theme | null;
@@ -156,19 +173,87 @@ export function App() {
  } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
  setTheme('dark');
  }
+ }, []);
 
- // 加载汇率数据
- getCachedExchangeRatesWithStatus(baseCurrency).then(result => {
- setExchangeRates(result.rates);
- setExchangeRateSource(result.source);
- setExchangeRateError(result.error);
- }).catch(error => {
- console.error('Failed to load exchange rates:', error);
- setExchangeRates({});
- setExchangeRateSource('fallback');
- setExchangeRateError(error instanceof Error ? error.message : 'Failed to load exchange rates');
+ const refreshExchangeRates = useCallback(async (currency: Currency) => {
+ const taskToken = exchangeRateTaskGate.claim('exchange-rates');
+ setIsExchangeRatesRefreshing(true);
+ console.log(`[Exchange Rates] Refresh started for base currency: ${currency}`);
+
+ try {
+ const result = await refreshExchangeRatesWithStatus(currency);
+ if (!exchangeRateTaskGate.isCurrent('exchange-rates', taskToken)) {
+  return;
+ }
+
+ console.log('[Exchange Rates] Refresh completed:', {
+  currency,
+  source: result.source,
+  stale: Boolean(result.stale),
+  updatedAt: result.updatedAt,
+  error: result.error
  });
- }, [baseCurrency]);
+ applyExchangeRateResult(result);
+ } catch (error) {
+ if (!exchangeRateTaskGate.isCurrent('exchange-rates', taskToken)) {
+  return;
+ }
+
+ console.error(`[Exchange Rates] Refresh failed for ${currency}:`, error);
+ setExchangeRateSource('fallback');
+ setExchangeRatesStale(true);
+ setExchangeRateError(error instanceof Error ? error.message : 'Failed to refresh exchange rates');
+ } finally {
+ if (exchangeRateTaskGate.isCurrent('exchange-rates', taskToken)) {
+  setIsExchangeRatesRefreshing(false);
+ }
+ }
+ }, [applyExchangeRateResult]);
+
+ useEffect(() => {
+ const cachedSnapshot = getStoredExchangeRatesSnapshot(baseCurrency);
+ if (cachedSnapshot) {
+  applyExchangeRateResult(cachedSnapshot);
+ } else {
+  setExchangeRates({});
+  setExchangeRateSource('fallback');
+  setExchangeRatesUpdatedAt(null);
+  setExchangeRatesStale(true);
+  setExchangeRateError(undefined);
+ }
+
+ void refreshExchangeRates(baseCurrency);
+ }, [applyExchangeRateResult, baseCurrency, refreshExchangeRates]);
+
+ useEffect(() => {
+  const refreshIfVisibleAndOnline = () => {
+   if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+    return;
+   }
+
+   if (typeof navigator !== 'undefined' && 'onLine' in navigator && !navigator.onLine) {
+    return;
+   }
+
+   void refreshExchangeRates(baseCurrency);
+  };
+
+  const handleVisibilityChange = () => {
+   if (document.visibilityState === 'visible') {
+    refreshIfVisibleAndOnline();
+   }
+  };
+
+  const intervalId = window.setInterval(refreshIfVisibleAndOnline, EXCHANGE_RATE_REFRESH_INTERVAL_MS);
+  window.addEventListener('online', refreshIfVisibleAndOnline);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  return () => {
+   window.clearInterval(intervalId);
+   window.removeEventListener('online', refreshIfVisibleAndOnline);
+   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+ }, [baseCurrency, refreshExchangeRates]);
 
  // 根据当前用户切换本地数据作用域
  useEffect(() => {
@@ -178,8 +263,8 @@ export function App() {
 
  const nextScope = user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE;
  setActiveDataScope(nextScope);
- setSubscriptions(loadSubscriptions());
- setNotificationSettings(loadNotificationSettings());
+ setSubscriptions(loadSubscriptions(nextScope));
+ setNotificationSettings(loadNotificationSettings(nextScope));
  }, [user, loading]);
 
  // 主题切换效果
@@ -194,10 +279,15 @@ export function App() {
 
  // 用户登录后的数据同步 - 只执行一次
  useEffect(() => {
- if (loading || !user || hasInitialSync) return; // 如果认证未完成、用户未登录或已经同步过，直接返回
+ if (loading || !user || !session?.access_token || hasInitialSync) return; // 如果认证未完成、用户未登录、会话未就绪或已经同步过，直接返回
 
  // 标记开始同步，防止重复
  setHasInitialSync(true);
+ const syncScope = getUserDataScope(user.id);
+ const taskToken = initialSyncTaskGate.claim(syncScope);
+ let cancelled = false;
+
+ const isCurrentTask = () => !cancelled && initialSyncTaskGate.isCurrent(syncScope, taskToken);
 
  // 首次登录同步策略：云端为准
  const performInitialSync = async () => {
@@ -206,13 +296,15 @@ export function App() {
 
  // 1. 同步订阅数据
  const cloudSubscriptions = await syncSubscriptions();
+ if (!isCurrentTask()) return;
 
  // 如果云端为空，则上传本地数据
  if (cloudSubscriptions.length === 0) {
- const currentSubscriptions = loadSubscriptions();
+ const currentSubscriptions = loadSubscriptions(syncScope);
  if (currentSubscriptions.length > 0) {
  console.log('Cloud is empty, uploading local subscriptions...');
  await uploadLocalData(currentSubscriptions);
+ if (!isCurrentTask()) return;
  } else {
  console.log('Both cloud and local subscriptions are empty');
  }
@@ -224,13 +316,15 @@ export function App() {
  // 先检查云端是否有数据（不保存到本地，避免清空默认类别）
  try {
  const cloudCategoriesCheck = await CategoryService.getCategories();
+ if (!isCurrentTask()) return;
 
  if (cloudCategoriesCheck.length === 0) {
  // 云端为空，先上传本地类别到云端
- const currentCategories = loadCategories();
+ const currentCategories = loadCategories(syncScope);
  if (currentCategories.length > 0) {
  console.log('Cloud is empty, uploading local categories first...');
  await uploadLocalCategories(currentCategories);
+ if (!isCurrentTask()) return;
  } else {
  console.log('Both cloud and local categories are empty');
  }
@@ -238,6 +332,7 @@ export function App() {
  // 云端有数据，下载并同步到本地
  console.log(`Cloud has ${cloudCategoriesCheck.length} categories, syncing...`);
  await syncCategories();
+ if (!isCurrentTask()) return;
  }
  } catch (error) {
  console.error('Category sync check failed:', error);
@@ -247,14 +342,15 @@ export function App() {
  // 3. 同步通知设置
  try {
  const cloudNotificationSettings = await NotificationSettingsService.getSettings();
+ if (!isCurrentTask()) return;
  if (cloudNotificationSettings) {
  console.log('Cloud notification settings loaded');
  setNotificationSettings(cloudNotificationSettings);
  // 同时保存到本地以保持一致性
- saveNotificationSettings(cloudNotificationSettings);
+ saveNotificationSettings(cloudNotificationSettings, syncScope);
  } else {
  // 云端为空，上传本地设置
- const localNotificationSettings = loadNotificationSettings();
+ const localNotificationSettings = loadNotificationSettings(syncScope);
  if (localNotificationSettings.barkPush.enabled) {
  console.log('Cloud notification settings empty, uploading local settings...');
  await NotificationSettingsService.saveSettings(localNotificationSettings);
@@ -270,7 +366,20 @@ export function App() {
  };
 
  performInitialSync();
- }, [user, loading]); // 依赖认证状态，确保作用域切换后再同步
+ return () => {
+ cancelled = true;
+ initialSyncTaskGate.release(syncScope, taskToken);
+ };
+ }, [
+ hasInitialSync,
+ loading,
+ session,
+ syncCategories,
+ syncSubscriptions,
+ uploadLocalCategories,
+ uploadLocalData,
+ user
+ ]); // 依赖认证状态，确保作用域切换后再同步
 
  // 重置同步状态当用户登出时
  useEffect(() => {
@@ -358,21 +467,6 @@ export function App() {
  await signOut();
  // 可选：清空本地数据或保留
  // setSubscriptions([]);
- };
-
- // 刷新汇率
- const handleRefreshRates = async () => {
- try {
- const result = await getCachedExchangeRatesWithStatus(baseCurrency);
- setExchangeRates(result.rates);
- setExchangeRateSource(result.source);
- setExchangeRateError(result.error);
- } catch (error) {
- console.error('Failed to refresh exchange rates:', error);
- setExchangeRateSource('fallback');
- setExchangeRateError(error instanceof Error ? error.message : 'Failed to refresh exchange rates');
- throw error;
- }
  };
 
  // 导出数据
@@ -564,8 +658,9 @@ export function App() {
  onBaseCurrencyChange={setBaseCurrency}
  exchangeRates={exchangeRates}
  exchangeRateSource={exchangeRateSource}
+ exchangeRatesUpdatedAt={exchangeRatesUpdatedAt}
+ exchangeRatesStale={exchangeRatesStale}
  exchangeRateError={exchangeRateError}
- onRefreshRates={handleRefreshRates}
  />
 
  <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { CreditCard, TrendingUp, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react';
+import { useCallback } from 'react';
+import { CreditCard, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react';
 import CountUp from 'react-countup';
 import {
  Subscription,
@@ -31,8 +31,9 @@ interface DashboardProps {
  onBaseCurrencyChange: (currency: Currency) => void;
  exchangeRates: ExchangeRates;
  exchangeRateSource: ExchangeRateSource;
+ exchangeRatesUpdatedAt: number | null;
+ exchangeRatesStale: boolean;
  exchangeRateError?: string;
- onRefreshRates: () => Promise<void>;
 }
 
 export function Dashboard({
@@ -48,29 +49,11 @@ export function Dashboard({
  onBaseCurrencyChange,
  exchangeRates,
  exchangeRateSource,
+ exchangeRatesUpdatedAt,
+ exchangeRatesStale,
  exchangeRateError,
- onRefreshRates
 }: DashboardProps) {
- const [displayCurrency, setDisplayCurrency] = useState<Currency>(baseCurrency);
- const [isLoadingRates, setIsLoadingRates] = useState(false);
-
- // 当 baseCurrency 变化时，更新 displayCurrency
- useEffect(() => {
- setDisplayCurrency(baseCurrency);
- }, [baseCurrency]);
-
- const loadExchangeRates = async () => {
- setIsLoadingRates(true);
- try {
- await onRefreshRates();
- setDisplayCurrency(baseCurrency);
- } catch (error) {
- console.error('Failed to load exchange rates:', error);
- setDisplayCurrency(baseCurrency);
- } finally {
- setIsLoadingRates(false);
- }
- };
+ const displayCurrency = baseCurrency;
 
  // 类型筛选选项
  const categoryOptions = [
@@ -172,6 +155,24 @@ export function Dashboard({
  [displayCurrency]
  );
 
+ const exchangeRateStatus = (() => {
+  if (exchangeRateSource === 'fallback' || totalAmountResult.usesFallbackRates) {
+   return {
+    className: 'text-xs text-amber-700 dark:text-amber-300 mt-1',
+    message: `Using offline exchange rates. Totals may be approximate.${exchangeRateError ? ` ${exchangeRateError}` : ''}`
+   };
+  }
+
+  if (exchangeRatesStale && exchangeRatesUpdatedAt) {
+   return {
+    className: 'text-xs text-amber-700 dark:text-amber-300 mt-1',
+    message: `Latest exchange rate refresh failed.${exchangeRateError ? ` ${exchangeRateError}` : ''}`
+   };
+  }
+
+  return null;
+ })();
+
  return (
   <div className="relative rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-slate-200/60 dark:border-gray-700/60 bg-white/70 dark:bg-[#1a1c1e]/70 backdrop-blur-xl p-6 z-20 app-dark-panel">
  {/* Subtle background gradient overlay for depth */}
@@ -186,10 +187,9 @@ export function Dashboard({
       </div>
       <div>
        <h2 className="text-xl font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-dark-text-primary">Overview</h2>
-       {(exchangeRateSource === 'fallback' || totalAmountResult.usesFallbackRates) && (
-        <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-         Using offline exchange rates. Totals may be approximate.
-         {exchangeRateError ? ` ${exchangeRateError}` : ''}
+       {exchangeRateStatus && (
+        <p className={exchangeRateStatus.className}>
+         {exchangeRateStatus.message}
         </p>
        )}
       </div>
@@ -207,16 +207,6 @@ export function Dashboard({
  className="dashboard-select-glass"
  />
  </div>
-
- {/* 刷新汇率按钮 */}
- <button
- onClick={loadExchangeRates}
- disabled={isLoadingRates}
- className="bg-slate-100/80 hover:bg-slate-200/80 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 disabled:opacity-50 h-[38px] w-[38px] flex items-center justify-center rounded-full transition-all duration-200 backdrop-blur-sm border border-slate-200/50 dark:border-gray-600/50 app-dark-chip"
- title="刷新汇率"
- >
- <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-gray-300 app-dark-text-secondary ${isLoadingRates ? 'animate-spin' : ''}`} />
- </button>
 
  {/* 视图模式切换 */}
  <div className="bg-slate-100/60 dark:bg-gray-700/60 rounded-full p-1 backdrop-blur-sm border border-slate-200/40 dark:border-gray-600/40 flex items-center h-[38px] app-dark-chip">
@@ -251,12 +241,19 @@ viewMode === 'yearly'
  <div className="p-1.5 bg-slate-100/80 dark:bg-gray-700/80 rounded-2xl app-dark-icon-shell">
  <CreditCard className="w-4 h-4 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
  </div>
+ <div>
  <h2 className="text-lg font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-dark-text-primary">Overview</h2>
+ {exchangeRateStatus && (
+ <p className={exchangeRateStatus.className}>
+ {exchangeRateStatus.message}
+ </p>
+ )}
+ </div>
  </div>
 
  {/* 控制行 - 移动端垂直布局 */}
  <div className="flex flex-col gap-3">
- {/* 货币选择和刷新按钮 */}
+ {/* 货币选择 */}
  <div className="flex items-center space-x-2">
  <div className="min-w-[120px]">
  <CustomSelect
@@ -269,14 +266,6 @@ viewMode === 'yearly'
  className="dashboard-select-glass"
  />
  </div>
- <button
- onClick={loadExchangeRates}
- disabled={isLoadingRates}
- className="bg-slate-100/80 hover:bg-slate-200/80 dark:bg-gray-700/80 dark:hover:bg-gray-600/80 disabled:opacity-50 h-[38px] w-[38px] flex items-center justify-center rounded-full transition-all duration-200 backdrop-blur-sm border border-slate-200/50 dark:border-gray-600/50 flex-shrink-0 app-dark-chip"
- title="刷新汇率"
- >
- <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-gray-300 app-dark-text-secondary ${isLoadingRates ? 'animate-spin' : ''}`} />
- </button>
  </div>
 
  {/* 视图模式切换 - 移动端全宽 */}
@@ -310,9 +299,6 @@ viewMode === 'yearly'
  <p className="text-sm font-medium text-slate-500 dark:text-gray-400 mb-2 app-dark-text-muted">Total {viewMode} cost</p>
  <div className="flex items-center space-x-4 flex-wrap gap-y-2">
  <h3 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-gray-100 leading-none tracking-tight flex items-baseline app-dark-text-primary">
- {isLoadingRates && baseCurrency !== displayCurrency ? (
- <span className="animate-pulse text-slate-400 dark:text-gray-500 app-dark-text-muted">Loading...</span>
- ) : (
  <CountUp
  end={currentTotal}
  duration={1}
@@ -322,7 +308,6 @@ viewMode === 'yearly'
  useEasing={true}
  preserveValue={true}
  />
- )}
  </h3>
 
  <div className="flex items-center text-slate-700 dark:text-gray-300 bg-slate-100/80 dark:bg-gray-700/80 px-3.5 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/60 dark:border-gray-600/60 app-dark-chip">
@@ -378,13 +363,6 @@ viewMode === 'yearly'
  </div>
  )}
  </div>
-
- {/* 汇率状态指示 */}
- {Object.keys(exchangeRates).length === 0 && !isLoadingRates && (
- <div className="mt-4 text-sm text-slate-500 dark:text-gray-400 font-medium app-dark-text-muted">
- 使用离线汇率数据
- </div>
- )}
  </div>
  </div>
  );
