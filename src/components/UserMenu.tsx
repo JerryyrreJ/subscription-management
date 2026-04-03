@@ -102,6 +102,15 @@ export function UserMenu({
  }
  };
 
+ const syncButtonClasses = [
+ 'mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs rounded-2xl border shadow-sm',
+ 'transition-all duration-200 ease-out',
+ 'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+ 'active:scale-[0.985]',
+ 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 hover:text-emerald-800 hover:-translate-y-0.5',
+ 'dark:bg-emerald-400/12 dark:border-emerald-300/18 dark:text-emerald-200 dark:hover:bg-emerald-400/18 dark:hover:border-emerald-200/28 dark:hover:text-emerald-100 dark:focus-visible:ring-offset-[#1a1c1e]'
+ ].join(' ');
+
  return (
  <div className="relative"ref={menuRef}>
  {/* 用户头像按钮 */}
@@ -110,7 +119,7 @@ export function UserMenu({
  className="p-2 rounded-2xl bg-white dark:bg-[#1a1c1e] shadow-apple hover:shadow-fey hover:-translate-y-0.5 transition-all duration-200 ease-in-out app-dark-chip"
  >
  <div className="w-5 h-5 flex items-center justify-center">
- <User className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400 app-dark-text-secondary"/>
+ <User className="w-4 h-4 text-emerald-700 dark:text-zinc-400 app-dark-text-secondary"/>
  </div>
  </button>
 
@@ -153,7 +162,7 @@ export function UserMenu({
  {syncStatus !== 'syncing' && (
  <button
  onClick={() => handleMenuItemClick(onSync)}
- className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs bg-[#f4f5f7] dark:bg-[#202225] dark:bg-zinc-800/50 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400 rounded-2xl hover:bg-[#e5e7eb] dark:bg-[#2a2d31] dark:hover:bg-zinc-800/50 transition-colors"
+ className={syncButtonClasses}
  >
  <RotateCcw className="w-3 h-3"/>
  Sync Now
