@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendBarkNotification } from '../../src/utils/barkPush'
-import { addBillingPeriodToDate, compareDateOnly, formatDateOnly, getDaysUntil, getTodayDateOnly } from '../../src/utils/dates'
+import { addBillingPeriodToDate, compareDateOnly, formatDateOnly, getDaysUntil, getTodayDateOnly, normalizeTimeZone } from '../../src/utils/dates'
 import { cleanupNotificationHistoryEntries, mergeNotificationHistoryEntries, wasNotifiedToday } from '../../src/utils/notificationHistory'
 import type { Config } from '@netlify/functions'
 
@@ -29,6 +29,7 @@ interface Subscription {
 interface NotificationSettings {
   user_id: string
   bark_enabled: boolean
+  time_zone?: string | null
   bark_server_url: string
   bark_device_key: string
   bark_days_before: number
@@ -42,9 +43,10 @@ interface NotificationSettings {
 function getAutoRenewedDate(
   nextPaymentDate: string,
   period: string,
-  customDate?: string
+  customDate?: string,
+  timeZone: string = 'UTC'
 ): string {
-  const today = formatDateOnly(getTodayDateOnly())
+  const today = formatDateOnly(getTodayDateOnly(timeZone))
 
   // 如果还没到期，返回原始日期
   if (compareDateOnly(nextPaymentDate, today) >= 0) {
@@ -72,11 +74,12 @@ function getAutoRenewedDate(
 function getDaysUntilPayment(
   nextPaymentDate: string,
   period: string,
-  customDate?: string
+  customDate?: string,
+  timeZone: string = 'UTC'
 ): number {
   // 先自动续费，获取最新的续费日期
-  const renewedDate = getAutoRenewedDate(nextPaymentDate, period, customDate)
-  return getDaysUntil(renewedDate)
+  const renewedDate = getAutoRenewedDate(nextPaymentDate, period, customDate, timeZone)
+  return getDaysUntil(renewedDate, timeZone)
 }
 
 function hasSameHistory(
@@ -208,8 +211,10 @@ export default async (req: Request): Promise<Response> => {
     // 2. 遍历每个用户
     for (const settings of notificationSettingsList as NotificationSettings[]) {
       const { user_id, bark_server_url, bark_device_key, bark_days_before, bark_history } = settings
+      const userTimeZone = normalizeTimeZone(settings.time_zone, 'UTC')
 
       console.log(`[Scheduled Notifications] Processing user: ${user_id}`)
+      console.log(`[Scheduled Notifications] User time zone: ${userTimeZone}`)
 
       // 3. 获取该用户的所有启用了通知的订阅
       const { data: subscriptions, error: subscriptionsError } = await supabase
@@ -231,7 +236,7 @@ export default async (req: Request): Promise<Response> => {
 
       console.log(`[Scheduled Notifications] Found ${subscriptions.length} subscriptions for user ${user_id}`)
 
-      const updatedHistory = { ...cleanupNotificationHistoryEntries(bark_history || {}) }
+      const updatedHistory = { ...cleanupNotificationHistoryEntries(bark_history || {}, userTimeZone) }
       const newHistoryEntries: Record<string, string> = {}
       let userNotificationsSent = 0
 
@@ -241,12 +246,14 @@ export default async (req: Request): Promise<Response> => {
         const renewedDate = getAutoRenewedDate(
           subscription.next_payment_date,
           subscription.period,
-          subscription.custom_date
+          subscription.custom_date,
+          userTimeZone
         )
         const daysUntil = getDaysUntilPayment(
           subscription.next_payment_date,
           subscription.period,
-          subscription.custom_date
+          subscription.custom_date,
+          userTimeZone
         )
 
         // 🔍 调试日志: 输出每个订阅的详细信息
@@ -255,7 +262,7 @@ export default async (req: Request): Promise<Response> => {
         console.log(`  - 自动续费后的日期: ${renewedDate}`)
         console.log(`  - 距离续费天数: ${daysUntil} 天`)
         console.log(`  - 设置的提醒天数: ${bark_days_before} 天`)
-        console.log(`  - 今天是否已推送: ${wasNotifiedToday(subscription.id, updatedHistory)}`)
+        console.log(`  - 今天是否已推送: ${wasNotifiedToday(subscription.id, updatedHistory, userTimeZone)}`)
 
         // 跳过已过期或距离太远的订阅
         if (daysUntil < 0 || daysUntil > 14) {
@@ -264,14 +271,14 @@ export default async (req: Request): Promise<Response> => {
         }
 
         // 检查是否需要发送推送
-        if (daysUntil === bark_days_before && !wasNotifiedToday(subscription.id, updatedHistory)) {
+        if (daysUntil === bark_days_before && !wasNotifiedToday(subscription.id, updatedHistory, userTimeZone)) {
           console.log(`  ✅ 匹配推送条件！准备发送通知...`)
           console.log(`[Scheduled Notifications] Sending notification for subscription: ${subscription.name} (${daysUntil} days until renewal)`)
 
           const title = 'Subscription Manager'
           const periodText = subscription.period === 'monthly' ? 'month' : subscription.period === 'yearly' ? 'year' : subscription.period
           const body = `${subscription.name} expires in ${daysUntil} day${daysUntil > 1 ? 's' : ''}\n${formatCurrency(subscription.amount, subscription.currency)}/${periodText}`
-          const deliveryDate = formatDateOnly(getTodayDateOnly())
+          const deliveryDate = formatDateOnly(getTodayDateOnly(userTimeZone))
           let deliveryReserved = false
 
           try {
@@ -325,7 +332,7 @@ export default async (req: Request): Promise<Response> => {
           // 不满足推送条件，输出原因
           if (daysUntil !== bark_days_before) {
             console.log(`  ⏭️  跳过: 距离续费 ${daysUntil} 天 ≠ 设置的 ${bark_days_before} 天`)
-          } else if (wasNotifiedToday(subscription.id, updatedHistory)) {
+          } else if (wasNotifiedToday(subscription.id, updatedHistory, userTimeZone)) {
             console.log(`  ⏭️  跳过: 今天已经推送过`)
           }
         }
@@ -334,7 +341,8 @@ export default async (req: Request): Promise<Response> => {
       // 5. 更新用户的推送历史记录
       const cleanedUpdatedHistory = mergeNotificationHistoryEntries(
         bark_history || {},
-        newHistoryEntries
+        newHistoryEntries,
+        userTimeZone
       )
       if (userNotificationsSent > 0 || !hasSameHistory(bark_history || {}, cleanedUpdatedHistory)) {
         const { error: updateError } = await supabase

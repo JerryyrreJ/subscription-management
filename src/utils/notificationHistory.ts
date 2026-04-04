@@ -1,11 +1,12 @@
-import { formatDateOnly, getTodayDateOnly, parseDateOnly } from './dates';
+import { formatDateOnly, formatInstantToDateOnly, getTodayDateOnly } from './dates';
 
 export const NOTIFICATION_HISTORY_RETENTION_DAYS = 30;
 
 export function cleanupNotificationHistoryEntries(
- history: Record<string, string>
+ history: Record<string, string>,
+ timeZone?: string
 ): Record<string, string> {
- const retentionStart = getTodayDateOnly();
+ const retentionStart = getTodayDateOnly(timeZone);
  retentionStart.setUTCDate(retentionStart.getUTCDate() - NOTIFICATION_HISTORY_RETENTION_DAYS);
 
  const cleanedHistory: Record<string, string> = {};
@@ -22,18 +23,20 @@ export function cleanupNotificationHistoryEntries(
 
 export function mergeNotificationHistoryEntries(
  baseHistory: Record<string, string>,
- updates: Record<string, string>
+ updates: Record<string, string>,
+ timeZone?: string
 ): Record<string, string> {
  return cleanupNotificationHistoryEntries({
   ...baseHistory,
   ...updates,
- });
+ }, timeZone);
 }
 
 export function wasNotifiedOnDate(
  subscriptionId: string,
  notificationHistory: Record<string, string>,
- targetDate: Date
+ targetDate: Date,
+ timeZone?: string
 ): boolean {
  const lastNotificationDate = notificationHistory[subscriptionId];
  if (!lastNotificationDate) {
@@ -41,7 +44,7 @@ export function wasNotifiedOnDate(
  }
 
  try {
-  return formatDateOnly(parseDateOnly(lastNotificationDate)) === formatDateOnly(targetDate);
+  return formatInstantToDateOnly(new Date(lastNotificationDate), timeZone) === formatDateOnly(targetDate);
  } catch {
   return false;
  }
@@ -49,7 +52,8 @@ export function wasNotifiedOnDate(
 
 export function wasNotifiedToday(
  subscriptionId: string,
- notificationHistory: Record<string, string>
+ notificationHistory: Record<string, string>,
+ timeZone?: string
 ): boolean {
- return wasNotifiedOnDate(subscriptionId, notificationHistory, getTodayDateOnly());
+ return wasNotifiedOnDate(subscriptionId, notificationHistory, getTodayDateOnly(timeZone), timeZone);
 }

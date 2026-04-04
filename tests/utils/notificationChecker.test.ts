@@ -10,6 +10,7 @@ import { ReminderSettings } from '../../src/types.ts';
 const NOTIFICATION_STORAGE_KEY = 'notification_settings';
 
 const createSettings = (history: Record<string, string>): ReminderSettings => ({
+ timeZone: 'Asia/Shanghai',
  barkPush: {
   enabled: true,
   serverUrl: 'https://api.day.app',
@@ -63,6 +64,7 @@ test('loadNotificationSettings persists cleaned notification history back to loc
 
  try {
   localStorageMock.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify({
+   timeZone: 'America/Los_Angeles',
    barkPush: {
     enabled: true,
     serverUrl: 'https://api.day.app',
@@ -83,11 +85,13 @@ test('loadNotificationSettings persists cleaned notification history back to loc
   assert.deepEqual(settings.barkPush.notificationHistory, {
    recent: settings.barkPush.notificationHistory.recent,
   });
+  assert.equal(settings.timeZone, 'America/Los_Angeles');
 
   const persisted = JSON.parse(localStorageMock.getItem(NOTIFICATION_STORAGE_KEY) || '{}');
   assert.deepEqual(persisted.barkPush.notificationHistory, {
    recent: settings.barkPush.notificationHistory.recent,
   });
+  assert.equal(persisted.timeZone, 'America/Los_Angeles');
   assert.equal('browserNotification' in persisted, false);
  } finally {
   if (originalLocalStorage) {
@@ -109,10 +113,11 @@ test('saveNotificationSettings writes a cleaned notification history', () => {
    expired: formatDate(-60),
   }));
 
-  const persisted = JSON.parse(localStorageMock.getItem(NOTIFICATION_STORAGE_KEY) || '{}');
-  assert.deepEqual(persisted.barkPush.notificationHistory, {
-   recent: persisted.barkPush.notificationHistory.recent,
-  });
+ const persisted = JSON.parse(localStorageMock.getItem(NOTIFICATION_STORAGE_KEY) || '{}');
+ assert.deepEqual(persisted.barkPush.notificationHistory, {
+  recent: persisted.barkPush.notificationHistory.recent,
+ });
+  assert.equal(persisted.timeZone, 'Asia/Shanghai');
  } finally {
   if (originalLocalStorage) {
    globalThis.localStorage = originalLocalStorage;

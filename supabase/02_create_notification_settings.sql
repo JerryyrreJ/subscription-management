@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS user_notification_settings (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
 
   -- Bark Push Settings
+  time_zone TEXT,
   bark_enabled BOOLEAN DEFAULT false,
   bark_server_url TEXT DEFAULT 'https://api.day.app',
   bark_device_key TEXT DEFAULT '',
@@ -83,5 +84,6 @@ CREATE POLICY "Service role can update all notification settings"
 -- 注释
 COMMENT ON TABLE user_notification_settings IS '用户通知设置表（简化版 - 只保留 Bark 推送）';
 COMMENT ON COLUMN user_notification_settings.bark_history IS '存储已发送推送的记录，格式: {"subscription_id": "2024-01-01T00:00:00.000Z"}';
+COMMENT ON COLUMN user_notification_settings.time_zone IS '用户通知计算时区，使用 IANA 时区标识，例如 Asia/Shanghai';
 COMMENT ON COLUMN user_notification_settings.bark_enabled IS '全局 Bark 开关（需同时满足：全局开关=true + 订阅开关=true）';
 COMMENT ON COLUMN user_notification_settings.bark_days_before IS '提前几天提醒（1/3/7/14）';

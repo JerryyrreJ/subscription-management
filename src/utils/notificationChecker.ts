@@ -1,5 +1,5 @@
 import { ReminderSettings } from '../types';
-import { getDaysUntil } from './dates';
+import { getCurrentTimeZone, getDaysUntil, normalizeTimeZone } from './dates';
 import { DataScope, resolveScopedStorageKey } from './dataScope';
 import { cleanupNotificationHistoryEntries } from './notificationHistory';
 
@@ -9,6 +9,7 @@ const normalizeNotificationSettings = (settings: Partial<ReminderSettings> & { b
  const defaultSettings = getDefaultNotificationSettings();
 
  return {
+  timeZone: normalizeTimeZone(settings.timeZone, getCurrentTimeZone()),
   barkPush: {
    enabled: settings.barkPush?.enabled ?? defaultSettings.barkPush.enabled,
    serverUrl: settings.barkPush?.serverUrl || defaultSettings.barkPush.serverUrl,
@@ -24,6 +25,7 @@ const normalizeNotificationSettings = (settings: Partial<ReminderSettings> & { b
  */
 export function getDefaultNotificationSettings(): ReminderSettings {
  return {
+ timeZone: getCurrentTimeZone(),
  barkPush: {
  enabled: false,
  serverUrl: 'https://api.day.app',
@@ -74,14 +76,17 @@ export function saveNotificationSettings(settings: ReminderSettings, scope?: Dat
  * 计算距离下次付款的天数
  */
 export function getDaysUntilPayment(nextPaymentDate: string): number {
- return getDaysUntil(nextPaymentDate);
+ return getDaysUntil(nextPaymentDate, getCurrentTimeZone());
 }
 
 /**
  * 清理过期的通知历史（超过30天的记录）
  */
 export function cleanupNotificationHistory(settings: ReminderSettings): ReminderSettings {
- const cleanedBarkHistory = cleanupNotificationHistoryEntries(settings.barkPush.notificationHistory);
+ const cleanedBarkHistory = cleanupNotificationHistoryEntries(
+  settings.barkPush.notificationHistory,
+  settings.timeZone
+ );
 
  return {
   ...settings,

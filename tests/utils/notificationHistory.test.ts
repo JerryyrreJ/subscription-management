@@ -64,3 +64,29 @@ test('wasNotifiedOnDate returns false for invalid timestamps', () => {
 
  assert.equal(notified, false);
 });
+
+test('wasNotifiedOnDate compares notification timestamps by the provided time zone calendar date', () => {
+ const notificationHistory = {
+  sub_1: '2026-04-04T01:30:00.000Z',
+ };
+
+ assert.equal(
+  wasNotifiedOnDate(
+   'sub_1',
+   notificationHistory,
+   new Date(Date.UTC(2026, 3, 3)),
+   'America/Los_Angeles'
+  ),
+  true
+ );
+
+ assert.equal(
+  wasNotifiedOnDate(
+   'sub_1',
+   notificationHistory,
+   new Date(Date.UTC(2026, 3, 4)),
+   'America/Los_Angeles'
+  ),
+  false
+ );
+});

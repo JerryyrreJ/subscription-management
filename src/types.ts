@@ -78,10 +78,11 @@ export interface CurrencyInfo {
 }
 
 export interface ReminderSettings {
+ timeZone: string;
  // Bark 推送（移除浏览器通知，只保留 Bark）
  barkPush: {
- enabled: boolean;
- serverUrl: string;
+  enabled: boolean;
+  serverUrl: string;
  deviceKey: string;
  daysBefore: number;
  notificationHistory: {

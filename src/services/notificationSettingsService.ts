@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase'
 import { ReminderSettings } from '../types'
 import { config } from '../lib/config'
 import { cleanupNotificationHistory } from '../utils/notificationChecker'
+import { getCurrentTimeZone, normalizeTimeZone } from '../utils/dates'
 import { buildNotificationSettingsConfigPayload, NotificationSettingsConfigPayload } from '../utils/notificationSettingsPayload'
 import { scopeNotificationSettingsQueryToUser } from '../utils/notificationSettingsTenantScope'
 
@@ -9,6 +10,7 @@ export interface SupabaseNotificationSettings {
  id: string
  user_id: string
  bark_enabled: boolean
+ time_zone: string | null
  bark_server_url: string
  bark_device_key: string
  bark_days_before: number
@@ -61,8 +63,12 @@ export class NotificationSettingsService {
   await this.persistHistory(data.user_id, settings.barkPush.notificationHistory)
  }
 
- return settings
+ if (data.time_zone !== settings.timeZone) {
+  await this.persistTimeZone(data.user_id, settings.timeZone)
  }
+
+ return settings
+}
 
  // 保存/更新通知设置
  static async saveSettings(settings: ReminderSettings): Promise<ReminderSettings> {
@@ -122,6 +128,7 @@ export class NotificationSettingsService {
  // 数据格式转换：Supabase -> App
  private static transformFromSupabase(data: SupabaseNotificationSettings): ReminderSettings {
  return {
+ timeZone: normalizeTimeZone(data.time_zone, getCurrentTimeZone()),
  barkPush: {
  enabled: data.bark_enabled,
  serverUrl: data.bark_server_url,
@@ -143,7 +150,23 @@ export class NotificationSettingsService {
    return false
   }
 
-  return leftKeys.every(key => left[key] === right[key])
+ return leftKeys.every(key => left[key] === right[key])
+ }
+
+ private static async persistTimeZone(userId: string, timeZone: string): Promise<void> {
+  if (!supabase) {
+   throw new Error('Cloud sync not available')
+  }
+
+  const { error } = await supabase
+  .from('user_notification_settings')
+  .update({ time_zone: timeZone })
+  .eq('user_id', userId)
+
+  if (error) {
+   console.error('Error updating notification time zone:', error)
+   throw error
+  }
  }
 
  private static async persistHistory(userId: string, history: Record<string, string>): Promise<void> {

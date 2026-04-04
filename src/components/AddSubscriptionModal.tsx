@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
 import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
@@ -16,13 +16,14 @@ interface CategorySyncMethods {
 interface AddSubscriptionModalProps {
  isOpen: boolean;
  onClose: () => void;
- onAdd: (subscription: Subscription) => void;
+ onAdd: (subscription: Subscription) => Promise<void>;
+ onOpenNotificationSettings: () => void;
  categorySync?: CategorySyncMethods;
- isBarkEnabled: boolean;
+ isNotificationReady: boolean;
 }
 
-export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isBarkEnabled }: AddSubscriptionModalProps) {
- const [formData, setFormData] = useState({
+function buildInitialFormData(isNotificationReady: boolean) {
+ return {
  name: '',
  category: '',
  amount: '',
@@ -30,20 +31,39 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isB
  period: 'monthly' as Period,
  lastPaymentDate: '',
  customDate: '',
- notificationEnabled: true, // 默认启用通知
- });
+ notificationEnabled: isNotificationReady,
+ };
+}
+
+export function AddSubscriptionModal({
+ isOpen,
+ onClose,
+ onAdd,
+ onOpenNotificationSettings,
+ categorySync,
+ isNotificationReady
+}: AddSubscriptionModalProps) {
+ const formRef = useRef<HTMLFormElement>(null);
+ const [formData, setFormData] = useState(() => buildInitialFormData(isNotificationReady));
 
  const [categories, setCategories] = useState<string[]>([]);
  const [isSubmitting, setIsSubmitting] = useState(false);
  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
  const [newCategoryInput, setNewCategoryInput] = useState('');
+ const [dateValidationError, setDateValidationError] = useState(false);
+ const [notificationValidationError, setNotificationValidationError] = useState(false);
 
  // 加载类型列表 - 每次打开模态框时重新加载，确保显示最新类别
  useEffect(() => {
  if (isOpen) {
  setCategories(getAllCategories());
+ setFormData(buildInitialFormData(isNotificationReady));
+ setIsAddingNewCategory(false);
+ setNewCategoryInput('');
+ setDateValidationError(false);
+ setNotificationValidationError(false);
  }
- }, [isOpen]);
+ }, [isOpen, isNotificationReady]);
 
  // 处理类型选择变化
  const handleCategoryChange = (value: string) => {
@@ -94,63 +114,98 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isB
  setNewCategoryInput('');
  };
 
- const handleSubmit = async (e: React.FormEvent) => {
- e.preventDefault();
- setIsSubmitting(true);
+ const resetForm = () => {
+ setFormData(buildInitialFormData(isNotificationReady));
+ setDateValidationError(false);
+ setNotificationValidationError(false);
+ };
 
- try {
+ const validateForm = () => {
+ const formIsValid = formRef.current?.reportValidity() ?? true;
+ const hasDateError = !formData.lastPaymentDate;
+
+ setDateValidationError(hasDateError);
+
+ if (!formIsValid || hasDateError) {
+  return false;
+ }
+
  const amountError = validateSubscriptionAmount(formData.amount);
  if (amountError) {
   alert(amountError);
+  return false;
+ }
+
+ return true;
+ };
+
+ const buildSubscription = (notificationEnabled: boolean): Subscription => {
+ const nextPaymentDate = calculateNextPaymentDate(
+  formData.lastPaymentDate,
+  formData.period,
+  formData.customDate
+ );
+
+ return {
+  id: crypto.randomUUID(),
+  ...formData,
+  amount: Number(formData.amount),
+  nextPaymentDate,
+  createdAt: new Date().toISOString(),
+  notificationEnabled,
+ };
+ };
+
+ const submitSubscription = async (notificationEnabled: boolean) => {
+ if (!validateForm()) {
+  return false;
+ }
+
+ setIsSubmitting(true);
+
+ try {
+  await onAdd(buildSubscription(notificationEnabled));
+  resetForm();
+  return true;
+ } finally {
+  setIsSubmitting(false);
+ }
+ };
+
+ const handleSubmit = async (e: React.FormEvent) => {
+ e.preventDefault();
+ await submitSubscription(formData.notificationEnabled);
+ };
+
+ const handleNotificationToggle = async () => {
+ if (isSubmitting) {
   return;
  }
 
- const nextPaymentDate = calculateNextPaymentDate(
- formData.lastPaymentDate,
- formData.period,
- formData.customDate
- );
+ setNotificationValidationError(false);
 
- onAdd({
- id: crypto.randomUUID(),
- ...formData,
- amount: Number(formData.amount),
- nextPaymentDate,
- createdAt: new Date().toISOString(),
- });
-
- // 等待一小段时间确保状态更新完成
- await new Promise(resolve => setTimeout(resolve, 100));
-
- // 重置表单并关闭模态框
- setFormData({
- name: '',
- category: '',
- amount: '',
- currency: DEFAULT_CURRENCY,
- period: 'monthly',
- lastPaymentDate: '',
- customDate: '',
- notificationEnabled: true,
- });
- onClose();
- } finally {
- setIsSubmitting(false);
+ if (formData.notificationEnabled) {
+  setFormData(prev => ({ ...prev, notificationEnabled: false }));
+  return;
  }
+
+ if (isNotificationReady) {
+  setFormData(prev => ({ ...prev, notificationEnabled: true }));
+  return;
+ }
+
+ const saved = await submitSubscription(true);
+ if (!saved) {
+  setNotificationValidationError(true);
+  return;
+ }
+
+ onOpenNotificationSettings();
  };
 
  const handleClose = () => {
  if (!isSubmitting) {
- setFormData({
- name: '',
- category: '',
- amount: '',
- currency: DEFAULT_CURRENCY,
- period: 'monthly',
- lastPaymentDate: '',
- customDate: '',
- notificationEnabled: true,
- });
+ resetForm();
  setIsAddingNewCategory(false);
  setNewCategoryInput('');
  onClose();
@@ -182,7 +237,7 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isB
  </button>
  </div>
 
- <form onSubmit={handleSubmit} className="space-y-4">
+ <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
  Subscription Name
@@ -324,10 +379,20 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isB
  </label>
  <CustomDatePicker
  value={formData.lastPaymentDate}
- onChange={(value) => setFormData({ ...formData, lastPaymentDate: value })}
+ onChange={(value) => {
+ setFormData({ ...formData, lastPaymentDate: value });
+ if (dateValidationError) {
+  setDateValidationError(false);
+ }
+ }}
  maxDate={today}
  required={true}
  />
+ {dateValidationError && (
+ <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+ Last payment date is required.
+ </p>
+ )}
  </div>
 
  {/* 通知开关 */}
@@ -347,13 +412,13 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isB
  </label>
  <button
  type="button"
- onClick={() => setFormData({ ...formData, notificationEnabled: !formData.notificationEnabled })}
- disabled={!isBarkEnabled}
+ onClick={handleNotificationToggle}
+ disabled={isSubmitting}
  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 ${
- formData.notificationEnabled && isBarkEnabled
+ formData.notificationEnabled
  ? 'bg-teal-600'
  : 'bg-gray-300 dark:bg-gray-600'
- } ${!isBarkEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+ } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
  >
  <span
  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -362,15 +427,14 @@ export function AddSubscriptionModal({ isOpen, onClose, onAdd, categorySync, isB
  />
  </button>
  </div>
- {!isBarkEnabled ? (
- <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
- Global notification is disabled. Please enable Bark notifications in Notification Settings first.
- </p>
- ) : (
  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
  {formData.notificationEnabled
  ? 'You will receive reminders for this subscription'
  : 'No reminders will be sent for this subscription'}
+ </p>
+ {notificationValidationError && (
+ <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+ Finish this subscription first, then set up notifications.
  </p>
  )}
  </div>

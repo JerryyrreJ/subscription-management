@@ -44,6 +44,7 @@ const createSubscription = (id: string, name: string): Subscription => ({
 });
 
 const createSettings = (deviceKey: string): ReminderSettings => ({
+ timeZone: 'UTC',
  barkPush: {
   enabled: true,
   serverUrl: 'https://api.day.app',

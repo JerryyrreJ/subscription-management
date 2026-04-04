@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   addBillingPeriodToDate,
   calculateNextPaymentDate,
+  formatInstantToDateOnly,
   getAutoRenewedDates,
+  getDaysUntil,
 } from '../../src/utils/dates.ts';
 
 const withMockedNow = (isoDateTime: string, run: () => void) => {
@@ -53,4 +55,19 @@ test('auto renew keeps month-end cadence for overdue monthly subscriptions', () 
 
 test('custom billing still advances by the requested number of days', () => {
   assert.equal(addBillingPeriodToDate('2026-03-24', 'custom', '10'), '2026-04-03');
+});
+
+test('formatInstantToDateOnly respects the provided time zone', () => {
+  const instant = new Date('2026-04-04T01:30:00.000Z');
+
+  assert.equal(formatInstantToDateOnly(instant, 'UTC'), '2026-04-04');
+  assert.equal(formatInstantToDateOnly(instant, 'America/Los_Angeles'), '2026-04-03');
+  assert.equal(formatInstantToDateOnly(instant, 'Asia/Shanghai'), '2026-04-04');
+});
+
+test('getDaysUntil uses the provided time zone calendar day', () => {
+  withMockedNow('2026-04-04T01:30:00.000Z', () => {
+    assert.equal(getDaysUntil('2026-04-04', 'UTC'), 0);
+    assert.equal(getDaysUntil('2026-04-04', 'America/Los_Angeles'), 1);
+  });
 });

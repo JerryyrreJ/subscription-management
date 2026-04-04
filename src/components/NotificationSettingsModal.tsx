@@ -22,6 +22,7 @@ export function NotificationSettingsModal({
  onOpenAuth
 }: NotificationSettingsModalProps) {
  const { user } = useAuth();
+ const requiresLogin = !user;
  const [localSettings, setLocalSettings] = useState<ReminderSettings>(settings);
  const [isTesting, setIsTesting] = useState(false);
  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -52,10 +53,10 @@ export function NotificationSettingsModal({
 
  const handleSave = () => {
  // If user is not logged in, redirect to login
- if (!user) {
- onClose();
- if (onOpenAuth) {
- onOpenAuth();
+ if (requiresLogin) {
+  onClose();
+  if (onOpenAuth) {
+  onOpenAuth();
  }
  return;
  }
@@ -77,6 +78,14 @@ export function NotificationSettingsModal({
  };
 
  const handleTestBark = async () => {
+ if (requiresLogin) {
+ setTestResult({
+ success: false,
+ message: 'Login is required before you can save or test push notifications.'
+ });
+ return;
+ }
+
  const validation = validateBarkConfig(
  localSettings.barkPush.serverUrl,
  localSettings.barkPush.deviceKey
@@ -161,22 +170,26 @@ export function NotificationSettingsModal({
  {/* Content */}
  <div className="flex-1 min-w-0">
  <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1.5 tracking-tight">
- Login Required for Automatic Notifications
+ Login Required for Bark Notifications
  </h3>
  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
- You can configure and test your settings now, but <strong className="text-orange-900 dark:text-orange-300">automatic push notifications won't work</strong> until you log in.
- Our server sends notifications 24/7 — it needs your account to know where to send them.
+ <strong className="text-orange-900 dark:text-orange-300">Login is required before Bark notifications can be enabled.</strong>
+ Automatic reminders are sent by our server, so your Bark device must be linked to your account first.
+ </p>
+ <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
+ This allows us to match your Bark device with your subscription list and deliver the right reminder to the right user.
+ Without login, the app can store data only in this browser, but the server cannot reliably identify which Bark device should receive which subscription reminders.
  </p>
 
  {/* Feature breakdown */}
- <div className="grid grid-cols-2 gap-3 mb-4">
- <div className="flex items-start gap-2">
- <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"/>
- <span className="text-xs text-gray-600 dark:text-gray-400">Test push works now</span>
+ <div className="grid grid-cols-1 gap-2 mb-4">
+ <div className="flex items-center gap-2">
+ <div className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0"/>
+ <span className="text-xs text-gray-600 dark:text-gray-400">Login links Bark to your account</span>
  </div>
- <div className="flex items-start gap-2">
- <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0"/>
- <span className="text-xs text-gray-600 dark:text-gray-400">Auto notifications need login</span>
+ <div className="flex items-center gap-2">
+ <div className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0"/>
+ <span className="text-xs text-gray-600 dark:text-gray-400">Server reminders use that link to route pushes</span>
  </div>
  </div>
 
@@ -335,10 +348,11 @@ export function NotificationSettingsModal({
  </div>
 
  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-4 space-y-4">
- <label className="flex items-center gap-3 cursor-pointer">
+ <label className={`flex items-center gap-3 ${requiresLogin ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
  <input
  type="checkbox"
  checked={localSettings.barkPush.enabled}
+ disabled={requiresLogin}
  onChange={(e) => setLocalSettings({
  ...localSettings,
  barkPush: {
@@ -362,9 +376,10 @@ export function NotificationSettingsModal({
  <input
  type="text"
  value={barkUrl}
+ disabled={requiresLogin}
  onChange={(e) => handleBarkUrlChange(e.target.value)}
  placeholder="https://api.day.app/AbCd1234EfGh5678"
- className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono text-sm"
+ className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono text-sm disabled:cursor-not-allowed disabled:opacity-60"
  />
  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
  📋 Copy any example URL from Bark's Server page and paste it here
@@ -383,11 +398,12 @@ export function NotificationSettingsModal({
  <div className="flex items-center gap-2">
  <span className="text-sm text-gray-700 dark:text-gray-300">Remind me</span>
  <div className="w-48">
- <CustomSelect
- value={localSettings.barkPush.daysBefore.toString()}
- onChange={(value) => setLocalSettings({
- ...localSettings,
- barkPush: {
+  <CustomSelect
+  value={localSettings.barkPush.daysBefore.toString()}
+  disabled={requiresLogin}
+  onChange={(value) => setLocalSettings({
+  ...localSettings,
+  barkPush: {
  ...localSettings.barkPush,
  daysBefore: parseInt(value)
  }
@@ -401,12 +417,18 @@ export function NotificationSettingsModal({
  <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
  <button
  onClick={handleTestBark}
- disabled={isTesting || !localSettings.barkPush.serverUrl || !localSettings.barkPush.deviceKey}
- className="flex items-center gap-2 px-4 py-2 bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:bg-gray-400 text-white rounded-2xl transition-colors"
+ disabled={requiresLogin || isTesting || !localSettings.barkPush.serverUrl || !localSettings.barkPush.deviceKey}
+ className="flex items-center gap-2 px-4 py-2 bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:bg-gray-400 text-white rounded-2xl transition-colors disabled:cursor-not-allowed"
  >
  <Send className="w-4 h-4"/>
  {isTesting ? 'Sending...' : 'Test Push'}
  </button>
+
+ {requiresLogin && (
+ <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+  Sign in first to save your Bark device key and run a test push from your account.
+ </p>
+ )}
 
  {testResult && (
  <div className={`mt-3 p-3 rounded-2xl ${
@@ -451,7 +473,7 @@ export function NotificationSettingsModal({
  ) : (
  <span className="flex items-center justify-center gap-2">
  <LogIn className="w-4 h-4"/>
- Login to Save
+ Login to Configure
  </span>
  )}
  </button>

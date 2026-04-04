@@ -695,10 +695,11 @@ export function App() {
  isOpen={isAddModalOpen}
  onClose={() => setIsAddModalOpen(false)}
  onAdd={handleAddSubscription}
+ onOpenNotificationSettings={() => setIsNotificationSettingsModalOpen(true)}
  categorySync={{
  createCategory
  }}
- isBarkEnabled={notificationSettings.barkPush.enabled}
+ isNotificationReady={notificationSettings.barkPush.enabled}
  />
 
  <SubscriptionDetailsModal
