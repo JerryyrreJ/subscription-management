@@ -1,0 +1,17 @@
+export const dashboard = {
+ allCategories: 'All Categories',
+ sortPrice: 'Price',
+ sortName: 'Name',
+ sortCategory: 'Category',
+ sortDueDate: 'Due Date',
+ sortCreatedDate: 'Created Date',
+ offlineRates: 'Using offline exchange rates. Totals may be approximate.{{suffix}}',
+ refreshFailed: 'Latest exchange rate refresh failed.{{suffix}}',
+ overview: 'Overview',
+ monthly: 'Monthly',
+ yearly: 'Yearly',
+ totalCost: 'Total {{mode}} cost',
+ activeCount: '{{count}} active',
+ sortAscending: 'Sort Ascending',
+ sortDescending: 'Sort Descending',
+};

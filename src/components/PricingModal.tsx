@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { redirectToCheckout, getStripePriceId } from '../services/payment';
 import { useAuth } from '../contexts/AuthContext';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
+import { useTranslation } from 'react-i18next';
 
 interface PricingModalProps {
  isOpen: boolean;
@@ -23,6 +24,7 @@ interface PricingTier {
  description: string;
  features: FeatureItem[];
  highlighted?: boolean;
+ supportMode?: boolean;
  buttonText: string;
  buttonAction?: () => void;
 }
@@ -54,7 +56,8 @@ function FeatureCard({ icon, title, description, delay = 0 }: { icon: string; ti
 
 // Refined Pricing Card Component
 function PricingCard({ tier, index, isVisible }: { tier: PricingTier; index: number; isVisible: boolean }) {
- const isSupportMode = tier.name === 'Support Developer';
+ const { t } = useTranslation(['pricing']);
+ const isSupportMode = Boolean(tier.supportMode);
 
  return (
  <div
@@ -68,7 +71,7 @@ function PricingCard({ tier, index, isVisible }: { tier: PricingTier; index: num
  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
  <div className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-slate-700 to-teal-600 rounded-full text-white text-sm font-medium shadow-fey">
  <Sparkles className="w-4 h-4"/>
- {isSupportMode ? 'Support Open Source' : 'Most Popular'}
+ {isSupportMode ? t('pricing:badgeSupportOpenSource') : t('pricing:badgeMostPopular')}
  </div>
  </div>
  )}
@@ -140,6 +143,7 @@ function PricingCard({ tier, index, isVisible }: { tier: PricingTier; index: num
 }
 
 export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) {
+ const { t } = useTranslation(['pricing']);
  const containerRef = useRef<HTMLDivElement>(null);
  const [isVisible, setIsVisible] = useState(false);
  const [isProcessing, setIsProcessing] = useState(false);
@@ -162,7 +166,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  // 处理支付流程
  const handlePayment = async () => {
  if (!config.features.payment) {
- alert('Payment is not configured. Please contact support.');
+ alert(t('pricing:paymentNotConfigured'));
  return;
  }
 
@@ -178,7 +182,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  });
  } catch (error) {
  console.error('Payment error:', error);
- alert('Failed to start payment process. Please try again.');
+ alert(t('pricing:paymentFailed'));
  setIsProcessing(false);
  }
  };
@@ -192,81 +196,82 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  ? [
  // 有云同步配置 - 显示Premium付费版本
  {
- name: 'Open Source',
- price: 'Free',
- period: 'forever',
- description: 'Perfect for personal use with full local control',
+ name: t('pricing:openSourceName'),
+ price: t('pricing:freePrice'),
+ period: t('pricing:foreverPeriod'),
+ description: t('pricing:openSourceCloudDescription'),
  features: [
- { text: 'Unlimited subscriptions', included: true },
- { text: 'Multi-currency support', included: true },
- { text: 'Local data storage', included: true },
- { text: 'Import/Export data', included: true },
- { text: 'Custom categories', included: true },
- { text: 'Dark mode', included: true },
- { text: 'Advanced analytics', included: false },
- { text: 'PDF export', included: false },
- { text: 'Cloud backup & sync', included: false },
- { text: 'Notification reminders', included: false },
+ { text: t('pricing:featureUnlimitedSubscriptions'), included: true },
+ { text: t('pricing:featureMultiCurrencySupport'), included: true },
+ { text: t('pricing:featureLocalDataStorage'), included: true },
+ { text: t('pricing:featureImportExportData'), included: true },
+ { text: t('pricing:featureCustomCategories'), included: true },
+ { text: t('pricing:featureDarkMode'), included: true },
+ { text: t('pricing:featureAdvancedAnalytics'), included: false },
+ { text: t('pricing:featurePdfExport'), included: false },
+ { text: t('pricing:featureCloudBackupSync'), included: false },
+ { text: t('pricing:featureNotificationReminders'), included: false },
  ],
- buttonText: 'Get Started',
+ buttonText: t('pricing:getStarted'),
  buttonAction: onClose,
  },
  {
- name: 'Premium',
+ name: t('pricing:premiumName'),
  price: '$6',
- period: 'lifetime',
- description: 'Unlock all features for powerful subscription management',
+ period: t('pricing:lifetimePeriod'),
+ description: t('pricing:premiumDescription'),
  features: [
- { text: 'Everything in Open Source', included: true },
- { text: 'Advanced analytics & reports', included: true },
- { text: 'Cloud backup & multi-device sync', included: true },
- { text: 'Renewal notifications', included: true },
- { text: 'PDF export (beta)', included: true },
- { text: 'Priority support', included: true },
- { text: 'Future premium features', included: true },
+ { text: t('pricing:featureEverythingInOpenSource'), included: true },
+ { text: t('pricing:featureAdvancedAnalyticsReports'), included: true },
+ { text: t('pricing:featureCloudBackupMultiDevice'), included: true },
+ { text: t('pricing:featureRenewalNotifications'), included: true },
+ { text: t('pricing:featurePdfExportBeta'), included: true },
+ { text: t('pricing:featurePrioritySupport'), included: true },
+ { text: t('pricing:featureFuturePremiumFeatures'), included: true },
  ],
  highlighted: true,
- buttonText: config.features.payment ? (isProcessing ? 'Processing...' : 'Upgrade Now') : 'Payment Not Available',
+ buttonText: config.features.payment ? (isProcessing ? t('pricing:processing') : t('pricing:upgradeNow')) : t('pricing:paymentNotAvailable'),
  buttonAction: config.features.payment ? handlePayment : undefined,
  },
  ]
  : [
  // 无云同步配置 - 显示Support Developer捐赠版本
  {
- name: 'Open Source',
- price: 'Free',
- period: 'forever',
- description: 'Full-featured subscription tracker with complete source code',
+ name: t('pricing:openSourceName'),
+ price: t('pricing:freePrice'),
+ period: t('pricing:foreverPeriod'),
+ description: t('pricing:openSourceSupportDescription'),
  features: [
- { text: 'Unlimited subscriptions', included: true },
- { text: 'Multi-currency support', included: true },
- { text: 'Advanced analytics', included: true },
- { text: 'PDF export (beta)', included: true },
- { text: 'Local storage', included: true },
- { text: 'Import/Export', included: true },
- { text: 'Custom categories', included: true },
- { text: 'Notification reminders', included: true },
- { text: 'Dark mode', included: true },
- { text: 'Open source on GitHub', included: true },
+ { text: t('pricing:featureUnlimitedSubscriptions'), included: true },
+ { text: t('pricing:featureMultiCurrencySupport'), included: true },
+ { text: t('pricing:featureAdvancedAnalytics'), included: true },
+ { text: t('pricing:featurePdfExportBeta'), included: true },
+ { text: t('pricing:featureLocalStorage'), included: true },
+ { text: t('pricing:featureImportExport'), included: true },
+ { text: t('pricing:featureCustomCategories'), included: true },
+ { text: t('pricing:featureNotificationReminders'), included: true },
+ { text: t('pricing:featureDarkMode'), included: true },
+ { text: t('pricing:featureOpenSourceGithub'), included: true },
  ],
- buttonText: 'Get Started',
+ buttonText: t('pricing:getStarted'),
  buttonAction: onClose,
  },
  {
- name: 'Support Developer',
+ name: t('pricing:supportDeveloperName'),
  price: '$6',
- period: 'one-time',
- description: 'Help support continued development and maintenance',
+ period: t('pricing:oneTimePeriod'),
+ description: t('pricing:supportDeveloperDescription'),
  features: [
- { text: 'Support open source development', included: true },
- { text: 'All features remain free', included: true },
- { text: 'Help maintain the project', included: true },
- { text: 'Fund new features', included: true },
- { text: 'Sponsor badge (optional)', included: true },
- { text: 'Personal thank you', included: true },
+ { text: t('pricing:featureSupportOpenSourceDevelopment'), included: true },
+ { text: t('pricing:featureAllFeaturesRemainFree'), included: true },
+ { text: t('pricing:featureHelpMaintainProject'), included: true },
+ { text: t('pricing:featureFundNewFeatures'), included: true },
+ { text: t('pricing:featureSponsorBadgeOptional'), included: true },
+ { text: t('pricing:featurePersonalThankYou'), included: true },
  ],
  highlighted: true,
- buttonText: config.features.payment ? (isProcessing ? 'Processing...' : 'Support Project') : 'Payment Not Available',
+ supportMode: true,
+ buttonText: config.features.payment ? (isProcessing ? t('pricing:processing') : t('pricing:supportProject')) : t('pricing:paymentNotAvailable'),
  buttonAction: config.features.payment ? handlePayment : undefined,
  },
  ];
@@ -287,7 +292,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  <button
  onClick={onClose}
  className="fixed top-6 right-6 sm:top-8 sm:right-8 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-200/80 hover:bg-gray-300/80 dark:bg-[#1a1c1e]/80 dark:hover:bg-gray-700/80 backdrop-blur-xl transition-all flex items-center justify-center group z-10 shadow-fey hover:shadow-apple-lg hover:scale-105"
- aria-label="Close pricing"
+ aria-label={t('pricing:closeAria')}
  >
  <X className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700 dark:text-gray-300 group-hover:rotate-90 transition-transform duration-300"/>
  </button>
@@ -301,14 +306,14 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  }`}
  >
  <h1 className="text-5xl sm:text-7xl lg:text-8xl font-bold mb-6 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-600 dark:from-white dark:via-gray-100 dark:to-gray-400 bg-clip-text text-transparent tracking-tight">
- {isCloudSyncAvailable ? 'Simple.' : 'Support.'}
+ {isCloudSyncAvailable ? t('pricing:heroTopCloud') : t('pricing:heroTopSupport')}
  <br />
- {isCloudSyncAvailable ? 'Powerful.' : 'Together.'}
+ {isCloudSyncAvailable ? t('pricing:heroBottomCloud') : t('pricing:heroBottomSupport')}
  </h1>
  <p className="text-xl sm:text-2xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed font-light">
  {isCloudSyncAvailable
- ? 'One price. Lifetime access. Everything you need.'
- : 'Free forever. Support if you can.'}
+ ? t('pricing:heroSubtitleCloud')
+ : t('pricing:heroSubtitleSupport')}
  </p>
  </div>
 
@@ -331,7 +336,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  </span>
  </div>
  <div className="text-2xl sm:text-3xl text-gray-500 dark:text-gray-500 mt-4 font-light">
- $6 · lifetime
+ {t('pricing:priceDisplay')}
  </div>
  </div>
  </div>
@@ -348,20 +353,20 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
  <FeatureCard
  icon="📊"
- title="Analytics"
- description="Beautiful insights into your spending patterns and trends"
+ title={t('pricing:featureAnalyticsTitle')}
+ description={t('pricing:featureAnalyticsDescription')}
  delay={100}
  />
  <FeatureCard
  icon="☁️"
- title="Cloud Sync"
- description="Seamless synchronization across all your devices"
+ title={t('pricing:featureCloudSyncTitle')}
+ description={t('pricing:featureCloudSyncDescription')}
  delay={200}
  />
  <FeatureCard
  icon="🔔"
- title="Reminders"
- description="Never miss a renewal with smart notifications"
+ title={t('pricing:featureRemindersTitle')}
+ description={t('pricing:featureRemindersDescription')}
  delay={300}
  />
  </div>
@@ -389,8 +394,8 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  >
  <p className="leading-relaxed">
  {isCloudSyncAvailable
- ? 'One-time payment. No subscriptions. No recurring fees. All future updates included.'
- : 'This project is and will always be free and open source. Your support helps keep it that way.'}
+ ? t('pricing:footerCloud')
+ : t('pricing:footerSupport')}
  </p>
  </div>
  </div>

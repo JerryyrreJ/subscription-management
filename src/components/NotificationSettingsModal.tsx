@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { X, Bell, Send, ChevronDown, ChevronUp, Download, Key, Copy, Globe, ExternalLink, Lock, LogIn } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ReminderSettings } from '../types';
 import { testBarkPush, validateBarkConfig } from '../utils/barkPush';
 import { parseBarkUrl, updateBarkPushFromUrl } from '../utils/barkConfig';
 import { CustomSelect } from './CustomSelect';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppLanguage } from '../hooks/useAppLanguage';
 
 interface NotificationSettingsModalProps {
  isOpen: boolean;
@@ -21,6 +23,8 @@ export function NotificationSettingsModal({
  onSave,
  onOpenAuth
 }: NotificationSettingsModalProps) {
+ const { t } = useTranslation(['notificationSettings']);
+ const { language } = useAppLanguage();
  const { user } = useAuth();
  const requiresLogin = !user;
  const [localSettings, setLocalSettings] = useState<ReminderSettings>(settings);
@@ -68,7 +72,7 @@ export function NotificationSettingsModal({
  );
 
  if (!validation.valid) {
- setTestResult({ success: false, message: validation.error || 'Invalid Bark configuration' });
+ setTestResult({ success: false, message: validation.error || t('notificationSettings:invalidBarkConfig') });
  return;
  }
  }
@@ -81,7 +85,7 @@ export function NotificationSettingsModal({
  if (requiresLogin) {
  setTestResult({
  success: false,
- message: 'Login is required before you can save or test push notifications.'
+ message: t('notificationSettings:loginRequiredToTest')
  });
  return;
  }
@@ -92,7 +96,7 @@ export function NotificationSettingsModal({
  );
 
  if (!validation.valid) {
- setTestResult({ success: false, message: validation.error || 'Invalid configuration' });
+ setTestResult({ success: false, message: validation.error || t('notificationSettings:invalidConfig') });
  return;
  }
 
@@ -102,26 +106,27 @@ export function NotificationSettingsModal({
  try {
  const success = await testBarkPush(
  localSettings.barkPush.serverUrl,
- localSettings.barkPush.deviceKey
+ localSettings.barkPush.deviceKey,
+ language
  );
 
  if (success) {
- setTestResult({ success: true, message: 'Test push sent successfully! Check your device.' });
+ setTestResult({ success: true, message: t('notificationSettings:testPushSuccess') });
  } else {
- setTestResult({ success: false, message: 'Failed to send test push. Please check your settings.' });
+ setTestResult({ success: false, message: t('notificationSettings:testPushFailed') });
  }
  } catch (error) {
- setTestResult({ success: false, message: 'Error sending test push.' });
+ setTestResult({ success: false, message: t('notificationSettings:testPushError') });
  } finally {
  setIsTesting(false);
  }
  };
 
  const daysOptions = [
- { value: '1', label: '1 day before' },
- { value: '3', label: '3 days before' },
- { value: '7', label: '7 days before' },
- { value: '14', label: '14 days before' }
+ { value: '1', label: t('notificationSettings:remindDaysOne') },
+ { value: '3', label: t('notificationSettings:remindDaysOther', { count: 3 }) },
+ { value: '7', label: t('notificationSettings:remindDaysOther', { count: 7 }) },
+ { value: '14', label: t('notificationSettings:remindDaysOther', { count: 14 }) }
  ];
 
  if (!isOpen) return null;
@@ -136,7 +141,7 @@ export function NotificationSettingsModal({
  <Bell className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400"/>
  </div>
  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
- Notification Settings
+ {t('notificationSettings:title')}
  </h2>
  </div>
  <button
@@ -170,26 +175,26 @@ export function NotificationSettingsModal({
  {/* Content */}
  <div className="flex-1 min-w-0">
  <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1.5 tracking-tight">
- Login Required for Bark Notifications
+ {t('notificationSettings:loginBannerTitle')}
  </h3>
  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
- <strong className="text-orange-900 dark:text-orange-300">Login is required before Bark notifications can be enabled.</strong>
- Automatic reminders are sent by our server, so your Bark device must be linked to your account first.
+ <strong className="text-orange-900 dark:text-orange-300">{t('notificationSettings:loginBannerStrong')}</strong>
+ {' '}
+ {t('notificationSettings:loginBannerBody')}
  </p>
  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
- This allows us to match your Bark device with your subscription list and deliver the right reminder to the right user.
- Without login, the app can store data only in this browser, but the server cannot reliably identify which Bark device should receive which subscription reminders.
+ {t('notificationSettings:loginBannerExplanation')}
  </p>
 
  {/* Feature breakdown */}
  <div className="grid grid-cols-1 gap-2 mb-4">
  <div className="flex items-center gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0"/>
- <span className="text-xs text-gray-600 dark:text-gray-400">Login links Bark to your account</span>
+ <span className="text-xs text-gray-600 dark:text-gray-400">{t('notificationSettings:loginPointAccount')}</span>
  </div>
  <div className="flex items-center gap-2">
  <div className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0"/>
- <span className="text-xs text-gray-600 dark:text-gray-400">Server reminders use that link to route pushes</span>
+ <span className="text-xs text-gray-600 dark:text-gray-400">{t('notificationSettings:loginPointRouting')}</span>
  </div>
  </div>
 
@@ -203,7 +208,7 @@ export function NotificationSettingsModal({
  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white text-sm font-semibold rounded-2xl transition-all shadow-apple hover:shadow-fey hover:scale-[1.02] active:scale-[0.98]"
  >
  <LogIn className="w-4 h-4"/>
- Login to Enable
+ {t('notificationSettings:loginToEnable')}
  </button>
  )}
  </div>
@@ -217,18 +222,17 @@ export function NotificationSettingsModal({
  {/* 全局提示 */}
  <div className="bg-[#f4f5f7] dark:bg-[#202225] dark:bg-zinc-800/20 border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700 dark:border-zinc-700 rounded-2xl p-4">
  <p className="text-sm text-emerald-600 dark:text-emerald-300">
- <strong>Note:</strong> Notifications are sent automatically from our server. You don't need to keep the app open.
- Additionally, you can enable/disable notifications for individual subscriptions when adding or editing them.
+ <strong>{t('notificationSettings:noteTitle')}</strong> {t('notificationSettings:noteBody')}
  </p>
  </div>
 
  {/* Bark Push */}
  <div>
  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
- Bark Push Notifications (iOS)
+ {t('notificationSettings:barkSectionTitle')}
  </h3>
  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
- Receive push notifications on your iOS device via Bark app
+ {t('notificationSettings:barkSectionDescription')}
  </p>
 
  {/* Setup Guide - Collapsible */}
@@ -240,7 +244,7 @@ export function NotificationSettingsModal({
  <div className="flex items-center gap-2">
  <Bell className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400"/>
  <span className="font-medium text-gray-900 dark:text-white">
- 📖 Setup Guide
+ 📖 {t('notificationSettings:setupGuide')}
  </span>
  </div>
  {isGuideExpanded ? (
@@ -256,11 +260,10 @@ export function NotificationSettingsModal({
  <div className="bg-white dark:bg-[#1a1c1e] rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800">
  <h4 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
  <span className="text-lg">🔔</span>
- What is Bark?
+ {t('notificationSettings:whatIsBarkTitle')}
  </h4>
  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
- Bark is a <strong>free, open-source iOS app</strong> that lets you receive push notifications from web apps.
- It works even when this app is closed! Perfect for getting timely reminders about your subscription renewals.
+ {t('notificationSettings:whatIsBarkBody')}
  </p>
  </div>
 
@@ -268,10 +271,10 @@ export function NotificationSettingsModal({
  <div className="bg-white dark:bg-[#1a1c1e] rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800">
  <h4 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
  <Download className="w-4 h-4"/>
- Download Bark
+ {t('notificationSettings:downloadTitle')}
  </h4>
  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
- 📱 <strong>Important:</strong> Download it on your phone (not on this computer)
+ 📱 <strong>{t('notificationSettings:downloadImportant')}</strong> {t('notificationSettings:downloadImportantBody')}
  </p>
  <a
  href="https://apps.apple.com/app/bark-customed-notifications/id1403753865"
@@ -282,7 +285,7 @@ export function NotificationSettingsModal({
  <svg className="w-5 h-5"viewBox="0 0 24 24"fill="currentColor">
  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
  </svg>
- Get on App Store
+ {t('notificationSettings:getOnAppStore')}
  <ExternalLink className="w-3 h-3"/>
  </a>
  </div>
@@ -291,7 +294,7 @@ export function NotificationSettingsModal({
  <div className="bg-white dark:bg-[#1a1c1e] rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800">
  <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
  <Copy className="w-4 h-4"/>
- How to get your Bark URL
+ {t('notificationSettings:howToGetUrlTitle')}
  </h4>
  <div className="space-y-3">
  <div className="flex gap-3">
@@ -300,7 +303,7 @@ export function NotificationSettingsModal({
  </div>
  <div className="flex-1">
  <p className="text-sm text-gray-700 dark:text-gray-300">
- <strong>Download and open Bark</strong> from the App Store
+ {t('notificationSettings:step1')}
  </p>
  </div>
  </div>
@@ -310,7 +313,7 @@ export function NotificationSettingsModal({
  </div>
  <div className="flex-1">
  <p className="text-sm text-gray-700 dark:text-gray-300">
- <strong>Tap"Server"</strong> at the bottom of the Bark app
+ {t('notificationSettings:step2')}
  </p>
  </div>
  </div>
@@ -320,7 +323,7 @@ export function NotificationSettingsModal({
  </div>
  <div className="flex-1">
  <p className="text-sm text-gray-700 dark:text-gray-300">
- <strong>Copy any example URL</strong> from the Server page
+ {t('notificationSettings:step3')}
  </p>
  </div>
  </div>
@@ -330,7 +333,7 @@ export function NotificationSettingsModal({
  </div>
  <div className="flex-1">
  <p className="text-sm text-gray-700 dark:text-gray-300">
- <strong>Paste the URL below</strong> - we'll extract the key automatically!
+ {t('notificationSettings:step4')}
  </p>
  </div>
  </div>
@@ -340,7 +343,7 @@ export function NotificationSettingsModal({
  {/* Tip */}
  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3">
  <p className="text-xs text-amber-800 dark:text-amber-200">
- 💡 <strong>Tip:</strong> After setup, use the"Test Push"button below to verify everything works!
+ 💡 <strong>{t('notificationSettings:tipTitle')}</strong> {t('notificationSettings:tipBody')}
  </p>
  </div>
  </div>
@@ -363,7 +366,7 @@ export function NotificationSettingsModal({
  className="w-4 h-4 text-emerald-700 dark:text-emerald-400 border-gray-300 rounded-lg focus:ring-emerald-500"
  />
  <span className="text-sm text-gray-700 dark:text-gray-300">
- Enable Bark push notifications
+ {t('notificationSettings:enableBark')}
  </span>
  </label>
 
@@ -371,32 +374,33 @@ export function NotificationSettingsModal({
  <div className="space-y-3 ml-7">
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Bark URL
+ {t('notificationSettings:barkUrlLabel')}
  </label>
  <input
  type="text"
  value={barkUrl}
  disabled={requiresLogin}
  onChange={(e) => handleBarkUrlChange(e.target.value)}
- placeholder="https://api.day.app/AbCd1234EfGh5678"
+ placeholder={t('notificationSettings:barkUrlPlaceholder')}
  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono text-sm disabled:cursor-not-allowed disabled:opacity-60"
  />
  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
- 📋 Copy any example URL from Bark's Server page and paste it here
+ 📋 {t('notificationSettings:barkUrlHint')}
  </p>
  {barkUrl && parseBarkUrl(barkUrl).valid && (
  <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-xs">
  <p className="text-green-800 dark:text-green-200">
- ✓ Valid! Server: <code className="font-mono">{parseBarkUrl(barkUrl).serverUrl}</code>
- {' • '}
- Device Key: <code className="font-mono">{parseBarkUrl(barkUrl).deviceKey}</code>
+ ✓ {t('notificationSettings:barkUrlValid', {
+  serverUrl: parseBarkUrl(barkUrl).serverUrl,
+  deviceKey: parseBarkUrl(barkUrl).deviceKey,
+ })}
  </p>
  </div>
  )}
  </div>
 
  <div className="flex items-center gap-2">
- <span className="text-sm text-gray-700 dark:text-gray-300">Remind me</span>
+ <span className="text-sm text-gray-700 dark:text-gray-300">{t('notificationSettings:remindMe')}</span>
  <div className="w-48">
   <CustomSelect
   value={localSettings.barkPush.daysBefore.toString()}
@@ -421,12 +425,12 @@ export function NotificationSettingsModal({
  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:bg-gray-400 text-white rounded-2xl transition-colors disabled:cursor-not-allowed"
  >
  <Send className="w-4 h-4"/>
- {isTesting ? 'Sending...' : 'Test Push'}
+ {isTesting ? t('notificationSettings:sending') : t('notificationSettings:testPush')}
  </button>
 
  {requiresLogin && (
  <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-  Sign in first to save your Bark device key and run a test push from your account.
+  {t('notificationSettings:signInFirstHint')}
  </p>
  )}
 
@@ -458,7 +462,7 @@ export function NotificationSettingsModal({
  onClick={onClose}
  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
  >
- Cancel
+ {t('notificationSettings:cancel')}
  </button>
  <button
  onClick={handleSave}
@@ -469,11 +473,11 @@ export function NotificationSettingsModal({
  }`}
  >
  {user ? (
- 'Save Settings'
+ t('notificationSettings:saveSettings')
  ) : (
  <span className="flex items-center justify-center gap-2">
  <LogIn className="w-4 h-4"/>
- Login to Configure
+ {t('notificationSettings:loginToConfigure')}
  </span>
  )}
  </button>

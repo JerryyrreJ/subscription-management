@@ -1,0 +1,16 @@
+export const app = {
+ title: 'Subscription Manager',
+ documentTitle: 'Subscription Manager',
+ loading: 'Loading...',
+ advancedReport: 'Advanced Report',
+ viewAdvancedReport: 'View Advanced Report',
+ addFirstSubscription: 'Add your first subscription',
+ addSubscription: 'Add a subscription',
+ loadingNotificationSettingsTitle: 'Loading Notification Settings',
+ loadingNotificationSettingsDescription: 'Preparing your notification preferences...',
+ loadingReportTitle: 'Loading Report',
+ loadingReportDescription: 'Preparing analytics and charts...',
+ loadingPricingTitle: 'Loading Pricing',
+ loadingPricingDescription: 'Fetching plan details...',
+ cancel: 'Cancel',
+};

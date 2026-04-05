@@ -2,6 +2,7 @@ import { ReminderSettings } from '../types';
 import { getCurrentTimeZone, getDaysUntil, normalizeTimeZone } from './dates';
 import { DataScope, resolveScopedStorageKey } from './dataScope';
 import { cleanupNotificationHistoryEntries } from './notificationHistory';
+import { getCurrentLocale, normalizeLocale } from './locale';
 
 const NOTIFICATION_STORAGE_KEY = 'notification_settings';
 
@@ -10,6 +11,7 @@ const normalizeNotificationSettings = (settings: Partial<ReminderSettings> & { b
 
  return {
   timeZone: normalizeTimeZone(settings.timeZone, getCurrentTimeZone()),
+  locale: normalizeLocale(settings.locale ?? defaultSettings.locale),
   barkPush: {
    enabled: settings.barkPush?.enabled ?? defaultSettings.barkPush.enabled,
    serverUrl: settings.barkPush?.serverUrl || defaultSettings.barkPush.serverUrl,
@@ -26,6 +28,7 @@ const normalizeNotificationSettings = (settings: Partial<ReminderSettings> & { b
 export function getDefaultNotificationSettings(): ReminderSettings {
  return {
  timeZone: getCurrentTimeZone(),
+ locale: getCurrentLocale(),
  barkPush: {
  enabled: false,
  serverUrl: 'https://api.day.app',

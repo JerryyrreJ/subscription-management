@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { version } from '../../package.json';
 
 export function Footer() {
+ const { t } = useTranslation(['footer']);
  const currentYear = new Date().getFullYear();
 
  return (
@@ -9,7 +11,7 @@ export function Footer() {
 
  <footer className="fixed bottom-0 left-0 right-0 backdrop-blur-sm bg-gray-50/80 dark:bg-gray-900/80 py-4 border-t border-gray-100/50 dark:border-gray-800/50">
  <p className="text-center text-[11px] text-gray-400 dark:text-gray-500">
- © {currentYear} Subscription Manager. Made by Jerry Lu
+ © {currentYear} {t('footer:copyright')}
  <a
  href="https://github.com/JerryyrreJ/subscription-management/tree/main"
  target="_blank"
@@ -26,7 +28,7 @@ export function Footer() {
  </a>
  <br />
  <span className="text-[10px] text-gray-300 dark:text-gray-600">
- Version {version}
+ {t('footer:version', { version })}
  </span>
  </p>
  </footer>

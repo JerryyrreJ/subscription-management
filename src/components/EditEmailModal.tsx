@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Mail, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface EditEmailModalProps {
  isOpen: boolean;
@@ -9,6 +10,7 @@ interface EditEmailModalProps {
 }
 
 export function EditEmailModal({ isOpen, onClose, currentEmail, onUpdateEmail }: EditEmailModalProps) {
+ const { t } = useTranslation(['accountModals', 'app']);
  const [newEmail, setNewEmail] = useState('');
  const [isLoading, setIsLoading] = useState(false);
  const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export function EditEmailModal({ isOpen, onClose, currentEmail, onUpdateEmail }:
  setSuccess(false);
  }, 2000);
  } catch (error) {
- setError(error instanceof Error ? error.message : 'Failed to update email');
+ setError(error instanceof Error ? error.message : t('accountModals:emailUpdateFailed'));
  } finally {
  setIsLoading(false);
  }
@@ -52,7 +54,7 @@ export function EditEmailModal({ isOpen, onClose, currentEmail, onUpdateEmail }:
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl p-6 w-full max-w-md">
  <div className="flex items-center justify-between mb-6">
  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
- Update Email Address
+ {t('accountModals:updateEmailTitle')}
  </h2>
  <button
  onClick={handleClose}
@@ -69,17 +71,17 @@ export function EditEmailModal({ isOpen, onClose, currentEmail, onUpdateEmail }:
  <Mail className="w-8 h-8 text-green-600 dark:text-green-400"/>
  </div>
  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
- Email Update Initiated
+ {t('accountModals:emailUpdateInitiated')}
  </h3>
  <p className="text-sm text-gray-600 dark:text-gray-400">
- Please check your new email address for a confirmation link to complete the update.
+ {t('accountModals:emailUpdateInitiatedBody')}
  </p>
  </div>
  ) : (
  <form onSubmit={handleSubmit} className="space-y-4">
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
- Current Email
+ {t('accountModals:currentEmailLabel')}
  </label>
  <input
  type="email"
@@ -91,13 +93,13 @@ export function EditEmailModal({ isOpen, onClose, currentEmail, onUpdateEmail }:
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
- New Email Address
+ {t('accountModals:newEmailLabel')}
  </label>
  <input
  type="email"
  value={newEmail}
  onChange={(e) => setNewEmail(e.target.value)}
- placeholder="Enter new email address"
+ placeholder={t('accountModals:newEmailPlaceholder')}
  required
  disabled={isLoading}
  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl focus:ring-2 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
@@ -113,7 +115,7 @@ export function EditEmailModal({ isOpen, onClose, currentEmail, onUpdateEmail }:
 
  <div className="bg-[#f4f5f7] dark:bg-[#202225] dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700 dark:border-zinc-700 rounded-2xl p-3">
  <p className="text-sm text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400">
- You will receive a confirmation email at your new address. You must click the confirmation link to complete the email update.
+ {t('accountModals:emailUpdateHint')}
  </p>
  </div>
 
@@ -124,14 +126,14 @@ export function EditEmailModal({ isOpen, onClose, currentEmail, onUpdateEmail }:
  disabled={isLoading}
  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
  >
- Cancel
+ {t('app:cancel')}
  </button>
  <button
  type="submit"
  disabled={isLoading || !newEmail.trim()}
  className="flex-1 px-4 py-2 bg-emerald-600 dark:bg-emerald-500 text-white rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
  >
- {isLoading ? 'Updating...' : 'Update Email'}
+ {isLoading ? t('accountModals:updating') : t('accountModals:updateEmail')}
  </button>
  </div>
  </form>

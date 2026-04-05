@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useAppLanguage } from '../hooks/useAppLanguage';
+import { formatDateByLocale, formatWeekdayLabels, parseDateOnly } from '../utils/dates';
 
 interface CustomDatePickerProps {
  value: string; // YYYY-MM-DD format
@@ -9,6 +12,9 @@ interface CustomDatePickerProps {
 }
 
 export function CustomDatePicker({ value, onChange, maxDate, required }: CustomDatePickerProps) {
+ const { t } = useTranslation(['common']);
+ const { language } = useAppLanguage();
+
  const parseLocalDate = (dateStr: string) => {
  const [year, month, day] = dateStr.split('-').map(Number);
  return new Date(year, month - 1, day);
@@ -73,17 +79,15 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  }, [isOpen]);
 
  // Format date for display
- const formatDate = (date: Date | null) => {
+ const formatLocalDateValue = (date: Date | null) => {
  if (!date) return '';
  return formatLocalDate(date);
  };
 
  // Format date for display in input (more readable)
  const formatDisplayDate = (dateStr: string) => {
- if (!dateStr) return 'Select date';
- const date = parseLocalDate(dateStr);
- const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
- return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+ if (!dateStr) return t('common:selectDate');
+ return formatDateByLocale(parseDateOnly(dateStr), language);
  };
 
  // Get days in month
@@ -128,7 +132,7 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  return;
  }
 
- const formattedDate = formatDate(selectedDate);
+ const formattedDate = formatLocalDateValue(selectedDate);
  onChange(formattedDate);
  setIsOpen(false);
  };
@@ -185,7 +189,8 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  };
 
  const calendar = generateCalendar();
- const monthYear = currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+ const monthYear = formatDateByLocale(currentMonth, language, { month: 'long', year: 'numeric' });
+ const weekdayLabels = formatWeekdayLabels(language);
 
  // Check if next month button should be disabled
  const isNextMonthDisabled = () => {
@@ -238,7 +243,7 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
 
  {/* Day Labels */}
  <div className="grid grid-cols-7 gap-1 mb-2">
- {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+ {weekdayLabels.map((day) => (
  <div
  key={day}
  className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1"
@@ -287,7 +292,7 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  disabled={maxDate ? todayStr > maxDate : false}
  className="w-full py-2 px-4 text-sm font-medium text-teal-600 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-2xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
  >
- Today
+ {t('common:today')}
  </button>
  </div>
  </div>

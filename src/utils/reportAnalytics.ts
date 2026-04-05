@@ -1,6 +1,7 @@
 import { Subscription, Currency, ExchangeRates } from '../types';
+import type { TFunction } from 'i18next';
 import { convertCurrency } from './currency';
-import { getDateOnlyDay, parseDateOnly } from './dates';
+import { formatMonthYear, getDateOnlyDay, parseDateOnly } from './dates';
 
 // ===== Type Definitions =====
 
@@ -72,6 +73,41 @@ export interface ReportData {
  optimizationSuggestions: OptimizationSuggestion[];
 }
 
+const UNCATEGORIZED_KEY = '__uncategorized__';
+
+const getCountKey = (count: number, singularKey: string, pluralKey: string) => {
+ return count === 1 ? singularKey : pluralKey;
+};
+
+const getCategoryLabel = (category: string | undefined, t: TFunction) => {
+ const trimmedCategory = category?.trim();
+ return trimmedCategory || t('analytics:uncategorized');
+};
+
+const getBillingCycleLabel = (
+ period: Subscription['period'],
+ customDate: string | undefined,
+ t: TFunction
+) => {
+ if (period === 'monthly') {
+  return t('analytics:periodMonthly');
+ }
+
+ if (period === 'yearly') {
+  return t('analytics:periodYearly');
+ }
+
+ const customDays = Number.parseInt(customDate || '', 10);
+ if (Number.isFinite(customDays) && customDays > 0) {
+  return t(
+   getCountKey(customDays, 'analytics:customPeriodDaysOne', 'analytics:customPeriodDaysOther'),
+   { count: customDays }
+  );
+ }
+
+ return t('analytics:periodCustom');
+ };
+
 // ===== Helper Functions =====
 
 /**
@@ -104,14 +140,14 @@ export const calculateYearlyCost = (subscription: Subscription): number => {
 /**
  * 获取过去N个月的月份列表
  */
-const getLast12Months = (): { month: string; monthLabel: string }[] => {
+const getLast12Months = (locale?: string): { month: string; monthLabel: string }[] => {
  const months: { month: string; monthLabel: string }[] = [];
  const now = new Date();
 
  for (let i = 11; i >= 0; i--) {
- const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
- const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
- const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+ const date = new Date(Date.UTC(now.getFullYear(), now.getMonth() - i, 1));
+ const month = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+ const monthLabel = formatMonthYear(date, locale);
  months.push({ month, monthLabel });
  }
 
@@ -144,9 +180,10 @@ const isActiveInMonth = (subscription: Subscription, monthStr: string): boolean 
 export const calculateSpendingTrend = (
  subscriptions: Subscription[],
  baseCurrency: Currency,
- exchangeRates: ExchangeRates
+ exchangeRates: ExchangeRates,
+ locale?: string
 ): SpendingTrend[] => {
- const last12Months = getLast12Months();
+ const last12Months = getLast12Months(locale);
 
  return last12Months.map(({ month, monthLabel }) => {
  const activeInMonth = subscriptions.filter(sub => isActiveInMonth(sub, month));
@@ -178,13 +215,14 @@ export const calculateSpendingTrend = (
 export const calculateCategoryAnalysis = (
  subscriptions: Subscription[],
  baseCurrency: Currency,
- exchangeRates: ExchangeRates
+ exchangeRates: ExchangeRates,
+ t: TFunction
 ): CategoryAnalysis[] => {
  // 按分类分组
  const categoryMap = new Map<string, Subscription[]>();
 
  subscriptions.forEach(sub => {
- const category = sub.category || 'Uncategorized';
+ const category = sub.category?.trim() || UNCATEGORIZED_KEY;
  if (!categoryMap.has(category)) {
  categoryMap.set(category, []);
  }
@@ -221,7 +259,7 @@ export const calculateCategoryAnalysis = (
  }, 0);
 
  categoryAnalysis.push({
- category,
+ category: getCategoryLabel(category === UNCATEGORIZED_KEY ? '' : category, t),
  totalSpend: categorySpend,
  percentage: totalMonthlySpend > 0 ? (categorySpend / totalMonthlySpend) * 100 : 0,
  subscriptionCount: subs.length,
@@ -235,7 +273,7 @@ export const calculateCategoryAnalysis = (
  exchangeRates,
  baseCurrency
  ),
- billingCycle: sub.period === 'custom' ? `${sub.customDate} days` : sub.period,
+ billingCycle: getBillingCycleLabel(sub.period, sub.customDate, t),
  })),
  });
  });
@@ -251,6 +289,7 @@ export const getTopSubscriptions = (
  subscriptions: Subscription[],
  baseCurrency: Currency,
  exchangeRates: ExchangeRates,
+ t: TFunction,
  limit: number = 5
 ): TopSubscription[] => {
  const topSubs = subscriptions.map(sub => {
@@ -264,10 +303,10 @@ export const getTopSubscriptions = (
 
  return {
  name: sub.name,
- category: sub.category,
+ category: getCategoryLabel(sub.category, t),
  monthlyCost,
  yearlyCost: monthlyCost * 12,
- billingCycle: sub.period === 'custom' ? `${sub.customDate} days` : sub.period,
+ billingCycle: getBillingCycleLabel(sub.period, sub.customDate, t),
  };
  });
 
@@ -322,7 +361,8 @@ export const generateRenewalHeatmap = (
 export const generateOptimizationSuggestions = (
  subscriptions: Subscription[],
  baseCurrency: Currency,
- exchangeRates: ExchangeRates
+ exchangeRates: ExchangeRates,
+ t: TFunction
 ): OptimizationSuggestion[] => {
  const suggestions: OptimizationSuggestion[] = [];
 
@@ -351,8 +391,15 @@ export const generateOptimizationSuggestions = (
  if (expensiveSubs.length > 0) {
  suggestions.push({
  type: 'expensive',
- title: 'High-Cost Subscription Detection',
- description: `Detected ${expensiveSubs.length} high-cost subscription${expensiveSubs.length > 1 ? 's' : ''} with monthly fees exceeding twice the average. Consider evaluating whether these subscriptions are necessary.`,
+ title: t('analytics:suggestionExpensiveTitle'),
+ description: t(
+  getCountKey(
+   expensiveSubs.length,
+   'analytics:suggestionExpensiveDescriptionOne',
+   'analytics:suggestionExpensiveDescriptionOther'
+  ),
+  { count: expensiveSubs.length }
+ ),
  subscriptions: expensiveSubs.map(s => s.name),
  });
  }
@@ -360,7 +407,7 @@ export const generateOptimizationSuggestions = (
  // Suggestion 2: Multiple subscriptions in the same category
  const categoryMap = new Map<string, Subscription[]>();
  subscriptions.forEach(sub => {
- const category = sub.category || 'Uncategorized';
+ const category = sub.category?.trim() || UNCATEGORIZED_KEY;
  if (!categoryMap.has(category)) {
  categoryMap.set(category, []);
  }
@@ -368,7 +415,7 @@ export const generateOptimizationSuggestions = (
  });
 
  categoryMap.forEach((subs, category) => {
- if (subs.length >= 3 && category !== 'Uncategorized') {
+ if (subs.length >= 3 && category !== UNCATEGORIZED_KEY) {
  const totalCost = subs.reduce((sum, sub) => {
  return sum + convertCurrency(
  calculateMonthlyCost(sub),
@@ -381,8 +428,15 @@ export const generateOptimizationSuggestions = (
 
  suggestions.push({
  type: 'multiple_in_category',
- title: `Many Subscriptions in ${category}`,
- description: `You have ${subs.length} subscriptions in the ${category} category. Consider whether they can be consolidated or reduced.`,
+ title: t('analytics:suggestionCategoryTitle', { category }),
+ description: t(
+  getCountKey(
+   subs.length,
+   'analytics:suggestionCategoryDescriptionOne',
+   'analytics:suggestionCategoryDescriptionOther'
+  ),
+  { count: subs.length, category }
+ ),
  potentialSaving: totalCost * 0.3, // Assume 30% potential savings
  subscriptions: subs.map(s => s.name),
  });
@@ -407,8 +461,15 @@ export const generateOptimizationSuggestions = (
  if (potentialSaving > 0) {
  suggestions.push({
  type: 'annual_saving',
- title: 'Consider Switching to Annual Billing',
- description: `You have ${monthlySubs.length} monthly subscription${monthlySubs.length > 1 ? 's' : ''}. If these services offer annual billing, you can typically save 10-20% on costs.`,
+ title: t('analytics:suggestionAnnualTitle'),
+ description: t(
+  getCountKey(
+   monthlySubs.length,
+   'analytics:suggestionAnnualDescriptionOne',
+   'analytics:suggestionAnnualDescriptionOther'
+  ),
+  { count: monthlySubs.length }
+ ),
  potentialSaving,
  subscriptions: monthlySubs.map(s => s.name),
  });
@@ -424,7 +485,9 @@ export const generateOptimizationSuggestions = (
 export const generateReportData = (
  subscriptions: Subscription[],
  baseCurrency: Currency,
- exchangeRates: ExchangeRates
+ exchangeRates: ExchangeRates,
+ t: TFunction,
+ locale?: string
 ): ReportData => {
  // 计算概览数据
  const totalMonthlySpend = subscriptions.reduce((sum, sub) => {
@@ -439,7 +502,7 @@ export const generateReportData = (
  return sum + convertedCost;
  }, 0);
 
- const categoryAnalysis = calculateCategoryAnalysis(subscriptions, baseCurrency, exchangeRates);
+ const categoryAnalysis = calculateCategoryAnalysis(subscriptions, baseCurrency, exchangeRates, t);
 
  const overview: ReportOverview = {
  totalMonthlySpend,
@@ -456,10 +519,10 @@ export const generateReportData = (
 
  return {
  overview,
- spendingTrend: calculateSpendingTrend(subscriptions, baseCurrency, exchangeRates),
+ spendingTrend: calculateSpendingTrend(subscriptions, baseCurrency, exchangeRates, locale),
  categoryAnalysis,
- topSubscriptions: getTopSubscriptions(subscriptions, baseCurrency, exchangeRates, 5),
+ topSubscriptions: getTopSubscriptions(subscriptions, baseCurrency, exchangeRates, t, 5),
  renewalHeatmap: generateRenewalHeatmap(subscriptions, baseCurrency, exchangeRates),
- optimizationSuggestions: generateOptimizationSuggestions(subscriptions, baseCurrency, exchangeRates),
+ optimizationSuggestions: generateOptimizationSuggestions(subscriptions, baseCurrency, exchangeRates, t),
  };
 };

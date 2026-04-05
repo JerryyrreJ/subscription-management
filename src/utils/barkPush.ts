@@ -1,5 +1,5 @@
 import { Subscription } from '../types';
-import { formatCurrency } from './currency';
+import { buildSubscriptionReminderContent, buildTestNotificationContent } from './notificationContent';
 
 export interface BarkPushOptions {
  sound?: string; // 推送铃声
@@ -85,11 +85,10 @@ export async function sendSubscriptionReminder(
  serverUrl: string,
  deviceKey: string,
  subscription: Subscription,
- daysUntil: number
+ daysUntil: number,
+ locale?: string
 ): Promise<boolean> {
- const title = 'Subscription Manager';
- const periodText = subscription.period === 'monthly' ? 'month' : subscription.period === 'yearly' ? 'year' : subscription.period;
- const body = `${subscription.name} expires in ${daysUntil} day${daysUntil > 1 ? 's' : ''}\n${formatCurrency(subscription.amount, subscription.currency)}/${periodText}`;
+ const { title, body, group } = buildSubscriptionReminderContent(subscription, daysUntil, locale);
 
  return sendBarkNotification(
  serverUrl,
@@ -97,9 +96,9 @@ export async function sendSubscriptionReminder(
  title,
  body,
  {
- sound: 'bell',
- group: 'Subscription Manager',
- icon: 'https://i.ibb.co/Z6f84xFY/icon.png'
+  sound: 'bell',
+  group,
+  icon: 'https://i.ibb.co/Z6f84xFY/icon.png'
  }
  );
 }
@@ -109,16 +108,19 @@ export async function sendSubscriptionReminder(
  */
 export async function testBarkPush(
  serverUrl: string,
- deviceKey: string
+ deviceKey: string,
+ locale?: string
 ): Promise<boolean> {
+ const { title, body, group } = buildTestNotificationContent(locale);
+
  return sendBarkNotification(
  serverUrl,
  deviceKey,
- 'Test Notification',
- 'This is a test push from Subscription Manager',
+ title,
+ body,
  {
- sound: 'bell',
- group: 'Subscription Manager'
+  sound: 'bell',
+  group
  }
  );
 }

@@ -1,3 +1,5 @@
+import type { SupportedLocale } from './i18n/types';
+
 export type Period = 'monthly' | 'yearly' | 'custom';
 
 export type Currency = 'CNY' | 'USD' | 'EUR' | 'JPY' | 'GBP' | 'AUD' | 'CAD' | 'CHF' | 'HKD' | 'SGD';
@@ -79,6 +81,7 @@ export interface CurrencyInfo {
 
 export interface ReminderSettings {
  timeZone: string;
+ locale?: SupportedLocale;
  // Bark 推送（移除浏览器通知，只保留 Bark）
  barkPush: {
   enabled: boolean;

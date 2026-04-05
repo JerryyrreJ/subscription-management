@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  convertCurrencySafe,
+ formatCurrency,
  getCachedExchangeRatesWithStatus,
  getStoredExchangeRatesSnapshot,
  refreshExchangeRatesWithStatus
@@ -45,6 +46,11 @@ test('convertCurrencySafe returns an explicit error when no live or fallback rat
  assert.equal(result.usedFallback, true);
  assert.equal(result.isAccurate, false);
  assert.match(result.error || '', /not available/i);
+});
+
+test('formatCurrency applies locale-aware separators and symbols', () => {
+ assert.equal(formatCurrency(1234.5, 'USD', 'en'), '$1,234.50');
+ assert.match(formatCurrency(1234.5, 'USD', 'zh-CN'), /US\$\s?1,234.50/);
 });
 
 const createLocalStorageMock = () => {

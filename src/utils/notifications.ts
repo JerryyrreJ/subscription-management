@@ -1,5 +1,5 @@
 import { Subscription } from '../types';
-import { formatCurrency } from './currency';
+import { buildSubscriptionReminderContent } from './notificationContent';
 
 /**
  * 请求浏览器通知权限
@@ -28,7 +28,8 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
  */
 export function sendBrowserNotification(
  subscription: Subscription,
- daysUntil: number
+ daysUntil: number,
+ locale?: string
 ): void {
  if (!('Notification' in window)) {
  console.warn('Browser does not support notifications');
@@ -40,9 +41,7 @@ export function sendBrowserNotification(
  return;
  }
 
- const title = 'Subscription Manager';
- const periodText = subscription.period === 'monthly' ? 'month' : subscription.period === 'yearly' ? 'year' : subscription.period;
- const body = `${subscription.name} expires in ${daysUntil} day${daysUntil > 1 ? 's' : ''}\n${formatCurrency(subscription.amount, subscription.currency)}/${periodText}`;
+ const { title, body } = buildSubscriptionReminderContent(subscription, daysUntil, locale);
 
  try {
  const notification = new Notification(title, {

@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Edit3, LogOut, RotateCcw, Mail, Lock, Folder, Download, Upload, LogIn, Bell, DollarSign } from 'lucide-react';
+import { User, Edit3, LogOut, RotateCcw, Mail, Lock, Folder, Download, Upload, LogIn, Bell, DollarSign, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { useAppLanguage } from '../hooks/useAppLanguage';
+import { LANGUAGE_LABELS, SUPPORTED_LOCALES } from '../i18n/types';
 
 interface UserProfile {
  nickname?: string;
@@ -44,6 +47,8 @@ export function UserMenu({
  onSync,
  onLogin
 }: UserMenuProps) {
+ const { t } = useTranslation(['userMenu']);
+ const { language, setLanguage } = useAppLanguage();
  const [isOpen, setIsOpen] = useState(false);
  const [isClosing, setIsClosing] = useState(false);
  const menuRef = useRef<HTMLDivElement>(null);
@@ -83,22 +88,22 @@ export function UserMenu({
  };
 
  const getTimeAgo = (date: Date | null): string => {
- if (!date) return 'Never synced';
+ if (!date) return t('userMenu:neverSynced');
 
  const now = new Date();
  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
  if (diffInSeconds < 60) {
- return `Synced ${diffInSeconds}s ago`;
+ return t('userMenu:syncedSecondsAgo', { count: diffInSeconds });
  } else if (diffInSeconds < 3600) {
  const minutes = Math.floor(diffInSeconds / 60);
- return `Synced ${minutes}m ago`;
+ return t('userMenu:syncedMinutesAgo', { count: minutes });
  } else if (diffInSeconds < 86400) {
  const hours = Math.floor(diffInSeconds / 3600);
- return `Synced ${hours}h ago`;
+ return t('userMenu:syncedHoursAgo', { count: hours });
  } else {
  const days = Math.floor(diffInSeconds / 86400);
- return `Synced ${days}d ago`;
+ return t('userMenu:syncedDaysAgo', { count: days });
  }
  };
 
@@ -153,8 +158,8 @@ export function UserMenu({
  'bg-gray-400'
  }`} />
  <span className="text-sm text-gray-700 dark:text-gray-300">
- {syncStatus === 'syncing' ? 'Syncing...' :
- syncStatus === 'error' ? 'Sync failed' :
+ {syncStatus === 'syncing' ? t('userMenu:syncing') :
+ syncStatus === 'error' ? t('userMenu:syncFailed') :
  getTimeAgo(lastSyncTime)}
  </span>
  </div>
@@ -165,7 +170,7 @@ export function UserMenu({
  className={syncButtonClasses}
  >
  <RotateCcw className="w-3 h-3"/>
- Sync Now
+ {t('userMenu:syncNow')}
  </button>
  )}
  </div>
@@ -181,7 +186,7 @@ export function UserMenu({
  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white rounded-2xl transition-colors font-medium"
  >
  <LogIn className="w-4 h-4"/>
- Login to Sync
+ {t('userMenu:loginToSync')}
  </button>
  </div>
  )}
@@ -196,7 +201,7 @@ export function UserMenu({
  className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
  >
  <Edit3 className="w-4 h-4 text-gray-400"/>
- Edit Nickname
+ {t('userMenu:editNickname')}
  </button>
 
  <button
@@ -204,7 +209,7 @@ export function UserMenu({
  className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
  >
  <Mail className="w-4 h-4 text-gray-400"/>
- Change Email
+ {t('userMenu:changeEmail')}
  </button>
 
  <button
@@ -212,7 +217,7 @@ export function UserMenu({
  className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
  >
  <Lock className="w-4 h-4 text-gray-400"/>
- Change Password
+ {t('userMenu:changePassword')}
  </button>
 
  <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
@@ -225,7 +230,7 @@ export function UserMenu({
  className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
  >
  <Download className="w-4 h-4 text-gray-400"/>
- Export Data
+ {t('userMenu:exportData')}
  </button>
 
  <button
@@ -233,7 +238,7 @@ export function UserMenu({
  className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
  >
  <Upload className="w-4 h-4 text-gray-400"/>
- Import Data
+ {t('userMenu:importData')}
  </button>
 
  <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
@@ -243,7 +248,7 @@ export function UserMenu({
  className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
  >
  <Bell className="w-4 h-4 text-gray-400"/>
- Notification Settings
+ {t('userMenu:notificationSettings')}
  </button>
 
  <button
@@ -251,8 +256,37 @@ export function UserMenu({
  className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
  >
  <Folder className="w-4 h-4 text-gray-400"/>
- Category Settings
+ {t('userMenu:categorySettings')}
  </button>
+
+ <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+
+ <div className="px-3 py-2">
+ <div className="flex items-center gap-2 mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
+ <Globe className="w-3.5 h-3.5"/>
+ {t('userMenu:languageSectionTitle')}
+ </div>
+ <div className="grid grid-cols-2 gap-2">
+ {SUPPORTED_LOCALES.map(locale => {
+ const isActive = language === locale;
+
+ return (
+ <button
+ key={locale}
+ type="button"
+ onClick={() => void setLanguage(locale)}
+ className={`px-3 py-2 text-xs rounded-2xl border transition-colors ${
+ isActive
+ ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300'
+ : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-[#1a1c1e] dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
+ }`}
+ >
+ {LANGUAGE_LABELS[locale]}
+ </button>
+ );
+ })}
+ </div>
+ </div>
 
  {/* Pricing - 所有用户都可见 */}
  {onPricingClick && (
@@ -264,7 +298,7 @@ export function UserMenu({
  className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
  >
  <DollarSign className="w-4 h-4 text-gray-400"/>
- {user ? 'View Pricing' : 'Upgrade to Premium'}
+ {user ? t('userMenu:viewPricing') : t('userMenu:upgradeToPremium')}
  </button>
  </>
  )}
@@ -279,7 +313,7 @@ export function UserMenu({
  className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
  >
  <LogOut className="w-4 h-4"/>
- Sign Out
+ {t('userMenu:signOut')}
  </button>
  </>
  )}

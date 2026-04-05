@@ -1,4 +1,5 @@
 import { OptimizationSuggestion } from '../utils/reportAnalytics';
+import { useTranslation } from 'react-i18next';
 import { Currency } from '../types';
 import { formatCurrency } from '../utils/currency';
 import { Lightbulb, AlertTriangle, TrendingDown, DollarSign } from 'lucide-react';
@@ -55,13 +56,15 @@ const getSuggestionColor = (type: OptimizationSuggestion['type']) => {
 };
 
 export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionProps) {
+ const { t } = useTranslation(['analytics']);
+
  if (suggestions.length === 0) {
  return (
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey hover:shadow-apple-lg transition-shadow p-6 border border-gray-100 dark:border-gray-700">
  <div className="flex items-center gap-2 mb-4">
  <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- Insights & Recommendations
+ {t('analytics:insightsTitle')}
  </h3>
  </div>
  <div className="text-center py-8">
@@ -81,7 +84,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
  </svg>
  </div>
  <p className="text-gray-600 dark:text-gray-400 font-medium">
- Great! Your subscription management looks healthy. No optimization suggestions at this time.
+ {t('analytics:healthyState')}
  </p>
  </div>
  </div>
@@ -100,20 +103,25 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
  <div className="flex items-center gap-2">
  <div className="w-1 h-6 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- Insights & Recommendations
+ {t('analytics:insightsTitle')}
  </h3>
  </div>
  {totalPotentialSaving > 0 && (
  <div className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-3xl shadow-apple hover:shadow-fey transition-shadow">
  <span className="text-sm font-semibold text-white">
- Potential Savings: {formatCurrency(totalPotentialSaving, baseCurrency)}/yr
+ {t('analytics:potentialSavings', { amount: formatCurrency(totalPotentialSaving, baseCurrency) })}
  </span>
  </div>
  )}
  </div>
 
  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
- Based on your subscription data, we've identified {suggestions.length} optimization opportunit{suggestions.length > 1 ? 'ies' : 'y'}
+ {t(
+  suggestions.length === 1
+   ? 'analytics:opportunitiesFoundOne'
+   : 'analytics:opportunitiesFoundOther',
+  { count: suggestions.length }
+ )}
  </p>
 
  <div className="space-y-4">
@@ -137,7 +145,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
  </h4>
  {suggestion.potentialSaving && suggestion.potentialSaving > 0 && (
  <span className={`text-xs px-3 py-1.5 rounded-2xl ${colors.badge} flex-shrink-0 font-medium`}>
- Save {formatCurrency(suggestion.potentialSaving, baseCurrency)}
+ {t('analytics:saveAmount', { amount: formatCurrency(suggestion.potentialSaving, baseCurrency) })}
  </span>
  )}
  </div>
@@ -149,7 +157,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
  {suggestion.subscriptions.length > 0 && (
  <div className="mt-2">
  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">
- Affected subscriptions:
+ {t('analytics:affectedSubscriptions')}
  </p>
  <div className="flex flex-wrap gap-1.5">
  {suggestion.subscriptions.slice(0, 5).map((subName, idx) => (
@@ -162,7 +170,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
  ))}
  {suggestion.subscriptions.length > 5 && (
  <span className="text-xs px-2.5 py-1 text-gray-500 dark:text-gray-400 font-medium">
- +{suggestion.subscriptions.length - 5} more
+ {t('analytics:moreSubscriptions', { count: suggestion.subscriptions.length - 5 })}
  </span>
  )}
  </div>
@@ -178,7 +186,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
  {/* Bottom tip */}
  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
- 💡 These suggestions are generated based on data analysis. Please evaluate based on your actual needs.
+ {t('analytics:insightsFootnote')}
  </p>
  </div>
  </div>

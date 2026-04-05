@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { CreditCard, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react';
 import CountUp from 'react-countup';
+import { useTranslation } from 'react-i18next';
 import {
  Subscription,
  ViewMode,
@@ -53,11 +54,12 @@ export function Dashboard({
  exchangeRatesStale,
  exchangeRateError,
 }: DashboardProps) {
+ const { t } = useTranslation(['dashboard']);
  const displayCurrency = baseCurrency;
 
  // 类型筛选选项
  const categoryOptions = [
- { value: 'all', label: 'All Categories' },
+ { value: 'all', label: t('dashboard:allCategories') },
  ...getVisibleCategories().map(cat => ({
  value: cat.name,
  label: cat.name
@@ -70,11 +72,11 @@ export function Dashboard({
 
  // 排序选项
  const sortOptions = [
- { value: 'amount', label: 'Price' },
- { value: 'name', label: 'Name' },
- { value: 'category', label: 'Category' },
- { value: 'nextPaymentDate', label: 'Due Date' },
- { value: 'createdAt', label: 'Created Date' }
+ { value: 'amount', label: t('dashboard:sortPrice') },
+ { value: 'name', label: t('dashboard:sortName') },
+ { value: 'category', label: t('dashboard:sortCategory') },
+ { value: 'nextPaymentDate', label: t('dashboard:sortDueDate') },
+ { value: 'createdAt', label: t('dashboard:sortCreatedDate') }
  ];
 
  const handleSortByChange = (sortBy: string) => {
@@ -159,14 +161,18 @@ export function Dashboard({
   if (exchangeRateSource === 'fallback' || totalAmountResult.usesFallbackRates) {
    return {
     className: 'text-xs text-amber-700 dark:text-amber-300 mt-1',
-    message: `Using offline exchange rates. Totals may be approximate.${exchangeRateError ? ` ${exchangeRateError}` : ''}`
+    message: t('dashboard:offlineRates', {
+     suffix: exchangeRateError ? ` ${exchangeRateError}` : '',
+    })
    };
   }
 
   if (exchangeRatesStale && exchangeRatesUpdatedAt) {
    return {
     className: 'text-xs text-amber-700 dark:text-amber-300 mt-1',
-    message: `Latest exchange rate refresh failed.${exchangeRateError ? ` ${exchangeRateError}` : ''}`
+    message: t('dashboard:refreshFailed', {
+     suffix: exchangeRateError ? ` ${exchangeRateError}` : '',
+    })
    };
   }
 
@@ -186,7 +192,7 @@ export function Dashboard({
        <CreditCard className="w-5 h-5 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
       </div>
       <div>
-       <h2 className="text-xl font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-dark-text-primary">Overview</h2>
+       <h2 className="text-xl font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-dark-text-primary">{t('dashboard:overview')}</h2>
        {exchangeRateStatus && (
         <p className={exchangeRateStatus.className}>
          {exchangeRateStatus.message}
@@ -218,7 +224,7 @@ viewMode === 'monthly'
  : 'text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
 }`}
  >
- Monthly
+ {t('dashboard:monthly')}
  </button>
  <button
  onClick={() => onViewModeChange('yearly')}
@@ -228,7 +234,7 @@ viewMode === 'yearly'
  : 'text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
 }`}
  >
- Yearly
+ {t('dashboard:yearly')}
  </button>
  </div>
  </div>
@@ -242,7 +248,7 @@ viewMode === 'yearly'
  <CreditCard className="w-4 h-4 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
  </div>
  <div>
- <h2 className="text-lg font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-dark-text-primary">Overview</h2>
+ <h2 className="text-lg font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-dark-text-primary">{t('dashboard:overview')}</h2>
  {exchangeRateStatus && (
  <p className={exchangeRateStatus.className}>
  {exchangeRateStatus.message}
@@ -278,7 +284,7 @@ viewMode === 'yearly'
  : 'text-slate-600 dark:text-gray-400'
  }`}
  >
- Monthly
+ {t('dashboard:monthly')}
  </button>
  <button
  onClick={() => onViewModeChange('yearly')}
@@ -288,7 +294,7 @@ viewMode === 'yearly'
  : 'text-slate-600 dark:text-gray-400'
  }`}
  >
- Yearly
+ {t('dashboard:yearly')}
  </button>
  </div>
  </div>
@@ -296,7 +302,9 @@ viewMode === 'yearly'
 
  <div className="relative">
  <div className="flex flex-col">
- <p className="text-sm font-medium text-slate-500 dark:text-gray-400 mb-2 app-dark-text-muted">Total {viewMode} cost</p>
+ <p className="text-sm font-medium text-slate-500 dark:text-gray-400 mb-2 app-dark-text-muted">{t('dashboard:totalCost', {
+ mode: viewMode === 'monthly' ? t('dashboard:monthly').toLowerCase() : t('dashboard:yearly').toLowerCase()
+ })}</p>
  <div className="flex items-center space-x-4 flex-wrap gap-y-2">
  <h3 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-gray-100 leading-none tracking-tight flex items-baseline app-dark-text-primary">
  <CountUp
@@ -312,7 +320,7 @@ viewMode === 'yearly'
 
  <div className="flex items-center text-slate-700 dark:text-gray-300 bg-slate-100/80 dark:bg-gray-700/80 px-3.5 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/60 dark:border-gray-600/60 app-dark-chip">
  <TrendingUp className="w-4 h-4 mr-1.5 text-slate-600 dark:text-gray-400 app-dark-text-muted"/>
- <span className="text-sm font-medium">{subscriptions.length} active</span>
+ <span className="text-sm font-medium">{t('dashboard:activeCount', { count: subscriptions.length })}</span>
  </div>
  </div>
  </div>
@@ -352,7 +360,7 @@ viewMode === 'yearly'
  <button
  onClick={handleSortOrderToggle}
  className="bg-white/60 dark:bg-[#1a1c1e]/60 hover:bg-white/90 dark:hover:bg-gray-700/90 p-1 sm:p-1.5 rounded-2xl transition-all duration-200 border border-slate-200/50 dark:border-gray-600/50 app-dark-chip"
- title={`Sort ${sortConfig.sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
+ title={sortConfig.sortOrder === 'asc' ? t('dashboard:sortAscending') : t('dashboard:sortDescending')}
  >
  {sortConfig.sortOrder === 'asc' ? (
  <ArrowUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>

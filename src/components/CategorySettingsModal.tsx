@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, Trash2, GripVertical, Plus, RotateCcw, Eye, EyeOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
  Category,
  getAllCategoriesWithDetails,
@@ -38,6 +39,7 @@ export function CategorySettingsModal({
  onUpdateSubscriptions,
  categorySync
 }: CategorySettingsModalProps) {
+ const { t } = useTranslation(['categorySettings', 'app'])
  const [categories, setCategories] = useState<Category[]>([])
  const [newCategoryName, setNewCategoryName] = useState('')
  const [error, setError] = useState('')
@@ -68,7 +70,7 @@ export function CategorySettingsModal({
  const handleAddCategory = async () => {
  const trimmed = newCategoryName.trim()
  if (!trimmed) {
- setError('Please enter a category name')
+ setError(t('categorySettings:enterCategoryName'))
  return
  }
 
@@ -93,7 +95,7 @@ export function CategorySettingsModal({
  loadCategories()
  onCategoriesChanged?.()
  } else {
- setError('Failed to add category. It may already exist.')
+ setError(t('categorySettings:failedToAddCategory'))
  }
  }
 
@@ -252,7 +254,7 @@ export function CategorySettingsModal({
  <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
  <div className="flex items-center justify-between">
  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
- Category Settings
+ {t('categorySettings:title')}
  </h2>
  <button
  onClick={handleClose}
@@ -268,7 +270,7 @@ export function CategorySettingsModal({
  {/* Add New Category */}
  <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-4 space-y-3">
  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
- Add New Category
+ {t('categorySettings:addNewCategory')}
  </h3>
  <div className="flex gap-2">
  <input
@@ -283,7 +285,7 @@ export function CategorySettingsModal({
  handleAddCategory()
  }
  }}
- placeholder="Enter category name"
+ placeholder={t('categorySettings:addCategoryPlaceholder')}
  className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-[#1a1c1e] text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
  />
  <button
@@ -291,7 +293,7 @@ export function CategorySettingsModal({
  className="px-4 py-2 bg-emerald-600 dark:bg-emerald-500 text-white rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors text-sm flex items-center gap-1"
  >
  <Plus className="w-4 h-4"/>
- Add
+ {t('categorySettings:add')}
  </button>
  </div>
  {error && (
@@ -306,21 +308,21 @@ export function CategorySettingsModal({
  className="text-sm text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:text-emerald-300 dark:hover:text-zinc-700 dark:hover:text-zinc-300 font-medium transition-colors flex items-center gap-1"
  >
  {showHidden ? <Eye className="w-4 h-4"/> : <EyeOff className="w-4 h-4"/>}
- {showHidden ? 'Hide Hidden' : 'Show Hidden'}
+ {showHidden ? t('categorySettings:hideHidden') : t('categorySettings:showHidden')}
  </button>
  <button
  onClick={handleRestoreDefaults}
  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium transition-colors flex items-center gap-1"
  >
  <RotateCcw className="w-4 h-4"/>
- Restore Defaults
+ {t('categorySettings:restoreDefaults')}
  </button>
  </div>
 
  {/* Categories List */}
  <div className="space-y-2">
  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
- Categories ({displayedCategories.length})
+ {t('categorySettings:categoriesCount', { count: displayedCategories.length })}
  </h3>
  <div className="space-y-1">
  {displayedCategories.map((category, index) => (
@@ -362,12 +364,12 @@ export function CategorySettingsModal({
  </span>
  {category.isBuiltIn && (
  <span className="text-xs px-2 py-0.5 bg-[#e5e7eb] dark:bg-[#2a2d31] dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg">
- Built-in
+ {t('categorySettings:builtIn')}
  </span>
  )}
  {category.isHidden && (
  <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-lg">
- Hidden
+ {t('categorySettings:hidden')}
  </span>
  )}
  </div>
@@ -378,7 +380,7 @@ export function CategorySettingsModal({
  <button
  onClick={() => handleRestoreCategory(category)}
  className="p-1.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 transition-colors"
- title="Restore category"
+ title={t('categorySettings:restoreCategory')}
  >
  <RotateCcw className="w-4 h-4"/>
  </button>
@@ -387,7 +389,7 @@ export function CategorySettingsModal({
  onClick={() => handleDeleteCategory(category)}
  disabled={category.name === FALLBACK_CATEGORY}
  className="p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
- title={category.isBuiltIn ? 'Hide category' : 'Delete category'}
+ title={category.isBuiltIn ? t('categorySettings:hideCategory') : t('categorySettings:deleteCategory')}
  >
  <Trash2 className="w-4 h-4"/>
  </button>
@@ -400,10 +402,10 @@ export function CategorySettingsModal({
 
  {/* Info */}
  <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1 bg-[#f4f5f7] dark:bg-[#202225] dark:bg-zinc-800/20 p-3 rounded-2xl">
- <p>• Drag categories by the grip icon to reorder them</p>
- <p>• Built-in categories can be hidden but not deleted</p>
- <p>• Custom categories can be permanently deleted</p>
- <p>•"{FALLBACK_CATEGORY}"is protected and cannot be removed</p>
+ <p>• {t('categorySettings:infoDrag')}</p>
+ <p>• {t('categorySettings:infoBuiltIn')}</p>
+ <p>• {t('categorySettings:infoCustom')}</p>
+ <p>• {t('categorySettings:infoFallback', { category: FALLBACK_CATEGORY })}</p>
  </div>
  </div>
 
@@ -413,7 +415,7 @@ export function CategorySettingsModal({
  onClick={handleClose}
  className="w-full bg-emerald-600 dark:bg-emerald-500 text-white py-2 px-4 rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors duration-200"
  >
- Done
+ {t('categorySettings:done')}
  </button>
  </div>
  </div>

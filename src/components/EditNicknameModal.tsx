@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, User, Check, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 interface EditNicknameModalProps {
  isOpen: boolean
@@ -8,6 +9,7 @@ interface EditNicknameModalProps {
 }
 
 export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
+ const { t } = useTranslation(['accountModals', 'app'])
  const { userProfile, updateUserNickname } = useAuth()
  const [nickname, setNickname] = useState(userProfile?.nickname || '')
  const [loading, setLoading] = useState(false)
@@ -22,7 +24,7 @@ export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
 
  try {
  await updateUserNickname(nickname.trim())
- setSuccess('Nickname updated successfully!')
+ setSuccess(t('accountModals:nicknameUpdatedSuccess'))
  setTimeout(() => {
  setSuccess('')
  onClose()
@@ -30,11 +32,11 @@ export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
  } catch (error: unknown) {
  console.error('Update nickname error:', error)
 
- let errorMessage = 'Failed to update nickname. Please try again.'
+ let errorMessage = t('accountModals:nicknameUpdateFailed')
 
  if (error instanceof Error && error.message) {
  if (error.message.includes('JSON object')) {
- errorMessage = 'Profile not found. Please try signing out and back in.'
+ errorMessage = t('accountModals:profileNotFound')
  } else {
  errorMessage = error.message
  }
@@ -60,7 +62,7 @@ export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6 modal-content">
  <div className="flex justify-between items-center mb-6">
  <h2 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight">
- Edit Nickname
+ {t('accountModals:editNicknameTitle')}
  </h2>
  <button
  onClick={handleClose}
@@ -73,7 +75,7 @@ export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
  <form onSubmit={handleSubmit} className="space-y-4">
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Display Name
+ {t('accountModals:displayNameLabel')}
  </label>
  <div className="relative">
  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5"/>
@@ -83,14 +85,14 @@ export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
  value={nickname}
  onChange={(e) => setNickname(e.target.value)}
  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
- placeholder="Your display name"
+ placeholder={t('accountModals:displayNamePlaceholder')}
  disabled={loading}
  minLength={2}
  maxLength={30}
  />
  </div>
  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
- 2-30 characters, this will be displayed instead of your email
+ {t('accountModals:displayNameHint')}
  </p>
  </div>
 
@@ -115,7 +117,7 @@ export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
  disabled={loading}
  className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded-2xl transition-colors font-medium disabled:opacity-50"
  >
- Cancel
+ {t('app:cancel')}
  </button>
  <button
  type="submit"
@@ -125,10 +127,10 @@ export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
  {loading ? (
  <div className="flex items-center justify-center space-x-2">
  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
- <span>Updating...</span>
+ <span>{t('accountModals:updating')}</span>
  </div>
  ) : (
- 'Update'
+ t('accountModals:update')
  )}
  </button>
  </div>

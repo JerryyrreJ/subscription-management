@@ -1,4 +1,5 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { CategoryAnalysis } from '../utils/reportAnalytics';
 import { Currency } from '../types';
 import { formatCurrency } from '../utils/currency';
@@ -12,6 +13,8 @@ interface CategoryPieChartProps {
 const COLORS = ['#10b981', '#059669', '#0ea5e9', '#f59e0b', '#f43f5e', '#64748b', '#334155', '#0f172a'];
 
 export function CategoryPieChart({ data, baseCurrency }: CategoryPieChartProps) {
+ const { t } = useTranslation(['analytics']);
+
  // Prepare pie chart data
  const pieData = data.map(item => ({
  name: item.category,
@@ -25,7 +28,7 @@ export function CategoryPieChart({ data, baseCurrency }: CategoryPieChartProps) 
  <div className="flex items-center gap-2 mb-4">
  <div className="w-1 h-6 bg-gradient-to-b from-sky-500 rounded-full"></div>
  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- Category Spending Distribution
+ {t('analytics:categorySpendingDistribution')}
  </h3>
  </div>
 

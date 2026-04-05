@@ -1,4 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { TopSubscription } from '../utils/reportAnalytics';
 import { Currency } from '../types';
 import { formatCurrency } from '../utils/currency';
@@ -13,12 +14,14 @@ interface TopSubscriptionsChartProps {
 const COLORS = ['#10b981', '#059669', '#047857', '#34d399', '#6ee7b7'];
 
 export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsChartProps) {
+ const { t } = useTranslation(['analytics']);
+
  return (
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey hover:shadow-apple-lg transition-shadow p-6 border border-gray-100 dark:border-gray-700">
  <div className="flex items-center gap-2 mb-4">
  <div className="w-1 h-6 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- Top 5 Subscriptions
+ {t('analytics:topSubscriptions')}
  </h3>
  </div>
 
@@ -51,7 +54,7 @@ export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsCh
  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
  padding: '8px 12px',
  }}
- formatter={(value: number) => [formatCurrency(value, baseCurrency), 'Monthly Cost']}
+ formatter={(value: number) => [formatCurrency(value, baseCurrency), t('analytics:monthlyCost')]}
  labelStyle={{ color: '#374151', fontWeight: 'bold', fontSize: '14px' }}
  cursor={{ fill: 'transparent' }}
  />
@@ -98,10 +101,10 @@ export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsCh
  </div>
  <div className="text-right flex-shrink-0 ml-4">
  <p className="font-semibold text-gray-900 dark:text-white text-sm">
- {formatCurrency(sub.monthlyCost, baseCurrency)}/mo
+ {formatCurrency(sub.monthlyCost, baseCurrency)}{t('analytics:perMonthShort')}
  </p>
  <p className="text-xs text-gray-500 dark:text-gray-400">
- {formatCurrency(sub.yearlyCost, baseCurrency)}/yr
+ {formatCurrency(sub.yearlyCost, baseCurrency)}{t('analytics:perYearShort')}
  </p>
  </div>
  </div>

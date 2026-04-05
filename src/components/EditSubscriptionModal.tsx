@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES } from '../utils/currency';
@@ -30,6 +31,7 @@ export function EditSubscriptionModal({
  categorySync,
  isBarkEnabled
 }: EditSubscriptionModalProps) {
+ const { t } = useTranslation(['editSubscription', 'app']);
  const [formData, setFormData] = useState({
  name: subscription.name,
  category: subscription.category,
@@ -44,6 +46,30 @@ export function EditSubscriptionModal({
  const [categories, setCategories] = useState<string[]>([]);
  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
  const [newCategoryInput, setNewCategoryInput] = useState('');
+
+ const translateAmountValidationError = (message: string): string => {
+  if (message === 'Amount is required') {
+   return t('editSubscription:amountRequired');
+  }
+
+  if (message === 'Amount must be a valid number with up to 2 decimal places') {
+   return t('editSubscription:amountInvalid');
+  }
+
+  if (message === 'Amount must be a finite number') {
+   return t('editSubscription:amountFinite');
+  }
+
+  if (message === 'Amount cannot be negative') {
+   return t('editSubscription:amountNegative');
+  }
+
+  if (message.startsWith('Amount cannot exceed')) {
+   return t('editSubscription:amountExceedsMax', { max: MAX_SUBSCRIPTION_AMOUNT });
+  }
+
+  return message;
+ };
 
  // 加载类型列表 - 每次打开模态框时重新加载，确保显示最新类别
  useEffect(() => {
@@ -107,7 +133,7 @@ export function EditSubscriptionModal({
  setIsAddingNewCategory(false);
  setNewCategoryInput('');
  } else {
- alert('Failed to add category. It may already exist or contain invalid characters.');
+ alert(t('editSubscription:failedToAddCategory'));
  }
  };
 
@@ -121,7 +147,7 @@ export function EditSubscriptionModal({
  e.preventDefault();
  const amountError = validateSubscriptionAmount(formData.amount);
  if (amountError) {
-  alert(amountError);
+  alert(translateAmountValidationError(amountError));
   return;
  }
 
@@ -157,7 +183,7 @@ export function EditSubscriptionModal({
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
  <div className="p-6 space-y-6">
  <div className="flex items-center justify-between">
- <h2 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">Edit Subscription</h2>
+ <h2 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">{t('editSubscription:title')}</h2>
  <button
  onClick={onClose}
  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -169,7 +195,7 @@ export function EditSubscriptionModal({
  <form onSubmit={handleSubmit} className="space-y-4">
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Subscription Name
+ {t('editSubscription:nameLabel')}
  </label>
  <input
  type="text"
@@ -182,7 +208,7 @@ export function EditSubscriptionModal({
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Category
+ {t('editSubscription:categoryLabel')}
  </label>
 
  {isAddingNewCategory ? (
@@ -199,7 +225,7 @@ export function EditSubscriptionModal({
  handleAddNewCategory();
  }
  }}
- placeholder="Enter new category name"
+ placeholder={t('editSubscription:newCategoryPlaceholder')}
  autoFocus
  className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-[#1a1c1e] text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
  />
@@ -208,14 +234,14 @@ export function EditSubscriptionModal({
  onClick={handleAddNewCategory}
  className="px-3 py-2 bg-emerald-600 dark:bg-emerald-500 text-white rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors text-sm"
  >
- Add
+ {t('editSubscription:addCategory')}
  </button>
  <button
  type="button"
  onClick={handleCancelAddCategory}
  className="px-3 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors text-sm"
  >
- Cancel
+ {t('app:cancel')}
  </button>
  </div>
  </div>
@@ -226,7 +252,7 @@ export function EditSubscriptionModal({
  onChange={handleCategoryChange}
  options={[
  ...categories.map(cat => ({ value: cat, label: cat })),
- { value: '__add_new__', label: '+ Add New Category' }
+ { value: '__add_new__', label: t('editSubscription:addNewCategory') }
  ]}
  required={true}
  />
@@ -236,7 +262,7 @@ export function EditSubscriptionModal({
  <div className="flex gap-3">
  <div className="w-[30%]">
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Currency
+ {t('editSubscription:currencyLabel')}
  </label>
  <CustomSelect
  value={formData.currency}
@@ -250,7 +276,7 @@ export function EditSubscriptionModal({
  </div>
  <div className="w-[70%]">
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Amount
+ {t('editSubscription:amountLabel')}
  </label>
   <input
   type="number"
@@ -267,15 +293,15 @@ export function EditSubscriptionModal({
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Payment Period
+ {t('editSubscription:paymentPeriodLabel')}
  </label>
  <CustomSelect
  value={formData.period}
  onChange={(value) => setFormData({ ...formData, period: value as Period })}
  options={[
- { value: 'monthly', label: 'Monthly' },
- { value: 'yearly', label: 'Yearly' },
- { value: 'custom', label: 'Custom' }
+ { value: 'monthly', label: t('editSubscription:periodMonthly') },
+ { value: 'yearly', label: t('editSubscription:periodYearly') },
+ { value: 'custom', label: t('editSubscription:periodCustom') }
  ]}
  required={true}
  />
@@ -284,7 +310,7 @@ export function EditSubscriptionModal({
  {formData.period === 'custom' && (
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Custom Period (days)
+ {t('editSubscription:customPeriodLabel')}
  </label>
  <input
  type="number"
@@ -299,7 +325,7 @@ export function EditSubscriptionModal({
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Last Payment Date
+ {t('editSubscription:lastPaymentDateLabel')}
  </label>
  <CustomDatePicker
  value={formData.lastPaymentDate}
@@ -322,7 +348,7 @@ export function EditSubscriptionModal({
  <div className="flex-1">
  <div className="flex items-center justify-between">
  <label className="text-sm font-medium text-gray-900 dark:text-white cursor-pointer">
- Enable notifications
+ {t('editSubscription:notificationsLabel')}
  </label>
  <button
  type="button"
@@ -343,13 +369,13 @@ export function EditSubscriptionModal({
  </div>
  {!isBarkEnabled ? (
  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
- Global notification is disabled. Please enable Bark notifications in Notification Settings first.
+ {t('editSubscription:globalNotificationsDisabled')}
  </p>
  ) : (
  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
  {formData.notificationEnabled
- ? 'You will receive reminders for this subscription'
- : 'No reminders will be sent for this subscription'}
+ ? t('editSubscription:notificationsEnabledHint')
+ : t('editSubscription:notificationsDisabledHint')}
  </p>
  )}
  </div>
@@ -361,7 +387,7 @@ export function EditSubscriptionModal({
  type="submit"
  className="w-full bg-emerald-600 dark:bg-emerald-500 text-white py-2 px-4 rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors duration-200"
  >
- Save Changes
+ {t('editSubscription:saveChanges')}
  </button>
  </div>
  </form>

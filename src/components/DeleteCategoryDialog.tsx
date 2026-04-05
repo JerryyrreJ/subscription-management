@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { CustomSelect } from './CustomSelect'
 
 interface DeleteCategoryDialogProps {
@@ -23,6 +24,7 @@ export function DeleteCategoryDialog({
  onConfirm,
  onCancel
 }: DeleteCategoryDialogProps) {
+ const { t } = useTranslation(['categorySettings', 'app'])
  const [moveToCategory, setMoveToCategory] = useState<string>('')
 
  if (!isOpen) return null
@@ -49,7 +51,7 @@ export function DeleteCategoryDialog({
  </div>
  <div>
  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
- {isBuiltIn ? 'Hide Category' : 'Delete Category'}
+ {isBuiltIn ? t('categorySettings:deleteDialogHideTitle') : t('categorySettings:deleteDialogDeleteTitle')}
  </h3>
  <p className="text-sm text-gray-500 dark:text-gray-400">
 "{categoryName}"
@@ -71,7 +73,7 @@ export function DeleteCategoryDialog({
  <>
  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-4">
  <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium mb-2">
- This category is being used by {affectedCount} subscription{affectedCount > 1 ? 's' : ''}:
+ {t(affectedCount === 1 ? 'categorySettings:deleteDialogUsedByOne' : 'categorySettings:deleteDialogUsedByOther', { count: affectedCount })}
  </p>
  <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1 max-h-32 overflow-y-auto">
  {affectedSubscriptions.map(sub => (
@@ -85,13 +87,13 @@ export function DeleteCategoryDialog({
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
- Move these subscriptions to:
+ {t('categorySettings:deleteDialogMoveTo')}
  </label>
  <CustomSelect
  value={moveToCategory}
  onChange={setMoveToCategory}
  options={[
- { value: '', label: 'Uncategorized (default)' },
+ { value: '', label: t('categorySettings:deleteDialogDefaultTarget') },
  ...availableCategories
  .filter(cat => cat !== categoryName)
  .map(cat => ({ value: cat, label: cat }))
@@ -99,14 +101,18 @@ export function DeleteCategoryDialog({
  required={false}
  />
  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
- If not selected, affected subscriptions will be moved to"Uncategorized"
+ {t('categorySettings:deleteDialogMoveHint')}
  </p>
  </div>
  </>
  ) : (
  <div className="bg-[#f4f5f7] dark:bg-[#202225] dark:bg-zinc-800/20 border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700 dark:border-zinc-700 rounded-2xl p-4">
  <p className="text-sm text-emerald-600 dark:text-emerald-300">
- No subscriptions are using this category. It's safe to {isBuiltIn ? 'hide' : 'delete'} it.
+ {t('categorySettings:deleteDialogSafeMessage', {
+  action: isBuiltIn
+   ? t('categorySettings:deleteDialogSafeActionHide')
+   : t('categorySettings:deleteDialogSafeActionDelete')
+ })}
  </p>
  </div>
  )}
@@ -114,7 +120,7 @@ export function DeleteCategoryDialog({
  {isBuiltIn && (
  <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-3">
  <p className="text-xs text-gray-600 dark:text-gray-400">
- 💡 <strong>Note:</strong> Built-in categories are hidden, not deleted. You can restore them later from Category Settings.
+ 💡 {t('categorySettings:deleteDialogBuiltInNote')}
  </p>
  </div>
  )}
@@ -126,13 +132,13 @@ export function DeleteCategoryDialog({
  onClick={handleCancel}
  className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
  >
- Cancel
+ {t('app:cancel')}
  </button>
  <button
  onClick={handleConfirm}
  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-2xl hover:bg-red-700 transition-colors font-medium"
  >
- {isBuiltIn ? 'Hide Category' : 'Delete Category'}
+ {isBuiltIn ? t('categorySettings:deleteDialogHideTitle') : t('categorySettings:deleteDialogDeleteTitle')}
  </button>
  </div>
  </div>

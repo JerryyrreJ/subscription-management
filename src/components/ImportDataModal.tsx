@@ -1,5 +1,7 @@
 import { X, AlertTriangle, Upload } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ExportData } from '../utils/exportImport';
+import { formatDateByLocale } from '../utils/dates';
 
 interface ImportDataModalProps {
  isOpen: boolean;
@@ -14,6 +16,7 @@ export function ImportDataModal({
  onConfirm,
  previewData
 }: ImportDataModalProps) {
+ const { t, i18n } = useTranslation(['importData', 'app']);
  if (!isOpen) return null;
 
  return (
@@ -25,7 +28,7 @@ export function ImportDataModal({
  <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-500"/>
  </div>
  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
- Import Data
+ {t('importData:title')}
  </h2>
  </div>
  <button
@@ -39,37 +42,37 @@ export function ImportDataModal({
  <div className="p-6 space-y-4">
  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-4">
  <p className="text-sm text-yellow-800 dark:text-yellow-200">
- ⚠️ <strong>Warning:</strong> This will replace all your current data including subscriptions and categories.
+ ⚠️ <strong>{t('importData:warningTitle')}</strong> {t('importData:warningBody')}
  </p>
  </div>
 
  {previewData && (
  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-4 space-y-2">
  <h3 className="font-medium text-gray-900 dark:text-white mb-3">
- Import Preview:
+ {t('importData:previewTitle')}
  </h3>
  <div className="space-y-2 text-sm">
  <div className="flex justify-between">
- <span className="text-gray-600 dark:text-gray-400">Subscriptions:</span>
+ <span className="text-gray-600 dark:text-gray-400">{t('importData:subscriptions')}</span>
  <span className="font-medium text-gray-900 dark:text-white">
  {previewData.subscriptions.length}
  </span>
  </div>
  <div className="flex justify-between">
- <span className="text-gray-600 dark:text-gray-400">Categories:</span>
+ <span className="text-gray-600 dark:text-gray-400">{t('importData:categories')}</span>
  <span className="font-medium text-gray-900 dark:text-white">
  {previewData.categories?.length || 0}
  </span>
  </div>
  <div className="flex justify-between">
- <span className="text-gray-600 dark:text-gray-400">Export Date:</span>
+ <span className="text-gray-600 dark:text-gray-400">{t('importData:exportDate')}</span>
  <span className="font-medium text-gray-900 dark:text-white">
- {new Date(previewData.exportDate).toLocaleDateString()}
+ {formatDateByLocale(new Date(previewData.exportDate), i18n.language, { dateStyle: 'medium' })}
  </span>
  </div>
  {previewData.version && (
  <div className="flex justify-between">
- <span className="text-gray-600 dark:text-gray-400">Version:</span>
+ <span className="text-gray-600 dark:text-gray-400">{t('importData:version')}</span>
  <span className="font-medium text-gray-900 dark:text-white">
  {previewData.version}
  </span>
@@ -84,14 +87,14 @@ export function ImportDataModal({
  onClick={onClose}
  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
  >
- Cancel
+ {t('app:cancel')}
  </button>
  <button
  onClick={onConfirm}
  className="flex-1 px-4 py-2.5 bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white rounded-2xl font-medium transition-colors flex items-center justify-center gap-2"
  >
  <Upload className="w-4 h-4"/>
- Import
+ {t('importData:import')}
  </button>
  </div>
  </div>

@@ -1,4 +1,5 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { SpendingTrend } from '../utils/reportAnalytics';
 import { Currency } from '../types';
 import { formatCurrency } from '../utils/currency';
@@ -9,12 +10,14 @@ interface SpendingTrendChartProps {
 }
 
 export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartProps) {
+ const { t } = useTranslation(['analytics']);
+
  return (
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey hover:shadow-apple-lg transition-shadow p-6 border border-gray-100 dark:border-gray-700">
  <div className="flex items-center gap-2 mb-4">
  <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- Spending Trend (Last 12 Months)
+ {t('analytics:spendingTrendTitle')}
  </h3>
  </div>
 
@@ -45,11 +48,11 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
  borderRadius: '0.75rem',
  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
  }}
- formatter={(value: number, name: string) => {
- if (name === 'Monthly Spend') {
- return [formatCurrency(value, baseCurrency), name];
+ formatter={(value: number, _name: string, item: { dataKey?: string }) => {
+ if (item?.dataKey === 'totalSpend') {
+ return [formatCurrency(value, baseCurrency), t('analytics:monthlySpend')];
  }
- return [value, name];
+ return [value, t('analytics:subscriptionCount')];
  }}
  />
  <Legend />
@@ -61,7 +64,7 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
  dataKey="totalSpend"
  stroke="#10b981"
  strokeWidth={2.5}
- name="Monthly Spend"
+ name={t('analytics:monthlySpend')}
  dot={{ fill: '#10b981', r: 4, strokeWidth: 2, stroke: '#fff' }}
  activeDot={{ r: 6, fill: '#059669', stroke: '#fff', strokeWidth: 2 }}
  />
@@ -72,7 +75,7 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
  dataKey="subscriptionCount"
  stroke="#0ea5e9"
  strokeWidth={2.5}
- name="Subscription Count"
+ name={t('analytics:subscriptionCount')}
  dot={{ fill: '#0ea5e9', r: 4, strokeWidth: 2, stroke: '#fff' }}
  activeDot={{ r: 6, fill: '#0284c7', stroke: '#fff', strokeWidth: 2 }}
  />
@@ -82,11 +85,11 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
  <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
  <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/30 dark:to-emerald-950/30 rounded-2xl border border-teal-200/50 dark:border-teal-800/50">
  <div className="w-3 h-3 bg-teal-500 rounded-full shadow-apple-sm"></div>
- <span className="text-gray-700 dark:text-gray-300 font-medium">Monthly Spend Trend</span>
+ <span className="text-gray-700 dark:text-gray-300 font-medium">{t('analytics:monthlySpendTrend')}</span>
  </div>
  <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-sky-50 dark:from-sky-950/30 dark: rounded-2xl border border-sky-200/50 dark:border-sky-800/50">
  <div className="w-3 h-3 bg-sky-500 rounded-full shadow-apple-sm"></div>
- <span className="text-gray-700 dark:text-gray-300 font-medium">Subscription Count Change</span>
+ <span className="text-gray-700 dark:text-gray-300 font-medium">{t('analytics:subscriptionCountChange')}</span>
  </div>
  </div>
  </div>

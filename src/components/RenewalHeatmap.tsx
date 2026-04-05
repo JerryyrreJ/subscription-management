@@ -1,4 +1,5 @@
 import { RenewalHeatmapData } from '../utils/reportAnalytics';
+import { useTranslation } from 'react-i18next';
 import { Currency } from '../types';
 import { formatCurrency } from '../utils/currency';
 import { Calendar } from 'lucide-react';
@@ -10,6 +11,7 @@ interface RenewalHeatmapProps {
 }
 
 export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
+ const { t } = useTranslation(['analytics']);
  const [hoveredDay, setHoveredDay] = useState<RenewalHeatmapData | null>(null);
  const [selectedDay, setSelectedDay] = useState<RenewalHeatmapData | null>(null);
 
@@ -32,12 +34,12 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
  <div className="flex items-center gap-2 mb-4">
  <Calendar className="w-5 h-5 text-red-600"/>
  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- Monthly Renewal Distribution Heatmap
+ {t('analytics:renewalHeatmapTitle')}
  </h3>
  </div>
 
  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
- Subscription renewal distribution for days 1-31 of the month, click cells for details
+ {t('analytics:renewalHeatmapDescription')}
  </p>
 
  {/* GitHub-style compact heatmap */}
@@ -57,7 +59,7 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
 
  {/* Heatmap grid */}
  <div className="flex items-center gap-2">
- <span className="text-xs text-gray-500 dark:text-gray-400 w-6">Day</span>
+ <span className="text-xs text-gray-500 dark:text-gray-400 w-6">{t('analytics:dayLabel')}</span>
  <div className="grid grid-cols-[repeat(31,1fr)] gap-[3px] flex-1">
  {data.map((item) => {
  const isHovered = hoveredDay?.date === item.date;
@@ -80,14 +82,21 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
  {/* Hover Tooltip */}
  {isHovered && (
  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-2xl shadow-fey whitespace-nowrap z-50 pointer-events-none">
- <div className="font-semibold mb-1">Day {item.date}</div>
+ <div className="font-semibold mb-1">{t('analytics:dayNumber', { day: item.date })}</div>
  {item.count > 0 ? (
  <>
- <div>{item.count} subscription{item.count > 1 ? 's' : ''}</div>
+ <div>
+ {t(
+  item.count === 1
+   ? 'analytics:subscriptionsCountOne'
+   : 'analytics:subscriptionsCountOther',
+  { count: item.count }
+ )}
+ </div>
  <div className="text-red-300">{formatCurrency(item.amount, baseCurrency)}</div>
  </>
  ) : (
- <div className="text-gray-400">No renewals</div>
+ <div className="text-gray-400">{t('analytics:noRenewals')}</div>
  )}
  {/* Arrow */}
  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
@@ -105,9 +114,9 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
  {/* Compact legend */}
  <div className="flex items-center justify-between mb-6 text-xs">
  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
- <span>Spending:</span>
+ <span>{t('analytics:spendingLabel')}</span>
  <div className="flex items-center gap-1">
- <span className="text-gray-500">Less</span>
+ <span className="text-gray-500">{t('analytics:less')}</span>
  <div className="flex gap-1">
  <div className="w-3 h-3 rounded-sm bg-gray-100 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700"></div>
  <div className="w-3 h-3 rounded-sm bg-red-200 dark:bg-red-900/40"></div>
@@ -116,11 +125,11 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
  <div className="w-3 h-3 rounded-sm bg-red-500 dark:bg-red-600/80"></div>
  <div className="w-3 h-3 rounded-sm bg-red-600 dark:bg-red-500"></div>
  </div>
- <span className="text-gray-500">More</span>
+ <span className="text-gray-500">{t('analytics:more')}</span>
  </div>
  </div>
  <div className="text-gray-500 dark:text-gray-400">
- Click cells for details
+ {t('analytics:clickCellsForDetails')}
  </div>
  </div>
 
@@ -129,12 +138,12 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
  <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-200 dark:border-red-800">
  <div className="flex items-center justify-between mb-3">
  <h4 className="font-semibold text-gray-900 dark:text-white">
- Day {selectedDay.date} Renewal Details
+ {t('analytics:renewalDetailsTitle', { day: selectedDay.date })}
  </h4>
  <button
  onClick={() => setSelectedDay(null)}
  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
- aria-label="Close details"
+ aria-label={t('analytics:closeDetailsAria')}
  >
  ✕
  </button>
@@ -142,13 +151,13 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
 
  <div className="grid grid-cols-2 gap-4 mb-3">
  <div className="flex flex-col">
- <span className="text-xs text-gray-600 dark:text-gray-400 mb-1">Subscriptions</span>
+ <span className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('analytics:subscriptionsLabel')}</span>
  <span className="text-lg font-semibold text-gray-900 dark:text-white">
  {selectedDay.count}
  </span>
  </div>
  <div className="flex flex-col">
- <span className="text-xs text-gray-600 dark:text-gray-400 mb-1">Total Amount</span>
+ <span className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('analytics:totalAmount')}</span>
  <span className="text-lg font-semibold text-red-600 dark:text-red-400">
  {formatCurrency(selectedDay.amount, baseCurrency)}
  </span>
@@ -156,7 +165,7 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
  </div>
 
  <div className="pt-3 border-t border-red-200 dark:border-red-800">
- <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Subscription List</p>
+ <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">{t('analytics:subscriptionList')}</p>
  <div className="space-y-1.5 max-h-40 overflow-y-auto">
  {selectedDay.subscriptions.map((sub, index) => (
  <div
@@ -180,13 +189,13 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
  <p className="text-2xl font-bold text-red-600 dark:text-red-400 tracking-tight">
  {data.filter(d => d.count > 0).length}
  </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Days with Renewals</p>
+ <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('analytics:daysWithRenewals')}</p>
  </div>
  <div className="text-center">
  <p className="text-2xl font-bold text-red-600 dark:text-red-400 tracking-tight">
  {data.reduce((sum, d) => sum + d.count, 0)}
  </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Total Monthly Renewals</p>
+ <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('analytics:totalMonthlyRenewals')}</p>
  </div>
  <div className="text-center">
  <p className="text-2xl font-bold text-red-600 dark:text-red-400 tracking-tight">
@@ -197,7 +206,7 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
  )
  : 0}
  </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Avg Renewals/Day</p>
+ <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('analytics:avgRenewalsPerDay')}</p>
  </div>
  </div>
  </div>

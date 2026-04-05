@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   addBillingPeriodToDate,
   calculateNextPaymentDate,
+  formatDate,
+  formatMonthYear,
   formatInstantToDateOnly,
   getAutoRenewedDates,
   getDaysUntil,
@@ -70,4 +72,14 @@ test('getDaysUntil uses the provided time zone calendar day', () => {
     assert.equal(getDaysUntil('2026-04-04', 'UTC'), 0);
     assert.equal(getDaysUntil('2026-04-04', 'America/Los_Angeles'), 1);
   });
+});
+
+test('formatDate localizes date-only labels by locale', () => {
+  assert.equal(formatDate('2026-04-04', 'en'), 'Apr 4, 2026');
+  assert.equal(formatDate('2026-04-04', 'zh-CN'), '2026年4月4日');
+});
+
+test('formatMonthYear localizes month labels by locale', () => {
+  assert.equal(formatMonthYear(new Date('2026-04-01T00:00:00.000Z'), 'en'), 'Apr 2026');
+  assert.equal(formatMonthYear(new Date('2026-04-01T00:00:00.000Z'), 'zh-CN'), '2026年4月');
 });

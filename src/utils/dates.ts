@@ -2,6 +2,8 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DEFAULT_TIME_ZONE = 'UTC';
 const dateFormatterCache = new Map<string, Intl.DateTimeFormat>();
+const localizedDateFormatterCache = new Map<string, Intl.DateTimeFormat>();
+import { getCurrentLocale, getIntlLocale } from './locale';
 
 const getDaysInUtcMonth = (year: number, monthIndex: number): number =>
  new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
@@ -44,6 +46,26 @@ const getDateFormatter = (timeZone: string): Intl.DateTimeFormat => {
  dateFormatterCache.set(timeZone, formatter);
  return formatter;
 };
+
+const getLocalizedDateFormatter = (
+ locale: string,
+ options: Intl.DateTimeFormatOptions
+): Intl.DateTimeFormat => {
+ const intlLocale = getIntlLocale(locale);
+ const cacheKey = `${intlLocale}:${JSON.stringify(options)}`;
+ const cachedFormatter = localizedDateFormatterCache.get(cacheKey);
+
+ if (cachedFormatter) {
+  return cachedFormatter;
+ }
+
+ const formatter = new Intl.DateTimeFormat(intlLocale, options);
+ localizedDateFormatterCache.set(cacheKey, formatter);
+ return formatter;
+};
+
+const toDateObject = (date: Date | string): Date =>
+ typeof date === 'string' ? parseDateOnly(date) : date;
 
 export const getCurrentTimeZone = (): string => {
  try {
@@ -150,16 +172,42 @@ export const compareDateOnly = (left: string, right: string): number =>
 export const getDateOnlyDay = (dateString: string): number =>
  parseDateOnly(dateString).getUTCDate();
 
-export const formatDate = (date: Date | string): string => {
- const parsedDate = typeof date === 'string' ? parseDateOnly(date) : date;
+export const formatDateByLocale = (
+ date: Date | string,
+ locale: string = getCurrentLocale(),
+ options: Intl.DateTimeFormatOptions = {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+ }
+): string => getLocalizedDateFormatter(locale, options).format(toDateObject(date));
 
- return new Intl.DateTimeFormat('en-US', {
- month: 'short',
- day: 'numeric',
- year: 'numeric',
- timeZone: 'UTC',
- }).format(parsedDate);
-};
+export const formatDate = (
+ date: Date | string,
+ locale: string = getCurrentLocale()
+): string => formatDateByLocale(date, locale);
+
+export const formatMonthYear = (
+ date: Date | string,
+ locale: string = getCurrentLocale()
+): string =>
+ formatDateByLocale(date, locale, {
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+ });
+
+export const formatWeekdayLabels = (
+ locale: string = getCurrentLocale(),
+ width: 'short' | 'narrow' = 'short'
+): string[] =>
+ Array.from({ length: 7 }, (_, index) =>
+  formatDateByLocale(new Date(Date.UTC(2024, 0, 7 + index)), locale, {
+   weekday: width,
+   timeZone: 'UTC',
+  })
+ );
 
 export const calculateNextPaymentDate = (
  lastPaymentDate: string,

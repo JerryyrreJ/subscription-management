@@ -8,6 +8,8 @@ import { RenewalHeatmap } from './RenewalHeatmap';
 import { InsightsSection } from './InsightsSection';
 import { X, TrendingUp, Calendar, DollarSign, Package, HelpCircle, Download } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useAppLanguage } from '../hooks/useAppLanguage';
 
 interface AdvancedReportProps {
  subscriptions: Subscription[];
@@ -22,12 +24,14 @@ export function AdvancedReport({
  exchangeRates,
  onClose,
 }: AdvancedReportProps) {
+ const { t } = useTranslation(['analytics']);
+ const { language } = useAppLanguage();
  const [isVisible, setIsVisible] = useState(false);
 
  // 生成报表数据
  const reportData: ReportData = useMemo(
- () => generateReportData(subscriptions, baseCurrency, exchangeRates),
- [subscriptions, baseCurrency, exchangeRates]
+ () => generateReportData(subscriptions, baseCurrency, exchangeRates, t, language),
+ [subscriptions, baseCurrency, exchangeRates, t, language]
  );
 
  // 入场动画
@@ -50,7 +54,7 @@ export function AdvancedReport({
  // 处理 PDF 导出 - 预留接口，功能待实现
  const handleExportPDF = async () => {
  // TODO: 实现新的PDF导出功能
- alert('PDF export feature is under development. Stay tuned!');
+ alert(t('analytics:pdfExportInProgress'));
  };
 
  return (
@@ -74,14 +78,14 @@ export function AdvancedReport({
  <div className="flex items-center justify-between relative z-10">
  <div>
  <h2 className="text-2xl font-bold mb-1 bg-gradient-to-r from-white to-teal-100 bg-clip-text text-transparent tracking-tight">
- Advanced Subscription Analytics
+ {t('analytics:title')}
  </h2>
  <div className="flex items-center gap-2 text-teal-100/90 text-sm">
- <span>Analysis Period: Last 12 Months · Base Currency: {baseCurrency}</span>
+ <span>{t('analytics:analysisSummary', { currency: baseCurrency })}</span>
  <div className="relative group">
  <HelpCircle className="w-4 h-4 cursor-help"/>
  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-slate-900/95 backdrop-blur-sm text-white text-xs rounded-2xl shadow-apple-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-teal-500/20">
- Report uses the base currency selected in Overview
+ {t('analytics:currencyHelp')}
  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
  <div className="border-4 border-transparent border-t-slate-900/95"></div>
  </div>
@@ -92,7 +96,7 @@ export function AdvancedReport({
  <button
  onClick={handleClose}
  className="p-2 hover:bg-white/20 rounded-3xl transition-all hover:shadow-fey hover:scale-105"
- aria-label="Close report"
+ aria-label={t('analytics:closeReportAria')}
  >
  <X className="w-6 h-6"/>
  </button>
@@ -105,7 +109,7 @@ export function AdvancedReport({
  <div className="p-6 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-b border-gray-200 dark:border-gray-700">
  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
  <div className="w-1 h-6 bg-gradient-to-b from-teal-500 to-emerald-500 rounded-full"></div>
- Data Overview
+ {t('analytics:dataOverview')}
  </h3>
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
  {/* Monthly Spend - Emerald Gradient */}
@@ -114,13 +118,13 @@ export function AdvancedReport({
  <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-fey group-hover:shadow-apple-lg transition-shadow">
  <DollarSign className="w-5 h-5 text-white"/>
  </div>
- <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Monthly Spend</span>
+ <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('analytics:monthlySpend')}</span>
  </div>
  <p className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400 bg-clip-text text-transparent tracking-tight">
  {formatCurrency(reportData.overview.totalMonthlySpend, baseCurrency)}
  </p>
  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
- Yearly: {formatCurrency(reportData.overview.totalYearlySpend, baseCurrency)}
+ {t('analytics:yearlySpend', { amount: formatCurrency(reportData.overview.totalYearlySpend, baseCurrency) })}
  </p>
  </div>
 
@@ -130,13 +134,18 @@ export function AdvancedReport({
  <div className="p-2.5 bg-gradient-to-br from-sky-500 rounded-2xl shadow-fey group-hover:shadow-apple-lg transition-shadow">
  <Package className="w-5 h-5 text-white"/>
  </div>
- <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Active Subscriptions</span>
+ <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('analytics:activeSubscriptions')}</span>
  </div>
  <p className="text-2xl font-bold bg-gradient-to-r from-sky-600 dark:from-sky-400 dark: bg-clip-text text-transparent tracking-tight">
  {reportData.overview.activeSubscriptions}
  </p>
  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
- {reportData.overview.categoryBreakdown.length} Categories
+ {t(
+  reportData.overview.categoryBreakdown.length === 1
+   ? 'analytics:categoriesCountOne'
+   : 'analytics:categoriesCountOther',
+  { count: reportData.overview.categoryBreakdown.length }
+ )}
  </p>
  </div>
 
@@ -146,12 +155,12 @@ export function AdvancedReport({
  <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-fey group-hover:shadow-apple-lg transition-shadow">
  <TrendingUp className="w-5 h-5 text-white"/>
  </div>
- <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Avg Cost</span>
+ <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('analytics:avgCost')}</span>
  </div>
  <p className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent tracking-tight">
  {formatCurrency(reportData.overview.avgSubscriptionCost, baseCurrency)}
  </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">per month/subscription</p>
+ <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">{t('analytics:perMonthPerSubscription')}</p>
  </div>
 
  {/* Largest Category - Indigo Gradient */}
@@ -160,13 +169,18 @@ export function AdvancedReport({
  <div className="p-2.5 bg-gradient-to-br rounded-2xl shadow-fey group-hover:shadow-apple-lg transition-shadow">
  <Calendar className="w-5 h-5 text-white"/>
  </div>
- <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Largest Category</span>
+ <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('analytics:largestCategory')}</span>
  </div>
  <p className="text-xl font-bold bg-gradient-to-r dark: dark: bg-clip-text text-transparent truncate tracking-tight">
- {reportData.overview.categoryBreakdown[0]?.category || 'N/A'}
+ {reportData.overview.categoryBreakdown[0]?.category || t('analytics:notAvailable')}
  </p>
  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
- {reportData.overview.categoryBreakdown[0]?.count || 0} Subscriptions
+ {t(
+  (reportData.overview.categoryBreakdown[0]?.count || 0) === 1
+   ? 'analytics:subscriptionsCountOne'
+   : 'analytics:subscriptionsCountOther',
+  { count: reportData.overview.categoryBreakdown[0]?.count || 0 }
+ )}
  </p>
  </div>
  </div>
@@ -198,14 +212,14 @@ export function AdvancedReport({
  onClick={handleClose}
  className="flex-1 px-6 py-3 bg-white dark:bg-[#1a1c1e] text-gray-700 dark:text-gray-300 rounded-3xl border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-fey transition-all font-medium"
  >
- Close Report
+ {t('analytics:closeReport')}
  </button>
  <button
  onClick={handleExportPDF}
  className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-3xl hover:from-teal-700 hover:to-emerald-700 transition-all font-medium shadow-fey hover:shadow-apple-lg hover:scale-[1.02] flex items-center justify-center gap-2"
  >
  <Download className="w-5 h-5"/>
- <span>Export PDF Report</span>
+ <span>{t('analytics:exportPdfReport')}</span>
  </button>
  </div>
  </div>

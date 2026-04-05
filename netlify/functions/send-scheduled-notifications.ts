@@ -2,6 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import { sendBarkNotification } from '../../src/utils/barkPush'
 import { addBillingPeriodToDate, compareDateOnly, formatDateOnly, getDaysUntil, getTodayDateOnly, normalizeTimeZone } from '../../src/utils/dates'
 import { cleanupNotificationHistoryEntries, mergeNotificationHistoryEntries, wasNotifiedToday } from '../../src/utils/notificationHistory'
+import { buildSubscriptionReminderContent } from '../../src/utils/notificationContent'
+import { DEFAULT_LOCALE } from '../../src/i18n/types'
+import { normalizeLocale } from '../../src/utils/locale'
 import type { Config } from '@netlify/functions'
 
 // Supabase 配置（使用 Service Role Key 绕过 RLS）
@@ -30,6 +33,7 @@ interface NotificationSettings {
   user_id: string
   bark_enabled: boolean
   time_zone?: string | null
+  locale?: string | null
   bark_server_url: string
   bark_device_key: string
   bark_days_before: number
@@ -140,27 +144,6 @@ async function releaseNotificationDelivery(
 }
 
 /**
- * 格式化货币显示
- */
-function formatCurrency(amount: number, currency: string): string {
-  const symbols: Record<string, string> = {
-    CNY: '¥',
-    USD: '$',
-    EUR: '€',
-    JPY: '¥',
-    GBP: '£',
-    AUD: 'A$',
-    CAD: 'C$',
-    CHF: 'CHF',
-    HKD: 'HK$',
-    SGD: 'S$'
-  }
-
-  const symbol = symbols[currency] || currency
-  return `${symbol}${amount.toFixed(2)}`
-}
-
-/**
  * Netlify Scheduled Function (v2 格式)
  * 每小时运行一次，检查所有用户的订阅并发送 Bark 推送
  */
@@ -212,6 +195,7 @@ export default async (req: Request): Promise<Response> => {
     for (const settings of notificationSettingsList as NotificationSettings[]) {
       const { user_id, bark_server_url, bark_device_key, bark_days_before, bark_history } = settings
       const userTimeZone = normalizeTimeZone(settings.time_zone, 'UTC')
+      const userLocale = normalizeLocale(settings.locale ?? DEFAULT_LOCALE)
 
       console.log(`[Scheduled Notifications] Processing user: ${user_id}`)
       console.log(`[Scheduled Notifications] User time zone: ${userTimeZone}`)
@@ -275,9 +259,21 @@ export default async (req: Request): Promise<Response> => {
           console.log(`  ✅ 匹配推送条件！准备发送通知...`)
           console.log(`[Scheduled Notifications] Sending notification for subscription: ${subscription.name} (${daysUntil} days until renewal)`)
 
-          const title = 'Subscription Manager'
-          const periodText = subscription.period === 'monthly' ? 'month' : subscription.period === 'yearly' ? 'year' : subscription.period
-          const body = `${subscription.name} expires in ${daysUntil} day${daysUntil > 1 ? 's' : ''}\n${formatCurrency(subscription.amount, subscription.currency)}/${periodText}`
+          const { title, body, group } = buildSubscriptionReminderContent(
+            {
+              id: subscription.id,
+              name: subscription.name,
+              category: '',
+              amount: subscription.amount,
+              currency: subscription.currency as Subscription['currency'],
+              period: subscription.period as Subscription['period'],
+              lastPaymentDate: renewedDate,
+              nextPaymentDate: renewedDate,
+              customDate: subscription.custom_date
+            },
+            daysUntil,
+            userLocale
+          )
           const deliveryDate = formatDateOnly(getTodayDateOnly(userTimeZone))
           let deliveryReserved = false
 
@@ -293,16 +289,16 @@ export default async (req: Request): Promise<Response> => {
 
             // 发送 Bark 推送
             const success = await sendBarkNotification(
-              bark_server_url,
-              bark_device_key,
-              title,
-              body,
-              {
-                sound: 'bell',
-                group: 'Subscription Manager',
-                icon: 'https://i.ibb.co/Z6f84xFY/icon.png'
-              }
-            )
+                bark_server_url,
+                bark_device_key,
+                title,
+                body,
+                {
+                  sound: 'bell',
+                  group,
+                  icon: 'https://i.ibb.co/Z6f84xFY/icon.png'
+                }
+              )
 
             if (success) {
               // 记录推送历史

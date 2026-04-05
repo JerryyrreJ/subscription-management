@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface EditPasswordModalProps {
  isOpen: boolean;
@@ -8,6 +9,7 @@ interface EditPasswordModalProps {
 }
 
 export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPasswordModalProps) {
+ const { t } = useTranslation(['accountModals', 'app']);
  const [newPassword, setNewPassword] = useState('');
  const [confirmPassword, setConfirmPassword] = useState('');
  const [showPassword, setShowPassword] = useState(false);
@@ -18,13 +20,13 @@ export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPas
 
  const validatePassword = (password: string) => {
  if (password.length < 8) {
- return 'Password must be at least 8 characters long';
+ return t('accountModals:passwordTooShort');
  }
  if (!/(?=.*[a-z])(?=.*[A-Z])/.test(password)) {
- return 'Password must contain both uppercase and lowercase letters';
+ return t('accountModals:passwordNeedsCase');
  }
  if (!/(?=.*\d)/.test(password)) {
- return 'Password must contain at least one number';
+ return t('accountModals:passwordNeedsNumber');
  }
  return null;
  };
@@ -39,7 +41,7 @@ export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPas
  }
 
  if (newPassword !== confirmPassword) {
- setError('Passwords do not match');
+ setError(t('accountModals:passwordsDoNotMatch'));
  return;
  }
 
@@ -56,7 +58,7 @@ export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPas
  setSuccess(false);
  }, 2000);
  } catch (error) {
- setError(error instanceof Error ? error.message : 'Failed to update password');
+ setError(error instanceof Error ? error.message : t('accountModals:passwordUpdateFailed'));
  } finally {
  setIsLoading(false);
  }
@@ -84,7 +86,7 @@ export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPas
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl p-6 w-full max-w-md">
  <div className="flex items-center justify-between mb-6">
  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
- Update Password
+ {t('accountModals:updatePasswordTitle')}
  </h2>
  <button
  onClick={handleClose}
@@ -101,24 +103,24 @@ export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPas
  <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400"/>
  </div>
  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
- Password Updated Successfully
+ {t('accountModals:passwordUpdatedSuccess')}
  </h3>
  <p className="text-sm text-gray-600 dark:text-gray-400">
- Your password has been updated. Please use your new password for future logins.
+ {t('accountModals:passwordUpdatedSuccessBody')}
  </p>
  </div>
  ) : (
  <form onSubmit={handleSubmit} className="space-y-4">
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
- New Password
+ {t('accountModals:newPasswordLabel')}
  </label>
  <div className="relative">
  <input
  type={showPassword ? 'text' : 'password'}
  value={newPassword}
  onChange={(e) => setNewPassword(e.target.value)}
- placeholder="Enter new password"
+ placeholder={t('accountModals:newPasswordPlaceholder')}
  required
  disabled={isLoading}
  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-2xl focus:ring-2 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
@@ -135,14 +137,14 @@ export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPas
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
- Confirm New Password
+ {t('accountModals:confirmNewPasswordLabel')}
  </label>
  <div className="relative">
  <input
  type={showConfirmPassword ? 'text' : 'password'}
  value={confirmPassword}
  onChange={(e) => setConfirmPassword(e.target.value)}
- placeholder="Confirm new password"
+ placeholder={t('accountModals:confirmNewPasswordPlaceholder')}
  required
  disabled={isLoading}
  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-2xl focus:ring-2 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
@@ -159,24 +161,24 @@ export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPas
 
  {/* Password requirements */}
  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-3">
- <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Password requirements:</p>
+ <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('accountModals:passwordRequirementsTitle')}</p>
  <ul className="space-y-1 text-xs">
  <li className={`flex items-center gap-2 ${newPassword.length >= 8 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
  <div className={`w-1.5 h-1.5 rounded-full ${newPassword.length >= 8 ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
- At least 8 characters
+ {t('accountModals:passwordRuleLength')}
  </li>
  <li className={`flex items-center gap-2 ${/(?=.*[a-z])(?=.*[A-Z])/.test(newPassword) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
  <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*[a-z])(?=.*[A-Z])/.test(newPassword) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
- Both uppercase and lowercase letters
+ {t('accountModals:passwordRuleCase')}
  </li>
  <li className={`flex items-center gap-2 ${/(?=.*\d)/.test(newPassword) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
  <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*\d)/.test(newPassword) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
- At least one number
+ {t('accountModals:passwordRuleNumber')}
  </li>
  {confirmPassword && (
  <li className={`flex items-center gap-2 ${passwordsMatch ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
  <div className={`w-1.5 h-1.5 rounded-full ${passwordsMatch ? 'bg-green-500' : 'bg-red-500'}`} />
- Passwords match
+ {t('accountModals:passwordRuleMatch')}
  </li>
  )}
  </ul>
@@ -196,14 +198,14 @@ export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPas
  disabled={isLoading}
  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
  >
- Cancel
+ {t('app:cancel')}
  </button>
  <button
  type="submit"
  disabled={isLoading || !newPassword || !confirmPassword || !!passwordValidation || !passwordsMatch}
  className="flex-1 px-4 py-2 bg-emerald-600 dark:bg-emerald-500 text-white rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
  >
- {isLoading ? 'Updating...' : 'Update Password'}
+ {isLoading ? t('accountModals:updating') : t('accountModals:updatePassword')}
  </button>
  </div>
  </form>

@@ -1,11 +1,12 @@
 import React from 'react';
 import { X, Calendar, Tag, DollarSign } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Subscription } from '../types';
 import { formatDate } from '../utils/dates';
 import { formatCurrency } from '../utils/currency';
 
 interface SubscriptionDetailsModalProps {
- subscription: Subscription;
+ subscription: Subscription | null;
  isOpen: boolean;
  onClose: () => void;
  onEdit: () => void;
@@ -19,7 +20,15 @@ export function SubscriptionDetailsModal({
  onEdit,
  onDelete,
 }: SubscriptionDetailsModalProps) {
- if (!isOpen) return null;
+ const { t } = useTranslation(['subscriptionDetails', 'addSubscription']);
+
+ if (!isOpen || !subscription) return null;
+
+ const periodLabel = subscription.period === 'monthly'
+  ? t('addSubscription:periodMonthly')
+  : subscription.period === 'yearly'
+   ? t('addSubscription:periodYearly')
+   : t('addSubscription:periodCustom');
 
  return (
  <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay">
@@ -44,7 +53,7 @@ export function SubscriptionDetailsModal({
  <div className="flex items-center space-x-3">
  <DollarSign className="w-5 h-5 text-gray-400 dark:text-gray-500"/>
  <span className="text-gray-600 dark:text-gray-300">
- {formatCurrency(subscription.amount, subscription.currency || 'CNY')} / {subscription.period}
+ {formatCurrency(subscription.amount, subscription.currency || 'CNY')} / {periodLabel}
  </span>
  </div>
 
@@ -52,10 +61,10 @@ export function SubscriptionDetailsModal({
  <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500"/>
  <div className="space-y-1">
  <div className="text-gray-600 dark:text-gray-300">
- Last payment: {formatDate(subscription.lastPaymentDate)}
+ {t('subscriptionDetails:lastPayment', { date: formatDate(subscription.lastPaymentDate) })}
  </div>
  <div className="text-gray-600 dark:text-gray-300">
- Next payment: {formatDate(subscription.nextPaymentDate)}
+ {t('subscriptionDetails:nextPayment', { date: formatDate(subscription.nextPaymentDate) })}
  </div>
  </div>
  </div>
@@ -66,13 +75,13 @@ export function SubscriptionDetailsModal({
  onClick={onDelete}
  className="px-4 py-2 bg-red-100 text-red-600 rounded-2xl hover:bg-red-200 transition-colors duration-200"
  >
- Delete
+ {t('subscriptionDetails:delete')}
  </button>
  <button
  onClick={onEdit}
  className="px-4 py-2 bg-emerald-600 dark:bg-emerald-500 text-white rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors duration-200"
  >
- Edit
+ {t('subscriptionDetails:edit')}
  </button>
  </div>
  </div>

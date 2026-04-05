@@ -11,6 +11,7 @@ const NOTIFICATION_STORAGE_KEY = 'notification_settings';
 
 const createSettings = (history: Record<string, string>): ReminderSettings => ({
  timeZone: 'Asia/Shanghai',
+ locale: 'zh-CN',
  barkPush: {
   enabled: true,
   serverUrl: 'https://api.day.app',
@@ -86,12 +87,14 @@ test('loadNotificationSettings persists cleaned notification history back to loc
    recent: settings.barkPush.notificationHistory.recent,
   });
   assert.equal(settings.timeZone, 'America/Los_Angeles');
+  assert.equal(settings.locale, 'en');
 
   const persisted = JSON.parse(localStorageMock.getItem(NOTIFICATION_STORAGE_KEY) || '{}');
   assert.deepEqual(persisted.barkPush.notificationHistory, {
    recent: settings.barkPush.notificationHistory.recent,
   });
   assert.equal(persisted.timeZone, 'America/Los_Angeles');
+  assert.equal(persisted.locale, 'en');
   assert.equal('browserNotification' in persisted, false);
  } finally {
   if (originalLocalStorage) {
@@ -118,6 +121,7 @@ test('saveNotificationSettings writes a cleaned notification history', () => {
   recent: persisted.barkPush.notificationHistory.recent,
  });
   assert.equal(persisted.timeZone, 'Asia/Shanghai');
+  assert.equal(persisted.locale, 'zh-CN');
  } finally {
   if (originalLocalStorage) {
    globalThis.localStorage = originalLocalStorage;

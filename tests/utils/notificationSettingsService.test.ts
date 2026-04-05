@@ -6,6 +6,7 @@ import { ReminderSettings } from '../../src/types.ts';
 test('buildNotificationSettingsConfigPayload excludes backend-managed bark history', () => {
  const settings: ReminderSettings = {
   timeZone: 'Asia/Shanghai',
+  locale: 'zh-CN',
   barkPush: {
    enabled: true,
    serverUrl: 'https://api.day.app',
@@ -22,6 +23,7 @@ test('buildNotificationSettingsConfigPayload excludes backend-managed bark histo
  assert.deepEqual(payload, {
   user_id: 'user-123',
   time_zone: 'Asia/Shanghai',
+  locale: 'zh-CN',
   bark_enabled: true,
   bark_server_url: 'https://api.day.app',
   bark_device_key: 'device-key',

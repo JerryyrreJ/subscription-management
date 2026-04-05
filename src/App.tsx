@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
 import { Plus, BarChart3 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
  Subscription,
  ViewMode,
@@ -49,6 +50,7 @@ import { config } from './lib/config';
 import { sortSubscriptions } from './utils/subscriptionSorting';
 import { GUEST_DATA_SCOPE, getUserDataScope, setActiveDataScope } from './utils/dataScope';
 import { createScopedTaskGate } from './utils/scopedTaskGate';
+import { normalizeLocale } from './utils/locale';
 
 const AdvancedReport = lazy(() =>
  import('./components/AdvancedReport').then(module => ({ default: module.AdvancedReport }))
@@ -73,6 +75,8 @@ function LazyModalFallback({
  description: string;
  onClose: () => void;
 }) {
+ const { t } = useTranslation(['app']);
+
  return (
  <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
  <div className="w-full max-w-md rounded-3xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-[#1a1c1e]/95 shadow-apple-xl p-8 text-center">
@@ -83,7 +87,7 @@ function LazyModalFallback({
  onClick={onClose}
  className="px-5 py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white transition-colors"
  >
- Cancel
+ {t('app:cancel')}
  </button>
  </div>
  </div>
@@ -91,6 +95,7 @@ function LazyModalFallback({
 }
 
 export function App() {
+ const { t, i18n } = useTranslation(['app']);
  const { user, userProfile, session, loading, signOut, updateUserEmail, updateUserPassword } = useAuth();
  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
@@ -123,6 +128,35 @@ export function App() {
  const [isExchangeRatesRefreshing, setIsExchangeRatesRefreshing] = useState(false);
  const [exchangeRatesStale, setExchangeRatesStale] = useState(false);
  const [exchangeRateError, setExchangeRateError] = useState<string | undefined>();
+ const appLocale = normalizeLocale(i18n.language);
+
+ useEffect(() => {
+ document.title = t('app:documentTitle');
+ }, [i18n.language, t]);
+
+ useEffect(() => {
+  if (loading) {
+   return;
+  }
+
+  if (notificationSettings.locale === appLocale) {
+   return;
+  }
+
+  const nextSettings: ReminderSettings = {
+   ...notificationSettings,
+   locale: appLocale,
+  };
+
+  setNotificationSettings(nextSettings);
+  saveNotificationSettings(nextSettings, user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE);
+
+  if (user && config.hasSupabaseConfig && notificationSettings.barkPush.enabled) {
+   void NotificationSettingsService.saveSettings(nextSettings).catch(error => {
+    console.error('Failed to sync notification locale to cloud:', error);
+   });
+  }
+ }, [appLocale, loading, notificationSettings, user]);
 
  // 使用数据同步Hook
  const {
@@ -568,7 +602,7 @@ export function App() {
  <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
  <div className="text-center">
  <div className="w-8 h-8 border-4 border-emerald-600 dark:border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
- <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+ <p className="text-gray-600 dark:text-gray-400">{t('app:loading')}</p>
  </div>
  </div>
  );
@@ -586,16 +620,16 @@ export function App() {
  {/* 移动端优化的头部布局 */}
  <div className="sticky top-4 z-50 p-4 sm:px-6 sm:py-4 mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-[#fcfcfc]/80 dark:bg-[#1a1c1e]/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-800/50 rounded-3xl shadow-fey app-dark-topbar"> <div className="flex items-center gap-3">
  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white app-dark-text-primary">
- Subscription Manager
+ {t('app:title')}
  </h1>
  {subscriptions.length > 0 && (
  <button
  onClick={() => setIsAdvancedReportOpen(true)}
  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1a1c1e] text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-apple transition-all text-sm font-medium app-dark-chip"
- title="View Advanced Report"
+ title={t('app:viewAdvancedReport')}
  >
  <BarChart3 className="w-4 h-4"/>
- <span className="hidden sm:inline">Advanced Report</span>
+ <span className="hidden sm:inline">{t('app:advancedReport')}</span>
  </button>
  )}
  </div>
@@ -683,8 +717,8 @@ export function App() {
  </div>
  <p className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base text-center app-dark-text-secondary">
  {sortedSubscriptions.length === 0
- ?"Add your first subscription"
- :"Add a subscription"}
+ ?t('app:addFirstSubscription')
+ :t('app:addSubscription')}
  </p>
  </button>
  </div>
@@ -793,8 +827,8 @@ export function App() {
  <Suspense
  fallback={(
   <LazyModalFallback
-   title="Loading Notification Settings"
-   description="Preparing your notification preferences..."
+   title={t('app:loadingNotificationSettingsTitle')}
+   description={t('app:loadingNotificationSettingsDescription')}
    onClose={() => setIsNotificationSettingsModalOpen(false)}
   />
  )}
@@ -805,13 +839,18 @@ export function App() {
   settings={notificationSettings}
   onOpenAuth={() => setIsAuthModalOpen(true)}
   onSave={async (newSettings) => {
-  setNotificationSettings(newSettings);
-  saveNotificationSettings(newSettings);
+  const nextSettings: ReminderSettings = {
+  ...newSettings,
+  locale: appLocale,
+  };
+
+  setNotificationSettings(nextSettings);
+  saveNotificationSettings(nextSettings);
 
   // 如果用户已登录且云同步可用，同时保存到云端
   if (user && config.hasSupabaseConfig) {
   try {
-  await NotificationSettingsService.saveSettings(newSettings);
+  await NotificationSettingsService.saveSettings(nextSettings);
   } catch (error) {
   console.error('Failed to sync notification settings to cloud:', error);
   }
@@ -819,7 +858,7 @@ export function App() {
   }}
   />
  </Suspense>
- )}
+)}
 
  {/* 隐藏的文件输入 */}
  <input
@@ -835,8 +874,8 @@ export function App() {
  <Suspense
  fallback={(
   <LazyModalFallback
-   title="Loading Report"
-   description="Preparing analytics and charts..."
+   title={t('app:loadingReportTitle')}
+   description={t('app:loadingReportDescription')}
    onClose={() => setIsAdvancedReportOpen(false)}
   />
  )}
@@ -855,8 +894,8 @@ export function App() {
  <Suspense
  fallback={(
   <LazyModalFallback
-   title="Loading Pricing"
-   description="Fetching plan details..."
+   title={t('app:loadingPricingTitle')}
+   description={t('app:loadingPricingDescription')}
    onClose={() => setIsPricingModalOpen(false)}
   />
  )}

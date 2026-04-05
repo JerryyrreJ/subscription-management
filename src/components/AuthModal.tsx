@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { X, Mail, Lock, User, AlertCircle, CheckCircle, Github } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface AuthModalProps {
  isOpen: boolean
@@ -8,6 +9,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+ const { t } = useTranslation(['auth'])
  const [isLogin, setIsLogin] = useState(true)
  const [email, setEmail] = useState('')
  const [password, setPassword] = useState('')
@@ -30,7 +32,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  const { error } = await signIn(email, password, rememberMe)
  if (error) throw error
 
- setSuccess('Login successful!')
+ setSuccess(t('auth:loginSuccess'))
  setTimeout(() => {
  onClose()
  resetForm()
@@ -39,7 +41,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  const { error } = await signUp(email, password, nickname)
  if (error) throw error
 
- setSuccess('Sign up successful! Please check your email to confirm your account before logging in.')
+ setSuccess(t('auth:signUpSuccess'))
  setTimeout(() => {
  setIsLogin(true)
  setSuccess('')
@@ -50,13 +52,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  const errorMessage = error instanceof Error ? error.message : String(error)
 
  if (errorMessage.includes('Invalid login credentials')) {
- setError('Invalid email or password. Please check and try again.')
+ setError(t('auth:invalidCredentials'))
  } else if (errorMessage.includes('User already registered')) {
- setError('This email is already registered. Please login directly.')
+ setError(t('auth:userAlreadyRegistered'))
  } else if (errorMessage.includes('Password should be at least 6 characters')) {
- setError('Password must be at least 6 characters.')
+ setError(t('auth:passwordTooShort'))
  } else {
- setError(errorMessage || 'Operation failed. Please try again.')
+ setError(errorMessage || t('auth:operationFailed'))
  }
  } finally {
  setLoading(false)
@@ -74,7 +76,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  } catch (error: unknown) {
  console.error('OAuth login error:', error)
  const errorMessage = error instanceof Error ? error.message : String(error)
- setError(errorMessage || `Failed to login with ${provider}. Please try again.`)
+ const providerLabel = provider === 'github' ? t('auth:providerGithub') : t('auth:providerGoogle')
+ setError(errorMessage || t('auth:oauthFailed', { provider: providerLabel }))
  setLoading(false)
  }
  }
@@ -107,7 +110,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6 modal-content">
  <div className="flex justify-between items-center mb-6">
  <h2 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
- {isLogin ? 'Login Account' : 'Create Account'}
+ {isLogin ? t('auth:loginTitle') : t('auth:signUpTitle')}
  </h2>
  <button
  onClick={handleClose}
@@ -121,7 +124,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  {!isLogin && (
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Nickname
+ {t('auth:nicknameLabel')}
  </label>
  <div className="relative">
  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5"/>
@@ -131,21 +134,21 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  value={nickname}
  onChange={(e) => setNickname(e.target.value)}
  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
- placeholder="Your display name"
+ placeholder={t('auth:nicknamePlaceholder')}
  disabled={loading}
  minLength={2}
  maxLength={30}
  />
  </div>
  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
- This will be displayed instead of your email
+ {t('auth:nicknameHint')}
  </p>
  </div>
  )}
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Email Address
+ {t('auth:emailLabel')}
  </label>
  <div className="relative">
  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5"/>
@@ -155,7 +158,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  value={email}
  onChange={(e) => setEmail(e.target.value)}
  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
- placeholder="your@email.com"
+ placeholder={t('auth:emailPlaceholder')}
  disabled={loading}
  />
  </div>
@@ -163,7 +166,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Password
+ {t('auth:passwordLabel')}
  </label>
  <div className="relative">
  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5"/>
@@ -173,14 +176,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  value={password}
  onChange={(e) => setPassword(e.target.value)}
  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
- placeholder="••••••••"
+ placeholder={t('auth:passwordPlaceholder')}
  minLength={6}
  disabled={loading}
  />
  </div>
  {!isLogin && (
  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
- Password must be at least 6 characters
+ {t('auth:passwordHint')}
  </p>
  )}
  </div>
@@ -196,7 +199,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  disabled={loading}
  />
  <label htmlFor="rememberMe"className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
- Remember me (trust this device)
+ {t('auth:rememberMe')}
  </label>
  </div>
  )}
@@ -223,10 +226,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  {loading ? (
  <div className="flex items-center justify-center space-x-2">
  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
- <span>Processing...</span>
+ <span>{t('auth:processing')}</span>
  </div>
  ) : (
- isLogin ? 'Login' : 'Sign Up'
+ isLogin ? t('auth:login') : t('auth:signUp')
  )}
  </button>
  </form>
@@ -239,7 +242,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  </div>
  <div className="relative flex justify-center text-sm">
  <span className="px-2 bg-white dark:bg-[#1a1c1e] text-gray-500 dark:text-gray-400">
- Or continue with
+ {t('auth:oauthDivider')}
  </span>
  </div>
  </div>
@@ -252,7 +255,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  className="flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
  >
  <Github className="w-5 h-5 mr-2"/>
- <span className="text-sm font-medium">GitHub</span>
+ <span className="text-sm font-medium">{t('auth:providerGithub')}</span>
  </button>
 
  <button
@@ -267,7 +270,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <path fill="#FBBC05"d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
  <path fill="#EA4335"d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
  </svg>
- <span className="text-sm font-medium">Google</span>
+ <span className="text-sm font-medium">{t('auth:providerGoogle')}</span>
  </button>
  </div>
  </>
@@ -279,13 +282,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  disabled={loading}
  className="text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:text-emerald-300 dark:hover:text-zinc-700 dark:hover:text-zinc-300 text-sm font-medium transition-colors"
  >
- {isLogin ? 'Don\'t have an account? Sign up' : 'Already have an account? Login'}
+ {isLogin ? t('auth:switchToSignUp') : t('auth:switchToLogin')}
  </button>
  </div>
 
  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
- Sync your subscription data across multiple devices after login
+ {t('auth:syncHint')}
  </p>
  </div>
  </div>

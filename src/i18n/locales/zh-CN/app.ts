@@ -1,0 +1,16 @@
+export const app = {
+ title: '订阅管理器',
+ documentTitle: '订阅管理器',
+ loading: '加载中...',
+ advancedReport: '高级报表',
+ viewAdvancedReport: '查看高级报表',
+ addFirstSubscription: '添加你的第一个订阅',
+ addSubscription: '添加订阅',
+ loadingNotificationSettingsTitle: '正在加载通知设置',
+ loadingNotificationSettingsDescription: '正在准备你的通知偏好...',
+ loadingReportTitle: '正在加载报表',
+ loadingReportDescription: '正在准备分析与图表...',
+ loadingPricingTitle: '正在加载定价',
+ loadingPricingDescription: '正在获取套餐详情...',
+ cancel: '取消',
+};

@@ -3,6 +3,7 @@ import { ReminderSettings } from '../types'
 import { config } from '../lib/config'
 import { cleanupNotificationHistory } from '../utils/notificationChecker'
 import { getCurrentTimeZone, normalizeTimeZone } from '../utils/dates'
+import { getCurrentLocale, normalizeLocale } from '../utils/locale'
 import { buildNotificationSettingsConfigPayload, NotificationSettingsConfigPayload } from '../utils/notificationSettingsPayload'
 import { scopeNotificationSettingsQueryToUser } from '../utils/notificationSettingsTenantScope'
 
@@ -11,6 +12,7 @@ export interface SupabaseNotificationSettings {
  user_id: string
  bark_enabled: boolean
  time_zone: string | null
+ locale: string | null
  bark_server_url: string
  bark_device_key: string
  bark_days_before: number
@@ -65,6 +67,10 @@ export class NotificationSettingsService {
 
  if (data.time_zone !== settings.timeZone) {
   await this.persistTimeZone(data.user_id, settings.timeZone)
+ }
+
+ if (normalizeLocale(data.locale) !== settings.locale) {
+  await this.persistLocale(data.user_id, settings.locale || getCurrentLocale())
  }
 
  return settings
@@ -129,6 +135,7 @@ export class NotificationSettingsService {
  private static transformFromSupabase(data: SupabaseNotificationSettings): ReminderSettings {
  return {
  timeZone: normalizeTimeZone(data.time_zone, getCurrentTimeZone()),
+ locale: normalizeLocale(data.locale ?? getCurrentLocale()),
  barkPush: {
  enabled: data.bark_enabled,
  serverUrl: data.bark_server_url,
@@ -137,6 +144,22 @@ export class NotificationSettingsService {
  notificationHistory: data.bark_history || {}
  }
  }
+ }
+
+ private static async persistLocale(userId: string, locale: string): Promise<void> {
+  if (!supabase) {
+   throw new Error('Cloud sync not available')
+  }
+
+  const { error } = await supabase
+  .from('user_notification_settings')
+  .update({ locale: normalizeLocale(locale) })
+  .eq('user_id', userId)
+
+  if (error) {
+   console.error('Error updating notification locale:', error)
+   throw error
+  }
  }
 
  private static hasSameHistory(

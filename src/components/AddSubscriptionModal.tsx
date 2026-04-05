@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Period, Subscription, Currency } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
@@ -43,6 +44,7 @@ export function AddSubscriptionModal({
  categorySync,
  isNotificationReady
 }: AddSubscriptionModalProps) {
+ const { t } = useTranslation(['addSubscription']);
  const formRef = useRef<HTMLFormElement>(null);
  const [formData, setFormData] = useState(() => buildInitialFormData(isNotificationReady));
 
@@ -52,6 +54,30 @@ export function AddSubscriptionModal({
  const [newCategoryInput, setNewCategoryInput] = useState('');
  const [dateValidationError, setDateValidationError] = useState(false);
  const [notificationValidationError, setNotificationValidationError] = useState(false);
+
+ const translateAmountValidationError = (message: string): string => {
+  if (message === 'Amount is required') {
+   return t('addSubscription:amountRequired');
+  }
+
+  if (message === 'Amount must be a valid number with up to 2 decimal places') {
+   return t('addSubscription:amountInvalid');
+  }
+
+  if (message === 'Amount must be a finite number') {
+   return t('addSubscription:amountFinite');
+  }
+
+  if (message === 'Amount cannot be negative') {
+   return t('addSubscription:amountNegative');
+  }
+
+  if (message.startsWith('Amount cannot exceed')) {
+   return t('addSubscription:amountExceedsMax', { max: MAX_SUBSCRIPTION_AMOUNT });
+  }
+
+  return message;
+ };
 
  // 加载类型列表 - 每次打开模态框时重新加载，确保显示最新类别
  useEffect(() => {
@@ -104,7 +130,7 @@ export function AddSubscriptionModal({
  setIsAddingNewCategory(false);
  setNewCategoryInput('');
  } else {
- alert('Failed to add category. It may already exist or contain invalid characters.');
+ alert(t('addSubscription:failedToAddCategory'));
  }
  };
 
@@ -132,7 +158,7 @@ export function AddSubscriptionModal({
 
  const amountError = validateSubscriptionAmount(formData.amount);
  if (amountError) {
-  alert(amountError);
+  alert(translateAmountValidationError(amountError));
   return false;
  }
 
@@ -228,7 +254,7 @@ export function AddSubscriptionModal({
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto modal-content relative">
  <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
  <div className="flex items-center justify-between">
- <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white tracking-tight">Add Subscription</h2>
+ <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white tracking-tight">{t('addSubscription:title')}</h2>
  <button
  onClick={handleClose}
  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
@@ -240,7 +266,7 @@ export function AddSubscriptionModal({
  <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Subscription Name
+ {t('addSubscription:nameLabel')}
  </label>
  <input
  type="text"
@@ -248,13 +274,13 @@ export function AddSubscriptionModal({
  value={formData.name}
  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
  className="w-full px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm sm:text-base"
- placeholder="Netflix"
+ placeholder={t('addSubscription:namePlaceholder')}
  />
  </div>
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Category
+ {t('addSubscription:categoryLabel')}
  </label>
 
  {isAddingNewCategory ? (
@@ -271,7 +297,7 @@ export function AddSubscriptionModal({
  handleAddNewCategory();
  }
  }}
- placeholder="Enter new category name"
+ placeholder={t('addSubscription:newCategoryPlaceholder')}
  autoFocus
  className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-[#1a1c1e] text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
  />
@@ -280,14 +306,14 @@ export function AddSubscriptionModal({
  onClick={handleAddNewCategory}
  className="px-3 py-2 bg-emerald-600 dark:bg-emerald-500 text-white rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors text-sm"
  >
- Add
+ {t('addSubscription:addCategory')}
  </button>
  <button
  type="button"
  onClick={handleCancelAddCategory}
  className="px-3 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors text-sm"
  >
- Cancel
+ {t('app:cancel')}
  </button>
  </div>
  </div>
@@ -297,11 +323,11 @@ export function AddSubscriptionModal({
  value={formData.category}
  onChange={handleCategoryChange}
  options={[
- { value: '', label: 'Select category' },
+ { value: '', label: t('addSubscription:selectCategory') },
  ...categories.map(cat => ({ value: cat, label: cat })),
- { value: '__add_new__', label: '+ Add New Category' }
+ { value: '__add_new__', label: t('addSubscription:addNewCategory') }
  ]}
- placeholder="Select category"
+ placeholder={t('addSubscription:selectCategory')}
  required={true}
  />
  )}
@@ -310,7 +336,7 @@ export function AddSubscriptionModal({
  <div className="flex gap-3">
  <div className="w-[30%]">
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Currency
+ {t('addSubscription:currencyLabel')}
  </label>
  <CustomSelect
  value={formData.currency}
@@ -324,7 +350,7 @@ export function AddSubscriptionModal({
  </div>
  <div className="w-[70%]">
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Amount
+ {t('addSubscription:amountLabel')}
  </label>
   <input
   type="number"
@@ -335,22 +361,22 @@ export function AddSubscriptionModal({
   value={formData.amount}
   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
- placeholder="29.99"
+ placeholder={t('addSubscription:amountPlaceholder')}
  />
  </div>
  </div>
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Payment Period
+ {t('addSubscription:paymentPeriodLabel')}
  </label>
  <CustomSelect
  value={formData.period}
  onChange={(value) => setFormData({ ...formData, period: value as Period })}
  options={[
- { value: 'monthly', label: 'Monthly' },
- { value: 'yearly', label: 'Yearly' },
- { value: 'custom', label: 'Custom' }
+ { value: 'monthly', label: t('addSubscription:periodMonthly') },
+ { value: 'yearly', label: t('addSubscription:periodYearly') },
+ { value: 'custom', label: t('addSubscription:periodCustom') }
  ]}
  required={true}
  />
@@ -359,7 +385,7 @@ export function AddSubscriptionModal({
  {formData.period === 'custom' && (
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Custom Period (days)
+ {t('addSubscription:customPeriodLabel')}
  </label>
  <input
  type="number"
@@ -368,14 +394,14 @@ export function AddSubscriptionModal({
  value={formData.customDate}
  onChange={(e) => setFormData({ ...formData, customDate: e.target.value })}
  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
- placeholder="30"
+ placeholder={t('addSubscription:customPeriodPlaceholder')}
  />
  </div>
  )}
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- Last Payment Date
+ {t('addSubscription:lastPaymentDateLabel')}
  </label>
  <CustomDatePicker
  value={formData.lastPaymentDate}
@@ -390,7 +416,7 @@ export function AddSubscriptionModal({
  />
  {dateValidationError && (
  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
- Last payment date is required.
+ {t('addSubscription:lastPaymentDateRequired')}
  </p>
  )}
  </div>
@@ -408,7 +434,7 @@ export function AddSubscriptionModal({
  <div className="flex-1">
  <div className="flex items-center justify-between">
  <label className="text-sm font-medium text-gray-900 dark:text-white cursor-pointer">
- Enable notifications
+ {t('addSubscription:notificationsLabel')}
  </label>
  <button
  type="button"
@@ -429,12 +455,12 @@ export function AddSubscriptionModal({
  </div>
  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
  {formData.notificationEnabled
- ? 'You will receive reminders for this subscription'
- : 'No reminders will be sent for this subscription'}
+ ? t('addSubscription:notificationsEnabledHint')
+ : t('addSubscription:notificationsDisabledHint')}
  </p>
  {notificationValidationError && (
  <p className="mt-2 text-xs text-red-600 dark:text-red-400">
- Finish this subscription first, then set up notifications.
+ {t('addSubscription:notificationSetupValidation')}
  </p>
  )}
  </div>
@@ -447,7 +473,7 @@ export function AddSubscriptionModal({
  disabled={isSubmitting}
  className="w-full bg-emerald-600 dark:bg-emerald-500 text-white py-2 px-4 rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors duration-200 disabled:bg-zinc-400 disabled:cursor-not-allowed"
  >
- {isSubmitting ? 'Adding...' : 'Add Subscription'}
+ {isSubmitting ? t('addSubscription:submitting') : t('addSubscription:submit')}
  </button>
  </div>
  </form>

@@ -1,0 +1,4 @@
+export const theme = {
+ switchToDark: 'Switch to dark mode',
+ switchToLight: 'Switch to light mode',
+};

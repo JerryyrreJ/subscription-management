@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Calendar, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Subscription } from '../types';
 import { formatDate, getDaysUntil, getAutoRenewedDates, parseDateOnly, getTodayDateOnly } from '../utils/dates';
 import { formatCurrency } from '../utils/currency';
@@ -12,6 +13,8 @@ interface SubscriptionCardProps {
 }
 
 export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: SubscriptionCardProps) {
+ const { t } = useTranslation(['subscriptionCard', 'addSubscription']);
+
  // 检查是否需要自动续期
  const renewedDates = getAutoRenewedDates(
  subscription.lastPaymentDate,
@@ -47,6 +50,21 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  const totalDays = (nextPaymentDate.getTime() - lastPaymentDate.getTime()) / (1000 * 60 * 60 * 24);
  const daysElapsed = (today.getTime() - lastPaymentDate.getTime()) / (1000 * 60 * 60 * 24);
  const progress = Math.min(Math.max((daysElapsed / totalDays) * 100, 0), 100);
+ const roundedDaysElapsed = Math.round(daysElapsed);
+ const roundedTotalDays = Math.round(totalDays);
+ const customDays = Number.parseInt(subscription.customDate || '', 10);
+ const periodLabel = subscription.period === 'monthly'
+  ? t('addSubscription:periodMonthly')
+  : subscription.period === 'yearly'
+   ? t('addSubscription:periodYearly')
+   : Number.isFinite(customDays) && customDays > 0
+    ? t(
+     customDays === 1
+      ? 'subscriptionCard:customPeriodDaysOne'
+      : 'subscriptionCard:customPeriodDaysOther',
+     { count: customDays }
+    )
+    : t('addSubscription:periodCustom');
 
  return (
  <div
@@ -65,7 +83,7 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight app-dark-text-primary">
  {formatCurrency(subscription.amount, subscription.currency || 'CNY')}
  </div>
- <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 app-dark-text-muted">{subscription.period}</span>
+ <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 app-dark-text-muted">{periodLabel}</span>
  </div>
  </div>
 
@@ -73,15 +91,22 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  <div className="flex items-center space-x-2">
  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-gray-500 flex-shrink-0 app-dark-text-muted"/>
  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 app-dark-text-secondary">
-    Next: {formatDate(renewedDates.nextPaymentDate)}
-    </span>
+ {t('subscriptionCard:nextPayment', { date: formatDate(renewedDates.nextPaymentDate) })}
+ </span>
  </div>
 
  {isUpcoming && (
  <div className="flex items-center space-x-1 text-amber-600">
  <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4"/>
  <span className="text-xs sm:text-sm font-medium">
- {daysUntil === 0 ? 'Due today' : `Due in ${daysUntil} days`}
+ {daysUntil === 0
+  ? t('subscriptionCard:dueToday')
+  : t(
+   daysUntil === 1
+    ? 'subscriptionCard:dueInDaysOne'
+    : 'subscriptionCard:dueInDaysOther',
+   { count: daysUntil }
+  )}
  </span>
  </div>
  )}
@@ -96,10 +121,20 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  </div>
  <div className="flex justify-between mt-1">
  <span className="text-xs text-gray-500 dark:text-gray-400 app-dark-text-muted">
- {Math.round(daysElapsed)} days used
+ {t(
+  roundedDaysElapsed === 1
+   ? 'subscriptionCard:daysUsedOne'
+   : 'subscriptionCard:daysUsedOther',
+  { count: roundedDaysElapsed }
+ )}
  </span>
  <span className="text-xs text-gray-500 dark:text-gray-400 app-dark-text-muted">
- {Math.round(totalDays)} days total
+ {t(
+  roundedTotalDays === 1
+   ? 'subscriptionCard:daysTotalOne'
+   : 'subscriptionCard:daysTotalOther',
+  { count: roundedTotalDays }
+ )}
  </span>
  </div>
  </div>

@@ -5,6 +5,7 @@ import {
  ExchangeRateLoadResult,
  ExchangeRates,
 } from '../types';
+import { getCurrentLocale, getIntlLocale } from './locale';
 
 export const CURRENCIES: CurrencyInfo[] = [
  { code: 'CNY', symbol: '¥', name: '人民币' },
@@ -25,14 +26,43 @@ export const getCurrencyInfo = (code: Currency): CurrencyInfo => {
  return CURRENCIES.find(currency => currency.code === code) || CURRENCIES[0];
 };
 
-export const formatCurrency = (amount: number, currency: Currency): string => {
- const currencyInfo = getCurrencyInfo(currency);
+const currencyFormatterCache = new Map<string, Intl.NumberFormat>();
 
- if (currency === 'JPY') {
- return `${currencyInfo.symbol}${Math.round(amount).toLocaleString()}`;
+const getCurrencyFormatter = (currency: Currency, locale: string): Intl.NumberFormat => {
+ const intlLocale = getIntlLocale(locale);
+ const cacheKey = `${intlLocale}:${currency}`;
+ const cachedFormatter = currencyFormatterCache.get(cacheKey);
+
+ if (cachedFormatter) {
+  return cachedFormatter;
  }
 
- return `${currencyInfo.symbol}${amount.toFixed(2)}`;
+ const formatter = new Intl.NumberFormat(intlLocale, {
+  style: 'currency',
+  currency,
+  currencyDisplay: 'symbol',
+ });
+
+ currencyFormatterCache.set(cacheKey, formatter);
+ return formatter;
+};
+
+export const formatCurrency = (
+ amount: number,
+ currency: Currency,
+ locale: string = getCurrentLocale()
+): string => {
+ try {
+  return getCurrencyFormatter(currency, locale).format(amount);
+ } catch {
+  const currencyInfo = getCurrencyInfo(currency);
+
+  if (currency === 'JPY') {
+   return `${currencyInfo.symbol}${Math.round(amount).toLocaleString()}`;
+  }
+
+  return `${currencyInfo.symbol}${amount.toFixed(2)}`;
+ }
 };
 
 const EXCHANGE_RATE_API_URL = 'https://api.exchangerate-api.com/v4/latest';

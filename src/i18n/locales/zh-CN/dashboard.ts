@@ -1,0 +1,17 @@
+export const dashboard = {
+ allCategories: '全部分类',
+ sortPrice: '价格',
+ sortName: '名称',
+ sortCategory: '分类',
+ sortDueDate: '到期日',
+ sortCreatedDate: '创建日期',
+ offlineRates: '当前使用离线汇率，总金额可能为近似值。{{suffix}}',
+ refreshFailed: '最新汇率刷新失败。{{suffix}}',
+ overview: '概览',
+ monthly: '每月',
+ yearly: '每年',
+ totalCost: '{{mode}}总支出',
+ activeCount: '{{count}} 个进行中',
+ sortAscending: '升序排序',
+ sortDescending: '降序排序',
+};
