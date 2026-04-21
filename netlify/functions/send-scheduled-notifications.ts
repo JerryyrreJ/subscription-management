@@ -1,10 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendBarkNotification } from '../../src/utils/barkPush'
-import { addBillingPeriodToDate, compareDateOnly, formatDateOnly, getDaysUntil, getTodayDateOnly, normalizeTimeZone } from '../../src/utils/dates'
+import { formatDateOnly, getTodayDateOnly, normalizeTimeZone } from '../../src/utils/dates'
 import { cleanupNotificationHistoryEntries, mergeNotificationHistoryEntries, wasNotifiedToday } from '../../src/utils/notificationHistory'
 import { buildSubscriptionReminderContent } from '../../src/utils/notificationContent'
 import { DEFAULT_LOCALE } from '../../src/i18n/types'
 import { normalizeLocale } from '../../src/utils/locale'
+import { hasValidBarkConfig } from '../../src/utils/barkSettings'
+import { resolveSubscriptionRenewal } from '../../src/utils/subscriptionRenewal'
 import type { Config } from '@netlify/functions'
 
 // Supabase 配置（使用 Service Role Key 绕过 RLS）
@@ -24,6 +26,7 @@ interface Subscription {
   amount: number
   currency: string
   period: string
+  last_payment_date: string
   next_payment_date: string
   notification_enabled: boolean
   custom_date?: string
@@ -40,50 +43,29 @@ interface NotificationSettings {
   bark_history: Record<string, string>
 }
 
-/**
- * 自动续费：如果订阅已过期，计算最新的续费日期
- * 逻辑与前端 src/utils/dates.ts 中的 getAutoRenewedDates() 保持一致
- */
-function getAutoRenewedDate(
-  nextPaymentDate: string,
-  period: string,
-  customDate?: string,
-  timeZone: string = 'UTC'
+function buildUserLogContext(
+  userId: string,
+  details?: Record<string, string | number | boolean>
 ): string {
-  const today = formatDateOnly(getTodayDateOnly(timeZone))
+  const parts = [`user_id=${userId}`]
 
-  // 如果还没到期，返回原始日期
-  if (compareDateOnly(nextPaymentDate, today) >= 0) {
-    return nextPaymentDate
-  }
+  Object.entries(details || {}).forEach(([key, value]) => {
+    parts.push(`${key}=${String(value)}`)
+  })
 
-  let renewedDate = nextPaymentDate
-
-  while (compareDateOnly(renewedDate, today) < 0) {
-    const advancedDate = addBillingPeriodToDate(renewedDate, period, customDate)
-
-    if (advancedDate === renewedDate) {
-      break
-    }
-
-    renewedDate = advancedDate
-  }
-
-  return renewedDate
+  return parts.join(' ')
 }
 
-/**
- * 计算距离下次付款的天数（考虑自动续费）
- */
-function getDaysUntilPayment(
-  nextPaymentDate: string,
-  period: string,
-  customDate?: string,
-  timeZone: string = 'UTC'
-): number {
-  // 先自动续费，获取最新的续费日期
-  const renewedDate = getAutoRenewedDate(nextPaymentDate, period, customDate, timeZone)
-  return getDaysUntil(renewedDate, timeZone)
+function buildSubscriptionLogContext(
+  userId: string,
+  subscription: Pick<Subscription, 'id' | 'name'>,
+  details?: Record<string, string | number | boolean>
+): string {
+  return buildUserLogContext(userId, {
+    subscription_id: subscription.id,
+    subscription_name: subscription.name,
+    ...details
+  })
 }
 
 function hasSameHistory(
@@ -196,9 +178,30 @@ export default async (req: Request): Promise<Response> => {
       const { user_id, bark_server_url, bark_device_key, bark_days_before, bark_history } = settings
       const userTimeZone = normalizeTimeZone(settings.time_zone, 'UTC')
       const userLocale = normalizeLocale(settings.locale ?? DEFAULT_LOCALE)
+      const barkDaysBeforeValid = [1, 3, 7, 14].includes(bark_days_before)
 
-      console.log(`[Scheduled Notifications] Processing user: ${user_id}`)
-      console.log(`[Scheduled Notifications] User time zone: ${userTimeZone}`)
+      console.log(`[Scheduled Notifications] Processing user ${buildUserLogContext(user_id)}`)
+      console.log(`[Scheduled Notifications] User time zone ${buildUserLogContext(user_id, { time_zone: userTimeZone })}`)
+
+      if (!hasValidBarkConfig({
+        barkPush: {
+          enabled: true,
+          serverUrl: bark_server_url,
+          deviceKey: bark_device_key,
+          daysBefore: bark_days_before,
+          notificationHistory: bark_history || {}
+        }
+      })) {
+        console.error(`[Scheduled Notifications] Invalid Bark configuration, skipping user ${buildUserLogContext(user_id)}`)
+        totalErrors++
+        continue
+      }
+
+      if (!barkDaysBeforeValid) {
+        console.error(`[Scheduled Notifications] Invalid bark_days_before, skipping user ${buildUserLogContext(user_id, { bark_days_before: bark_days_before })}`)
+        totalErrors++
+        continue
+      }
 
       // 3. 获取该用户的所有启用了通知的订阅
       const { data: subscriptions, error: subscriptionsError } = await supabase
@@ -208,17 +211,17 @@ export default async (req: Request): Promise<Response> => {
         .eq('notification_enabled', true)
 
       if (subscriptionsError) {
-        console.error(`[Scheduled Notifications] Error fetching subscriptions for user ${user_id}:`, subscriptionsError)
+        console.error(`[Scheduled Notifications] Error fetching subscriptions ${buildUserLogContext(user_id)}:`, subscriptionsError)
         totalErrors++
         continue
       }
 
       if (!subscriptions || subscriptions.length === 0) {
-        console.log(`[Scheduled Notifications] No subscriptions with notifications enabled for user ${user_id}`)
+        console.log(`[Scheduled Notifications] No subscriptions with notifications enabled ${buildUserLogContext(user_id)}`)
         continue
       }
 
-      console.log(`[Scheduled Notifications] Found ${subscriptions.length} subscriptions for user ${user_id}`)
+      console.log(`[Scheduled Notifications] Found subscriptions ${buildUserLogContext(user_id, { count: subscriptions.length })}`)
 
       const updatedHistory = { ...cleanupNotificationHistoryEntries(bark_history || {}, userTimeZone) }
       const newHistoryEntries: Record<string, string> = {}
@@ -226,38 +229,36 @@ export default async (req: Request): Promise<Response> => {
 
       // 4. 检查每个订阅
       for (const subscription of subscriptions as Subscription[]) {
-        // 使用自动续费逻辑计算实际的续费日期
-        const renewedDate = getAutoRenewedDate(
-          subscription.next_payment_date,
-          subscription.period,
-          subscription.custom_date,
-          userTimeZone
-        )
-        const daysUntil = getDaysUntilPayment(
-          subscription.next_payment_date,
-          subscription.period,
-          subscription.custom_date,
-          userTimeZone
-        )
+        const renewal = resolveSubscriptionRenewal({
+          lastPaymentDate: subscription.last_payment_date,
+          nextPaymentDate: subscription.next_payment_date,
+          period: subscription.period as Subscription['period'],
+          customDate: subscription.custom_date
+        }, userTimeZone)
+        const renewedDate = renewal.effectiveNextPaymentDate
+        const daysUntil = renewal.daysUntilEffectiveNextPayment
 
         // 🔍 调试日志: 输出每个订阅的详细信息
-        console.log(`[Scheduled Notifications] 订阅: ${subscription.name}`)
-        console.log(`  - 数据库中的日期: ${subscription.next_payment_date}`)
-        console.log(`  - 自动续费后的日期: ${renewedDate}`)
-        console.log(`  - 距离续费天数: ${daysUntil} 天`)
-        console.log(`  - 设置的提醒天数: ${bark_days_before} 天`)
-        console.log(`  - 今天是否已推送: ${wasNotifiedToday(subscription.id, updatedHistory, userTimeZone)}`)
+        console.log(`[Scheduled Notifications] Subscription evaluation ${buildSubscriptionLogContext(user_id, subscription, {
+          stored_last_payment_date: renewal.storedLastPaymentDate,
+          stored_next_payment_date: renewal.storedNextPaymentDate,
+          effective_next_payment_date: renewedDate,
+          days_until: daysUntil,
+          bark_days_before: bark_days_before,
+          notified_today: wasNotifiedToday(subscription.id, updatedHistory, userTimeZone),
+          is_auto_renewed: renewal.isAutoRenewed
+        })}`)
 
         // 跳过已过期或距离太远的订阅
         if (daysUntil < 0 || daysUntil > 14) {
-          console.log(`  ⏭️  跳过: 距离续费 ${daysUntil} 天 (超出范围)`)
+          console.log(`[Scheduled Notifications] Skipping subscription outside reminder window ${buildSubscriptionLogContext(user_id, subscription, { days_until: daysUntil })}`)
           continue
         }
 
         // 检查是否需要发送推送
         if (daysUntil === bark_days_before && !wasNotifiedToday(subscription.id, updatedHistory, userTimeZone)) {
-          console.log(`  ✅ 匹配推送条件！准备发送通知...`)
-          console.log(`[Scheduled Notifications] Sending notification for subscription: ${subscription.name} (${daysUntil} days until renewal)`)
+          console.log(`[Scheduled Notifications] Subscription matched reminder condition ${buildSubscriptionLogContext(user_id, subscription, { days_until: daysUntil })}`)
+          console.log(`[Scheduled Notifications] Sending notification ${buildSubscriptionLogContext(user_id, subscription, { days_until: daysUntil })}`)
 
           const { title, body, group } = buildSubscriptionReminderContent(
             {
@@ -281,7 +282,7 @@ export default async (req: Request): Promise<Response> => {
             const reserved = await reserveNotificationDelivery(user_id, subscription.id, deliveryDate)
 
             if (!reserved) {
-              console.log(`  ⏭️  跳过: 今天的 Bark 推送已被其他任务占用或发送`)
+              console.log(`[Scheduled Notifications] Delivery already reserved for today ${buildSubscriptionLogContext(user_id, subscription, { delivery_date: deliveryDate })}`)
               continue
             }
 
@@ -307,10 +308,10 @@ export default async (req: Request): Promise<Response> => {
               newHistoryEntries[subscription.id] = sentAt
               userNotificationsSent++
               totalNotificationsSent++
-              console.log(`[Scheduled Notifications] Successfully sent notification for: ${subscription.name}`)
+              console.log(`[Scheduled Notifications] Successfully sent notification ${buildSubscriptionLogContext(user_id, subscription, { sent_at: sentAt })}`)
             } else {
               await releaseNotificationDelivery(user_id, subscription.id, deliveryDate)
-              console.error(`[Scheduled Notifications] Failed to send notification for: ${subscription.name}`)
+              console.error(`[Scheduled Notifications] Failed to send notification ${buildSubscriptionLogContext(user_id, subscription, { delivery_date: deliveryDate })}`)
               totalErrors++
             }
           } catch (error) {
@@ -318,18 +319,21 @@ export default async (req: Request): Promise<Response> => {
               try {
                 await releaseNotificationDelivery(user_id, subscription.id, deliveryDate)
               } catch (releaseError) {
-                console.error(`[Scheduled Notifications] Error releasing delivery lock for ${subscription.name}:`, releaseError)
+                console.error(`[Scheduled Notifications] Error releasing delivery lock ${buildSubscriptionLogContext(user_id, subscription, { delivery_date: deliveryDate })}:`, releaseError)
               }
             }
-            console.error(`[Scheduled Notifications] Error sending notification for ${subscription.name}:`, error)
+            console.error(`[Scheduled Notifications] Error sending notification ${buildSubscriptionLogContext(user_id, subscription, { delivery_date: deliveryDate })}:`, error)
             totalErrors++
           }
         } else {
           // 不满足推送条件，输出原因
           if (daysUntil !== bark_days_before) {
-            console.log(`  ⏭️  跳过: 距离续费 ${daysUntil} 天 ≠ 设置的 ${bark_days_before} 天`)
+            console.log(`[Scheduled Notifications] Subscription does not match reminder day ${buildSubscriptionLogContext(user_id, subscription, {
+              days_until: daysUntil,
+              bark_days_before: bark_days_before
+            })}`)
           } else if (wasNotifiedToday(subscription.id, updatedHistory, userTimeZone)) {
-            console.log(`  ⏭️  跳过: 今天已经推送过`)
+            console.log(`[Scheduled Notifications] Subscription already notified today ${buildSubscriptionLogContext(user_id, subscription)}`)
           }
         }
       }
@@ -347,10 +351,10 @@ export default async (req: Request): Promise<Response> => {
           .eq('user_id', user_id)
 
         if (updateError) {
-          console.error(`[Scheduled Notifications] Error updating notification history for user ${user_id}:`, updateError)
+          console.error(`[Scheduled Notifications] Error updating notification history ${buildUserLogContext(user_id)}:`, updateError)
           totalErrors++
         } else {
-          console.log(`[Scheduled Notifications] Updated notification history for user ${user_id}`)
+          console.log(`[Scheduled Notifications] Updated notification history ${buildUserLogContext(user_id, { notifications_sent: userNotificationsSent })}`)
         }
       }
     }

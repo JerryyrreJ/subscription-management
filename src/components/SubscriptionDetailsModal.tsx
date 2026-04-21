@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Subscription } from '../types';
 import { formatDate } from '../utils/dates';
 import { formatCurrency } from '../utils/currency';
+import { resolveSubscriptionRenewal } from '../utils/subscriptionRenewal';
 
 interface SubscriptionDetailsModalProps {
  subscription: Subscription | null;
@@ -23,6 +24,8 @@ export function SubscriptionDetailsModal({
  const { t } = useTranslation(['subscriptionDetails', 'addSubscription']);
 
  if (!isOpen || !subscription) return null;
+
+ const renewal = resolveSubscriptionRenewal(subscription);
 
  const periodLabel = subscription.period === 'monthly'
   ? t('addSubscription:periodMonthly')
@@ -64,11 +67,18 @@ export function SubscriptionDetailsModal({
  {t('subscriptionDetails:lastPayment', { date: formatDate(subscription.lastPaymentDate) })}
  </div>
  <div className="text-gray-600 dark:text-gray-300">
- {t('subscriptionDetails:nextPayment', { date: formatDate(subscription.nextPaymentDate) })}
+ {t('subscriptionDetails:nextPayment', { date: formatDate(renewal.effectiveNextPaymentDate) })}
+ </div>
+ {renewal.isAutoRenewed && (
+  <div className="text-xs text-amber-600 dark:text-amber-400">
+   {t('subscriptionDetails:autoRenewedHint', {
+    storedDate: formatDate(renewal.storedNextPaymentDate),
+   })}
+  </div>
+ )}
  </div>
  </div>
- </div>
- </div>
+</div>
 
  <div className="flex justify-between mt-8 pt-4 border-t border-gray-100 dark:border-gray-700">
  <button

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseBarkUrl, updateBarkPushFromUrl } from '../../src/utils/barkConfig.ts';
+import { hasValidBarkConfig, isBarkReady } from '../../src/utils/barkSettings.ts';
 import type { ReminderSettings } from '../../src/types.ts';
 
 const createBarkPush = (): ReminderSettings['barkPush'] => ({
@@ -35,4 +36,47 @@ test('updateBarkPushFromUrl clears stale config when the input is invalid', () =
    sub_1: '2026-04-01T00:00:00.000Z',
   },
  });
+});
+
+test('hasValidBarkConfig returns true only for valid Bark settings', () => {
+ const settings: Pick<ReminderSettings, 'barkPush'> = {
+  barkPush: createBarkPush(),
+ };
+
+ assert.equal(hasValidBarkConfig(settings), true);
+ assert.equal(
+  hasValidBarkConfig({
+   barkPush: {
+    ...createBarkPush(),
+    deviceKey: '',
+   },
+  }),
+  false
+ );
+});
+
+test('isBarkReady requires both enabled flag and valid config', () => {
+ const settings: Pick<ReminderSettings, 'barkPush'> = {
+  barkPush: createBarkPush(),
+ };
+
+ assert.equal(isBarkReady(settings), true);
+ assert.equal(
+  isBarkReady({
+   barkPush: {
+    ...createBarkPush(),
+    enabled: false,
+   },
+  }),
+  false
+ );
+ assert.equal(
+  isBarkReady({
+   barkPush: {
+    ...createBarkPush(),
+    deviceKey: '',
+   },
+  }),
+  false
+ );
 });

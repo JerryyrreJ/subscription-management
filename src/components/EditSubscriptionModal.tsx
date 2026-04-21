@@ -352,13 +352,22 @@ export function EditSubscriptionModal({
  </label>
  <button
  type="button"
- onClick={() => setFormData({ ...formData, notificationEnabled: !formData.notificationEnabled })}
- disabled={!isBarkEnabled}
+ onClick={() => {
+  if (formData.notificationEnabled) {
+   setFormData({ ...formData, notificationEnabled: false });
+   return;
+  }
+
+  if (isBarkEnabled) {
+   setFormData({ ...formData, notificationEnabled: true });
+  }
+ }}
+ disabled={!isBarkEnabled && !formData.notificationEnabled}
  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 ${
  formData.notificationEnabled && isBarkEnabled
  ? 'bg-teal-600'
  : 'bg-gray-300 dark:bg-gray-600'
- } ${!isBarkEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+ } ${!isBarkEnabled && !formData.notificationEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
  >
  <span
  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${

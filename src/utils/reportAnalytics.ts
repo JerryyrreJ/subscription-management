@@ -2,6 +2,7 @@ import { Subscription, Currency, ExchangeRates } from '../types';
 import type { TFunction } from 'i18next';
 import { convertCurrency } from './currency';
 import { formatMonthYear, getDateOnlyDay, parseDateOnly } from './dates';
+import { resolveSubscriptionRenewal } from './subscriptionRenewal';
 
 // ===== Type Definitions =====
 
@@ -331,7 +332,7 @@ export const generateRenewalHeatmap = (
  }));
 
  subscriptions.forEach(sub => {
- const dayOfMonth = getDateOnlyDay(sub.nextPaymentDate);
+ const dayOfMonth = getDateOnlyDay(resolveSubscriptionRenewal(sub).effectiveNextPaymentDate);
 
  if (dayOfMonth >= 1 && dayOfMonth <= 31) {
  const monthlyCost = convertCurrency(

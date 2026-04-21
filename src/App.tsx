@@ -13,17 +13,8 @@ import {
  ExchangeRateLoadResult
 } from './types';
 import { Dashboard } from './components/Dashboard';
-import { AddSubscriptionModal } from './components/AddSubscriptionModal';
 import { SubscriptionCard } from './components/SubscriptionCard';
-import { SubscriptionDetailsModal } from './components/SubscriptionDetailsModal';
-import { EditSubscriptionModal } from './components/EditSubscriptionModal';
 import { ThemeToggle } from './components/ThemeToggle';
-import { AuthModal } from './components/AuthModal';
-import { EditNicknameModal } from './components/EditNicknameModal';
-import { EditEmailModal } from './components/EditEmailModal';
-import { EditPasswordModal } from './components/EditPasswordModal';
-import { CategorySettingsModal } from './components/CategorySettingsModal';
-import { ImportDataModal } from './components/ImportDataModal';
 import { UserMenu } from './components/UserMenu';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
@@ -51,9 +42,37 @@ import { sortSubscriptions } from './utils/subscriptionSorting';
 import { GUEST_DATA_SCOPE, getUserDataScope, setActiveDataScope } from './utils/dataScope';
 import { createScopedTaskGate } from './utils/scopedTaskGate';
 import { normalizeLocale } from './utils/locale';
+import { isBarkReady } from './utils/barkSettings';
 
 const AdvancedReport = lazy(() =>
  import('./components/AdvancedReport').then(module => ({ default: module.AdvancedReport }))
+);
+const AddSubscriptionModal = lazy(() =>
+ import('./components/AddSubscriptionModal').then(module => ({ default: module.AddSubscriptionModal }))
+);
+const SubscriptionDetailsModal = lazy(() =>
+ import('./components/SubscriptionDetailsModal').then(module => ({ default: module.SubscriptionDetailsModal }))
+);
+const EditSubscriptionModal = lazy(() =>
+ import('./components/EditSubscriptionModal').then(module => ({ default: module.EditSubscriptionModal }))
+);
+const AuthModal = lazy(() =>
+ import('./components/AuthModal').then(module => ({ default: module.AuthModal }))
+);
+const EditNicknameModal = lazy(() =>
+ import('./components/EditNicknameModal').then(module => ({ default: module.EditNicknameModal }))
+);
+const EditEmailModal = lazy(() =>
+ import('./components/EditEmailModal').then(module => ({ default: module.EditEmailModal }))
+);
+const EditPasswordModal = lazy(() =>
+ import('./components/EditPasswordModal').then(module => ({ default: module.EditPasswordModal }))
+);
+const CategorySettingsModal = lazy(() =>
+ import('./components/CategorySettingsModal').then(module => ({ default: module.CategorySettingsModal }))
+);
+const ImportDataModal = lazy(() =>
+ import('./components/ImportDataModal').then(module => ({ default: module.ImportDataModal }))
 );
 const PricingModal = lazy(() =>
  import('./components/PricingModal').then(module => ({ default: module.PricingModal }))
@@ -129,6 +148,8 @@ export function App() {
  const [exchangeRatesStale, setExchangeRatesStale] = useState(false);
  const [exchangeRateError, setExchangeRateError] = useState<string | undefined>();
  const appLocale = normalizeLocale(i18n.language);
+ const notificationReady = isBarkReady(notificationSettings);
+ const notificationScope = user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE;
 
  useEffect(() => {
  document.title = t('app:documentTitle');
@@ -149,14 +170,14 @@ export function App() {
   };
 
   setNotificationSettings(nextSettings);
-  saveNotificationSettings(nextSettings, user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE);
+  saveNotificationSettings(nextSettings, notificationScope);
 
-  if (user && config.hasSupabaseConfig && notificationSettings.barkPush.enabled) {
+  if (user && config.hasSupabaseConfig && isBarkReady(nextSettings)) {
    void NotificationSettingsService.saveSettings(nextSettings).catch(error => {
     console.error('Failed to sync notification locale to cloud:', error);
    });
   }
- }, [appLocale, loading, notificationSettings, user]);
+ }, [appLocale, loading, notificationScope, notificationSettings, user]);
 
  // 使用数据同步Hook
  const {
@@ -385,10 +406,10 @@ export function App() {
  } else {
  // 云端为空，上传本地设置
  const localNotificationSettings = loadNotificationSettings(syncScope);
- if (localNotificationSettings.barkPush.enabled) {
+ if (isBarkReady(localNotificationSettings)) {
  console.log('Cloud notification settings empty, uploading local settings...');
  await NotificationSettingsService.saveSettings(localNotificationSettings);
- }
+}
  }
  } catch (error) {
  console.error('Notification settings sync failed:', error);
@@ -725,103 +746,208 @@ export function App() {
  </div>
  </div>
 
- <AddSubscriptionModal
- isOpen={isAddModalOpen}
- onClose={() => setIsAddModalOpen(false)}
- onAdd={handleAddSubscription}
- onOpenNotificationSettings={() => setIsNotificationSettingsModalOpen(true)}
- categorySync={{
- createCategory
- }}
- isNotificationReady={notificationSettings.barkPush.enabled}
- />
-
- <SubscriptionDetailsModal
- isOpen={selectedSubscription !== null}
- subscription={selectedSubscription!}
- onClose={() => setSelectedSubscription(null)}
- onEdit={handleEditClick}
- onDelete={handleDeleteSubscription}
- />
+ {isAddModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('app:addSubscription')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={() => setIsAddModalOpen(false)}
+  />
+ )}
+ >
+  <AddSubscriptionModal
+  isOpen={isAddModalOpen}
+  onClose={() => setIsAddModalOpen(false)}
+  onAdd={handleAddSubscription}
+  onOpenNotificationSettings={() => setIsNotificationSettingsModalOpen(true)}
+  categorySync={{
+   createCategory
+  }}
+  isNotificationReady={notificationReady}
+  />
+ </Suspense>
+ )}
 
  {selectedSubscription && (
- <EditSubscriptionModal
- subscription={selectedSubscription}
- isOpen={isEditModalOpen}
- onClose={() => setIsEditModalOpen(false)}
- onEdit={handleEditSubscription}
- categorySync={{
- createCategory
- }}
- isBarkEnabled={notificationSettings.barkPush.enabled}
- />
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={selectedSubscription.name}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={() => setSelectedSubscription(null)}
+  />
+ )}
+ >
+  <SubscriptionDetailsModal
+  isOpen={selectedSubscription !== null}
+  subscription={selectedSubscription}
+  onClose={() => setSelectedSubscription(null)}
+  onEdit={handleEditClick}
+  onDelete={handleDeleteSubscription}
+  />
+ </Suspense>
  )}
 
- {config.features.authentication && (
- <AuthModal
- isOpen={isAuthModalOpen}
- onClose={() => setIsAuthModalOpen(false)}
- />
+ {selectedSubscription && isEditModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('app:addSubscription')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={() => setIsEditModalOpen(false)}
+  />
+ )}
+ >
+  <EditSubscriptionModal
+  subscription={selectedSubscription}
+  isOpen={isEditModalOpen}
+  onClose={() => setIsEditModalOpen(false)}
+  onEdit={handleEditSubscription}
+  categorySync={{
+   createCategory
+  }}
+  isBarkEnabled={notificationReady}
+  />
+ </Suspense>
  )}
 
- {config.features.authentication && (
- <>
- <EditNicknameModal
- isOpen={isEditNicknameModalOpen}
- onClose={() => setIsEditNicknameModalOpen(false)}
- />
- <EditEmailModal
- isOpen={isEditEmailModalOpen}
- onClose={() => setIsEditEmailModalOpen(false)}
- currentEmail={user?.email || ''}
- onUpdateEmail={async (newEmail: string) => {
- const result = await updateUserEmail(newEmail);
- if (result.error) {
- throw new Error(result.error.message);
- }
- }}
- />
- <EditPasswordModal
- isOpen={isEditPasswordModalOpen}
- onClose={() => setIsEditPasswordModalOpen(false)}
- onUpdatePassword={async (newPassword: string) => {
- const result = await updateUserPassword(newPassword);
- if (result.error) {
- throw new Error(result.error.message);
- }
- }}
- />
- </>
+ {config.features.authentication && isAuthModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('userMenu:loginToSync')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={() => setIsAuthModalOpen(false)}
+  />
+ )}
+ >
+  <AuthModal
+  isOpen={isAuthModalOpen}
+  onClose={() => setIsAuthModalOpen(false)}
+  />
+ </Suspense>
  )}
 
- <CategorySettingsModal
- isOpen={isCategorySettingsModalOpen}
- onClose={() => setIsCategorySettingsModalOpen(false)}
- subscriptions={subscriptions}
- onCategoriesChanged={() => {
- // 类型变更时，重新加载订阅列表以确保UI更新
- setSubscriptions([...subscriptions]);
- }}
- onUpdateSubscriptions={async (updatedSubscriptions) => {
- await updateSubscriptionsBatch(updatedSubscriptions);
- }}
- categorySync={{
- createCategory,
- updateCategory,
- deleteCategory: deleteCategorySync,
- updateCategoriesOrder
- }}
- />
+ {config.features.authentication && isEditNicknameModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('userMenu:editNickname')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={() => setIsEditNicknameModalOpen(false)}
+  />
+ )}
+ >
+  <EditNicknameModal
+  isOpen={isEditNicknameModalOpen}
+  onClose={() => setIsEditNicknameModalOpen(false)}
+  />
+ </Suspense>
+ )}
 
- <ImportDataModal
- isOpen={isImportModalOpen}
- onClose={() => {
- setIsImportModalOpen(false);
- setImportPreviewData(null);
- }}
- onConfirm={handleConfirmImport}
- previewData={importPreviewData}
- />
+ {config.features.authentication && isEditEmailModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('userMenu:editEmail')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={() => setIsEditEmailModalOpen(false)}
+  />
+ )}
+ >
+  <EditEmailModal
+  isOpen={isEditEmailModalOpen}
+  onClose={() => setIsEditEmailModalOpen(false)}
+  currentEmail={user?.email || ''}
+  onUpdateEmail={async (newEmail: string) => {
+   const result = await updateUserEmail(newEmail);
+   if (result.error) {
+    throw new Error(result.error.message);
+   }
+  }}
+  />
+ </Suspense>
+ )}
+
+ {config.features.authentication && isEditPasswordModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('userMenu:changePassword')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={() => setIsEditPasswordModalOpen(false)}
+  />
+ )}
+ >
+  <EditPasswordModal
+  isOpen={isEditPasswordModalOpen}
+  onClose={() => setIsEditPasswordModalOpen(false)}
+  onUpdatePassword={async (newPassword: string) => {
+   const result = await updateUserPassword(newPassword);
+   if (result.error) {
+    throw new Error(result.error.message);
+   }
+  }}
+  />
+ </Suspense>
+ )}
+
+ {isCategorySettingsModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('userMenu:categorySettings')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={() => setIsCategorySettingsModalOpen(false)}
+  />
+ )}
+ >
+  <CategorySettingsModal
+  isOpen={isCategorySettingsModalOpen}
+  onClose={() => setIsCategorySettingsModalOpen(false)}
+  subscriptions={subscriptions}
+  onCategoriesChanged={() => {
+   // 类型变更时，重新加载订阅列表以确保UI更新
+   setSubscriptions([...subscriptions]);
+  }}
+  onUpdateSubscriptions={async (updatedSubscriptions) => {
+   await updateSubscriptionsBatch(updatedSubscriptions);
+  }}
+  categorySync={{
+   createCategory,
+   updateCategory,
+   deleteCategory: deleteCategorySync,
+   updateCategoriesOrder
+  }}
+  />
+ </Suspense>
+ )}
+
+ {isImportModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('userMenu:importData')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={() => {
+    setIsImportModalOpen(false);
+    setImportPreviewData(null);
+   }}
+  />
+ )}
+ >
+  <ImportDataModal
+  isOpen={isImportModalOpen}
+  onClose={() => {
+   setIsImportModalOpen(false);
+   setImportPreviewData(null);
+  }}
+  onConfirm={handleConfirmImport}
+  previewData={importPreviewData}
+  />
+ </Suspense>
+ )}
 
  {isNotificationSettingsModalOpen && (
  <Suspense
@@ -845,7 +971,7 @@ export function App() {
   };
 
   setNotificationSettings(nextSettings);
-  saveNotificationSettings(nextSettings);
+  saveNotificationSettings(nextSettings, notificationScope);
 
   // 如果用户已登录且云同步可用，同时保存到云端
   if (user && config.hasSupabaseConfig) {

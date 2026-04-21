@@ -8,4 +8,35 @@ export default defineConfig({
     port: 5173
   },
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return;
+          }
+
+          if (id.includes('recharts')) {
+            return 'charts';
+          }
+
+          if (id.includes('@supabase/supabase-js')) {
+            return 'supabase';
+          }
+
+          if (id.includes('i18next') || id.includes('react-i18next')) {
+            return 'i18n';
+          }
+
+          if (id.includes('lucide-react')) {
+            return 'icons';
+          }
+
+          if (id.includes('react-dom') || id.includes('react/')) {
+            return 'react-vendor';
+          }
+        }
+      }
+    }
+  }
 });

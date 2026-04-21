@@ -1,6 +1,7 @@
 import { Currency, ExchangeRates, SortConfig, Subscription } from '../types';
 import { convertCurrency } from './currency';
 import { parseDateOnly } from './dates';
+import { resolveSubscriptionRenewal } from './subscriptionRenewal';
 
 const getCustomPeriodDays = (subscription: Subscription): number => {
  const parsedDays = Number.parseInt(subscription.customDate || '30', 10);
@@ -53,7 +54,9 @@ export const sortSubscriptions = (
     getSubscriptionDailyPrice(right, baseCurrency, exchangeRates);
    break;
   case 'nextPaymentDate':
-   comparison = parseDateOnly(left.nextPaymentDate).getTime() - parseDateOnly(right.nextPaymentDate).getTime();
+   comparison =
+    parseDateOnly(resolveSubscriptionRenewal(left).effectiveNextPaymentDate).getTime() -
+    parseDateOnly(resolveSubscriptionRenewal(right).effectiveNextPaymentDate).getTime();
    break;
   case 'createdAt':
    comparison = (left.createdAt ? new Date(left.createdAt).getTime() : 0) -

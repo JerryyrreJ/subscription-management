@@ -1,5 +1,6 @@
 import { Subscription } from '../types';
 import { buildSubscriptionReminderContent, buildTestNotificationContent } from './notificationContent';
+import { DEFAULT_BARK_REQUEST_TIMEOUT_MS } from './barkSettings';
 
 export interface BarkPushOptions {
  sound?: string; // 推送铃声
@@ -27,7 +28,8 @@ export async function sendBarkNotification(
  deviceKey: string,
  title: string,
  body: string,
- options?: BarkPushOptions
+ options?: BarkPushOptions,
+ timeoutMs: number = DEFAULT_BARK_REQUEST_TIMEOUT_MS
 ): Promise<boolean> {
  if (!serverUrl || !deviceKey) {
  console.error('Bark: Server URL and Device Key are required');
@@ -53,8 +55,14 @@ export async function sendBarkNotification(
  deviceKey: maskDeviceKey(deviceKey)
  });
 
+ const abortController = new AbortController();
+ const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+
  const response = await fetch(url.toString(), {
- method: 'GET'
+ method: 'GET',
+ signal: abortController.signal
+ }).finally(() => {
+  clearTimeout(timeoutId);
  });
 
  if (!response.ok) {
@@ -73,6 +81,10 @@ export async function sendBarkNotification(
  return false;
  }
  } catch (error) {
+ if (error instanceof Error && error.name === 'AbortError') {
+  console.error(`Bark push timed out after ${timeoutMs}ms`);
+  return false;
+ }
  console.error('Bark push error:', error);
  return false;
  }

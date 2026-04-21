@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react';
 import { Calendar, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Subscription } from '../types';
-import { formatDate, getDaysUntil, getAutoRenewedDates, parseDateOnly, getTodayDateOnly } from '../utils/dates';
+import { formatDate, parseDateOnly, getTodayDateOnly } from '../utils/dates';
 import { formatCurrency } from '../utils/currency';
+import { resolveSubscriptionRenewal } from '../utils/subscriptionRenewal';
 
 interface SubscriptionCardProps {
  subscription: Subscription;
@@ -16,14 +17,9 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  const { t } = useTranslation(['subscriptionCard', 'addSubscription']);
 
  // 检查是否需要自动续期
- const renewedDates = getAutoRenewedDates(
- subscription.lastPaymentDate,
- subscription.nextPaymentDate,
- subscription.period,
- subscription.period === 'custom' ? subscription.customDate : undefined
- );
- const shouldAutoRenew = renewedDates.nextPaymentDate !== subscription.nextPaymentDate;
- const autoRenewKey = `${subscription.id}:${renewedDates.lastPaymentDate}:${renewedDates.nextPaymentDate}`;
+ const renewal = resolveSubscriptionRenewal(subscription);
+ const shouldAutoRenew = renewal.isAutoRenewed;
+ const autoRenewKey = `${subscription.id}:${renewal.effectiveLastPaymentDate}:${renewal.effectiveNextPaymentDate}`;
  const lastAutoRenewKeyRef = useRef<string | null>(null);
 
  useEffect(() => {
@@ -37,15 +33,18 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  }
 
  lastAutoRenewKeyRef.current = autoRenewKey;
- onAutoRenew(subscription.id, renewedDates);
- }, [autoRenewKey, onAutoRenew, renewedDates, shouldAutoRenew, subscription.id]);
+ onAutoRenew(subscription.id, {
+  lastPaymentDate: renewal.effectiveLastPaymentDate,
+  nextPaymentDate: renewal.effectiveNextPaymentDate,
+ });
+ }, [autoRenewKey, onAutoRenew, renewal.effectiveLastPaymentDate, renewal.effectiveNextPaymentDate, shouldAutoRenew, subscription.id]);
 
- const daysUntil = getDaysUntil(renewedDates.nextPaymentDate);
+ const daysUntil = renewal.daysUntilEffectiveNextPayment;
  const isUpcoming = daysUntil <= 7 && daysUntil >= 0;
 
  // Calculate progress
- const lastPaymentDate = parseDateOnly(renewedDates.lastPaymentDate);
- const nextPaymentDate = parseDateOnly(renewedDates.nextPaymentDate);
+ const lastPaymentDate = parseDateOnly(renewal.effectiveLastPaymentDate);
+ const nextPaymentDate = parseDateOnly(renewal.effectiveNextPaymentDate);
  const today = getTodayDateOnly();
  const totalDays = (nextPaymentDate.getTime() - lastPaymentDate.getTime()) / (1000 * 60 * 60 * 24);
  const daysElapsed = (today.getTime() - lastPaymentDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -91,7 +90,7 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  <div className="flex items-center space-x-2">
  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-gray-500 flex-shrink-0 app-dark-text-muted"/>
  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 app-dark-text-secondary">
- {t('subscriptionCard:nextPayment', { date: formatDate(renewedDates.nextPaymentDate) })}
+ {t('subscriptionCard:nextPayment', { date: formatDate(renewal.effectiveNextPaymentDate) })}
  </span>
  </div>
 

@@ -132,7 +132,28 @@ test('notification settings are isolated between guest and authenticated scopes'
   assert.equal(loadNotificationSettings().barkPush.deviceKey, 'guest-device');
 
   setActiveDataScope(getUserDataScope('user-123'));
-  assert.equal(loadNotificationSettings().barkPush.deviceKey, 'user-device');
+ assert.equal(loadNotificationSettings().barkPush.deviceKey, 'user-device');
+ } finally {
+  setActiveDataScope(GUEST_DATA_SCOPE);
+  if (originalLocalStorage) {
+   globalThis.localStorage = originalLocalStorage;
+  } else {
+   delete (globalThis as { localStorage?: Storage }).localStorage;
+ }
+ }
+});
+
+test('notification settings can be saved into an explicit scope without changing active scope', () => {
+ const localStorageMock = createLocalStorageMock();
+ const originalLocalStorage = globalThis.localStorage;
+ globalThis.localStorage = localStorageMock as Storage;
+
+ try {
+  setActiveDataScope(GUEST_DATA_SCOPE);
+  saveNotificationSettings(createSettings('scoped-device'), getUserDataScope('user-456'));
+
+  assert.equal(loadNotificationSettings().barkPush.deviceKey, '');
+  assert.equal(loadNotificationSettings(getUserDataScope('user-456')).barkPush.deviceKey, 'scoped-device');
  } finally {
   setActiveDataScope(GUEST_DATA_SCOPE);
   if (originalLocalStorage) {

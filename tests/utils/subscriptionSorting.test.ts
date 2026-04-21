@@ -82,3 +82,49 @@ test('getSubscriptionDailyPrice uses custom billing period days and falls back t
  assert.equal(getSubscriptionDailyPrice(customSubscription, baseCurrency, exchangeRates), 2);
  assert.equal(getSubscriptionDailyPrice(invalidCustomSubscription, baseCurrency, exchangeRates), 0.4);
 });
+
+test('sortSubscriptions uses effective next payment date for overdue subscriptions', () => {
+ const subscriptions = [
+  createSubscription({
+   id: 'sub-overdue',
+   name: 'Overdue Plan',
+   lastPaymentDate: '2026-01-13',
+   nextPaymentDate: '2026-02-13',
+  }),
+  createSubscription({
+   id: 'sub-upcoming',
+   name: 'Upcoming Plan',
+   lastPaymentDate: '2026-04-10',
+   nextPaymentDate: '2026-04-25',
+  }),
+ ];
+
+ const nextPaymentSort: SortConfig = {
+  sortBy: 'nextPaymentDate',
+  sortOrder: 'asc',
+ };
+
+ const RealDate = Date;
+ class MockDate extends RealDate {
+  constructor(value?: string | number | Date) {
+   super(value ?? '2026-04-21T12:00:00.000Z');
+  }
+
+  static now() {
+   return new RealDate('2026-04-21T12:00:00.000Z').getTime();
+  }
+ }
+ MockDate.parse = RealDate.parse;
+ MockDate.UTC = RealDate.UTC;
+
+ globalThis.Date = MockDate as unknown as DateConstructor;
+
+ try {
+  assert.deepEqual(
+   sortSubscriptions(subscriptions, nextPaymentSort, 'USD', { USD: 1 }).map(subscription => subscription.id),
+   ['sub-upcoming', 'sub-overdue']
+  );
+ } finally {
+  globalThis.Date = RealDate;
+ }
+});

@@ -220,12 +220,7 @@ export function AddSubscriptionModal({
   return;
  }
 
- const saved = await submitSubscription(true);
- if (!saved) {
-  setNotificationValidationError(true);
-  return;
- }
-
+ setNotificationValidationError(true);
  onOpenNotificationSettings();
  };
 
