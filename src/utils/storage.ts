@@ -4,6 +4,14 @@ import { DataScope, resolveScopedStorageKey } from './dataScope';
 
 const STORAGE_KEY = 'subscription-tracker-data';
 const PENDING_SYNC_OPERATIONS_KEY = 'subscription-tracker-pending-sync-operations';
+const LOCAL_DATA_OWNER_KEY = 'subscription-tracker-local-owner';
+const LAST_LOCAL_DATA_OWNER_KEY = 'subscription-tracker-last-local-owner';
+
+export interface LocalDataOwner {
+ userId: string;
+ claimedAt: string;
+ lastSeenAt: string;
+}
 
 export const loadSubscriptions = (scope?: DataScope): Subscription[] => {
  try {
@@ -27,6 +35,14 @@ export const saveSubscriptions = (subscriptions: Subscription[], scope?: DataSco
  );
  } catch (error) {
  console.error('Error saving subscriptions:', error);
+ }
+};
+
+export const clearSubscriptions = (scope?: DataScope): void => {
+ try {
+  localStorage.removeItem(resolveScopedStorageKey(STORAGE_KEY, scope));
+ } catch (error) {
+  console.error('Error clearing subscriptions:', error);
  }
 };
 
@@ -69,5 +85,62 @@ export const clearPendingSyncOperations = (scope?: DataScope): void => {
   localStorage.removeItem(resolveScopedStorageKey(PENDING_SYNC_OPERATIONS_KEY, scope));
  } catch (error) {
   console.error('Error clearing pending sync operations:', error);
+ }
+};
+
+export const loadLocalDataOwner = (scope?: DataScope): LocalDataOwner | null => {
+ try {
+  const data = localStorage.getItem(resolveScopedStorageKey(LOCAL_DATA_OWNER_KEY, scope));
+  if (!data) {
+   return null;
+  }
+
+  const owner = JSON.parse(data) as Partial<LocalDataOwner>;
+  if (!owner?.userId || !owner?.claimedAt || !owner?.lastSeenAt) {
+   return null;
+  }
+
+  return {
+   userId: owner.userId,
+   claimedAt: owner.claimedAt,
+   lastSeenAt: owner.lastSeenAt,
+  };
+ } catch (error) {
+  console.error('Error loading local data owner:', error);
+  return null;
+ }
+};
+
+export const saveLocalDataOwner = (owner: LocalDataOwner, scope?: DataScope): void => {
+ try {
+  localStorage.setItem(resolveScopedStorageKey(LOCAL_DATA_OWNER_KEY, scope), JSON.stringify(owner));
+ } catch (error) {
+  console.error('Error saving local data owner:', error);
+ }
+};
+
+export const clearLocalDataOwner = (scope?: DataScope): void => {
+ try {
+  localStorage.removeItem(resolveScopedStorageKey(LOCAL_DATA_OWNER_KEY, scope));
+ } catch (error) {
+  console.error('Error clearing local data owner:', error);
+ }
+};
+
+export const loadLastLocalDataOwnerUserId = (): string | null => {
+ try {
+  const userId = localStorage.getItem(LAST_LOCAL_DATA_OWNER_KEY);
+  return userId || null;
+ } catch (error) {
+  console.error('Error loading last local data owner user id:', error);
+  return null;
+ }
+};
+
+export const saveLastLocalDataOwnerUserId = (userId: string): void => {
+ try {
+  localStorage.setItem(LAST_LOCAL_DATA_OWNER_KEY, userId);
+ } catch (error) {
+  console.error('Error saving last local data owner user id:', error);
  }
 };

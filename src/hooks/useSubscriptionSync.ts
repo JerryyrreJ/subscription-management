@@ -5,6 +5,7 @@ import { SubscriptionService } from '../services/subscriptionService'
 import {
  clearPendingSyncOperations,
  enqueuePendingSyncOperation,
+ loadLocalDataOwner,
  loadPendingSyncOperations,
  loadSubscriptions,
  savePendingSyncOperations,
@@ -14,6 +15,11 @@ import { config } from '../lib/config'
 import { buildPendingCreateOperations, normalizeSubscription } from '../utils/subscriptionSync'
 import { DataScope, GUEST_DATA_SCOPE, getUserDataScope } from '../utils/dataScope'
 import { createScopedTaskGate } from '../utils/scopedTaskGate'
+import {
+ claimLocalDataOwnership,
+ refreshLocalDataOwnership,
+ resolveCurrentLocalDataScope
+} from '../utils/localDataOwnership'
 
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
@@ -31,7 +37,9 @@ interface UseSyncReturn {
 const subscriptionCloudTaskGate = createScopedTaskGate<DataScope>()
 
 const resolveUserScope = (user: User | null): DataScope =>
- user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE
+ resolveCurrentLocalDataScope(user?.id)
+
+const resolveCloudTargetScope = (user: User): DataScope => getUserDataScope(user.id)
 
 export function useSubscriptionSync(
  user: User | null,
@@ -94,6 +102,17 @@ export function useSubscriptionSync(
  return enqueuePendingSyncOperation(pendingOperation, scope)
  }, [user])
 
+ const refreshOwnedGuestData = useCallback(() => {
+  if (user) {
+   return;
+  }
+
+  const owner = loadLocalDataOwner(GUEST_DATA_SCOPE);
+  if (owner) {
+   refreshLocalDataOwnership(owner.userId, GUEST_DATA_SCOPE);
+  }
+ }, [user])
+
  const removeQueuedOperations = useCallback((subscriptionId: string) => {
  const scope = resolveUserScope(user)
  const remainingOperations = loadPendingSyncOperations(scope).filter(
@@ -104,7 +123,7 @@ export function useSubscriptionSync(
 
  // 同步订阅数据
  const syncSubscriptions = useCallback(async (): Promise<Subscription[]> => {
-  const scope = resolveUserScope(user)
+  const scope = user ? resolveCloudTargetScope(user) : resolveUserScope(user)
 
   if (!config.features.cloudSync || !user) {
    console.log('Sync skipped:', { cloudSync: config.features.cloudSync, user: !!user })
@@ -133,6 +152,7 @@ export function useSubscriptionSync(
    setSubscriptions(syncResult.subscriptions)
    saveSubscriptions(syncResult.subscriptions, scope)
    savePendingSyncOperations(syncResult.pendingOperations, scope)
+   claimLocalDataOwnership(user.id, scope)
 
    return syncResult.subscriptions
   }, () => loadSubscriptions(scope))
@@ -140,7 +160,7 @@ export function useSubscriptionSync(
 
  // 上传本地数据到云端（用户首次登录时）
  const uploadLocalData = useCallback(async (localSubscriptions: Subscription[]): Promise<Subscription[]> => {
-  const scope = resolveUserScope(user)
+  const scope = user ? resolveCloudTargetScope(user) : resolveUserScope(user)
 
   if (!config.features.cloudSync || !user || localSubscriptions.length === 0) {
    return localSubscriptions
@@ -163,6 +183,7 @@ export function useSubscriptionSync(
 
    setSubscriptions(uploadResult.subscriptions)
    saveSubscriptions(uploadResult.subscriptions, scope)
+   claimLocalDataOwnership(user.id, scope)
 
    if (pendingOperations.length > 0) {
     savePendingSyncOperations(pendingOperations, scope)
@@ -192,6 +213,11 @@ export function useSubscriptionSync(
  setSubscriptions(prev => {
  const updated = [...prev, newSubscription]
  saveSubscriptions(updated, scope)
+ if (user) {
+  claimLocalDataOwnership(user.id, scope)
+ } else {
+  refreshOwnedGuestData()
+ }
  return updated
  })
  removeQueuedOperations(newSubscription.id)
@@ -203,6 +229,7 @@ export function useSubscriptionSync(
  setSubscriptions(prev => {
  const updated = [...prev, normalizedSubscription]
  saveSubscriptions(updated, scope)
+ refreshOwnedGuestData()
  return updated
  })
  queueOperation({
@@ -218,6 +245,7 @@ export function useSubscriptionSync(
  setSubscriptions(prev => {
  const updated = [...prev, normalizedSubscription]
  saveSubscriptions(updated, scope)
+ refreshOwnedGuestData()
  return updated
  })
  queueOperation({
@@ -228,7 +256,7 @@ export function useSubscriptionSync(
  })
  return normalizedSubscription
  }
- }, [queueOperation, removeQueuedOperations, user, setSubscriptions])
+ }, [queueOperation, refreshOwnedGuestData, removeQueuedOperations, user, setSubscriptions])
 
  // 更新订阅（自动同步）
  const updateSubscription = useCallback(async (subscription: Subscription): Promise<Subscription> => {
@@ -251,6 +279,11 @@ export function useSubscriptionSync(
  sub.id === updatedSubscription.id ? updatedSubscription : sub
  )
  saveSubscriptions(updated, scope)
+ if (user) {
+  claimLocalDataOwnership(user.id, scope)
+ } else {
+  refreshOwnedGuestData()
+ }
  return updated
  })
  removeQueuedOperations(updatedSubscription.id)
@@ -264,6 +297,7 @@ export function useSubscriptionSync(
  sub.id === normalizedSubscription.id ? normalizedSubscription : sub
  )
  saveSubscriptions(updated, scope)
+ refreshOwnedGuestData()
  return updated
  })
  queueOperation({
@@ -282,6 +316,7 @@ export function useSubscriptionSync(
  sub.id === normalizedSubscription.id ? normalizedSubscription : sub
  )
  saveSubscriptions(updated, scope)
+ refreshOwnedGuestData()
  return updated
  })
  queueOperation({
@@ -293,7 +328,7 @@ export function useSubscriptionSync(
  })
  return normalizedSubscription
  }
- }, [queueOperation, removeQueuedOperations, user, setSubscriptions])
+ }, [queueOperation, refreshOwnedGuestData, removeQueuedOperations, user, setSubscriptions])
 
  const updateSubscriptionsBatch = useCallback(async (updatedSubscriptions: Subscription[]): Promise<Subscription[]> => {
  const scope = resolveUserScope(user)
@@ -331,6 +366,11 @@ export function useSubscriptionSync(
  setSubscriptions(prev => {
  const updated = prev.filter(s => s.id !== id)
  saveSubscriptions(updated, scope)
+ if (user) {
+  claimLocalDataOwnership(user.id, scope)
+ } else {
+  refreshOwnedGuestData()
+ }
  return updated
  })
  removeQueuedOperations(id)
@@ -341,6 +381,7 @@ export function useSubscriptionSync(
  setSubscriptions(prev => {
  const updated = prev.filter(s => s.id !== id)
  saveSubscriptions(updated, scope)
+ refreshOwnedGuestData()
  return updated
  })
  queueOperation({
@@ -355,6 +396,7 @@ export function useSubscriptionSync(
  setSubscriptions(prev => {
  const updated = prev.filter(s => s.id !== id)
  saveSubscriptions(updated, scope)
+ refreshOwnedGuestData()
  return updated
  })
  queueOperation({
@@ -364,7 +406,7 @@ export function useSubscriptionSync(
  queuedAt: new Date().toISOString()
  })
  }
- }, [queueOperation, removeQueuedOperations, user, setSubscriptions])
+ }, [queueOperation, refreshOwnedGuestData, removeQueuedOperations, user, setSubscriptions])
 
  return {
  syncStatus,

@@ -16,6 +16,13 @@ import {
  finalizeCategoryCloudMutation,
  stageCategorySnapshot
 } from '../utils/categorySyncState'
+import {
+ claimLocalDataOwnership,
+ refreshLocalDataOwnership,
+ resolveCurrentLocalDataScope
+} from '../utils/localDataOwnership'
+import { GUEST_DATA_SCOPE, getUserDataScope } from '../utils/dataScope'
+import { loadLocalDataOwner } from '../utils/storage'
 
 export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 
@@ -81,10 +88,25 @@ export function useCategorySync(
  return activeTask
  }, [scheduleStatusReset])
 
+ const resolveScope = useCallback(() => (
+  resolveCurrentLocalDataScope(user?.id)
+ ), [user])
+
  const persistCategories = useCallback((categories: Category[]) => {
-  saveCategories(categories)
+  saveCategories(categories, resolveScope())
   onCategoriesChange?.(categories)
- }, [onCategoriesChange])
+ }, [onCategoriesChange, resolveScope])
+
+ const refreshOwnedGuestData = useCallback(() => {
+  if (user) {
+   return
+  }
+
+  const owner = loadLocalDataOwner(GUEST_DATA_SCOPE)
+  if (owner) {
+   refreshLocalDataOwnership(owner.userId, GUEST_DATA_SCOPE)
+  }
+ }, [user])
 
  const replaceOrAppendCategory = useCallback((categories: Category[], nextCategory: Category) => {
   const existingIndex = categories.findIndex(category => category.id === nextCategory.id)
@@ -99,9 +121,11 @@ export function useCategorySync(
 
  // 同步类别数据
  const syncCategories = useCallback(async (): Promise<Category[]> => {
+  const scope = resolveScope()
+
   if (!config.features.cloudSync || !user) {
    console.log('Category sync skipped:', { cloudSync: config.features.cloudSync, user: !!user })
-   return loadCategories()
+   return loadCategories(scope)
   }
 
   if (activeCloudTaskRef.current) {
@@ -112,18 +136,20 @@ export function useCategorySync(
   console.log('Starting category sync for user:', user.email)
   return runCloudTask(async () => {
    return executeCategorySync({
-    loadLocalCategories: loadCategories,
-    loadPendingSnapshot: loadPendingCategorySync,
+    loadLocalCategories: () => loadCategories(scope),
+    loadPendingSnapshot: () => loadPendingCategorySync(scope),
     syncCloudCategories: CategoryService.syncCategories,
     reconcilePendingCategories: CategoryService.reconcileCategories,
     persistCategories,
-    clearPendingSnapshot: clearPendingCategorySync,
+    clearPendingSnapshot: () => clearPendingCategorySync(scope),
    })
-  }, () => loadCategories())
- }, [persistCategories, runCloudTask, user])
+  }, () => loadCategories(scope))
+ }, [persistCategories, resolveScope, runCloudTask, user])
 
  // 上传本地类别到云端（用户首次登录时）
  const uploadLocalCategories = useCallback(async (localCategories: Category[]): Promise<Category[]> => {
+  const scope = resolveScope()
+
   if (!config.features.cloudSync || !user || localCategories.length === 0) {
    return localCategories
   }
@@ -136,23 +162,24 @@ export function useCategorySync(
   console.log('Uploading local categories to cloud...')
   return runCloudTask(async () => {
    return executeCategoryUpload(localCategories, {
-    loadPendingSnapshot: loadPendingCategorySync,
+    loadPendingSnapshot: () => loadPendingCategorySync(scope),
     reconcilePendingCategories: CategoryService.reconcileCategories,
     persistCategories,
-    clearPendingSnapshot: clearPendingCategorySync,
+    clearPendingSnapshot: () => clearPendingCategorySync(scope),
    })
   }, () => localCategories)
- }, [persistCategories, runCloudTask, user])
+ }, [persistCategories, resolveScope, runCloudTask, user])
 
  // 创建类别（自动同步）
  const createCategory = useCallback(async (category: Category): Promise<Category> => {
- const hadPendingSync = Boolean(loadPendingCategorySync())
- const categories = loadCategories()
+ const scope = resolveScope()
+ const hadPendingSync = Boolean(loadPendingCategorySync(scope))
+ const categories = loadCategories(scope)
  const updatedCategories = stageCategorySnapshot(
   replaceOrAppendCategory(categories, category),
   {
    persistCategories,
-   savePendingSnapshot: savePendingCategorySync,
+   savePendingSnapshot: categories => savePendingCategorySync(categories, scope),
   }
  )
 
@@ -162,32 +189,36 @@ export function useCategorySync(
    const newCategory = await finalizeCategoryCloudMutation({
     hadPendingSnapshot: hadPendingSync,
     executeCloudMutation: () => CategoryService.createCategory(category),
-    clearPendingSnapshot: clearPendingCategorySync,
+    clearPendingSnapshot: () => clearPendingCategorySync(scope),
     markSyncSuccess: () => {
      setLastSyncTime(new Date())
+     claimLocalDataOwnership(user.id, getUserDataScope(user.id))
     }
    })
    const syncedCategories = replaceOrAppendCategory(updatedCategories, newCategory)
    persistCategories(syncedCategories)
    return newCategory
-  } catch (error) {
-   console.error('Failed to save category online:', error)
-   return category
-  }
+ } catch (error) {
+  console.error('Failed to save category online:', error)
+  refreshOwnedGuestData()
+  return category
+ }
  }
 
+ refreshOwnedGuestData()
  return category
- }, [persistCategories, replaceOrAppendCategory, user])
+ }, [persistCategories, refreshOwnedGuestData, replaceOrAppendCategory, resolveScope, user])
 
  // 更新类别（自动同步）
  const updateCategory = useCallback(async (category: Category): Promise<Category> => {
- const hadPendingSync = Boolean(loadPendingCategorySync())
- const categories = loadCategories()
+ const scope = resolveScope()
+ const hadPendingSync = Boolean(loadPendingCategorySync(scope))
+ const categories = loadCategories(scope)
  const updatedCategories = stageCategorySnapshot(
   replaceOrAppendCategory(categories, category),
   {
    persistCategories,
-   savePendingSnapshot: savePendingCategorySync,
+   savePendingSnapshot: categories => savePendingCategorySync(categories, scope),
   }
  )
 
@@ -197,27 +228,31 @@ export function useCategorySync(
    const updatedCategory = await finalizeCategoryCloudMutation({
     hadPendingSnapshot: hadPendingSync,
     executeCloudMutation: () => CategoryService.updateCategory(category),
-    clearPendingSnapshot: clearPendingCategorySync,
+    clearPendingSnapshot: () => clearPendingCategorySync(scope),
     markSyncSuccess: () => {
      setLastSyncTime(new Date())
+     claimLocalDataOwnership(user.id, getUserDataScope(user.id))
     }
    })
    const syncedCategories = replaceOrAppendCategory(updatedCategories, updatedCategory)
    persistCategories(syncedCategories)
    return updatedCategory
-  } catch (error) {
-   console.error('Failed to update category online:', error)
-   return category
-  }
+ } catch (error) {
+  console.error('Failed to update category online:', error)
+  refreshOwnedGuestData()
+  return category
+ }
  }
 
+ refreshOwnedGuestData()
  return category
- }, [persistCategories, replaceOrAppendCategory, user])
+ }, [persistCategories, refreshOwnedGuestData, replaceOrAppendCategory, resolveScope, user])
 
  // 删除类别（自动同步）
  const deleteCategory = useCallback(async (categoryId: string): Promise<void> => {
- const hadPendingSync = Boolean(loadPendingCategorySync())
- const categories = loadCategories()
+ const scope = resolveScope()
+ const hadPendingSync = Boolean(loadPendingCategorySync(scope))
+ const categories = loadCategories(scope)
  const category = categories.find(cat => cat.id === categoryId)
 
  if (!category) {
@@ -232,7 +267,7 @@ export function useCategorySync(
    : categories.filter(cat => cat.id !== categoryId),
   {
    persistCategories,
-   savePendingSnapshot: savePendingCategorySync,
+   savePendingSnapshot: categories => savePendingCategorySync(categories, scope),
   }
  )
 
@@ -242,29 +277,35 @@ export function useCategorySync(
    await finalizeCategoryCloudMutation({
     hadPendingSnapshot: hadPendingSync,
     executeCloudMutation: () => CategoryService.deleteCategory(categoryId),
-    clearPendingSnapshot: clearPendingCategorySync,
+    clearPendingSnapshot: () => clearPendingCategorySync(scope),
     markSyncSuccess: () => {
      setLastSyncTime(new Date())
+     claimLocalDataOwnership(user.id, getUserDataScope(user.id))
     }
    })
   } catch (error) {
    console.error('Failed to delete category online:', error)
+   refreshOwnedGuestData()
   }
  }
- }, [persistCategories, user])
+  else {
+   refreshOwnedGuestData()
+  }
+ }, [persistCategories, refreshOwnedGuestData, resolveScope, user])
 
  // 更新类别顺序（拖拽排序）
  const updateCategoriesOrder = useCallback(async (categories: Category[]): Promise<void> => {
+ const scope = resolveScope()
  // 更新 order 字段
  const reorderedCategories = categories.map((cat, index) => ({
  ...cat,
  order: index
  }))
 
- const hadPendingSync = Boolean(loadPendingCategorySync())
+ const hadPendingSync = Boolean(loadPendingCategorySync(scope))
  stageCategorySnapshot(reorderedCategories, {
   persistCategories,
-  savePendingSnapshot: savePendingCategorySync,
+  savePendingSnapshot: categories => savePendingCategorySync(categories, scope),
  })
 
  if (config.features.cloudSync && user) {
@@ -273,16 +314,19 @@ export function useCategorySync(
  await finalizeCategoryCloudMutation({
  hadPendingSnapshot: hadPendingSync,
  executeCloudMutation: () => CategoryService.updateCategoriesOrder(reorderedCategories),
- clearPendingSnapshot: clearPendingCategorySync,
+ clearPendingSnapshot: () => clearPendingCategorySync(scope),
  markSyncSuccess: () => {
  setLastSyncTime(new Date())
+ claimLocalDataOwnership(user.id, getUserDataScope(user.id))
  }
  })
  } catch (error) {
  console.error('Failed to update categories order online:', error)
+ } 
+ } else {
+ refreshOwnedGuestData()
  }
- }
- }, [persistCategories, user])
+ }, [persistCategories, refreshOwnedGuestData, resolveScope, user])
 
  return {
  syncStatus,

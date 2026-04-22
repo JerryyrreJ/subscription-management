@@ -75,6 +75,14 @@ export function saveNotificationSettings(settings: ReminderSettings, scope?: Dat
  }
 }
 
+export function clearNotificationSettings(scope?: DataScope): void {
+ try {
+ localStorage.removeItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope));
+ } catch (error) {
+ console.error('Failed to clear notification settings:', error);
+ }
+}
+
 /**
  * 计算距离下次付款的天数
  */

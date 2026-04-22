@@ -176,12 +176,24 @@ export default async (req: Request): Promise<Response> => {
     // 2. 遍历每个用户
     for (const settings of notificationSettingsList as NotificationSettings[]) {
       const { user_id, bark_server_url, bark_device_key, bark_days_before, bark_history } = settings
-      const userTimeZone = normalizeTimeZone(settings.time_zone, 'UTC')
+      const storedTimeZone = settings.time_zone
+      const userTimeZone = normalizeTimeZone(storedTimeZone, 'UTC')
+      const timeZoneSource = storedTimeZone && storedTimeZone === userTimeZone ? 'cloud' : 'fallback_utc'
       const userLocale = normalizeLocale(settings.locale ?? DEFAULT_LOCALE)
       const barkDaysBeforeValid = [1, 3, 7, 14].includes(bark_days_before)
 
       console.log(`[Scheduled Notifications] Processing user ${buildUserLogContext(user_id)}`)
-      console.log(`[Scheduled Notifications] User time zone ${buildUserLogContext(user_id, { time_zone: userTimeZone })}`)
+      console.log(`[Scheduled Notifications] User time zone ${buildUserLogContext(user_id, {
+        stored_time_zone: storedTimeZone ?? 'null',
+        effective_time_zone: userTimeZone,
+        time_zone_source: timeZoneSource
+      })}`)
+
+      if (timeZoneSource === 'fallback_utc') {
+        console.warn(`[Scheduled Notifications] Falling back to UTC because user time zone is missing or invalid ${buildUserLogContext(user_id, {
+          stored_time_zone: storedTimeZone ?? 'null'
+        })}`)
+      }
 
       if (!hasValidBarkConfig({
         barkPush: {

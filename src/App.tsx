@@ -43,6 +43,14 @@ import { GUEST_DATA_SCOPE, getUserDataScope, setActiveDataScope } from './utils/
 import { createScopedTaskGate } from './utils/scopedTaskGate';
 import { normalizeLocale } from './utils/locale';
 import { isBarkReady } from './utils/barkSettings';
+import { getCurrentTimeZone } from './utils/dates';
+import {
+ claimLocalDataOwnership,
+ isOwnedGuestDataForUser,
+ migrateOwnedGuestDataToUserScope,
+ migrateUnownedGuestDataToUserScope,
+ refreshLocalDataOwnership
+} from './utils/localDataOwnership';
 
 const AdvancedReport = lazy(() =>
  import('./components/AdvancedReport').then(module => ({ default: module.AdvancedReport }))
@@ -142,11 +150,11 @@ export function App() {
  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
- const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');
- const [exchangeRatesUpdatedAt, setExchangeRatesUpdatedAt] = useState<number | null>(null);
- const [isExchangeRatesRefreshing, setIsExchangeRatesRefreshing] = useState(false);
- const [exchangeRatesStale, setExchangeRatesStale] = useState(false);
- const [exchangeRateError, setExchangeRateError] = useState<string | undefined>();
+const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');
+const [exchangeRatesUpdatedAt, setExchangeRatesUpdatedAt] = useState<number | null>(null);
+const [isExchangeRatesRefreshing, setIsExchangeRatesRefreshing] = useState(false);
+const [exchangeRatesStale, setExchangeRatesStale] = useState(false);
+const [exchangeRateError, setExchangeRateError] = useState<string | undefined>();
  const appLocale = normalizeLocale(i18n.language);
  const notificationReady = isBarkReady(notificationSettings);
  const notificationScope = user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE;
@@ -178,6 +186,29 @@ export function App() {
    });
   }
  }, [appLocale, loading, notificationScope, notificationSettings, user]);
+
+ useEffect(() => {
+  if (loading || !user || !config.hasSupabaseConfig) {
+   return;
+  }
+
+  const currentTimeZone = getCurrentTimeZone();
+  if (notificationSettings.timeZone === currentTimeZone) {
+   return;
+  }
+
+  const nextSettings: ReminderSettings = {
+   ...notificationSettings,
+   timeZone: currentTimeZone,
+  };
+
+  setNotificationSettings(nextSettings);
+  saveNotificationSettings(nextSettings, notificationScope);
+
+  void NotificationSettingsService.saveSettings(nextSettings).catch(error => {
+   console.error('Failed to sync notification time zone to cloud:', error);
+  });
+ }, [loading, notificationScope, notificationSettings, user]);
 
  // 使用数据同步Hook
  const {
@@ -313,13 +344,25 @@ export function App() {
  // 根据当前用户切换本地数据作用域
  useEffect(() => {
  if (loading) {
- return;
+  return;
+ }
+
+ if (user && isOwnedGuestDataForUser(user.id)) {
+  migrateOwnedGuestDataToUserScope(user.id);
+ }
+
+ if (user) {
+  migrateUnownedGuestDataToUserScope(user.id);
  }
 
  const nextScope = user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE;
  setActiveDataScope(nextScope);
  setSubscriptions(loadSubscriptions(nextScope));
  setNotificationSettings(loadNotificationSettings(nextScope));
+
+ if (user) {
+  refreshLocalDataOwnership(user.id, nextScope);
+ }
  }, [user, loading]);
 
  // 主题切换效果
@@ -348,6 +391,7 @@ export function App() {
  const performInitialSync = async () => {
  try {
  console.log('User logged in, checking cloud data...');
+ claimLocalDataOwnership(user.id, getUserDataScope(user.id));
 
  // 1. 同步订阅数据
  const cloudSubscriptions = await syncSubscriptions();

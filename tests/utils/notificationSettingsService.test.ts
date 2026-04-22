@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildNotificationSettingsConfigPayload } from '../../src/utils/notificationSettingsPayload.ts';
 import { ReminderSettings } from '../../src/types.ts';
+import { normalizeTimeZone } from '../../src/utils/dates.ts';
 
 test('buildNotificationSettingsConfigPayload excludes backend-managed bark history', () => {
  const settings: ReminderSettings = {
@@ -30,4 +31,21 @@ test('buildNotificationSettingsConfigPayload excludes backend-managed bark histo
   bark_days_before: 7,
  });
  assert.equal('bark_history' in payload, false);
+});
+
+test('notification settings payload preserves valid time zones and normalizes invalid ones upstream', () => {
+ const validSettings: ReminderSettings = {
+  timeZone: 'Asia/Shanghai',
+  locale: 'en',
+  barkPush: {
+   enabled: true,
+   serverUrl: 'https://api.day.app',
+   deviceKey: 'device-key',
+   daysBefore: 3,
+   notificationHistory: {},
+  },
+ };
+
+ assert.equal(buildNotificationSettingsConfigPayload(validSettings, 'user-1').time_zone, 'Asia/Shanghai');
+ assert.equal(normalizeTimeZone('Definitely/Invalid', 'UTC'), 'UTC');
 });

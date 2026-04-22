@@ -94,6 +94,17 @@ export function saveCategories(categories: Category[], scope?: DataScope): void 
 }
 
 /**
+ * 清除类别数据
+ */
+export function clearCategories(scope?: DataScope): void {
+ try {
+ localStorage.removeItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope))
+ } catch (error) {
+ console.error('Error clearing categories:', error)
+ }
+}
+
+/**
  * 加载待同步的类别快照
  */
 export function loadPendingCategorySync(scope?: DataScope): Category[] | null {
