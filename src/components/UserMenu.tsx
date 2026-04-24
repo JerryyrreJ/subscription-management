@@ -113,8 +113,7 @@ export function UserMenu({
  'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
  'active:scale-[0.985]',
  'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 hover:text-emerald-800 hover:-translate-y-0.5',
- 'dark:bg-emerald-400/12 dark:border-emerald-300/18 dark:text-emerald-200 dark:hover:bg-emerald-400/18 dark:hover:border-emerald-200/28 dark:hover:text-emerald-100 dark:focus-visible:ring-offset-[#1a1c1e]'
- ].join(' ');
+ 'dark:bg-emerald-400/10 dark:border-emerald-300/20 dark:text-emerald-300 dark:hover:bg-emerald-400/20 dark:hover:border-emerald-200/30 dark:hover:text-emerald-200 dark:focus-visible:ring-offset-[#1a1c1e]' ].join(' ');
 
  return (
  <div className="relative"ref={menuRef}>
