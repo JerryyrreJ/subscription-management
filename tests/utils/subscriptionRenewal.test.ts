@@ -87,3 +87,17 @@ test('resolveSubscriptionRenewal advances overdue monthly subscriptions to the n
   assert.equal(renewal.isAutoRenewed, true);
  });
 });
+
+test('resolveSubscriptionRenewal uses the provided time zone when deciding whether to auto renew', () => {
+ withMockedNow('2026-04-01T01:30:00.000Z', () => {
+  const renewal = resolveSubscriptionRenewal(createSubscription({
+   lastPaymentDate: '2026-02-28',
+   nextPaymentDate: '2026-03-31',
+  }), 'America/Los_Angeles');
+
+  assert.equal(renewal.effectiveLastPaymentDate, '2026-02-28');
+  assert.equal(renewal.effectiveNextPaymentDate, '2026-03-31');
+  assert.equal(renewal.daysUntilEffectiveNextPayment, 0);
+  assert.equal(renewal.isAutoRenewed, false);
+ });
+});

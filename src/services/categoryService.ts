@@ -180,61 +180,9 @@ export class CategoryService {
  return this.getCategories()
  }
 
- // 批量上传本地类别到云端（带去重检查）
+ // Legacy helper kept for compatibility. Prefer useCategorySync + reconcileCategories.
  static async uploadLocalCategories(categories: Category[]): Promise<Category[]> {
- if (!config.hasSupabaseConfig || !supabase) {
- throw new Error('Cloud sync not available')
- }
-
- try {
- await this.getAuthenticatedUserId()
-
- // 1. 获取云端现有数据进行去重检查
- const cloudCategories = await this.getCategories()
-
- // 2. 创建云端类别ID映射
- const cloudCategoryIds = new Set(cloudCategories.map(c => c.id))
-
- // 3. 过滤需要上传的类别（避免重复）
- const categoriesToUpload = categories.filter(cat => {
- if (cloudCategoryIds.has(cat.id)) {
- console.log(`Skipping upload for category ${cat.name}: ID already exists in cloud`)
- return false
- }
- return true
- })
-
- console.log(`Uploading ${categoriesToUpload.length} unique local categories`)
-
- // 4. 上传独有的类别
- const uploadPromises = categoriesToUpload.map(async (cat) => {
- try {
- return await this.createCategory(cat)
- } catch (error) {
- console.error(`Failed to upload category ${cat.name}:`, error)
- return cat // 保留原始数据
- }
- })
-
- const uploadedCategories = await Promise.all(uploadPromises)
-
- // 5. 返回所有云端数据（包括原有的和新上传的）
- const allCategories = [...cloudCategories, ...uploadedCategories]
-
- // 根据ID去重，确保数据一致性
- const uniqueCategories = allCategories.reduce((acc, current) => {
- const existing = acc.find(item => item.id === current.id)
- if (!existing) {
- acc.push(current)
- }
- return acc
- }, [] as Category[])
-
- return uniqueCategories
- } catch (error) {
- console.error('Error uploading categories:', error)
- return categories
- }
+  return this.reconcileCategories(categories)
  }
 
  // 批量更新类别顺序

@@ -5,6 +5,8 @@ export const categorySettings = {
  add: '添加',
  enterCategoryName: '请输入分类名称',
  failedToAddCategory: '添加分类失败。它可能已经存在。',
+ cloudSyncPending: '分类已保存在本地。云端同步会在网络恢复后自动重试。',
+ cloudSyncFailed: '分类改动暂时无法同步到云端。',
  showHidden: '显示已隐藏项',
  hideHidden: '隐藏已隐藏项',
  restoreDefaults: '恢复默认分类',

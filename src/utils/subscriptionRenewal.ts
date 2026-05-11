@@ -18,7 +18,8 @@ export const resolveSubscriptionRenewal = (
   subscription.lastPaymentDate,
   subscription.nextPaymentDate,
   subscription.period,
-  subscription.customDate
+  subscription.customDate,
+  timeZone
  );
 
  return {

@@ -35,9 +35,16 @@ export interface SyncSubscriptionsResult {
  pendingOperations: PendingSyncOperation[];
 }
 
+export interface CloudMutationResult<T> {
+ data: T;
+ cloudSynced: boolean;
+ queuedForRetry: boolean;
+}
+
 export interface UploadLocalSubscriptionsResult {
- subscriptions: Subscription[];
+ uploadedSubscriptions: Subscription[];
  failedSubscriptions: Subscription[];
+ mergedLocalState: Subscription[];
 }
 
 export type ViewMode = 'monthly' | 'yearly';

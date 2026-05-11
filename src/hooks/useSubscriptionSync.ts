@@ -181,8 +181,8 @@ export function useSubscriptionSync(
     return loadSubscriptions(scope)
    }
 
-   setSubscriptions(uploadResult.subscriptions)
-   saveSubscriptions(uploadResult.subscriptions, scope)
+   setSubscriptions(uploadResult.mergedLocalState)
+   saveSubscriptions(uploadResult.mergedLocalState, scope)
    claimLocalDataOwnership(user.id, scope)
 
    if (pendingOperations.length > 0) {
@@ -191,7 +191,7 @@ export function useSubscriptionSync(
     clearPendingSyncOperations(scope)
    }
 
-   return uploadResult.subscriptions
+   return uploadResult.mergedLocalState
   }, () => localSubscriptions)
  }, [runCloudTask, user, setSubscriptions])
 

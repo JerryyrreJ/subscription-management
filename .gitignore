@@ -42,6 +42,7 @@ CLAUDE.md
 Thumbs.db
 
 # Temporary files
+_temp/
 *.tmp
 *.temp
 *.swp

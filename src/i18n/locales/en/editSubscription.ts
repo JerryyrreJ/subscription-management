@@ -6,6 +6,7 @@ export const editSubscription = {
  addCategory: 'Add',
  addNewCategory: '+ Add New Category',
  failedToAddCategory: 'Failed to add category. It may already exist or contain invalid characters.',
+ categoryCloudSyncPending: 'Category was added locally. Cloud sync will retry automatically.',
  currencyLabel: 'Currency',
  amountLabel: 'Amount',
  paymentPeriodLabel: 'Payment Period',

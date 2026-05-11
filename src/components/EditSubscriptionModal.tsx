@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Period, Subscription, Currency } from '../types';
+import { Period, Subscription, Currency, CloudMutationResult } from '../types';
 import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES } from '../utils/currency';
 import { getAllCategories, getAllCategoriesWithDetails, addCustomCategory } from '../utils/categories';
@@ -11,7 +11,7 @@ import { CustomDatePicker } from './CustomDatePicker';
 import type { Category } from '../utils/categories';
 
 interface CategorySyncMethods {
- createCategory: (category: Category) => Promise<Category>
+ createCategory: (category: Category) => Promise<CloudMutationResult<Category>>
 }
 
 interface EditSubscriptionModalProps {
@@ -119,13 +119,17 @@ export function EditSubscriptionModal({
  const allCategories = getAllCategoriesWithDetails();
  const newCategory = allCategories.find(cat => cat.name === trimmed);
  if (newCategory) {
- try {
- await categorySync.createCategory(newCategory);
- } catch (error) {
- console.error('Failed to sync new category to cloud:', error);
- }
- }
- }
+     try {
+      const result = await categorySync.createCategory(newCategory);
+      if (!result.cloudSynced && result.queuedForRetry) {
+       alert(t('editSubscription:categoryCloudSyncPending'));
+      }
+     } catch (error) {
+      console.error('Failed to sync new category to cloud:', error);
+      alert(t('editSubscription:categoryCloudSyncPending'));
+     }
+    }
+   }
 
  const updatedCategories = getAllCategories();
  setCategories(updatedCategories);

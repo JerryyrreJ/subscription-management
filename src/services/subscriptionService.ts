@@ -235,10 +235,13 @@ export class SubscriptionService {
  }
  })
 
- const uploadedSubscriptions = await Promise.all(uploadPromises)
+ const uploadResults = await Promise.all(uploadPromises)
+ const uploadedSubscriptions = uploadResults.filter(subscription =>
+  !failedSubscriptions.some(failedSubscription => failedSubscription.id === subscription.id)
+ )
 
  // 6. 返回所有云端数据（包括原有的和新上传的）
- const allSubscriptions = [...cloudSubscriptions, ...uploadedSubscriptions]
+ const allSubscriptions = [...cloudSubscriptions, ...uploadResults]
 
  // 根据ID去重，确保数据一致性
  const uniqueSubscriptions = allSubscriptions.reduce((acc, current) => {
@@ -250,14 +253,16 @@ export class SubscriptionService {
  }, [] as Subscription[])
 
  return {
- subscriptions: uniqueSubscriptions,
- failedSubscriptions
+ uploadedSubscriptions,
+ failedSubscriptions,
+ mergedLocalState: uniqueSubscriptions
  }
  } catch (error) {
  console.error('Error uploading subscriptions:', error)
  return {
- subscriptions,
- failedSubscriptions: subscriptions
+ uploadedSubscriptions: [],
+ failedSubscriptions: subscriptions,
+ mergedLocalState: subscriptions
  }
  }
  }

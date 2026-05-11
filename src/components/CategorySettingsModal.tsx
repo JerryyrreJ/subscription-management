@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Trash2, GripVertical, Plus, RotateCcw, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { CloudMutationResult } from '../types'
 import {
  Category,
  getAllCategoriesWithDetails,
@@ -16,10 +17,10 @@ import { DeleteCategoryDialog } from './DeleteCategoryDialog'
 import { RestoreDefaultsDialog } from './RestoreDefaultsDialog'
 
 interface CategorySyncMethods {
- createCategory: (category: Category) => Promise<Category>
- updateCategory: (category: Category) => Promise<Category>
- deleteCategory: (categoryId: string) => Promise<void>
- updateCategoriesOrder: (categories: Category[]) => Promise<void>
+ createCategory: (category: Category) => Promise<CloudMutationResult<Category>>
+ updateCategory: (category: Category) => Promise<CloudMutationResult<Category>>
+ deleteCategory: (categoryId: string) => Promise<CloudMutationResult<void>>
+ updateCategoriesOrder: (categories: Category[]) => Promise<CloudMutationResult<Category[]>>
 }
 
 interface CategorySettingsModalProps {
@@ -55,6 +56,20 @@ export function CategorySettingsModal({
  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
+ const applyCloudSyncFeedback = (result: CloudMutationResult<unknown>) => {
+  if (result.cloudSynced) {
+   setError('')
+   return
+  }
+
+  if (result.queuedForRetry) {
+   setError(t('categorySettings:cloudSyncPending'))
+   return
+  }
+
+  setError(t('categorySettings:cloudSyncFailed'))
+ }
+
  // 加载类型列表
  useEffect(() => {
  if (isOpen) {
@@ -77,24 +92,26 @@ export function CategorySettingsModal({
  // 使用本地函数添加类别（包含验证逻辑）
  const success = addCustomCategory(trimmed)
  if (success) {
- // 如果有云同步，则同步到云端
- if (categorySync) {
- const allCategories = getAllCategoriesWithDetails()
- const newCategory = allCategories.find(cat => cat.name === trimmed)
- if (newCategory) {
- try {
- await categorySync.createCategory(newCategory)
- } catch (error) {
- console.error('Failed to sync new category to cloud:', error)
- }
- }
- }
+  setError('')
+  // 如果有云同步，则同步到云端
+  if (categorySync) {
+   const allCategories = getAllCategoriesWithDetails()
+   const newCategory = allCategories.find(cat => cat.name === trimmed)
+   if (newCategory) {
+    try {
+     const result = await categorySync.createCategory(newCategory)
+     applyCloudSyncFeedback(result)
+    } catch (error) {
+     console.error('Failed to sync new category to cloud:', error)
+     setError(t('categorySettings:cloudSyncPending'))
+    }
+   }
+  }
 
  setNewCategoryName('')
- setError('')
  loadCategories()
  onCategoriesChanged?.()
- } else {
+} else {
  setError(t('categorySettings:failedToAddCategory'))
  }
  }
@@ -123,11 +140,13 @@ export function CategorySettingsModal({
 
  // 如果有云同步，则同步到云端
  if (categorySync) {
- try {
- await categorySync.deleteCategory(categoryId)
- } catch (error) {
- console.error('Failed to sync category deletion to cloud:', error)
- }
+  try {
+   const result = await categorySync.deleteCategory(categoryId)
+   applyCloudSyncFeedback(result)
+  } catch (error) {
+   console.error('Failed to sync category deletion to cloud:', error)
+   setError(t('categorySettings:cloudSyncPending'))
+  }
  }
 
  // 更新受影响的订阅
@@ -156,12 +175,14 @@ export function CategorySettingsModal({
 
  // 如果有云同步，则同步到云端
  if (categorySync) {
- try {
- const restoredCategory = { ...category, isHidden: false }
- await categorySync.updateCategory(restoredCategory)
- } catch (error) {
- console.error('Failed to sync category restoration to cloud:', error)
- }
+  try {
+   const restoredCategory = { ...category, isHidden: false }
+   const result = await categorySync.updateCategory(restoredCategory)
+   applyCloudSyncFeedback(result)
+  } catch (error) {
+   console.error('Failed to sync category restoration to cloud:', error)
+   setError(t('categorySettings:cloudSyncPending'))
+  }
  }
 
  loadCategories()
@@ -211,15 +232,18 @@ export function CategorySettingsModal({
  newCategories.splice(dropIndex, 0, draggedItem)
 
  setCategories(newCategories)
+ setError('')
  updateCategoriesOrder(newCategories)
 
  // 如果有云同步，则同步到云端
  if (categorySync) {
- try {
- await categorySync.updateCategoriesOrder(newCategories)
- } catch (error) {
- console.error('Failed to sync categories order to cloud:', error)
- }
+  try {
+   const result = await categorySync.updateCategoriesOrder(newCategories)
+   applyCloudSyncFeedback(result)
+  } catch (error) {
+   console.error('Failed to sync categories order to cloud:', error)
+   setError(t('categorySettings:cloudSyncPending'))
+  }
  }
 
  onCategoriesChanged?.()

@@ -5,6 +5,8 @@ export const categorySettings = {
  add: 'Add',
  enterCategoryName: 'Please enter a category name',
  failedToAddCategory: 'Failed to add category. It may already exist.',
+ cloudSyncPending: 'Saved locally. Cloud sync will retry automatically when the connection is available.',
+ cloudSyncFailed: 'Category change could not be synced to the cloud.',
  showHidden: 'Show Hidden',
  hideHidden: 'Hide Hidden',
  restoreDefaults: 'Restore Defaults',

@@ -6,6 +6,7 @@ export const editSubscription = {
  addCategory: '添加',
  addNewCategory: '+ 添加新分类',
  failedToAddCategory: '添加分类失败。它可能已存在，或包含无效字符。',
+ categoryCloudSyncPending: '分类已添加到本地，云端同步会自动重试。',
  currencyLabel: '货币',
  amountLabel: '金额',
  paymentPeriodLabel: '付款周期',
