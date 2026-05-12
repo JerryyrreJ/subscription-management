@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.8.7",
   "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "dev": "vite",
     "dev:full": "netlify dev",
