@@ -27,6 +27,7 @@ dist-ssr
 CLAUDE.md
 .bolt
 .claude
+.agents/
 .gemini
 .vscode/*
 !.vscode/extensions.json
@@ -53,8 +54,12 @@ _temp/
 *.bak
 *.backup
 
-# Documentation files (keep only README.md and docs/ folder)
+# Documentation files (keep README, changelog, public docs, and dev notes)
 *.md
 !README.md
+!README.zh-CN.md
+!CHANGELOG.md
+!docs/
 !docs/**/*.md
-docs/
+!dev-docs/
+!dev-docs/**/*.md
