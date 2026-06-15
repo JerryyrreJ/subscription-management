@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { User, Session, AuthError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { UserProfile, UserProfileService } from '../services/userProfileService'
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  const [loading, setLoading] = useState(true)
  const hasCleanedAuthUrlRef = useRef(false)
 
- const hasAuthParamsInUrl = () => {
+ const hasAuthParamsInUrl = useCallback(() => {
   if (typeof window === 'undefined') {
    return false
   }
@@ -41,42 +41,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return url.hash.includes('access_token') ||
    url.hash.includes('refresh_token') ||
    url.searchParams.has('code')
- }
+ }, [])
 
  // 清理URL中的敏感认证参数
- const cleanUrlFromAuthParams = () => {
- if (typeof window !== 'undefined') {
- const url = new URL(window.location.href)
- const hasAuthParams = hasAuthParamsInUrl()
+ const cleanUrlFromAuthParams = useCallback(() => {
+  if (typeof window === 'undefined') {
+   return
+  }
 
- if (hasAuthParams) {
- console.log('🔒 Cleaning sensitive auth parameters from URL for security')
+  const url = new URL(window.location.href)
+  if (!hasAuthParamsInUrl()) {
+   return
+  }
 
- // 记录安全事件（不记录实际token值）
- const authParamsFound = []
- if (url.hash.includes('access_token')) authParamsFound.push('access_token')
- if (url.hash.includes('refresh_token')) authParamsFound.push('refresh_token')
- if (url.searchParams.has('code')) authParamsFound.push('code')
+  console.log('🔒 Cleaning sensitive auth parameters from URL for security')
 
- console.log(`🔒 Security: Found and cleaning auth params: ${authParamsFound.join(', ')}`)
+  // 记录安全事件（不记录实际token值）
+  const authParamsFound = []
+  if (url.hash.includes('access_token')) authParamsFound.push('access_token')
+  if (url.hash.includes('refresh_token')) authParamsFound.push('refresh_token')
+  if (url.searchParams.has('code')) authParamsFound.push('code')
 
- // 清除hash中的认证参数
- if (url.hash.includes('access_token')) {
- url.hash = ''
- }
- // 清除查询参数中的认证相关参数
- url.searchParams.delete('code')
- url.searchParams.delete('state')
+  console.log(`🔒 Security: Found and cleaning auth params: ${authParamsFound.join(', ')}`)
 
- // 使用replaceState避免在浏览器历史中留下包含token的URL
- window.history.replaceState({}, document.title, url.pathname + url.search)
+  if (url.hash.includes('access_token')) {
+   url.hash = ''
+  }
 
- console.log('✅ Security: URL cleaned successfully')
- }
- }
- }
+  url.searchParams.delete('code')
+  url.searchParams.delete('state')
 
- const cleanAuthUrlAfterSessionEstablished = (nextSession: Session | null, source: 'getSession' | 'authStateChange') => {
+  // 使用replaceState避免在浏览器历史中留下包含token的URL
+  window.history.replaceState({}, document.title, url.pathname + url.search)
+
+  console.log('✅ Security: URL cleaned successfully')
+ }, [hasAuthParamsInUrl])
+
+ const cleanAuthUrlAfterSessionEstablished = useCallback((nextSession: Session | null, source: 'getSession' | 'authStateChange') => {
   if (!nextSession?.user || hasCleanedAuthUrlRef.current || !hasAuthParamsInUrl()) {
    return
   }
@@ -84,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   console.log(`🔒 Cleaning auth URL after session established via ${source}`)
   cleanUrlFromAuthParams()
   hasCleanedAuthUrlRef.current = true
- }
+ }, [cleanUrlFromAuthParams, hasAuthParamsInUrl])
 
  // 安全检查函数
  const performSecurityChecks = (session: Session | null) => {
@@ -112,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  }
 
  // 获取用户资料
- const fetchUserProfile = async (authenticatedUser: User) => {
+ const fetchUserProfile = useCallback(async (authenticatedUser: User) => {
  try {
  const preferredNickname = resolveUserProfileNickname(authenticatedUser.user_metadata?.nickname)
  let profile = await UserProfileService.getUserProfile(authenticatedUser.id)
@@ -135,14 +136,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  console.error('Error fetching user profile:', error)
  setUserProfile(null)
  }
- }
+ }, [])
 
  // 刷新用户资料
- const refreshUserProfile = async () => {
+ const refreshUserProfile = useCallback(async () => {
  if (user) {
  await fetchUserProfile(user)
  }
- }
+ }, [fetchUserProfile, user])
 
  // 更新用户昵称
  const updateUserNickname = async (nickname: string) => {
@@ -174,6 +175,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  return
  }
 
+ const authClient = supabase
+
  // 添加超时保护，防止无限加载
  const loadingTimeout = setTimeout(() => {
  console.warn('Authentication initialization timeout, setting loading to false')
@@ -183,7 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  // 获取初始session
  const getSession = async () => {
  try {
- const { data: { session }, error } = await supabase.auth.getSession()
+ const { data: { session }, error } = await authClient.auth.getSession()
 
  if (error) {
  console.error('Error getting session:', error)
@@ -191,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  if (shouldAttemptAutoRestore()) {
  console.log('Attempting to refresh session for remembered user...')
  try {
- const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+ const { data: refreshData, error: refreshError } = await authClient.auth.refreshSession()
  if (!refreshError && refreshData.session) {
  setSession(refreshData.session)
  setUser(refreshData.session.user)
@@ -238,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  getSession()
 
  // 监听认证状态变化
- const { data: { subscription } } = supabase.auth.onAuthStateChange(
+ const { data: { subscription } } = authClient.auth.onAuthStateChange(
  async (event, session) => {
  console.log('Auth state changed:', event, session?.user?.email)
 
@@ -252,7 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  const isSecure = performSecurityChecks(session)
  if (session?.user && !isSecure) {
  console.error('❌ Security: Session failed security checks, signing out')
- await supabase.auth.signOut()
+ await authClient.auth.signOut()
  return
  }
 
@@ -282,7 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  subscription.unsubscribe()
  clearTimeout(loadingTimeout)
  }
- }, [])
+ }, [cleanAuthUrlAfterSessionEstablished, fetchUserProfile])
 
  const signUp = async (email: string, password: string, nickname?: string) => {
  if (!supabase) {

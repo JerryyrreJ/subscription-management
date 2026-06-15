@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { CategoryAnalysis } from '../utils/reportAnalytics';
 import { Currency } from '../types';
@@ -39,12 +39,16 @@ export function CategoryPieChart({ data, baseCurrency }: CategoryPieChartProps) 
  cx="50%"
  cy="50%"
  labelLine={false}
- label={({ name, percentage }) => `${name} ${percentage.toFixed(1)}%`}
+ label={(entry) => {
+ const name = typeof entry.name === 'string' ? entry.name : '';
+ const percentage = typeof entry.percentage === 'number' ? entry.percentage : 0;
+ return `${name} ${percentage.toFixed(1)}%`;
+ }}
  outerRadius={90}
  fill="#10b981"
  dataKey="value"
  >
- {pieData.map((entry, index) => (
+ {pieData.map((_, index) => (
  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
  ))}
  </Pie>

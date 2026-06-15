@@ -1,156 +1,206 @@
 import Stripe from 'stripe';
-import { Handler, HandlerEvent } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
+import type { Handler, HandlerEvent } from '@netlify/functions';
+import { z } from 'zod';
+import {
+  getOptionalSupabaseAdminConfig,
+  getStripeServerConfig,
+  type StripeServerConfig,
+  type SupabaseAdminConfig,
+} from './_shared/env';
+import { errorResponse, HttpError, jsonResponse } from './_shared/http';
+import { logEvent, maskEmail } from './_shared/logging';
+import { createSupabaseAdminClient } from './_shared/supabase';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
+const premiumMetadataSchema = z.object({
+  userId: z.string().uuid(),
+  productType: z.literal('premium_lifetime'),
+  priceId: z.string().min(1),
 });
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
-// Initialize Supabase client with service role key for admin operations
-const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
-const supabase = supabaseUrl && supabaseServiceKey
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : null;
-
-export const handler: Handler = async (event: HandlerEvent) => {
-  // Only allow POST requests
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method not allowed' }),
+interface StripeWebhookClient {
+  webhooks: {
+    constructEvent(body: string, signature: string, secret: string): Stripe.Event;
+  };
+  checkout: {
+    sessions: {
+      listLineItems(sessionId: string, params: { limit: number }): Promise<{
+        data: Array<{ price?: { id: string } | null }>;
+      }>;
     };
+  };
+}
+
+interface PremiumDatabaseClient {
+  rpc(functionName: string, args: Record<string, unknown>): PromiseLike<{
+    data: unknown;
+    error: { message: string; code?: string } | null;
+  }>;
+}
+
+interface WebhookDependencies {
+  stripeConfig: StripeServerConfig;
+  supabaseConfig: SupabaseAdminConfig | null;
+  stripe: StripeWebhookClient;
+  database: PremiumDatabaseClient | null;
+  createRequestId(): string;
+}
+
+const createDefaultDependencies = (): WebhookDependencies => {
+  const stripeConfig = getStripeServerConfig(process.env);
+  const supabaseConfig = getOptionalSupabaseAdminConfig(process.env);
+
+  return {
+    stripeConfig,
+    supabaseConfig,
+    stripe: new Stripe(stripeConfig.secretKey, {
+      apiVersion: '2025-09-30.clover',
+    }),
+    database: supabaseConfig ? createSupabaseAdminClient(supabaseConfig) : null,
+    createRequestId: () => crypto.randomUUID(),
+  };
+};
+
+const getStripeReferenceId = (
+  value: string | { id: string } | null
+): string | null => typeof value === 'string' ? value : value?.id || null;
+
+const verifyPurchasedPrice = async (
+  stripe: StripeWebhookClient,
+  sessionId: string,
+  expectedPriceId: string
+): Promise<void> => {
+  const lineItems = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 1 });
+  const purchasedPriceId = lineItems.data[0]?.price?.id;
+
+  if (!purchasedPriceId || purchasedPriceId !== expectedPriceId) {
+    throw new HttpError(400, 'unexpected_price', 'Checkout session price does not match configured product');
+  }
+};
+
+const processCompletedCheckout = async (
+  event: Stripe.Event,
+  dependencies: WebhookDependencies,
+  requestId: string
+): Promise<void> => {
+  const session = event.data.object as Stripe.Checkout.Session;
+
+  if (session.mode !== 'payment' || session.payment_status !== 'paid') {
+    throw new HttpError(400, 'payment_not_completed', 'Checkout session is not a completed payment');
   }
 
-  const sig = event.headers['stripe-signature'];
+  await verifyPurchasedPrice(
+    dependencies.stripe,
+    session.id,
+    dependencies.stripeConfig.priceId
+  );
 
-  if (!sig) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'Missing stripe-signature header' }),
-    };
+  const productType = session.metadata?.productType;
+  if (productType === 'support_donation') {
+    logEvent('info', 'Support payment completed', requestId, {
+      eventId: event.id,
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const metadata = premiumMetadataSchema.safeParse(session.metadata);
+  if (!metadata.success || metadata.data.priceId !== dependencies.stripeConfig.priceId) {
+    throw new HttpError(400, 'invalid_checkout_metadata', 'Checkout session metadata is invalid');
+  }
+
+  if (!dependencies.supabaseConfig || !dependencies.database) {
+    throw new Error('Premium payment received without Supabase admin configuration');
+  }
+
+  const customerEmail = session.customer_details?.email || session.customer_email;
+  const { error } = await dependencies.database.rpc('complete_premium_purchase', {
+    purchase_user_id: metadata.data.userId,
+    purchase_stripe_session_id: session.id,
+    purchase_payment_intent_id: getStripeReferenceId(session.payment_intent),
+    purchase_customer_id: getStripeReferenceId(session.customer),
+    purchase_price_id: dependencies.stripeConfig.priceId,
+    purchase_amount_total: session.amount_total || 0,
+    purchase_currency: session.currency || 'usd',
+    purchase_customer_email: customerEmail,
+    purchase_metadata: {
+      stripe_event_id: event.id,
+      payment_status: session.payment_status,
+      checkout_created_at: session.created,
+    },
+  });
+
+  if (error) {
+    throw new Error(`Premium purchase transaction failed: ${error.code || 'database_error'}`);
+  }
+
+  logEvent('info', 'Premium purchase completed', requestId, {
+    eventId: event.id,
+    sessionId: session.id,
+    userId: metadata.data.userId,
+    email: maskEmail(customerEmail),
+  });
+};
+
+export const createStripeWebhookHandler = (
+  dependenciesFactory: () => WebhookDependencies = createDefaultDependencies
+): Handler => async (event: HandlerEvent) => {
+  const requestId = crypto.randomUUID();
+
+  if (event.httpMethod !== 'POST') {
+    return jsonResponse(405, {
+      error: { code: 'method_not_allowed', message: 'Method not allowed' },
+      requestId,
+    }, { Allow: 'POST' });
+  }
+
+  const signature = event.headers['stripe-signature'];
+  if (!signature || !event.body) {
+    return jsonResponse(400, {
+      error: { code: 'invalid_webhook_request', message: 'Missing Stripe signature or body' },
+      requestId,
+    });
+  }
+
+  let dependencies: WebhookDependencies;
+  try {
+    dependencies = dependenciesFactory();
+  } catch (error) {
+    logEvent('error', 'Webhook configuration failed', requestId, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return errorResponse(error, requestId);
+  }
+
+  const effectiveRequestId = dependencies.createRequestId();
+  let stripeEvent: Stripe.Event;
+
+  try {
+    stripeEvent = dependencies.stripe.webhooks.constructEvent(
+      event.body,
+      signature,
+      dependencies.stripeConfig.webhookSecret
+    );
+  } catch {
+    return jsonResponse(400, {
+      error: { code: 'invalid_webhook_signature', message: 'Webhook signature verification failed' },
+      requestId: effectiveRequestId,
+    });
   }
 
   try {
-    // Verify webhook signature
-    const stripeEvent = stripe.webhooks.constructEvent(
-      event.body!,
-      sig,
-      webhookSecret
-    );
-
-    console.log(`Webhook received: ${stripeEvent.type}`);
-
-    // Handle the event
-    switch (stripeEvent.type) {
-      case 'checkout.session.completed': {
-        const session = stripeEvent.data.object as Stripe.Checkout.Session;
-
-        console.log('Payment successful!', {
-          sessionId: session.id,
-          customerId: session.customer,
-          customerEmail: session.customer_email,
-          userId: session.metadata?.userId,
-          amountTotal: session.amount_total,
-          currency: session.currency,
-        });
-
-        // Activate Premium status in Supabase
-        if (supabase && session.metadata?.userId && session.metadata.userId !== 'guest') {
-          try {
-            const userId = session.metadata.userId;
-
-            // 1. Record payment in payments table
-            const { data: payment, error: paymentError } = await supabase
-              .from('payments')
-              .insert({
-                user_id: userId,
-                stripe_session_id: session.id,
-                stripe_payment_intent_id: session.payment_intent as string,
-                stripe_customer_id: session.customer as string,
-                amount_total: session.amount_total || 0,
-                currency: session.currency || 'usd',
-                status: 'completed',
-                product_type: session.metadata.productType || 'premium_lifetime',
-                customer_email: session.customer_email,
-                metadata: {
-                  payment_status: session.payment_status,
-                  created_at: session.created,
-                },
-              })
-              .select()
-              .single();
-
-            if (paymentError) {
-              console.error('Failed to record payment:', paymentError);
-            } else {
-              console.log('Payment recorded successfully:', payment.id);
-            }
-
-            // 2. Update user profile to activate Premium status
-            const { data: profile, error: profileError } = await supabase
-              .from('user_profiles')
-              .update({
-                is_premium: true,
-                premium_activated_at: new Date().toISOString(),
-                premium_payment_id: session.id,
-              })
-              .eq('id', userId)
-              .select()
-              .single();
-
-            if (profileError) {
-              console.error('Failed to activate Premium:', profileError);
-            } else {
-              console.log('Premium activated for user:', userId);
-            }
-
-            // TODO: Send confirmation email
-            // You can integrate with services like SendGrid, AWS SES, or Resend
-          } catch (error) {
-            console.error('Error processing payment success:', error);
-          }
-        } else if (session.metadata?.userId === 'guest') {
-          console.log('Guest payment - no user account to upgrade');
-        } else {
-          console.log('Supabase not configured or missing userId metadata');
-        }
-
-        break;
-      }
-
-      case 'payment_intent.succeeded': {
-        const paymentIntent = stripeEvent.data.object as Stripe.PaymentIntent;
-        console.log('PaymentIntent successful:', paymentIntent.id);
-        break;
-      }
-
-      case 'payment_intent.payment_failed': {
-        const paymentIntent = stripeEvent.data.object as Stripe.PaymentIntent;
-        console.log('PaymentIntent failed:', paymentIntent.id);
-        break;
-      }
-
-      default:
-        console.log(`Unhandled event type: ${stripeEvent.type}`);
+    if (stripeEvent.type === 'checkout.session.completed') {
+      await processCompletedCheckout(stripeEvent, dependencies, effectiveRequestId);
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ received: true }),
-    };
+    return jsonResponse(200, { received: true, requestId: effectiveRequestId });
   } catch (error) {
-    console.error('Webhook error:', error);
-
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        error: 'Webhook signature verification failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      }),
-    };
+    logEvent('error', 'Webhook processing failed', effectiveRequestId, {
+      eventId: stripeEvent.id,
+      eventType: stripeEvent.type,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return errorResponse(error, effectiveRequestId);
   }
 };
+
+export const handler = createStripeWebhookHandler();

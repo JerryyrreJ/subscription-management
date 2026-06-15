@@ -23,6 +23,18 @@ dist-ssr
 # Netlify
 .netlify
 
+# Build and tool caches
+.vite/
+.eslintcache
+*.tsbuildinfo
+
+# Test output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+
 # Editor directories and files
 CLAUDE.md
 .bolt
@@ -44,6 +56,8 @@ Thumbs.db
 
 # Temporary files
 _temp/
+supabase/.branches/
+supabase/.temp/
 *.tmp
 *.temp
 *.swp

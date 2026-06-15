@@ -10,11 +10,15 @@ The core app runs without environment variables. Add environment variables only 
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | Supabase auth and cloud sync | Browser |
 | `VITE_SUPABASE_ANON_KEY` | Supabase auth and cloud sync | Browser |
-| `SUPABASE_SERVICE_ROLE_KEY` | Scheduled notifications and payment activation | Server only |
-| `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe checkout | Browser |
-| `VITE_STRIPE_PRICE_ID` | Stripe checkout | Browser |
+| `SUPABASE_URL` | Supabase URL used by Functions | Server only |
+| `SUPABASE_PUBLISHABLE_KEY` | Access-token verification in Functions | Server only |
+| `SUPABASE_SECRET_KEY` | Notifications and premium activation | Server only |
+| `SUPABASE_SERVICE_ROLE_KEY` | Legacy alias for `SUPABASE_SECRET_KEY` | Server only |
+| `VITE_STRIPE_PUBLISHABLE_KEY` | Enables the payment UI; never trusted for checkout authorization | Browser |
 | `STRIPE_SECRET_KEY` | Stripe checkout session creation | Server only |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification | Server only |
+| `STRIPE_PRICE_ID` | The only Stripe Price accepted by the server | Server only |
+| `SITE_URL` | Checkout success and cancellation URL | Server only |
 | `URL` | Netlify function callback URLs | Provided by Netlify |
 
 ## Browser Variables
@@ -24,6 +28,8 @@ Variables prefixed with `VITE_` are included in the browser bundle. Do not put s
 ## Server Variables
 
 Server-only variables must be configured in the hosting provider, such as Netlify environment variables. Never commit service role keys, Stripe secret keys, or webhook secrets.
+
+Functions prefer the server-only names above and temporarily support the existing `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `VITE_STRIPE_PRICE_ID` names. `VITE_STRIPE_PRICE_ID` is a legacy server fallback only and is no longer read by browser code.
 
 ## Feature Detection
 

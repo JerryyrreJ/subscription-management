@@ -160,7 +160,6 @@ const getLast12Months = (locale?: string): { month: string; monthLabel: string }
  */
 const isActiveInMonth = (subscription: Subscription, monthStr: string): boolean => {
  const [year, month] = monthStr.split('-').map(Number);
- const monthStart = new Date(year, month - 1, 1);
  const monthEnd = new Date(year, month, 0);
 
  const createdDate = subscription.createdAt ? new Date(subscription.createdAt) : parseDateOnly(subscription.lastPaymentDate);

@@ -1,6 +1,6 @@
-type ScopedNotificationSettingsQuery<T> = {
- eq: (column: string, value: string) => T
+type ScopedNotificationSettingsQuery = {
+ eq: (column: string, value: string) => unknown
 }
 
-export const scopeNotificationSettingsQueryToUser = <T extends ScopedNotificationSettingsQuery<T>>(query: T, userId: string): T =>
- query.eq('user_id', userId)
+export const scopeNotificationSettingsQueryToUser = <T extends ScopedNotificationSettingsQuery>(query: T, userId: string): T =>
+ query.eq('user_id', userId) as T

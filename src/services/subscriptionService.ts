@@ -8,6 +8,8 @@ import {
  sortPendingOperations
 } from '../utils/subscriptionSync'
 import { scopeSubscriptionQueryToUser, scopeSubscriptionQueryToUserAndId } from '../utils/subscriptionTenantScope'
+import { normalizeSubscriptionRecord, subscriptionCreateInputSchema } from '../utils/subscriptionDomain'
+import { calculateNextPaymentDate } from '../utils/dates'
 
 export interface SupabaseSubscription {
  id: string
@@ -19,7 +21,7 @@ export interface SupabaseSubscription {
  period: string
  last_payment_date: string
  next_payment_date: string
- custom_date?: string
+ custom_date?: string | null
  notification_enabled: boolean
  created_at: string
  updated_at: string
@@ -269,34 +271,36 @@ export class SubscriptionService {
 
  // 数据格式转换：Supabase -> App
  private static transformFromSupabase(data: SupabaseSubscription): Subscription {
- return {
+ return normalizeSubscriptionRecord({
  id: data.id,
  name: data.name,
  category: data.category,
- amount: data.amount,
- currency: data.currency as 'CNY' | 'USD' | 'EUR' | 'JPY' | 'GBP' | 'AUD' | 'CAD' | 'CHF' | 'HKD' | 'SGD',
- period: data.period as 'monthly' | 'yearly' | 'custom',
+ amount: Number(data.amount),
+ currency: data.currency,
+ period: data.period,
  lastPaymentDate: data.last_payment_date,
  nextPaymentDate: data.next_payment_date,
  customDate: data.custom_date,
  updatedAt: data.updated_at,
  notificationEnabled: data.notification_enabled ?? true, // 默认 true
  createdAt: data.created_at
- }
+ })
  }
 
  // 数据格式转换：App -> Supabase
  private static transformToSupabase(subscription: Subscription | Omit<Subscription, 'id'>): Omit<SupabaseSubscription, 'id' | 'user_id' | 'created_at' | 'updated_at'> {
+ const parsed = subscriptionCreateInputSchema.parse(subscription)
+
  return {
- name: subscription.name,
- category: subscription.category,
- amount: subscription.amount,
- currency: subscription.currency,
- period: subscription.period,
- last_payment_date: subscription.lastPaymentDate,
- next_payment_date: subscription.nextPaymentDate,
- custom_date: subscription.customDate || null,
- notification_enabled: subscription.notificationEnabled ?? true // 默认 true
+ name: parsed.name,
+ category: parsed.category,
+ amount: parsed.amount,
+ currency: parsed.currency,
+ period: parsed.period,
+ last_payment_date: parsed.lastPaymentDate,
+ next_payment_date: calculateNextPaymentDate(parsed.lastPaymentDate, parsed.period, parsed.customDate),
+ custom_date: parsed.customDate || null,
+ notification_enabled: parsed.notificationEnabled
  }
  }
 

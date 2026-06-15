@@ -78,7 +78,7 @@ npm run test:notifications  # 测试定时通知逻辑
 | 服务 | 变量 | 用途 |
 | --- | --- | --- |
 | Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | 登录、云同步、定时通知访问 |
-| Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `VITE_STRIPE_PRICE_ID`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Checkout 和 webhook 处理 |
+| Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` | 支付界面、Checkout 和 webhook 处理 |
 | Bark | 在应用内配置 | 订阅续费推送提醒 |
 | Netlify | `URL` 由 Netlify 提供 | 函数回调和定时提醒 |
 

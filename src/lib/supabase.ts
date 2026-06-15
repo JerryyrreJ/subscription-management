@@ -51,8 +51,6 @@ export const supabase = config.hasSupabaseConfig
  detectSessionInUrl: true,
  // 启用session持久化
  persistSession: true,
- // 更频繁的token刷新以提高安全性
- refreshIntervalSeconds: 3600, // 1小时刷新一次
  }
 })
  : null // 没有配置时返回null

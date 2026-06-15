@@ -16,18 +16,14 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 ## SQL 设置
 
-按计划启用的功能运行对应 SQL 文件：
+正式 schema 由时间戳迁移管理：
 
 ```text
-supabase/migrations/001_premium_features.sql
-supabase/01_add_notification_enabled.sql
-supabase/02_create_notification_settings.sql
-supabase/03_create_notification_delivery_locks.sql
-supabase/migrations/002_notification_settings_timezone.sql
-supabase/migrations/003_notification_settings_locale.sql
+supabase/migrations/20260615000100_baseline.sql
+supabase/migrations/20260615000200_harden_existing_schema.sql
 ```
 
-可以使用 Supabase Dashboard SQL editor 或 Supabase CLI。
+全新环境使用 `supabase start` 和 `npm run db:verify`。现有线上环境必须先生成只读 DDL dump、确认 baseline diff、运行 `supabase/audit/preflight.sql`，再标记 baseline 并执行 hardening migration。完整步骤见 `supabase/README.md`。
 
 ## 数据模型区域
 

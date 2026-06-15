@@ -5,7 +5,6 @@ import { cleanupNotificationHistory } from '../utils/notificationChecker'
 import { getCurrentTimeZone, normalizeTimeZone } from '../utils/dates'
 import { getCurrentLocale, normalizeLocale } from '../utils/locale'
 import { buildNotificationSettingsConfigPayload, NotificationSettingsConfigPayload } from '../utils/notificationSettingsPayload'
-import { scopeNotificationSettingsQueryToUser } from '../utils/notificationSettingsTenantScope'
 
 export interface SupabaseNotificationSettings {
  id: string
@@ -42,12 +41,10 @@ export class NotificationSettingsService {
  }
 
  const userId = await this.getAuthenticatedUserId()
- const { data, error } = await scopeNotificationSettingsQueryToUser(
-  supabase
+ const { data, error } = await supabase
  .from('user_notification_settings')
- .select('*'),
-  userId
- )
+ .select('*')
+ .eq('user_id', userId)
  .single()
 
  if (error) {
@@ -216,12 +213,10 @@ export class NotificationSettingsService {
 
  try {
  const userId = await this.getAuthenticatedUserId()
- const { data, error } = await scopeNotificationSettingsQueryToUser(
-  supabase
+ const { data, error } = await supabase
  .from('user_notification_settings')
- .select('id'),
-  userId
- )
+ .select('id')
+ .eq('user_id', userId)
  .single()
 
  return !error && !!data

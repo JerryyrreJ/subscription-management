@@ -12,7 +12,8 @@ import {
  saveSubscriptions
 } from '../utils/storage'
 import { config } from '../lib/config'
-import { buildPendingCreateOperations, normalizeSubscription } from '../utils/subscriptionSync'
+import { buildPendingCreateOperations } from '../utils/subscriptionSync'
+import { createSubscriptionRecord, updateSubscriptionRecord } from '../utils/subscriptionDomain'
 import { DataScope, GUEST_DATA_SCOPE, getUserDataScope } from '../utils/dataScope'
 import { createScopedTaskGate } from '../utils/scopedTaskGate'
 import {
@@ -198,11 +199,9 @@ export function useSubscriptionSync(
  // 创建订阅（自动同步）
  const createSubscription = useCallback(async (subscription: Subscription | Omit<Subscription, 'id'>): Promise<Subscription> => {
  const scope = resolveUserScope(user)
- const normalizedSubscription = normalizeSubscription({
- ...subscription,
- id: 'id' in subscription ? subscription.id : crypto.randomUUID(),
- createdAt: subscription.createdAt || new Date().toISOString(),
- updatedAt: new Date().toISOString()
+ const normalizedSubscription = createSubscriptionRecord(subscription, {
+ id: 'id' in subscription ? subscription.id : undefined,
+ createdAt: subscription.createdAt,
  })
 
  if (config.features.cloudSync && user) {
@@ -263,11 +262,10 @@ export function useSubscriptionSync(
  const scope = resolveUserScope(user)
  const currentSubscriptions = loadSubscriptions(scope)
  const existingSubscription = currentSubscriptions.find(sub => sub.id === subscription.id)
- const normalizedSubscription = normalizeSubscription({
- ...existingSubscription,
- ...subscription,
- updatedAt: new Date().toISOString()
- })
+ const normalizedSubscription = updateSubscriptionRecord(
+ existingSubscription || subscription,
+ { ...existingSubscription, ...subscription }
+ )
 
  if (config.features.cloudSync && user) {
  try {
@@ -350,7 +348,7 @@ export function useSubscriptionSync(
 
  await Promise.all(changedSubscriptions.map(subscription => updateSubscription(subscription)))
  return loadSubscriptions(scope)
- }, [updateSubscription])
+ }, [updateSubscription, user])
 
  // 删除订阅（自动同步）
  const deleteSubscription = useCallback(async (id: string): Promise<void> => {

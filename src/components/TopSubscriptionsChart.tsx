@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { TopSubscription } from '../utils/reportAnalytics';
 import { Currency } from '../types';
 import { formatCurrency } from '../utils/currency';
-import { TrendingUp } from 'lucide-react';
 
 interface TopSubscriptionsChartProps {
  data: TopSubscription[];
@@ -65,7 +64,7 @@ export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsCh
  opacity: 0.8,
  }}
  >
- {data.map((entry, index) => (
+ {data.map((_, index) => (
  <Cell
  key={`cell-${index}`}
  fill={COLORS[index % COLORS.length]}

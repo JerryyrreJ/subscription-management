@@ -142,7 +142,7 @@ export const buildPendingCreateOperations = (
     type: 'create' as const,
     subscriptionId: normalizedSubscription.id,
     subscription: normalizedSubscription,
-    queuedAt: normalizedSubscription.updatedAt || normalizedSubscription.createdAt,
+    queuedAt: normalizedSubscription.updatedAt || normalizedSubscription.createdAt || new Date().toISOString(),
    };
   })
  );

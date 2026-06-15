@@ -8,9 +8,9 @@ Stripe 是可选服务。配置后，用户可以从应用中启动 Stripe Check
 
 ```bash
 VITE_STRIPE_PUBLISHABLE_KEY=
-VITE_STRIPE_PRICE_ID=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_ID=
 ```
 
 如果支付后需要激活 premium 状态，还需要配置 Supabase：
@@ -21,6 +21,8 @@ VITE_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
+推荐逐步迁移到 `SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY` 和 `SUPABASE_SECRET_KEY`。旧变量名暂时兼容。
+
 ## Functions
 
 ```text
@@ -28,15 +30,15 @@ netlify/functions/create-checkout-session.ts
 netlify/functions/stripe-webhook.ts
 ```
 
-`create-checkout-session.ts` 创建一次性 Stripe Checkout session。
+`create-checkout-session.ts` 创建一次性 Stripe Checkout session。启用 Supabase 时必须携带有效登录 access token；用户 ID、邮箱和 Price ID 都由服务端决定。
 
-`stripe-webhook.ts` 校验 Stripe webhook 签名，记录已完成支付，并在 Supabase 已配置时激活 premium 状态。
+`stripe-webhook.ts` 校验签名、支付状态和实际购买的 Price ID，再通过数据库事务 RPC 幂等记录付款并激活 Premium。无 Supabase 的自托管赞助模式仍允许游客付款，但不会产生 Premium 权益。
 
 ## Stripe Dashboard 设置
 
 1. 创建 Stripe product。
 2. 创建一次性 price。
-3. 将 Price ID 填入 `VITE_STRIPE_PRICE_ID`。
+3. 只把 Price ID 配置到服务端可信变量 `STRIPE_PRICE_ID`。
 4. 将 publishable key 和 secret key 添加到对应环境。
 5. 创建 webhook endpoint：
 

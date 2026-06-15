@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Period, Subscription, Currency, CloudMutationResult } from '../types';
-import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES } from '../utils/currency';
 import { getAllCategories, getAllCategoriesWithDetails, addCustomCategory } from '../utils/categories';
 import { MAX_SUBSCRIPTION_AMOUNT, validateSubscriptionAmount } from '../utils/subscriptionValidation';
 import { CustomSelect } from './CustomSelect';
 import { CustomDatePicker } from './CustomDatePicker';
 import type { Category } from '../utils/categories';
+import { getSubscriptionValidationMessage, updateSubscriptionRecord } from '../utils/subscriptionDomain';
 
 interface CategorySyncMethods {
  createCategory: (category: Category) => Promise<CloudMutationResult<Category>>
@@ -155,18 +155,15 @@ export function EditSubscriptionModal({
   return;
  }
 
- const nextPaymentDate = calculateNextPaymentDate(
- formData.lastPaymentDate,
- formData.period,
- formData.customDate
- );
-
- onEdit({
- id: subscription.id,
+ try {
+ onEdit(updateSubscriptionRecord(subscription, {
  ...formData,
  amount: Number(formData.amount),
- nextPaymentDate,
- });
+ }));
+ } catch (error) {
+ alert(getSubscriptionValidationMessage(error));
+ return;
+ }
 
  onClose();
  };

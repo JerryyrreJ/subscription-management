@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, Calendar, Tag, DollarSign } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Subscription } from '../types';

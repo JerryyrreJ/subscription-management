@@ -78,7 +78,7 @@ The core app runs without environment variables. Optional services use the follo
 | Service | Variables | Purpose |
 | --- | --- | --- |
 | Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Authentication, cloud sync, scheduled notification access |
-| Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `VITE_STRIPE_PRICE_ID`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Checkout and webhook handling |
+| Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` | Payment UI, checkout, and webhook handling |
 | Bark | Configured in the app | Push reminders for upcoming renewals |
 | Netlify | `URL` is provided by Netlify | Function callbacks and scheduled reminders |
 

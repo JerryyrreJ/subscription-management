@@ -204,6 +204,7 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  {/* Input Display */}
  <button
  type="button"
+ aria-required={required}
  onClick={() => setIsOpen(!isOpen)}
  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/80"
  >

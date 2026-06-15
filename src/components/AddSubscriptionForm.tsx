@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarDays, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Period, Subscription, Currency } from '../types';
-import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 import { getAllCategories } from '../utils/categories';
 import { MAX_SUBSCRIPTION_AMOUNT, validateSubscriptionAmount } from '../utils/subscriptionValidation';
 import { CustomSelect } from './CustomSelect';
 import { CustomDatePicker } from './CustomDatePicker';
+import { createSubscriptionRecord, getSubscriptionValidationMessage } from '../utils/subscriptionDomain';
 
 interface AddSubscriptionFormProps {
  onAdd: (subscription: Subscription) => void;
@@ -47,18 +47,15 @@ export function AddSubscriptionForm({ onAdd }: AddSubscriptionFormProps) {
   return;
  }
 
- const nextPaymentDate = calculateNextPaymentDate(
- formData.lastPaymentDate,
- formData.period,
- formData.customDate
- );
-
- onAdd({
- id: crypto.randomUUID(),
+ try {
+ onAdd(createSubscriptionRecord({
  ...formData,
  amount: Number(formData.amount),
- nextPaymentDate,
- });
+ }));
+ } catch (error) {
+ alert(getSubscriptionValidationMessage(error));
+ return;
+ }
 
  setFormData({
  name: '',

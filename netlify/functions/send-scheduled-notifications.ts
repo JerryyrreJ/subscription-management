@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendBarkNotification } from '../../src/utils/barkPush'
 import { formatDateOnly, getTodayDateOnly, normalizeTimeZone } from '../../src/utils/dates'
 import { cleanupNotificationHistoryEntries, mergeNotificationHistoryEntries, wasNotifiedToday } from '../../src/utils/notificationHistory'
@@ -7,17 +7,10 @@ import { DEFAULT_LOCALE } from '../../src/i18n/types'
 import { normalizeLocale } from '../../src/utils/locale'
 import { hasValidBarkConfig } from '../../src/utils/barkSettings'
 import { resolveSubscriptionRenewal } from '../../src/utils/subscriptionRenewal'
+import type { Currency, Period } from '../../src/types'
 import type { Config } from '@netlify/functions'
-
-// Supabase 配置（使用 Service Role Key 绕过 RLS）
-const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase configuration')
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+import { getSupabaseAdminConfig } from './_shared/env'
+import { createSupabaseAdminClient } from './_shared/supabase'
 
 interface Subscription {
   id: string
@@ -83,6 +76,7 @@ function hasSameHistory(
 }
 
 async function reserveNotificationDelivery(
+  supabase: SupabaseClient,
   userId: string,
   subscriptionId: string,
   deliveryDate: string
@@ -108,6 +102,7 @@ async function reserveNotificationDelivery(
 }
 
 async function releaseNotificationDelivery(
+  supabase: SupabaseClient,
   userId: string,
   subscriptionId: string,
   deliveryDate: string
@@ -132,6 +127,17 @@ async function releaseNotificationDelivery(
 export default async (req: Request): Promise<Response> => {
   console.log('[Scheduled Notifications] Starting notification check...', new Date().toISOString())
 
+  let supabase: SupabaseClient
+  try {
+    supabase = createSupabaseAdminClient(getSupabaseAdminConfig())
+  } catch {
+    console.error('[Scheduled Notifications] Missing or incomplete Supabase server configuration')
+    return new Response(
+      JSON.stringify({ error: 'Server configuration error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
   // Parse scheduled event payload (optional, contains next_run timestamp)
   try {
     const body = await req.text()
@@ -141,7 +147,7 @@ export default async (req: Request): Promise<Response> => {
         console.log('[Scheduled Notifications] Next scheduled run:', payload.next_run)
       }
     }
-  } catch (e) {
+  } catch {
     // Ignore parsing errors (e.g., when testing locally without payload)
   }
 
@@ -244,7 +250,7 @@ export default async (req: Request): Promise<Response> => {
         const renewal = resolveSubscriptionRenewal({
           lastPaymentDate: subscription.last_payment_date,
           nextPaymentDate: subscription.next_payment_date,
-          period: subscription.period as Subscription['period'],
+          period: subscription.period as Period,
           customDate: subscription.custom_date
         }, userTimeZone)
         const renewedDate = renewal.effectiveNextPaymentDate
@@ -278,8 +284,8 @@ export default async (req: Request): Promise<Response> => {
               name: subscription.name,
               category: '',
               amount: subscription.amount,
-              currency: subscription.currency as Subscription['currency'],
-              period: subscription.period as Subscription['period'],
+              currency: subscription.currency as Currency,
+              period: subscription.period as Period,
               lastPaymentDate: renewedDate,
               nextPaymentDate: renewedDate,
               customDate: subscription.custom_date
@@ -291,7 +297,7 @@ export default async (req: Request): Promise<Response> => {
           let deliveryReserved = false
 
           try {
-            const reserved = await reserveNotificationDelivery(user_id, subscription.id, deliveryDate)
+            const reserved = await reserveNotificationDelivery(supabase, user_id, subscription.id, deliveryDate)
 
             if (!reserved) {
               console.log(`[Scheduled Notifications] Delivery already reserved for today ${buildSubscriptionLogContext(user_id, subscription, { delivery_date: deliveryDate })}`)
@@ -322,14 +328,14 @@ export default async (req: Request): Promise<Response> => {
               totalNotificationsSent++
               console.log(`[Scheduled Notifications] Successfully sent notification ${buildSubscriptionLogContext(user_id, subscription, { sent_at: sentAt })}`)
             } else {
-              await releaseNotificationDelivery(user_id, subscription.id, deliveryDate)
+              await releaseNotificationDelivery(supabase, user_id, subscription.id, deliveryDate)
               console.error(`[Scheduled Notifications] Failed to send notification ${buildSubscriptionLogContext(user_id, subscription, { delivery_date: deliveryDate })}`)
               totalErrors++
             }
           } catch (error) {
             if (deliveryReserved) {
               try {
-                await releaseNotificationDelivery(user_id, subscription.id, deliveryDate)
+                await releaseNotificationDelivery(supabase, user_id, subscription.id, deliveryDate)
               } catch (releaseError) {
                 console.error(`[Scheduled Notifications] Error releasing delivery lock ${buildSubscriptionLogContext(user_id, subscription, { delivery_date: deliveryDate })}:`, releaseError)
               }

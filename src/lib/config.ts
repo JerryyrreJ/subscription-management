@@ -7,10 +7,7 @@ export const config = {
  ),
 
  // 检测是否有Stripe配置
- hasStripeConfig: Boolean(
- import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY &&
- import.meta.env.VITE_STRIPE_PRICE_ID
- ),
+ hasStripeConfig: Boolean(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY),
 
  // Supabase配置
  supabase: {
@@ -20,8 +17,7 @@ export const config = {
 
  // Stripe配置
  stripe: {
- publishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '',
- priceId: import.meta.env.VITE_STRIPE_PRICE_ID || ''
+ publishableKey: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ''
  },
 
  // 功能开关
@@ -34,10 +30,7 @@ export const config = {
  import.meta.env.VITE_SUPABASE_URL &&
  import.meta.env.VITE_SUPABASE_ANON_KEY
  ),
- payment: Boolean(
- import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY &&
- import.meta.env.VITE_STRIPE_PRICE_ID
- )
+ payment: Boolean(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
  }
 }
 

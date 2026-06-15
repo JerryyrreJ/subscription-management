@@ -5,13 +5,13 @@ import { createClient } from '@supabase/supabase-js'
 import { sendBarkNotification } from '../src/utils/barkPush'
 import { addBillingPeriodToDate, compareDateOnly, formatDateOnly, getDaysUntil, getTodayDateOnly } from '../src/utils/dates'
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
+const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('❌ Missing environment variables:')
-  console.error('  - VITE_SUPABASE_URL')
-  console.error('  - SUPABASE_SERVICE_ROLE_KEY')
+  console.error('  - SUPABASE_URL (or VITE_SUPABASE_URL)')
+  console.error('  - SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY)')
   console.error('\nAdd these to .env.local file')
   process.exit(1)
 }
@@ -19,7 +19,6 @@ if (!supabaseUrl || !supabaseServiceKey) {
 console.log('🧪 Testing Scheduled Notification Function (v2)')
 console.log('='.repeat(50))
 console.log(`Supabase URL: ${supabaseUrl}`)
-console.log(`Service Key: ${supabaseServiceKey.substring(0, 20)}...`)
 console.log('')
 
 async function testNotificationLogic() {
@@ -27,7 +26,7 @@ async function testNotificationLogic() {
 
   // 1. Test database connection
   console.log('[Step 1] Testing database connection...')
-  const { data: testData, error: testError } = await supabase
+  const { error: testError } = await supabase
     .from('user_notification_settings')
     .select('count')
 

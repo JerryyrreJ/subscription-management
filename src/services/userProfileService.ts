@@ -6,6 +6,9 @@ export interface UserProfile {
  id: string
  user_id: string
  nickname: string
+ is_premium: boolean
+ premium_activated_at?: string | null
+ premium_payment_id?: string | null
  created_at: string
  updated_at: string
 }

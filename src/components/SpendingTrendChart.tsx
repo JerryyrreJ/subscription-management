@@ -48,11 +48,12 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
  borderRadius: '0.75rem',
  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
  }}
- formatter={(value: number, _name: string, item: { dataKey?: string }) => {
- if (item?.dataKey === 'totalSpend') {
- return [formatCurrency(value, baseCurrency), t('analytics:monthlySpend')];
+ formatter={(value, _name, item) => {
+ const numericValue = Number(value);
+ if (String(item?.dataKey) === 'totalSpend') {
+ return [formatCurrency(numericValue, baseCurrency), t('analytics:monthlySpend')];
  }
- return [value, t('analytics:subscriptionCount')];
+ return [numericValue, t('analytics:subscriptionCount')];
  }}
  />
  <Legend />

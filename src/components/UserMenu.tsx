@@ -9,7 +9,7 @@ interface UserProfile {
 }
 
 interface User {
- email: string;
+ email?: string;
 }
 
 interface UserMenuProps {

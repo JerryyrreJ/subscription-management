@@ -36,10 +36,11 @@ export class CategoryService {
  throw new Error('Cloud sync not available')
  }
 
+ const client = supabase
  const userId = await this.getAuthenticatedUserId()
 
  const { data, error } = await scopeCategoryQueryToUser(
-  supabase
+  client
  .from('user_categories')
  .select('*')
  .order('order', { ascending: true }),
@@ -60,9 +61,10 @@ export class CategoryService {
  throw new Error('Cloud sync not available')
  }
 
+ const client = supabase
  const userId = await this.getAuthenticatedUserId()
 
- const { data, error } = await supabase
+ const { data, error } = await client
  .from('user_categories')
  .insert([{
  user_id: userId,
@@ -89,10 +91,11 @@ export class CategoryService {
  throw new Error('Cloud sync not available')
  }
 
+ const client = supabase
  const userId = await this.getAuthenticatedUserId()
 
  const { data, error } = await scopeCategoryQueryToUserAndId(
-  supabase
+  client
  .from('user_categories')
  .update({
  name: category.name,
@@ -191,13 +194,14 @@ export class CategoryService {
  throw new Error('Cloud sync not available')
  }
 
+ const client = supabase
  const userId = await this.getAuthenticatedUserId()
 
  try {
  // 批量更新每个类别的 order 字段
  const updatePromises = categories.map(async (cat) => {
  const { error } = await scopeCategoryQueryToUserAndId(
-  supabase
+  client
  .from('user_categories')
  .update({ order: cat.order }),
   userId,

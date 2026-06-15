@@ -1,12 +1,12 @@
-type ScopedCategoryQuery<T> = {
- eq: (column: string, value: string) => T
+type ScopedCategoryQuery = {
+ eq: (column: string, value: string) => unknown
 }
 
-export const scopeCategoryQueryToUser = <T extends ScopedCategoryQuery<T>>(query: T, userId: string): T =>
- query.eq('user_id', userId)
+export const scopeCategoryQueryToUser = <T extends ScopedCategoryQuery>(query: T, userId: string): T =>
+ query.eq('user_id', userId) as T
 
-export const scopeCategoryQueryToUserAndId = <T extends ScopedCategoryQuery<T>>(
+export const scopeCategoryQueryToUserAndId = <T extends ScopedCategoryQuery>(
  query: T,
  userId: string,
  categoryId: string
-): T => scopeCategoryQueryToUser(query, userId).eq('category_id', categoryId)
+): T => scopeCategoryQueryToUser(query, userId).eq('category_id', categoryId) as T

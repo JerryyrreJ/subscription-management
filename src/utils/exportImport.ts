@@ -2,6 +2,7 @@ import { Subscription } from '../types';
 import { loadSubscriptions } from './storage';
 import { loadCategories, Category } from './categories';
 import { normalizeSubscription } from './subscriptionSync';
+import { normalizeSubscriptionRecord } from './subscriptionDomain';
 import packageJson from '../../package.json';
 
 export interface ExportData {
@@ -95,7 +96,11 @@ const normalizeImportSubscription = (
   throw new Error(`Invalid subscription data at index ${index}: currency is invalid`);
  }
 
- return normalizeSubscription(sub);
+ try {
+  return normalizeSubscriptionRecord(sub);
+ } catch (error) {
+  throw new Error(`Invalid subscription data at index ${index}: ${error instanceof Error ? error.message : 'validation failed'}`);
+ }
 };
 
 const normalizeImportCategory = (

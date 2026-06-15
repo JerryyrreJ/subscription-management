@@ -6,7 +6,6 @@ import {
  setActiveDataScope,
 } from '../../src/utils/dataScope.ts';
 import {
- clearLocalDataOwner,
  loadLastLocalDataOwnerUserId,
  loadPendingSyncOperations,
  loadLocalDataOwner,

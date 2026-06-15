@@ -1,7 +1,7 @@
 import { X, Check, Sparkles, ArrowRight } from 'lucide-react';
 import { config } from '../lib/config';
 import { useEffect, useRef, useState } from 'react';
-import { redirectToCheckout, getStripePriceId } from '../services/payment';
+import { redirectToCheckout } from '../services/payment';
 import { useAuth } from '../contexts/AuthContext';
 import { useScrollAnimation } from '../hooks/useScrollAnimation';
 import { useTranslation } from 'react-i18next';
@@ -147,8 +147,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  const containerRef = useRef<HTMLDivElement>(null);
  const [isVisible, setIsVisible] = useState(false);
  const [isProcessing, setIsProcessing] = useState(false);
- const { user } = useAuth();
- const authenticatedUser = config.features.authentication ? user : null;
+ const { session } = useAuth();
 
  // 当模态框打开时，滚动到顶部并触发动画
  useEffect(() => {
@@ -170,16 +169,15 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  return;
  }
 
+ if (config.features.cloudSync && !session?.access_token) {
+ onUpgrade?.();
+ return;
+ }
+
  setIsProcessing(true);
 
  try {
- const priceId = getStripePriceId();
-
- await redirectToCheckout({
- priceId,
- userId: authenticatedUser?.id,
- userEmail: authenticatedUser?.email,
- });
+ await redirectToCheckout(session?.access_token);
  } catch (error) {
  console.error('Payment error:', error);
  alert(t('pricing:paymentFailed'));

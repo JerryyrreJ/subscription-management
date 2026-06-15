@@ -16,18 +16,14 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 ## SQL Setup
 
-Run the SQL files that match the features you plan to enable:
+The schema is managed by timestamped migrations:
 
 ```text
-supabase/migrations/001_premium_features.sql
-supabase/01_add_notification_enabled.sql
-supabase/02_create_notification_settings.sql
-supabase/03_create_notification_delivery_locks.sql
-supabase/migrations/002_notification_settings_timezone.sql
-supabase/migrations/003_notification_settings_locale.sql
+supabase/migrations/20260615000100_baseline.sql
+supabase/migrations/20260615000200_harden_existing_schema.sql
 ```
 
-Use the Supabase Dashboard SQL editor or the Supabase CLI.
+For a new environment, run `supabase start` and `npm run db:verify`. For an existing production environment, first create a read-only DDL dump, confirm the baseline diff, run `supabase/audit/preflight.sql`, then mark the baseline and apply the hardening migration. See `supabase/README.md` for the complete workflow.
 
 ## Data Model Areas
 

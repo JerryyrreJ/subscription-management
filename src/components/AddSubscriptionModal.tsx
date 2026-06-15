@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Period, Subscription, Currency, CloudMutationResult } from '../types';
-import { calculateNextPaymentDate } from '../utils/dates';
 import { CURRENCIES, DEFAULT_CURRENCY } from '../utils/currency';
 import { getAllCategories, getAllCategoriesWithDetails, addCustomCategory } from '../utils/categories';
 import { MAX_SUBSCRIPTION_AMOUNT, validateSubscriptionAmount } from '../utils/subscriptionValidation';
 import { CustomSelect } from './CustomSelect';
 import { CustomDatePicker } from './CustomDatePicker';
 import type { Category } from '../utils/categories';
+import { createSubscriptionRecord, getSubscriptionValidationMessage } from '../utils/subscriptionDomain';
 
 interface CategorySyncMethods {
  createCategory: (category: Category) => Promise<CloudMutationResult<Category>>
@@ -170,20 +170,11 @@ export function AddSubscriptionModal({
  };
 
  const buildSubscription = (notificationEnabled: boolean): Subscription => {
- const nextPaymentDate = calculateNextPaymentDate(
-  formData.lastPaymentDate,
-  formData.period,
-  formData.customDate
- );
-
- return {
-  id: crypto.randomUUID(),
+ return createSubscriptionRecord({
   ...formData,
   amount: Number(formData.amount),
-  nextPaymentDate,
-  createdAt: new Date().toISOString(),
   notificationEnabled,
- };
+ });
  };
 
  const submitSubscription = async (notificationEnabled: boolean) => {
@@ -197,6 +188,9 @@ export function AddSubscriptionModal({
   await onAdd(buildSubscription(notificationEnabled));
   resetForm();
   return true;
+ } catch (error) {
+  alert(getSubscriptionValidationMessage(error));
+  return false;
  } finally {
   setIsSubmitting(false);
  }

@@ -272,7 +272,7 @@ export function useCategorySync(
   return buildCloudMutationResult(undefined, true, false)
  }
 
- const updatedCategories = stageCategorySnapshot(
+ stageCategorySnapshot(
   category.isBuiltIn
    ? categories.map(cat =>
     cat.id === categoryId ? { ...cat, isHidden: true } : cat

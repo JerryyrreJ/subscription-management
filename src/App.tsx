@@ -123,7 +123,16 @@ function LazyModalFallback({
 
 export function App() {
  const { t, i18n } = useTranslation(['app']);
- const { user, userProfile, session, loading, signOut, updateUserEmail, updateUserPassword } = useAuth();
+ const {
+ user,
+ userProfile,
+ session,
+ loading,
+ signOut,
+ refreshUserProfile,
+ updateUserEmail,
+ updateUserPassword
+ } = useAuth();
  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
  const [theme, setTheme] = useState<Theme>('light');
@@ -152,7 +161,7 @@ export function App() {
  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
 const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');
 const [exchangeRatesUpdatedAt, setExchangeRatesUpdatedAt] = useState<number | null>(null);
-const [isExchangeRatesRefreshing, setIsExchangeRatesRefreshing] = useState(false);
+const [, setIsExchangeRatesRefreshing] = useState(false);
 const [exchangeRatesStale, setExchangeRatesStale] = useState(false);
 const [exchangeRateError, setExchangeRateError] = useState<string | undefined>();
  const appLocale = normalizeLocale(i18n.language);
@@ -162,6 +171,35 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  useEffect(() => {
  document.title = t('app:documentTitle');
  }, [i18n.language, t]);
+
+ useEffect(() => {
+  if (!user || typeof window === 'undefined') {
+   return;
+  }
+
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('payment') !== 'success') {
+   return;
+  }
+
+  const refreshDelays = [0, 1500, 4000];
+  const timeoutIds = refreshDelays.map(delay => window.setTimeout(() => {
+   void refreshUserProfile().catch(error => {
+    console.error('Failed to refresh premium status after payment:', error);
+   });
+  }, delay));
+
+  const cleanupTimeout = window.setTimeout(() => {
+   url.searchParams.delete('payment');
+   url.searchParams.delete('session_id');
+   window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+  }, refreshDelays[refreshDelays.length - 1] + 500);
+
+  return () => {
+   timeoutIds.forEach(timeoutId => window.clearTimeout(timeoutId));
+   window.clearTimeout(cleanupTimeout);
+  };
+ }, [refreshUserProfile, user]);
 
  useEffect(() => {
   if (loading) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Bell, Send, ChevronDown, ChevronUp, Download, Key, Copy, Globe, ExternalLink, Lock, LogIn } from 'lucide-react';
+import { X, Bell, Send, ChevronDown, ChevronUp, Download, Copy, ExternalLink, Lock, LogIn } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ReminderSettings } from '../types';
 import { testBarkPush, validateBarkConfig } from '../utils/barkPush';
@@ -115,7 +115,7 @@ export function NotificationSettingsModal({
  } else {
  setTestResult({ success: false, message: t('notificationSettings:testPushFailed') });
  }
- } catch (error) {
+ } catch {
  setTestResult({ success: false, message: t('notificationSettings:testPushError') });
  } finally {
  setIsTesting(false);
