@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Edit3, LogOut, RotateCcw, Mail, Lock, Folder, Download, Upload, LogIn, Bell, DollarSign, Globe } from 'lucide-react';
+import { User, Edit3, LogOut, RotateCcw, Mail, Lock, Folder, Download, Upload, LogIn, Bell, DollarSign, Globe, Code2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppLanguage } from '../hooks/useAppLanguage';
 import { LANGUAGE_LABELS, SUPPORTED_LOCALES } from '../i18n/types';
@@ -20,6 +20,7 @@ interface UserMenuProps {
  onEditNickname: () => void;
  onEditEmail: () => void;
  onEditPassword: () => void;
+ onDeveloperApi?: () => void;
  onCategorySettings: () => void;
  onExportData: () => void;
  onImportData: () => void;
@@ -38,6 +39,7 @@ export function UserMenu({
  onEditNickname,
  onEditEmail,
  onEditPassword,
+ onDeveloperApi,
  onCategorySettings,
  onExportData,
  onImportData,
@@ -218,6 +220,16 @@ export function UserMenu({
  <Lock className="w-4 h-4 text-gray-400"/>
  {t('userMenu:changePassword')}
  </button>
+
+ {onDeveloperApi && (
+ <button
+ onClick={() => handleMenuItemClick(onDeveloperApi)}
+ className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+ >
+ <Code2 className="w-4 h-4 text-gray-400"/>
+ {t('userMenu:developerApi')}
+ </button>
+ )}
 
  <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
  </>

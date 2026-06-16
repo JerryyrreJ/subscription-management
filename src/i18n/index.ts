@@ -22,7 +22,7 @@ if (!i18n.isInitialized) {
    lng: initialLocale,
    fallbackLng: DEFAULT_LOCALE,
    supportedLngs: [...SUPPORTED_LOCALES],
-   ns: ['common', 'app', 'userMenu', 'addSubscription', 'auth', 'notificationSettings', 'dashboard', 'editSubscription', 'subscriptionDetails', 'categorySettings', 'importData', 'accountModals', 'pricing', 'subscriptionCard', 'footer', 'theme', 'analytics'],
+   ns: ['common', 'app', 'userMenu', 'addSubscription', 'auth', 'notificationSettings', 'dashboard', 'developerApi', 'editSubscription', 'subscriptionDetails', 'categorySettings', 'importData', 'accountModals', 'pricing', 'subscriptionCard', 'footer', 'theme', 'analytics'],
    defaultNS: 'common',
    interpolation: {
     escapeValue: false,

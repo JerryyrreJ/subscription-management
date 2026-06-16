@@ -31,6 +31,31 @@ export interface StripeServerConfig {
   siteUrl: string;
 }
 
+export interface ApiLimitsConfig {
+  freeRequestsPerHour: number;
+  premiumRequestsPerHour: number;
+  freeActiveKeys: number;
+  premiumActiveKeys: number;
+}
+
+const optionalPositiveInteger = (
+  name: string,
+  value: string | undefined,
+  fallback: number
+): number => {
+  const normalized = optionalValue(value);
+  if (!normalized) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0 || String(parsed) !== normalized) {
+    throw new Error(`Invalid positive integer server environment variable: ${name}`);
+  }
+
+  return parsed;
+};
+
 export const getOptionalSupabasePublicConfig = (
   env: Environment = process.env
 ): SupabasePublicConfig | null => {
@@ -91,4 +116,29 @@ export const getStripeServerConfig = (
   webhookSecret: requiredValue('STRIPE_WEBHOOK_SECRET', env.STRIPE_WEBHOOK_SECRET),
   priceId: requiredValue('STRIPE_PRICE_ID or VITE_STRIPE_PRICE_ID', env.STRIPE_PRICE_ID || env.VITE_STRIPE_PRICE_ID),
   siteUrl: requiredValue('SITE_URL or URL', env.SITE_URL || env.URL || 'http://localhost:5173'),
+});
+
+export const getApiLimitsConfig = (
+  env: Environment = process.env
+): ApiLimitsConfig => ({
+  freeRequestsPerHour: optionalPositiveInteger(
+    'API_FREE_RATE_LIMIT_PER_HOUR',
+    env.API_FREE_RATE_LIMIT_PER_HOUR,
+    60
+  ),
+  premiumRequestsPerHour: optionalPositiveInteger(
+    'API_PREMIUM_RATE_LIMIT_PER_HOUR',
+    env.API_PREMIUM_RATE_LIMIT_PER_HOUR,
+    1000
+  ),
+  freeActiveKeys: optionalPositiveInteger(
+    'API_FREE_ACTIVE_KEYS',
+    env.API_FREE_ACTIVE_KEYS,
+    1
+  ),
+  premiumActiveKeys: optionalPositiveInteger(
+    'API_PREMIUM_ACTIVE_KEYS',
+    env.API_PREMIUM_ACTIVE_KEYS,
+    5
+  ),
 });

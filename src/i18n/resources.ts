@@ -3,6 +3,7 @@ import { auth as enAuth } from './locales/en/auth';
 import { categorySettings as enCategorySettings } from './locales/en/categorySettings';
 import { common as enCommon } from './locales/en/common';
 import { dashboard as enDashboard } from './locales/en/dashboard';
+import { developerApi as enDeveloperApi } from './locales/en/developerApi';
 import { editSubscription as enEditSubscription } from './locales/en/editSubscription';
 import { addSubscription as enAddSubscription } from './locales/en/addSubscription';
 import { accountModals as enAccountModals } from './locales/en/accountModals';
@@ -20,6 +21,7 @@ import { auth as zhAuth } from './locales/zh-CN/auth';
 import { categorySettings as zhCategorySettings } from './locales/zh-CN/categorySettings';
 import { common as zhCommon } from './locales/zh-CN/common';
 import { dashboard as zhDashboard } from './locales/zh-CN/dashboard';
+import { developerApi as zhDeveloperApi } from './locales/zh-CN/developerApi';
 import { editSubscription as zhEditSubscription } from './locales/zh-CN/editSubscription';
 import { addSubscription as zhAddSubscription } from './locales/zh-CN/addSubscription';
 import { accountModals as zhAccountModals } from './locales/zh-CN/accountModals';
@@ -43,6 +45,7 @@ export const resources = {
   auth: enAuth,
   categorySettings: enCategorySettings,
   dashboard: enDashboard,
+  developerApi: enDeveloperApi,
   editSubscription: enEditSubscription,
   footer: enFooter,
   importData: enImportData,
@@ -62,6 +65,7 @@ export const resources = {
   auth: zhAuth,
   categorySettings: zhCategorySettings,
   dashboard: zhDashboard,
+  developerApi: zhDeveloperApi,
   editSubscription: zhEditSubscription,
   footer: zhFooter,
   importData: zhImportData,

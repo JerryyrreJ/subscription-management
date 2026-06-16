@@ -19,6 +19,7 @@ Subscription Manager 是一个本地优先的 Web 应用，用于跟踪周期性
 - 查看支出报告、分类占比、最高支出订阅和续费分布
 - 可选启用 Supabase 登录和多设备同步
 - 可选通过 Bark 推送发送续费提醒
+- 可选创建开发者 API Key，用于自动化增删查改订阅
 - 支持桌面端和移动端的浅色/深色模式
 
 ## 技术栈
@@ -67,7 +68,11 @@ npm run dev:full            # 启动 Netlify 本地开发环境
 npm run build               # 生产构建
 npm run preview             # 预览生产构建
 npm run lint                # 运行 ESLint
+npm run typecheck           # 运行前端和 Functions TypeScript 检查
 npm run test                # 运行工具函数测试
+npm run test:functions      # 运行 Netlify Functions 测试
+npm run db:verify           # 重置并 lint 本地 Supabase 数据库
+npm run check               # 运行 typecheck、lint、测试和构建
 npm run test:notifications  # 测试定时通知逻辑
 ```
 
@@ -79,6 +84,7 @@ npm run test:notifications  # 测试定时通知逻辑
 | --- | --- | --- |
 | Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | 登录、云同步、定时通知访问 |
 | Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` | 支付界面、Checkout 和 webhook 处理 |
+| 开放 API | `API_FREE_RATE_LIMIT_PER_HOUR`, `API_PREMIUM_RATE_LIMIT_PER_HOUR`, `API_FREE_ACTIVE_KEYS`, `API_PREMIUM_ACTIVE_KEYS` | 可选覆盖 API 配额 |
 | Bark | 在应用内配置 | 订阅续费推送提醒 |
 | Netlify | `URL` 由 Netlify 提供 | 函数回调和定时提醒 |
 
@@ -91,6 +97,7 @@ npm run test:notifications  # 测试定时通知逻辑
 - [使用 Supabase 云同步](docs/zh-CN/supabase.md)
 - [使用 Bark 续费提醒](docs/zh-CN/notifications.md)
 - [使用 Stripe 支付](docs/zh-CN/payments.md)
+- [开放 API](docs/zh-CN/api.md)
 - [更新日志](CHANGELOG.md)
 
 ## 项目结构

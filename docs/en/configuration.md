@@ -20,6 +20,10 @@ The core app runs without environment variables. Add environment variables only 
 | `STRIPE_PRICE_ID` | The only Stripe Price accepted by the server | Server only |
 | `SITE_URL` | Checkout success and cancellation URL | Server only |
 | `URL` | Netlify function callback URLs | Provided by Netlify |
+| `API_FREE_RATE_LIMIT_PER_HOUR` | Free user public API requests per hour; defaults to `60` | Server only |
+| `API_PREMIUM_RATE_LIMIT_PER_HOUR` | Premium user public API requests per hour; defaults to `1000` | Server only |
+| `API_FREE_ACTIVE_KEYS` | Free user active API key limit; defaults to `1` | Server only |
+| `API_PREMIUM_ACTIVE_KEYS` | Premium user active API key limit; defaults to `5` | Server only |
 
 ## Browser Variables
 
@@ -37,6 +41,7 @@ The app checks environment variables at runtime:
 
 - Supabase variables enable authentication and cloud sync.
 - Stripe variables enable payment flow.
+- Public API keys require Supabase and Netlify Functions; quota variables only override the defaults.
 - Missing optional variables keep the app in local-first mode.
 
 ## Bark Settings

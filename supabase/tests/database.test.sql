@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(27);
+SELECT plan(35);
 
 SELECT has_table('public', 'user_profiles', 'user_profiles exists');
 SELECT has_table('public', 'subscriptions', 'subscriptions exists');
@@ -8,6 +8,8 @@ SELECT has_table('public', 'user_categories', 'user_categories exists');
 SELECT has_table('public', 'user_notification_settings', 'notification settings exists');
 SELECT has_table('public', 'notification_delivery_locks', 'delivery locks exist');
 SELECT has_table('public', 'payments', 'payments exists');
+SELECT has_table('public', 'api_keys', 'api_keys exists');
+SELECT has_table('public', 'api_rate_limit_windows', 'api rate limit windows exist');
 
 SELECT has_column('public', 'payments', 'stripe_price_id', 'payments stores the trusted Stripe price');
 SELECT has_column('public', 'user_notification_settings', 'locale', 'notification settings store locale');
@@ -16,6 +18,11 @@ SELECT has_function(
   'complete_premium_purchase',
   ARRAY['uuid', 'text', 'text', 'text', 'text', 'integer', 'text', 'text', 'jsonb']
 );
+SELECT has_function(
+  'public',
+  'consume_api_rate_limit',
+  ARRAY['uuid', 'timestamp with time zone', 'integer']
+);
 
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.user_profiles'::regclass), 'user_profiles has RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.subscriptions'::regclass), 'subscriptions has RLS');
@@ -23,6 +30,8 @@ SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.user_categori
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.user_notification_settings'::regclass), 'notification settings has RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.payments'::regclass), 'payments has RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_delivery_locks'::regclass), 'delivery locks have RLS');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_keys'::regclass), 'api_keys has RLS');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_rate_limit_windows'::regclass), 'api rate limit windows have RLS');
 
 SELECT ok(
   EXISTS (
@@ -63,6 +72,24 @@ SELECT is(
   has_table_privilege('authenticated', 'public.payments', 'INSERT'),
   FALSE,
   'authenticated users cannot insert payments'
+);
+
+SELECT is(
+  has_table_privilege('authenticated', 'public.api_keys', 'SELECT'),
+  FALSE,
+  'authenticated users cannot read API key hashes directly'
+);
+
+SELECT is(
+  has_table_privilege('authenticated', 'public.api_keys', 'INSERT'),
+  FALSE,
+  'authenticated users cannot insert API keys directly'
+);
+
+SELECT is(
+  has_function_privilege('authenticated', 'public.consume_api_rate_limit(uuid,timestamp with time zone,integer)', 'EXECUTE'),
+  FALSE,
+  'authenticated users cannot execute rate limit RPC'
 );
 
 INSERT INTO auth.users (id, raw_user_meta_data)

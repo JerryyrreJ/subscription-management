@@ -9,7 +9,8 @@ export class HttpError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly code: string,
-    message: string
+    message: string,
+    public readonly headers: Record<string, string> = {}
   ) {
     super(message);
     this.name = 'HttpError';
@@ -34,7 +35,7 @@ export const errorResponse = (
     return jsonResponse(error.statusCode, {
       error: { code: error.code, message: error.message },
       requestId,
-    });
+    }, error.headers);
   }
 
   return jsonResponse(500, {

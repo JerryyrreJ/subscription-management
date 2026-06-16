@@ -12,5 +12,7 @@ export const app = {
  loadingReportDescription: '正在准备分析与图表...',
  loadingPricingTitle: '正在加载定价',
  loadingPricingDescription: '正在获取套餐详情...',
+ loadingDeveloperApiTitle: '正在加载开发者 API',
+ loadingDeveloperApiDescription: '正在准备 API Key 管理...',
  cancel: '取消',
 };

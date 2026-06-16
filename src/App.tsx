@@ -88,6 +88,9 @@ const PricingModal = lazy(() =>
 const NotificationSettingsModal = lazy(() =>
  import('./components/NotificationSettingsModal').then(module => ({ default: module.NotificationSettingsModal }))
 );
+const DeveloperApiModal = lazy(() =>
+ import('./components/DeveloperApiModal').then(module => ({ default: module.DeveloperApiModal }))
+);
 
 const initialSyncTaskGate = createScopedTaskGate<string>();
 const exchangeRateTaskGate = createScopedTaskGate<'exchange-rates'>();
@@ -157,6 +160,7 @@ export function App() {
  const [isNotificationSettingsModalOpen, setIsNotificationSettingsModalOpen] = useState(false);
  const [isAdvancedReportOpen, setIsAdvancedReportOpen] = useState(false);
  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+ const [isDeveloperApiModalOpen, setIsDeveloperApiModalOpen] = useState(false);
  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
 const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');
@@ -749,6 +753,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  onEditNickname={() => setIsEditNicknameModalOpen(true)}
  onEditEmail={() => setIsEditEmailModalOpen(true)}
  onEditPassword={() => setIsEditPasswordModalOpen(true)}
+ onDeveloperApi={() => setIsDeveloperApiModalOpen(true)}
  onCategorySettings={() => setIsCategorySettingsModalOpen(true)}
  onExportData={handleExportData}
  onImportData={handleImportData}
@@ -768,6 +773,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  onEditNickname={() => {}}
  onEditEmail={() => {}}
  onEditPassword={() => {}}
+ onDeveloperApi={undefined}
  onCategorySettings={() => setIsCategorySettingsModalOpen(true)}
  onExportData={handleExportData}
  onImportData={handleImportData}
@@ -1116,6 +1122,28 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   if (!user) {
   setIsAuthModalOpen(true);
   }
+  }}
+ />
+ </Suspense>
+ )}
+
+ {config.features.authentication && isDeveloperApiModalOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('app:loadingDeveloperApiTitle')}
+   description={t('app:loadingDeveloperApiDescription')}
+   onClose={() => setIsDeveloperApiModalOpen(false)}
+  />
+ )}
+ >
+  <DeveloperApiModal
+  isOpen={isDeveloperApiModalOpen}
+  accessToken={session?.access_token}
+  onClose={() => setIsDeveloperApiModalOpen(false)}
+  onOpenAuth={() => {
+   setIsDeveloperApiModalOpen(false);
+   setIsAuthModalOpen(true);
   }}
   />
  </Suspense>

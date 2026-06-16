@@ -19,6 +19,7 @@ The app works without an account by storing data in the browser. Supabase, Strip
 - Review spending reports, category breakdowns, top subscriptions, and renewal patterns
 - Use optional Supabase authentication and multi-device sync
 - Send optional Bark push reminders for upcoming renewals
+- Create optional Developer API keys for subscription CRUD automation
 - Use light or dark mode on desktop and mobile
 
 ## Tech Stack
@@ -67,7 +68,11 @@ npm run dev:full            # Start Netlify local development
 npm run build               # Build for production
 npm run preview             # Preview the production build
 npm run lint                # Run ESLint
+npm run typecheck           # Run app and Functions TypeScript checks
 npm run test                # Run utility tests
+npm run test:functions      # Run Netlify Functions tests
+npm run db:verify           # Reset and lint a local Supabase database
+npm run check               # Run typecheck, lint, tests, and build
 npm run test:notifications  # Test scheduled notification logic
 ```
 
@@ -79,6 +84,7 @@ The core app runs without environment variables. Optional services use the follo
 | --- | --- | --- |
 | Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Authentication, cloud sync, scheduled notification access |
 | Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` | Payment UI, checkout, and webhook handling |
+| Public API | `API_FREE_RATE_LIMIT_PER_HOUR`, `API_PREMIUM_RATE_LIMIT_PER_HOUR`, `API_FREE_ACTIVE_KEYS`, `API_PREMIUM_ACTIVE_KEYS` | Optional API quota overrides |
 | Bark | Configured in the app | Push reminders for upcoming renewals |
 | Netlify | `URL` is provided by Netlify | Function callbacks and scheduled reminders |
 
@@ -91,6 +97,7 @@ The core app runs without environment variables. Optional services use the follo
 - [Cloud sync with Supabase](docs/en/supabase.md)
 - [Renewal reminders with Bark](docs/en/notifications.md)
 - [Payments with Stripe](docs/en/payments.md)
+- [Public API](docs/en/api.md)
 - [Changelog](CHANGELOG.md)
 
 ## Project Structure

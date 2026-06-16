@@ -11,6 +11,7 @@ export const userMenu = {
  editNickname: '修改昵称',
  changeEmail: '修改邮箱',
  changePassword: '修改密码',
+ developerApi: '开发者 API',
  exportData: '导出数据',
  importData: '导入数据',
  notificationSettings: '通知设置',

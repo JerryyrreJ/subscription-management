@@ -12,5 +12,7 @@ export const app = {
  loadingReportDescription: 'Preparing analytics and charts...',
  loadingPricingTitle: 'Loading Pricing',
  loadingPricingDescription: 'Fetching plan details...',
+ loadingDeveloperApiTitle: 'Loading Developer API',
+ loadingDeveloperApiDescription: 'Preparing API key management...',
  cancel: 'Cancel',
 };
