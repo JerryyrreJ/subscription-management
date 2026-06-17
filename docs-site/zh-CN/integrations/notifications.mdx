@@ -1,0 +1,35 @@
+---
+title: "续费提醒"
+description: "使用 Bark 和 Netlify Scheduled Functions 发送订阅续费提醒。"
+---
+
+# 续费提醒
+
+续费提醒是可选功能。启用后，系统可以在订阅即将续费前通过 Bark 发送推送通知。
+
+## 组成部分
+
+- Supabase 保存用户提醒配置和订阅数据。
+- Netlify Scheduled Function 定时扫描即将续费的订阅。
+- Bark 负责向用户设备发送推送。
+
+## 服务端配置
+
+常用变量：
+
+```bash
+BARK_DEFAULT_SERVER_URL=https://api.day.app
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+如果用户配置了自己的 Bark server，优先使用用户配置。
+
+## 行为说明
+
+提醒逻辑应该只处理已启用提醒的用户和订阅。对于缺少 Bark key、订阅已取消或续费日期无效的数据，应跳过而不是让整个任务失败。
+
+## 运维建议
+
+- 定期查看 scheduled function 日志。
+- 对失败的 Bark 请求记录状态码和错误摘要。
+- 避免在日志中输出完整用户密钥。

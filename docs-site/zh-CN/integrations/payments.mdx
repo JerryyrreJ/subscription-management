@@ -1,0 +1,33 @@
+---
+title: "支付集成"
+description: "使用 Stripe Checkout 和 webhook 激活 Premium 能力。"
+---
+
+# 支付集成
+
+支付能力是可选的。启用后，用户可以通过 Stripe Checkout 升级 Premium，并解锁更高的 API Key 和请求限额。
+
+## 组成部分
+
+- Stripe Checkout 创建支付会话。
+- Stripe webhook 接收支付状态。
+- Supabase 保存用户套餐状态。
+- 前端根据套餐状态显示 Premium 能力。
+
+## 服务端变量
+
+```bash
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+这些变量不能暴露给浏览器。
+
+## Webhook
+
+Webhook 必须校验 Stripe 签名。只有签名合法的事件才能更新用户套餐状态。
+
+## 与 API 限额的关系
+
+Premium 用户默认拥有更高的 API 请求限额和更多 active API keys。具体数值可以通过 API 限额环境变量覆盖。

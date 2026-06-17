@@ -21,7 +21,7 @@ A professional, production-ready PDF generation system using **Playwright + Netl
 1. **`src/utils/pdfExport.ts`** - Complete rewrite to use Netlify Function
 2. **`src/components/AdvancedReport.tsx`** - Updated to pass React components
 3. **`netlify.toml`** - Added CORS headers for PDF endpoint
-4. **`CLAUDE.md`** - Updated documentation and version history
+4. **`agent.md`** - Updated documentation and version history
 5. **`package.json`** - Updated dependencies
 
 ## 🏗️ Architecture
@@ -168,7 +168,7 @@ link.click();
 - [x] Update component to use new API (`AdvancedReport.tsx`)
 - [x] Update Netlify config (`netlify.toml`)
 - [x] Remove old dependencies (`jspdf`, `html2canvas`)
-- [x] Update documentation (`CLAUDE.md`)
+- [x] Update documentation (`agent.md`)
 - [x] Test build locally (`npm run build`)
 - [ ] **Test with Netlify CLI** (`netlify dev`)
 - [ ] **Deploy to production** (`git push`)

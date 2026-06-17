@@ -1,0 +1,50 @@
+---
+title: "快速开始"
+description: "在本地运行 Subscription Manager，并了解哪些服务是可选的。"
+---
+
+# 快速开始
+
+Subscription Manager 可以先作为纯前端应用运行。只有当你需要云同步、支付、提醒或开放 API 时，才需要配置后端服务。
+
+## 前置条件
+
+- Node.js 20 或更高版本。
+- npm。
+- 可选：Supabase 项目，用于账号和云同步。
+- 可选：Netlify 站点，用于 Functions、定时任务和线上部署。
+
+## 安装依赖
+
+```bash
+npm install
+```
+
+## 启动开发服务器
+
+```bash
+npm run dev
+```
+
+Vite 会输出本地预览地址。默认情况下，应用可以直接使用浏览器本地存储，不需要账号。
+
+## 运行检查
+
+```bash
+npm run check
+```
+
+这个命令会运行类型检查、函数测试和生产构建。修改 API、Supabase schema、通知或支付逻辑后，建议至少跑一次。
+
+## 启用云功能
+
+本地优先模式不需要环境变量。需要以下能力时，再按需配置：
+
+| 能力 | 需要的服务 |
+| --- | --- |
+| 账号登录和多设备同步 | Supabase |
+| 开放 API 和 API Key | Supabase + Netlify Functions |
+| 续费推送提醒 | Supabase + Netlify Scheduled Functions + Bark |
+| 付费激活 | Stripe + Netlify Functions |
+
+下一步查看[配置说明](/zh-CN/configuration)。

@@ -2,6 +2,18 @@
 
 This directory contains the Mintlify documentation site for Subscription Manager.
 
+## Structure
+
+```text
+docs-site/
+  docs.json          # Mintlify configuration and bilingual navigation
+  api/openapi.yaml   # Generated API Reference source
+  en/                # English documentation
+  zh-CN/             # Simplified Chinese documentation
+```
+
+English and Simplified Chinese pages are maintained side by side. When product behavior, API behavior, configuration, deployment, Supabase, notification, or payment flows change, update both language folders. If API paths, request bodies, response bodies, headers, auth, rate limits, or error formats change, update `api/openapi.yaml` in the same documentation pass.
+
 ## Local preview
 
 ```bash

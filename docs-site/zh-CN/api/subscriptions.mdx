@@ -1,0 +1,81 @@
+---
+title: "订阅 CRUD"
+description: "通过开放 API 创建、读取、更新和删除订阅。"
+---
+
+# 订阅 CRUD
+
+订阅接口位于：
+
+```text
+/api/v1/subscriptions
+```
+
+## 订阅字段
+
+常用字段包括：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 订阅 ID |
+| `name` | 订阅名称 |
+| `amount` | 金额 |
+| `currency` | 币种 |
+| `billingCycle` | 计费周期 |
+| `billingInterval` | 自定义计费间隔 |
+| `billingIntervalUnit` | 自定义计费单位 |
+| `nextPaymentDate` | 下次付款日期 |
+| `category` | 分类 |
+| `isActive` | 是否启用 |
+
+## 获取列表
+
+```bash
+curl https://your-site.example/api/v1/subscriptions \
+  -H "Authorization: Bearer subm_your_key_here"
+```
+
+## 创建订阅
+
+```bash
+curl https://your-site.example/api/v1/subscriptions \
+  -X POST \
+  -H "Authorization: Bearer subm_your_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Notion",
+    "amount": 10,
+    "currency": "USD",
+    "billingCycle": "monthly",
+    "startDate": "2026-06-17",
+    "category": "Productivity"
+  }'
+```
+
+服务端会根据计费周期计算 `nextPaymentDate`。
+
+## 更新订阅
+
+```bash
+curl https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333 \
+  -X PATCH \
+  -H "Authorization: Bearer subm_your_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{ "amount": 12, "billingCycle": "yearly" }'
+```
+
+更新计费周期相关字段时，服务端会重新计算下次付款日期，并清理不再适用的自定义计费字段。
+
+## 删除订阅
+
+```bash
+curl https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333 \
+  -X DELETE \
+  -H "Authorization: Bearer subm_your_key_here"
+```
+
+删除操作同样受 API Key owner 限制，不能删除其他用户的订阅。
+
+## 详细 schema
+
+字段类型、必填项、响应示例和错误格式见 [API 参考](/api-reference)。

@@ -1,0 +1,36 @@
+---
+title: "API 认证"
+description: "使用 Bearer token 格式的 Developer API Key 调用开放 API。"
+---
+
+# API 认证
+
+开放 API 使用 Developer API Key。请求时把 key 放在 `Authorization` header 里。
+
+```bash
+curl https://your-site.example/api/v1/subscriptions \
+  -H "Authorization: Bearer subm_your_key_here"
+```
+
+## Header 格式
+
+```text
+Authorization: Bearer <api-key>
+```
+
+缺少 header、格式错误、key 不存在或 key 已撤销时，API 会返回 `401 Unauthorized`。
+
+## Key 归属
+
+API Key 绑定到创建它的用户。所有订阅查询、创建、更新和删除都会限制在这个用户范围内。
+
+## 安全建议
+
+- 不要把 API Key 提交到代码仓库。
+- 不要在浏览器前端硬编码 Developer API Key。
+- 给脚本或 Agent 使用专用 key，方便撤销。
+- 怀疑泄露时立即删除旧 key 并重新创建。
+
+## 失败认证限流
+
+认证失败也会被限流，避免无效 key 或爆破请求消耗系统资源。默认值可以用 `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR` 调整。

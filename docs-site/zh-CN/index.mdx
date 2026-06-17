@@ -1,0 +1,52 @@
+---
+title: "介绍"
+description: "Subscription Manager 是一个本地优先的订阅管理应用，支持多币种统计、云同步、支付、提醒和 API 自动化。"
+---
+
+# Subscription Manager
+
+Subscription Manager 用来管理周期性订阅、续费日期、支出趋势和分类统计。
+
+应用默认是本地优先模式。不配置任何托管服务时，数据会保存在浏览器里。需要账号、云同步、付费激活、服务端提醒或自动化时，可以按需启用 Supabase、Stripe、Netlify Functions、Bark 和开放 API。
+
+## 可以做什么
+
+- 记录订阅名称、分类、金额、币种、计费周期和续费日期。
+- 按基础币种查看月度和年度支出。
+- 在 CNY、USD、EUR、JPY、GBP、AUD、CAD、CHF、HKD 和 SGD 之间换算。
+- 按名称、金额、续费日期、分类或创建时间排序筛选。
+- 管理内置分类和自定义分类。
+- 通过 JSON 导入和导出订阅数据。
+- 启用 Supabase 账号登录和多设备同步。
+- 使用 Bark 推送续费提醒。
+- 创建 Developer API Key，通过开放 API 做订阅 CRUD 自动化。
+
+## 架构
+
+```text
+React + Vite 前端
+  |
+  | 可选的浏览器认证和同步
+  v
+Supabase
+  |
+  | 可信服务端访问
+  v
+Netlify Functions
+  |-- Developer API Key CRUD
+  |-- Subscription API v1
+  |-- Stripe checkout 和 webhook
+  |-- 定时 Bark 提醒
+```
+
+## 文档地图
+
+- 本地开发从[快速开始](/zh-CN/getting-started)读起。
+- 用[配置说明](/zh-CN/configuration)判断需要哪些环境变量。
+- 发布前查看[部署说明](/zh-CN/deployment)。
+- 集成脚本、Agent 或第三方工具时，先读[开放 API 概览](/zh-CN/api/overview)。
+- 接口字段、请求体和响应格式以 [API 参考](/api-reference)为准。
+
+<Tip>
+  Mintlify 会为每个页面提供 Markdown 版本和复制页面操作。给 Agent 使用时，优先复制 Markdown，而不是抓取 HTML。
+</Tip>

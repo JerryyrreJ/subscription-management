@@ -1,0 +1,52 @@
+---
+title: "配置说明"
+description: "Subscription Manager 的环境变量和可选服务配置。"
+---
+
+# 配置说明
+
+基础应用不依赖托管服务。只有启用云同步、API、提醒或支付时，才需要配置环境变量。
+
+## 前端环境变量
+
+这些变量会被 Vite 暴露给浏览器，只能放公开配置，不能放密钥。
+
+| 变量 | 用途 |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Supabase 项目 URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
+| `VITE_APP_URL` | 应用线上地址，用于跳转和回调 |
+
+## 服务端环境变量
+
+这些变量只能配置在 Netlify 或安全的服务端环境中。
+
+| 变量 | 用途 |
+| --- | --- |
+| `SUPABASE_SERVICE_ROLE_KEY` | Netlify Functions 访问 Supabase 的 service role key |
+| `STRIPE_SECRET_KEY` | 创建 Stripe Checkout Session |
+| `STRIPE_WEBHOOK_SECRET` | 校验 Stripe webhook |
+| `BARK_DEFAULT_SERVER_URL` | 默认 Bark server 地址 |
+
+## API 限额变量
+
+开放 API 默认按用户和套餐限流。可以通过服务端变量覆盖：
+
+```bash
+API_FREE_RATE_LIMIT_PER_HOUR=60
+API_PREMIUM_RATE_LIMIT_PER_HOUR=1000
+API_FREE_ACTIVE_KEYS=1
+API_PREMIUM_ACTIVE_KEYS=5
+API_FAILED_AUTH_RATE_LIMIT_PER_HOUR=300
+API_RATE_LIMIT_RETENTION_HOURS=48
+```
+
+## 本地优先模式
+
+如果没有配置 Supabase，应用会使用浏览器 LocalStorage。这个模式适合个人使用、演示和开源自托管起步。
+
+## 云同步模式
+
+配置 Supabase 后，用户可以登录并在多设备之间同步订阅。相关数据库表和 RLS 策略在 `supabase/` 目录下维护。
+
+更多数据库说明见 [Supabase 集成](/zh-CN/integrations/supabase)。

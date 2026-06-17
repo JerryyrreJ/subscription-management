@@ -27,54 +27,116 @@
     "github": "https://github.com/jerryyrrej/subscription-manager"
   },
   "navigation": {
-    "tabs": [
+    "languages": [
       {
-        "tab": "Guides",
-        "groups": [
+        "language": "en",
+        "default": true,
+        "tabs": [
           {
-            "group": "Start",
-            "pages": [
-              "index",
-              "getting-started",
-              "configuration",
-              "deployment"
+            "tab": "Guides",
+            "groups": [
+              {
+                "group": "Start",
+                "pages": [
+                  "en/index",
+                  "en/getting-started",
+                  "en/configuration",
+                  "en/deployment"
+                ]
+              },
+              {
+                "group": "Integrations",
+                "pages": [
+                  "en/integrations/supabase",
+                  "en/integrations/notifications",
+                  "en/integrations/payments"
+                ]
+              }
             ]
           },
           {
-            "group": "Integrations",
-            "pages": [
-              "integrations/supabase",
-              "integrations/notifications",
-              "integrations/payments"
+            "tab": "Public API",
+            "groups": [
+              {
+                "group": "API Guide",
+                "pages": [
+                  "en/api/overview",
+                  "en/api/authentication",
+                  "en/api/subscriptions",
+                  "en/api/errors-and-limits"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "API Reference",
+            "openapi": "api/openapi.yaml"
+          },
+          {
+            "tab": "Operations",
+            "groups": [
+              {
+                "group": "Documentation",
+                "pages": [
+                  "en/advanced/mintlify-deployment"
+                ]
+              }
             ]
           }
         ]
       },
       {
-        "tab": "Public API",
-        "groups": [
+        "language": "zh-Hans",
+        "tabs": [
           {
-            "group": "API Guide",
-            "pages": [
-              "api/overview",
-              "api/authentication",
-              "api/subscriptions",
-              "api/errors-and-limits"
+            "tab": "指南",
+            "groups": [
+              {
+                "group": "开始",
+                "pages": [
+                  "zh-CN/index",
+                  "zh-CN/getting-started",
+                  "zh-CN/configuration",
+                  "zh-CN/deployment"
+                ]
+              },
+              {
+                "group": "集成",
+                "pages": [
+                  "zh-CN/integrations/supabase",
+                  "zh-CN/integrations/notifications",
+                  "zh-CN/integrations/payments"
+                ]
+              }
             ]
-          }
-        ]
-      },
-      {
-        "tab": "API Reference",
-        "openapi": "api/openapi.yaml"
-      },
-      {
-        "tab": "Operations",
-        "groups": [
+          },
           {
-            "group": "Documentation",
-            "pages": [
-              "advanced/mintlify-deployment"
+            "tab": "开放 API",
+            "groups": [
+              {
+                "group": "API 指南",
+                "pages": [
+                  "zh-CN/api/overview",
+                  "zh-CN/api/authentication",
+                  "zh-CN/api/subscriptions",
+                  "zh-CN/api/errors-and-limits"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "API 参考",
+            "openapi": "api/openapi.yaml"
+          },
+          {
+            "tab": "运维",
+            "groups": [
+              {
+                "group": "文档站",
+                "pages": [
+                  "zh-CN/advanced/mintlify-deployment"
+                ]
+              }
             ]
           }
         ]

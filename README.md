@@ -113,6 +113,7 @@ netlify/functions/   Serverless functions
 supabase/            SQL setup and migrations
 tests/               Node test runner utility tests
 docs/                Public documentation, split by language
+docs-site/           Mintlify documentation site, split by language
 dev-docs/            Development notes and archived implementation drafts
 ```
 

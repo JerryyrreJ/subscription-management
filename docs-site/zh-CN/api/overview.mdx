@@ -1,0 +1,61 @@
+---
+title: "开放 API 概览"
+description: "使用 Developer API Key 通过 v1 开放 API 自动化管理订阅。"
+---
+
+# 开放 API 概览
+
+v1 开放 API 提供订阅 CRUD 能力，使用 Developer API Key 认证。它主要面向脚本、Agent、自动化工具和第三方集成。
+
+## Base path
+
+```text
+https://your-site.example/api/v1
+```
+
+订阅接口位于：
+
+```text
+/api/v1/subscriptions
+```
+
+## 设计约定
+
+- API 响应为 JSON。
+- 请求和响应字段使用 camelCase。
+- 数据库管理字段为只读。
+- API Key 所属用户决定访问范围。
+- 所有订阅查询都会按 API Key owner 过滤。
+- `nextPaymentDate` 由服务端根据计费周期字段计算。
+
+## 默认套餐限额
+
+| 套餐 | Active keys | 请求量 |
+| --- | ---: | ---: |
+| Free | 1 | 每用户每小时 60 次 |
+| Premium | 5 | 每用户每小时 1000 次 |
+
+可以用服务端环境变量覆盖默认值：
+
+```bash
+API_FREE_RATE_LIMIT_PER_HOUR=60
+API_PREMIUM_RATE_LIMIT_PER_HOUR=1000
+API_FREE_ACTIVE_KEYS=1
+API_PREMIUM_ACTIVE_KEYS=5
+API_FAILED_AUTH_RATE_LIMIT_PER_HOUR=300
+API_RATE_LIMIT_RETENTION_HOURS=48
+```
+
+## Endpoints
+
+| Method | Path | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/subscriptions` | 获取订阅列表 |
+| `GET` | `/api/v1/subscriptions/{id}` | 获取单个订阅 |
+| `POST` | `/api/v1/subscriptions` | 创建订阅 |
+| `PATCH` | `/api/v1/subscriptions/{id}` | 更新可写字段 |
+| `DELETE` | `/api/v1/subscriptions/{id}` | 删除订阅 |
+
+## API 参考
+
+接口 schema、参数和响应示例以生成的 [API 参考](/api-reference)为准。

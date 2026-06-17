@@ -1,0 +1,54 @@
+---
+title: "Mintlify 部署"
+description: "Subscription Manager 文档站的 Mintlify 配置、部署和维护方式。"
+---
+
+# Mintlify 部署
+
+文档站源码位于：
+
+```text
+docs-site
+```
+
+Mintlify 项目应该配置为读取这个子目录里的 `docs.json`。
+
+## Git settings
+
+在 Mintlify Dashboard 中：
+
+- Repository 选择 `subscription-management`。
+- Branch 选择实际部署分支，例如 `main`。
+- 打开 `docs.json is in a subdirectory`。
+- 子目录填写 `docs-site`。
+- 授权 GitHub App 访问这个仓库。
+
+## 本地结构
+
+```text
+docs-site/
+  docs.json
+  api/openapi.yaml
+  en/
+  zh-CN/
+```
+
+英文和中文页面需要同步维护。开放 API 的交互式参考由 `api/openapi.yaml` 生成，两种语言共用同一份接口规范。
+
+## 更新流程
+
+当 API、配置、部署、Supabase、支付或通知逻辑变化时：
+
+1. 更新对应英文页面。
+2. 更新对应中文页面。
+3. 如果接口字段、路径、请求体、响应体或错误格式变化，更新 `api/openapi.yaml`。
+4. 本地运行文档结构检查。
+5. 提交并 push 后等待 Mintlify 自动部署。
+
+## 发布后检查
+
+- 语言切换能看到 English 和 Simplified Chinese。
+- 英文和中文导航都能打开。
+- API Reference 能加载。
+- 页面复制 Markdown 功能可用。
+- `/llms.txt` 和页面 Markdown 版本可访问。

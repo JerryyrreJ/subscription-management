@@ -57,7 +57,7 @@
 - ✅ `STRIPE_SETUP.md` - 完整配置指南
 - ✅ `PAYMENT_INTEGRATION.md` - 技术架构文档
 - ✅ `SECURITY_CHECKLIST.md` - 安全检查清单
-- ✅ 更新 `CLAUDE.md` - 记录开发进度
+- ✅ 更新 `agent.md` - 记录开发进度
 
 ---
 
@@ -182,7 +182,7 @@ M  netlify/functions/stripe-webhook.ts        # 新增数据库集成
 - `SECURITY_CHECKLIST.md` - 安全最佳实践
 
 ### 项目文档
-- `CLAUDE.md` - 项目架构和版本历史
+- `agent.md` - 项目架构和版本历史
 
 ---
 

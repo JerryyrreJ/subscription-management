@@ -1,0 +1,68 @@
+---
+title: "部署"
+description: "将 Subscription Manager 部署到 Netlify，并启用可选后端能力。"
+---
+
+# 部署
+
+推荐使用 Netlify 部署前端和 Functions。前端由 Vite 构建，API、支付和提醒由 Netlify Functions 提供。
+
+## 构建命令
+
+```bash
+npm run build
+```
+
+构建产物在：
+
+```text
+dist
+```
+
+## Netlify 配置
+
+发布目录设置为：
+
+```text
+dist
+```
+
+构建命令设置为：
+
+```text
+npm run build
+```
+
+Functions 位于：
+
+```text
+netlify/functions
+```
+
+## API 路由
+
+公开 API 使用友好的路径：
+
+```text
+/api/v1/subscriptions
+```
+
+Netlify 会把它转发到对应的 function。文档和客户端示例都应该使用 `/api/v1/subscriptions`，不要直接暴露内部 function 文件名。
+
+## 部署前检查
+
+```bash
+npm run check
+```
+
+部署前确认：
+
+- 前端能成功构建。
+- Netlify 环境变量已经配置。
+- Supabase migration 已应用。
+- Stripe webhook endpoint 指向线上地址。
+- Bark 定时提醒只在需要时启用。
+
+## 文档站
+
+Mintlify 文档站源码位于 `docs-site/`。如果 API、配置、部署流程、Supabase schema 或支付/提醒行为发生变化，需要同步更新英文和中文文档。

@@ -1,0 +1,36 @@
+---
+title: "Supabase 集成"
+description: "使用 Supabase 提供账号、云同步、API Key、订阅数据和付费状态。"
+---
+
+# Supabase 集成
+
+Supabase 是 Subscription Manager 的可选云层。未配置 Supabase 时，应用仍然可以使用本地存储模式。
+
+## Supabase 负责什么
+
+- 用户认证。
+- 多设备订阅同步。
+- API Key 归属关系。
+- 订阅数据表。
+- 付费状态和套餐信息。
+- Bark 提醒配置。
+
+## 配置步骤
+
+1. 创建 Supabase 项目。
+2. 应用 `supabase/` 目录下的 migrations。
+3. 在前端配置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`。
+4. 在 Netlify Functions 环境中配置 `SUPABASE_SERVICE_ROLE_KEY`。
+
+## 安全边界
+
+浏览器只能使用 anon key。任何需要绕过 RLS 或执行可信写入的逻辑，都必须放在 Netlify Functions 中，并使用 service role key。
+
+## RLS
+
+数据库表应该通过 Row Level Security 限制用户只能访问自己的数据。开放 API 也会根据 API Key 所属用户过滤订阅查询。
+
+## 与开放 API 的关系
+
+开放 API 使用 Developer API Key 认证。Function 验证 key 后，会以 key owner 的身份读写订阅数据。

@@ -1,0 +1,73 @@
+---
+title: "错误和限流"
+description: "开放 API 的错误响应、状态码和 rate limit headers。"
+---
+
+# 错误和限流
+
+开放 API 使用统一 JSON 错误格式，并在认证成功后的响应中返回 rate limit headers。
+
+## 错误格式
+
+```json
+{
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "Invalid request body",
+    "details": {
+      "field": "amount"
+    }
+  }
+}
+```
+
+## 常见状态码
+
+| 状态码 | 说明 |
+| --- | --- |
+| `400` | 请求体或参数无效 |
+| `401` | 缺少、错误或已撤销的 API Key |
+| `404` | 资源不存在，或不属于当前 API Key owner |
+| `405` | HTTP method 不支持 |
+| `429` | 请求超过限额 |
+| `500` | 服务端错误 |
+
+## Rate limit headers
+
+认证成功后，响应会包含：
+
+```text
+X-RateLimit-Limit
+X-RateLimit-Remaining
+X-RateLimit-Reset
+```
+
+`X-RateLimit-Reset` 表示当前限流窗口重置的时间。
+
+## CORS
+
+订阅 API 支持浏览器预检请求：
+
+```text
+OPTIONS /api/v1/subscriptions
+OPTIONS /api/v1/subscriptions/{id}
+```
+
+允许的方法：
+
+```text
+GET, POST, PATCH, DELETE, OPTIONS
+```
+
+允许的 headers：
+
+```text
+Authorization, Content-Type
+```
+
+## 调试建议
+
+- 先确认 `Authorization` header 格式。
+- 再确认 API Key 是否仍处于 active 状态。
+- 查看响应里的 rate limit headers。
+- 对 `404` 同时检查 ID 是否存在，以及是否属于当前 key owner。
