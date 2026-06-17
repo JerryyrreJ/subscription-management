@@ -90,6 +90,7 @@ The core app runs without environment variables. Optional services use the follo
 
 ## Documentation
 
+- [Mintlify documentation site source](docs-site/README.md)
 - [Documentation index](docs/README.md)
 - [Getting started](docs/en/getting-started.md)
 - [Configuration](docs/en/configuration.md)

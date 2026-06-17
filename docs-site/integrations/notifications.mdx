@@ -1,0 +1,66 @@
+---
+title: "Renewal reminders with Bark"
+description: "Configure scheduled Bark push notifications for upcoming subscription renewals."
+---
+
+# Renewal reminders with Bark
+
+Subscription Manager can send renewal reminders through Bark. The hosted reminder flow uses a Netlify Scheduled Function and Supabase-backed notification settings.
+
+## What users configure
+
+Users configure Bark settings in the app:
+
+- Bark server URL.
+- Bark device key.
+- Reminder timing.
+- Per-subscription notification toggle.
+
+## Required hosted services
+
+- Supabase for notification settings and subscriptions.
+- Netlify Functions for scheduled checks.
+- Bark official server or a self-hosted Bark server.
+
+## Required environment variables
+
+```bash
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+SUPABASE_SECRET_KEY=
+```
+
+The legacy `SUPABASE_SERVICE_ROLE_KEY` name remains supported as an alias.
+
+## SQL setup
+
+Notification tables and constraints are included in the Supabase migrations. For current deployments, use:
+
+```text
+supabase/migrations/20260615000100_baseline.sql
+supabase/migrations/20260615000200_harden_existing_schema.sql
+```
+
+Older setup notes and legacy migration files are kept in `supabase/legacy/`.
+
+## Scheduled function
+
+The scheduled function lives at:
+
+```text
+netlify/functions/send-scheduled-notifications.ts
+```
+
+It checks eligible subscriptions, sends Bark messages, records delivery history, and avoids duplicate sends.
+
+## Local testing
+
+```bash
+npm run test:notifications
+```
+
+Use Netlify Dev when testing the full function runtime:
+
+```bash
+npm run dev:full
+```

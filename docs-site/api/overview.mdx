@@ -1,0 +1,61 @@
+---
+title: "Public API overview"
+description: "Use Developer API keys to automate subscription CRUD through the v1 public API."
+---
+
+# Public API overview
+
+The v1 public API exposes subscription CRUD through Developer API keys. It is designed for scripts, agents, automation tools, and third-party integrations.
+
+## Base path
+
+```text
+https://your-site.example/api/v1
+```
+
+Subscription endpoints live under:
+
+```text
+/api/v1/subscriptions
+```
+
+## Design choices
+
+- API responses are JSON.
+- Request and response field names use camelCase.
+- Database-managed fields are read-only.
+- The API key owner determines the user scope.
+- Every subscription query is filtered by the authenticated API key owner.
+- `nextPaymentDate` is calculated by the server from billing period fields.
+
+## Default plan limits
+
+| Plan | Active keys | Requests |
+| --- | ---: | ---: |
+| Free | 1 | 60 requests per user per hour |
+| Premium | 5 | 1000 requests per user per hour |
+
+You can override defaults with server-only environment variables:
+
+```bash
+API_FREE_RATE_LIMIT_PER_HOUR=60
+API_PREMIUM_RATE_LIMIT_PER_HOUR=1000
+API_FREE_ACTIVE_KEYS=1
+API_PREMIUM_ACTIVE_KEYS=5
+API_FAILED_AUTH_RATE_LIMIT_PER_HOUR=300
+API_RATE_LIMIT_RETENTION_HOURS=48
+```
+
+## Endpoints
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/v1/subscriptions` | List subscriptions |
+| `GET` | `/api/v1/subscriptions/{id}` | Get one subscription |
+| `POST` | `/api/v1/subscriptions` | Create a subscription |
+| `PATCH` | `/api/v1/subscriptions/{id}` | Update writable fields |
+| `DELETE` | `/api/v1/subscriptions/{id}` | Delete a subscription |
+
+## API reference
+
+Use the generated [API Reference](/api-reference) for endpoint schemas, parameters, and response examples.

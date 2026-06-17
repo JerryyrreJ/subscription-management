@@ -1,0 +1,78 @@
+---
+title: "Deploy this documentation site"
+description: "Use Mintlify to preview and publish the docs-site directory."
+---
+
+# Deploy this documentation site
+
+This repository includes a Mintlify documentation site in:
+
+```text
+docs-site/
+```
+
+The original Markdown files in `docs/` remain available as source material and historical docs. The Mintlify site is the public-facing documentation experience.
+
+## Local preview
+
+Install the Mintlify CLI:
+
+```bash
+npm i -g mint
+```
+
+Run the preview from the documentation directory:
+
+```bash
+cd docs-site
+mint dev
+```
+
+The local preview opens at:
+
+```text
+http://localhost:3000
+```
+
+## Validate
+
+From `docs-site/`, run:
+
+```bash
+mint validate
+```
+
+This checks broken links, configuration, and the OpenAPI document.
+
+## Deploy through Mintlify
+
+1. Go to `https://mintlify.com/start`.
+2. Create a project.
+3. Connect the GitHub repository.
+4. Install the Mintlify GitHub App.
+5. Choose this repository.
+6. Set the docs path to:
+
+```text
+docs-site
+```
+
+7. Finish onboarding and wait for the first deployment.
+
+The site will be available at:
+
+```text
+https://<your-project-name>.mintlify.app
+```
+
+## Agent-friendly outputs
+
+Mintlify automatically exposes:
+
+- Copy page actions.
+- Per-page Markdown export.
+- `Accept: text/markdown`.
+- `/llms.txt`.
+- `/llms-full.txt`.
+
+These outputs are useful when sending documentation context to agents or API automation tools.

@@ -1,0 +1,51 @@
+---
+title: "Cloud sync with Supabase"
+description: "Configure Supabase for authentication, cloud sync, user profiles, notification settings, payments, and API keys."
+---
+
+# Cloud sync with Supabase
+
+Supabase is optional. When configured, it enables authentication, user profiles, cloud sync, category sync, notification settings, payment activation, and public API keys.
+
+## Required variables
+
+```bash
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+SUPABASE_SECRET_KEY=
+```
+
+`SUPABASE_SECRET_KEY` is server-only. It is needed by Netlify Functions that run outside a user session.
+
+The legacy `SUPABASE_SERVICE_ROLE_KEY` name remains supported as an alias.
+
+## SQL setup
+
+The schema is managed by timestamped migrations:
+
+```text
+supabase/migrations/20260615000100_baseline.sql
+supabase/migrations/20260615000200_harden_existing_schema.sql
+supabase/migrations/20260616000100_public_api.sql
+supabase/migrations/20260617000100_public_api_security_fixes.sql
+```
+
+For a new environment, run `supabase start` and `npm run db:verify`. For an existing production environment, first create a read-only DDL dump, confirm the baseline diff, run `supabase/audit/preflight.sql`, then mark the baseline and apply the hardening migration. See `supabase/README.md` for the complete workflow.
+
+## Data model areas
+
+- User profiles store account and premium state.
+- Subscriptions store recurring payment records.
+- Categories store custom user categories.
+- Notification settings store Bark reminder preferences and delivery history.
+- Delivery locks prevent duplicate scheduled notification sends.
+- API keys store only hashed key material.
+- API rate limit windows track valid and failed API key usage.
+
+## Security notes
+
+- Keep Row Level Security enabled for user-owned tables.
+- Keep the service role key out of browser-exposed variables.
+- Store the service role key only in Netlify or another server environment.
+- Public API calls run through trusted Netlify Functions and always filter data by the API key owner.
+- API key values are shown once and stored as SHA-256 hashes.

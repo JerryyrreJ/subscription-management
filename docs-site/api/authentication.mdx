@@ -1,0 +1,48 @@
+---
+title: "Authentication"
+description: "Create Developer API keys and authenticate public API requests with Bearer tokens."
+---
+
+# Authentication
+
+Public API requests use Developer API keys.
+
+## Create an API key
+
+Create an API key from **Developer API** in the user menu. The full key is shown only once. Store it like a password.
+
+API keys use this shape:
+
+```text
+subm_<public-id>.<secret>
+```
+
+Only the SHA-256 hash of the full API key is stored on the server.
+
+## Send the key
+
+Send the key as a Bearer token:
+
+```bash
+curl \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  https://your-site.example/api/v1/subscriptions
+```
+
+## Failed authentication limits
+
+Invalid API key attempts are rate-limited per client identity. The default limit is:
+
+```text
+300 failed authentication attempts per hour
+```
+
+Set `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR` to override the default.
+
+## Security notes
+
+- Do not expose API keys in browser code.
+- Treat API keys like passwords.
+- Revoke keys that are no longer needed.
+- Use one key per integration where possible.
+- Rotate keys if a secret may have been copied into logs or prompts.

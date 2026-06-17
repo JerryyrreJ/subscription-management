@@ -1,0 +1,52 @@
+---
+title: "Introduction"
+description: "Subscription Manager is a local-first app for tracking recurring subscriptions, optional cloud sync, payments, reminders, and API automation."
+---
+
+# Subscription Manager
+
+Subscription Manager helps users track recurring subscriptions, renewal dates, spending trends, and category-level analytics.
+
+The app is local-first by default. Without any hosted services, data stays in the browser. When you need accounts, cloud sync, payment activation, server-side reminders, or automation, you can enable Supabase, Stripe, Netlify Functions, Bark, and the public API.
+
+## What you can do
+
+- Track subscriptions with category, amount, currency, billing period, and renewal date.
+- Review monthly and yearly totals in a selected base currency.
+- Convert between CNY, USD, EUR, JPY, GBP, AUD, CAD, CHF, HKD, and SGD.
+- Sort and filter subscriptions by name, amount, renewal date, category, or creation date.
+- Manage built-in and custom categories.
+- Import and export subscription data as JSON.
+- Use optional Supabase authentication and multi-device sync.
+- Send optional Bark push reminders for upcoming renewals.
+- Create Developer API keys for subscription CRUD automation.
+
+## Architecture
+
+```text
+React + Vite frontend
+  |
+  | optional browser auth and sync
+  v
+Supabase
+  |
+  | trusted server access
+  v
+Netlify Functions
+  |-- public API key CRUD
+  |-- subscription API v1
+  |-- Stripe checkout and webhook
+  |-- scheduled Bark reminders
+```
+
+## Documentation map
+
+- Start with [Getting started](/getting-started) for local development.
+- Use [Configuration](/configuration) to decide which environment variables you need.
+- Use [Deployment](/deployment) before publishing the app.
+- Use [Public API overview](/api/overview) when integrating with scripts, agents, or third-party tools.
+- Use [API Reference](/api-reference) for generated endpoint details from the OpenAPI specification.
+
+<Tip>
+  Mintlify exposes every page as Markdown and provides Copy page actions. Agents should prefer the Markdown version of these docs over scraping HTML.
+</Tip>

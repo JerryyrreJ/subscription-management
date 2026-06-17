@@ -1,0 +1,58 @@
+---
+title: "Errors and limits"
+description: "Understand error responses, request IDs, rate-limit headers, and CORS behavior."
+---
+
+# Errors and limits
+
+Errors use a stable JSON shape:
+
+```json
+{
+  "error": {
+    "code": "invalid_api_key",
+    "message": "Invalid API key"
+  },
+  "requestId": "request-..."
+}
+```
+
+## Common error codes
+
+| Status | Code | Meaning |
+| ---: | --- | --- |
+| `400` | `invalid_json` | Request body is not a JSON object |
+| `400` | `invalid_subscription` | Subscription fields failed validation |
+| `400` | `invalid_subscription_field` | The request tried to write a server-managed field |
+| `400` | `invalid_subscription_id` | Subscription ID is not a valid UUID |
+| `400` | `empty_patch` | PATCH body did not include any writable fields |
+| `401` | `authentication_required` | Missing Bearer token |
+| `401` | `invalid_api_key` | API key is invalid or revoked |
+| `404` | `subscription_not_found` | Subscription does not exist for the API key owner |
+| `405` | `method_not_allowed` | HTTP method is not supported |
+| `429` | `rate_limit_exceeded` | User request limit or invalid-auth limit exceeded |
+| `500` | `internal_error` | Unexpected server error |
+
+## Rate-limit headers
+
+Authenticated API responses include:
+
+```text
+X-RateLimit-Limit
+X-RateLimit-Remaining
+X-RateLimit-Reset
+```
+
+`X-RateLimit-Reset` is a Unix timestamp in seconds.
+
+## CORS
+
+The subscription API supports browser preflight requests:
+
+```text
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: Authorization, Content-Type
+Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS
+```
+
+Keep API keys out of browser apps unless you fully trust the browser context. CORS support is mainly for developer tooling, internal dashboards, or trusted local workflows.

@@ -1,0 +1,68 @@
+---
+title: "Getting started"
+description: "Run Subscription Manager locally and understand the default local-first behavior."
+---
+
+# Getting started
+
+Subscription Manager is a Vite app built with React and TypeScript. The default local setup stores data in the browser and does not require a database account.
+
+## Requirements
+
+- Node.js 22.12 or newer
+- npm
+
+## Install
+
+```bash
+git clone https://github.com/jerryyrrej/subscription-manager.git
+cd subscription-manager
+npm install
+```
+
+## Run the app
+
+```bash
+npm run dev
+```
+
+Vite starts the app at:
+
+```text
+http://localhost:5173
+```
+
+## Run with Netlify Functions
+
+Use Netlify Dev when testing serverless functions such as Stripe checkout, Stripe webhooks, public API endpoints, or scheduled notification logic.
+
+```bash
+npm run dev:full
+```
+
+This requires the Netlify CLI.
+
+## Useful commands
+
+```bash
+npm run build               # Build for production
+npm run preview             # Preview the production build
+npm run lint                # Run ESLint
+npm run typecheck           # Run app and Functions TypeScript checks
+npm run test                # Run utility tests
+npm run test:functions      # Run Netlify Functions tests
+npm run check               # Run typecheck, lint, tests, and build
+npm run test:notifications  # Test scheduled notification logic
+```
+
+## Local-first behavior
+
+Without Supabase configuration, subscriptions, categories, preferences, and import/export data stay in the browser. Users can still track subscriptions, filter and sort data, change currencies, view analytics, and use dark mode.
+
+Hosted features are opt-in:
+
+- Supabase enables accounts, cloud sync, user profiles, notification settings, and premium activation.
+- Netlify Functions enable trusted server-side work.
+- Stripe enables payment checkout and webhook processing.
+- Bark enables push reminders for upcoming renewals.
+- Developer API keys enable external automation.

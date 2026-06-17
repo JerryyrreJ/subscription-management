@@ -1,0 +1,70 @@
+---
+title: "Deployment"
+description: "Deploy the Vite frontend, Netlify Functions, Supabase migrations, Stripe webhooks, and scheduled jobs."
+---
+
+# Deployment
+
+The project is configured for Netlify, but the frontend can be hosted anywhere that supports a Vite static build.
+
+## Static frontend
+
+Build the app:
+
+```bash
+npm run build
+```
+
+The production output is written to:
+
+```text
+dist/
+```
+
+## Netlify
+
+`netlify.toml` defines:
+
+- `npm run build` as the build command.
+- `dist` as the publish directory.
+- `netlify/functions` as the functions directory.
+- Public API redirects for `/api/v1/subscriptions`.
+- SPA redirects to `index.html`.
+- Basic security headers.
+
+## Functions
+
+Netlify Functions are used for:
+
+- Creating Stripe Checkout sessions.
+- Handling Stripe webhooks.
+- Running scheduled Bark reminder checks.
+- Creating and revoking Developer API keys.
+- Serving the public subscription CRUD API.
+- Cleaning up public API rate limit windows.
+
+Use Netlify Dev for local function testing:
+
+```bash
+npm run dev:full
+```
+
+## Deployment checklist
+
+- Add only the environment variables for services you plan to enable.
+- Run Supabase SQL migrations before enabling cloud sync, public API keys, payments, or scheduled notifications.
+- Configure Stripe webhook URLs after the Netlify site URL is available.
+- Test local-first behavior with no optional variables configured.
+- Test hosted behavior with Supabase, Stripe, API keys, and notification settings enabled as needed.
+- Run `npm run check` before publishing application changes.
+
+## Public API routes
+
+The public API is served through Netlify redirects:
+
+```text
+/api/v1/subscriptions
+/.netlify/functions/api-v1-subscriptions
+```
+
+Use the pretty `/api/v1/subscriptions` path in client documentation and examples.

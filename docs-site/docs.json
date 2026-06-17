@@ -1,0 +1,84 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Subscription Manager",
+  "theme": "mint",
+  "colors": {
+    "primary": "#2563eb",
+    "light": "#3b82f6",
+    "dark": "#1d4ed8"
+  },
+  "favicon": "/favicon.svg",
+  "contextual": {
+    "options": ["copy", "download-spec", "chatgpt", "claude"]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "App",
+        "href": "https://sub.jerrylu.app"
+      },
+      {
+        "label": "GitHub",
+        "href": "https://github.com/jerryyrrej/subscription-manager"
+      }
+    ]
+  },
+  "footerSocials": {
+    "github": "https://github.com/jerryyrrej/subscription-manager"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Start",
+            "pages": [
+              "index",
+              "getting-started",
+              "configuration",
+              "deployment"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/supabase",
+              "integrations/notifications",
+              "integrations/payments"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Public API",
+        "groups": [
+          {
+            "group": "API Guide",
+            "pages": [
+              "api/overview",
+              "api/authentication",
+              "api/subscriptions",
+              "api/errors-and-limits"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "api/openapi.yaml"
+      },
+      {
+        "tab": "Operations",
+        "groups": [
+          {
+            "group": "Documentation",
+            "pages": [
+              "advanced/mintlify-deployment"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

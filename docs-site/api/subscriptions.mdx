@@ -1,0 +1,96 @@
+---
+title: "Subscription CRUD"
+description: "Create, read, update, and delete subscriptions through the public API."
+---
+
+# Subscription CRUD
+
+Subscription API payloads use camelCase. Server-managed fields are returned in responses but rejected in write requests.
+
+## Subscription object
+
+```json
+{
+  "id": "33333333-3333-4333-8333-333333333333",
+  "name": "Netflix",
+  "category": "Streaming",
+  "amount": 15.99,
+  "currency": "USD",
+  "period": "monthly",
+  "lastPaymentDate": "2026-06-01",
+  "nextPaymentDate": "2026-07-01",
+  "notificationEnabled": true,
+  "createdAt": "2026-06-16T00:00:00.000Z",
+  "updatedAt": "2026-06-16T00:00:00.000Z"
+}
+```
+
+## Writable fields
+
+```json
+{
+  "name": "Netflix",
+  "category": "Streaming",
+  "amount": 15.99,
+  "currency": "USD",
+  "period": "monthly",
+  "lastPaymentDate": "2026-06-01",
+  "customDate": null,
+  "notificationEnabled": true
+}
+```
+
+The server manages:
+
+- `id`
+- `nextPaymentDate`
+- `createdAt`
+- `updatedAt`
+
+## Billing periods
+
+| Period | Meaning |
+| --- | --- |
+| `monthly` | Adds one month to `lastPaymentDate` |
+| `yearly` | Adds one year to `lastPaymentDate` |
+| `custom` | Adds `customDate` days to `lastPaymentDate` |
+
+`customDate` is required only when `period` is `custom`.
+
+## List subscriptions
+
+```bash
+curl \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  https://your-site.example/api/v1/subscriptions
+```
+
+## Create a subscription
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Netflix","category":"Streaming","amount":15.99,"currency":"USD","period":"monthly","lastPaymentDate":"2026-06-01"}' \
+  https://your-site.example/api/v1/subscriptions
+```
+
+## Patch a subscription
+
+`PATCH` accepts any non-empty subset of writable fields. The server merges the patch with the existing record, validates the full result, and recalculates `nextPaymentDate`.
+
+```bash
+curl -X PATCH \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"period":"yearly"}' \
+  https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
+```
+
+## Delete a subscription
+
+```bash
+curl -X DELETE \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
+```
