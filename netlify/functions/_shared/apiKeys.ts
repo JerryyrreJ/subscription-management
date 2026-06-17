@@ -65,15 +65,6 @@ export const generateApiKey = (): string => generateApiKeyMaterial().apiKey;
 export const hashApiKey = (apiKey: string): string =>
   createHash('sha256').update(apiKey).digest('hex');
 
-export const getApiKeyPrefix = (apiKey: string): string => {
-  const separatorIndex = apiKey.indexOf('.');
-  if (apiKey.startsWith(API_KEY_PREFIX) && separatorIndex > API_KEY_PREFIX.length) {
-    return apiKey.slice(0, separatorIndex);
-  }
-
-  return apiKey.slice(0, 14);
-};
-
 export const hashClientIdentity = (identity: string): string =>
   createHash('sha256').update(identity).digest('hex');
 
@@ -104,13 +95,22 @@ const getHeader = (
 
 const getClientIdentity = (headers: Record<string, string | undefined>): string => {
   const forwardedFor = getHeader(headers, 'x-forwarded-for')?.split(',')[0]?.trim();
-
-  return getHeader(headers, 'x-nf-client-connection-ip') ||
+  const clientIp = getHeader(headers, 'x-nf-client-connection-ip') ||
     getHeader(headers, 'cf-connecting-ip') ||
     getHeader(headers, 'x-real-ip') ||
     getHeader(headers, 'client-ip') ||
-    forwardedFor ||
-    'unknown';
+    forwardedFor;
+
+  if (clientIp) {
+    return `ip:${clientIp}`;
+  }
+
+  return [
+    'fingerprint',
+    getHeader(headers, 'user-agent') ?? 'missing-user-agent',
+    getHeader(headers, 'accept-language') ?? 'missing-accept-language',
+    getHeader(headers, 'accept-encoding') ?? 'missing-accept-encoding',
+  ].join(':');
 };
 
 const unwrapRateLimitResult = (data: unknown): RateLimitResult | null => {

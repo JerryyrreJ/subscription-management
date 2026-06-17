@@ -59,6 +59,14 @@ const allowedSubscriptionFields = new Set([
   'notificationEnabled',
 ]);
 
+const ALLOWED_METHODS = 'GET, POST, PATCH, DELETE, OPTIONS';
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+  'Access-Control-Allow-Methods': ALLOWED_METHODS,
+};
+
 const createDefaultDependencies = (): SubscriptionsApiDependencies => {
   const supabaseConfig = getSupabaseAdminConfig(process.env);
 
@@ -236,20 +244,33 @@ const withRateHeaders = (
   },
 });
 
+const withCorsHeaders = (response: HandlerResponse): HandlerResponse => ({
+  ...response,
+  headers: {
+    ...CORS_HEADERS,
+    ...(response.headers ?? {}),
+  },
+});
+
 export const createSubscriptionsApiHandler = (
   dependenciesFactory: () => SubscriptionsApiDependencies = createDefaultDependencies
 ): Handler => async (event: HandlerEvent): Promise<HandlerResponse> => {
   let requestId: string = crypto.randomUUID();
+  let apiContext: ApiClientContext | null = null;
 
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: { Allow: 'GET, POST, PATCH, DELETE' }, body: '' };
+    return withCorsHeaders({
+      statusCode: 204,
+      headers: { Allow: ALLOWED_METHODS },
+      body: '',
+    });
   }
 
   if (!['GET', 'POST', 'PATCH', 'DELETE'].includes(event.httpMethod)) {
-    return jsonResponse(405, {
+    return withCorsHeaders(jsonResponse(405, {
       error: { code: 'method_not_allowed', message: 'Method not allowed' },
       requestId,
-    }, { Allow: 'GET, POST, PATCH, DELETE' });
+    }, { Allow: ALLOWED_METHODS }));
   }
 
   try {
@@ -262,6 +283,7 @@ export const createSubscriptionsApiHandler = (
       dependencies.now(),
       requestId
     );
+    apiContext = context;
     const subscriptionId = parseSubscriptionPath(event.path);
 
     if (event.httpMethod === 'GET' && !subscriptionId) {
@@ -275,19 +297,19 @@ export const createSubscriptionsApiHandler = (
         throw error;
       }
 
-      return withRateHeaders(context, jsonResponse(200, {
+      return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
         data: ((data ?? []) as unknown as SubscriptionRow[]).map(toApiSubscription),
         requestId,
-      }));
+      })));
     }
 
     if (event.httpMethod === 'GET' && subscriptionId) {
       const id = parseSubscriptionId(subscriptionId);
       const subscription = await getSubscription(dependencies.database, context.userId, id);
-      return withRateHeaders(context, jsonResponse(200, {
+      return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
         data: toApiSubscription(subscription),
         requestId,
-      }));
+      })));
     }
 
     if (event.httpMethod === 'POST') {
@@ -315,10 +337,10 @@ export const createSubscriptionsApiHandler = (
         subscriptionId: data.id,
       });
 
-      return withRateHeaders(context, jsonResponse(201, {
+      return withCorsHeaders(withRateHeaders(context, jsonResponse(201, {
         data: toApiSubscription(data),
         requestId,
-      }));
+      })));
     }
 
     if (!subscriptionId) {
@@ -342,10 +364,10 @@ export const createSubscriptionsApiHandler = (
         throw error;
       }
 
-      return withRateHeaders(context, jsonResponse(200, {
+      return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
         data: toApiSubscription(data),
         requestId,
-      }));
+      })));
     }
 
     const { data, error } = await dependencies.database
@@ -364,15 +386,16 @@ export const createSubscriptionsApiHandler = (
       throw new HttpError(404, 'subscription_not_found', 'Subscription not found');
     }
 
-    return withRateHeaders(context, jsonResponse(200, {
+    return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
       deleted: true,
       requestId,
-    }));
+    })));
   } catch (error) {
     logEvent('error', 'Subscriptions API request failed', requestId, {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return errorResponse(error, requestId);
+    const response = errorResponse(error, requestId);
+    return withCorsHeaders(apiContext ? withRateHeaders(apiContext, response) : response);
   }
 };
 

@@ -9,6 +9,20 @@ const RATE_LIMIT_TABLES = [
   'api_rate_limit_windows',
 ] as const;
 
+interface CleanupApiRateLimitsDependencies {
+  database: SupabaseClient;
+  retentionHours: number;
+  now(): Date;
+}
+
+type CleanupApiRateLimitsHandler = (_request: Request) => Promise<Response>;
+
+const createDefaultDependencies = (): CleanupApiRateLimitsDependencies => ({
+  database: createSupabaseAdminClient(getSupabaseAdminConfig()),
+  retentionHours: getApiLimitsConfig().rateLimitRetentionHours,
+  now: () => new Date(),
+});
+
 const deleteExpiredWindows = async (
   database: SupabaseClient,
   table: typeof RATE_LIMIT_TABLES[number],
@@ -26,13 +40,12 @@ const deleteExpiredWindows = async (
   return count;
 };
 
-export default async (): Promise<Response> => {
-  let database: SupabaseClient;
-  let retentionHours: number;
-
+export const createCleanupApiRateLimitsHandler = (
+  dependenciesFactory: () => CleanupApiRateLimitsDependencies = createDefaultDependencies
+): CleanupApiRateLimitsHandler => async (): Promise<Response> => {
+  let dependencies: CleanupApiRateLimitsDependencies;
   try {
-    database = createSupabaseAdminClient(getSupabaseAdminConfig());
-    retentionHours = getApiLimitsConfig().rateLimitRetentionHours;
+    dependencies = dependenciesFactory();
   } catch (error) {
     console.error('[API Rate Limit Cleanup] Server configuration error:', error);
     return new Response(
@@ -41,14 +54,17 @@ export default async (): Promise<Response> => {
     );
   }
 
-  const cutoff = new Date(Date.now() - retentionHours * 60 * 60 * 1000).toISOString();
+  const now = dependencies.now();
+  const cutoff = new Date(
+    now.getTime() - dependencies.retentionHours * 60 * 60 * 1000
+  ).toISOString();
 
   try {
     const deletedCounts = Object.fromEntries(
       await Promise.all(
         RATE_LIMIT_TABLES.map(async table => [
           table,
-          await deleteExpiredWindows(database, table, cutoff),
+          await deleteExpiredWindows(dependencies.database, table, cutoff),
         ])
       )
     );
@@ -56,9 +72,9 @@ export default async (): Promise<Response> => {
     const summary = {
       message: 'API rate limit cleanup completed',
       cutoff,
-      retentionHours,
+      retentionHours: dependencies.retentionHours,
       deletedCounts,
-      timestamp: new Date().toISOString(),
+      timestamp: now.toISOString(),
     };
 
     console.log('[API Rate Limit Cleanup] Summary:', summary);
@@ -74,6 +90,8 @@ export default async (): Promise<Response> => {
     );
   }
 };
+
+export default createCleanupApiRateLimitsHandler();
 
 export const config: Config = {
   schedule: '@daily',

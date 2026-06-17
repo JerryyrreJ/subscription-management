@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSubscriptionsApiHandler } from '../../netlify/functions/api-v1-subscriptions.ts';
-import { hashApiKey } from '../../netlify/functions/_shared/apiKeys.ts';
+import { hashApiKey, hashClientIdentity } from '../../netlify/functions/_shared/apiKeys.ts';
 import {
   createFakeSupabaseClient,
   event,
@@ -133,6 +133,250 @@ test('lists subscriptions for the API key owner and includes rate limit headers'
   assert.equal(body.data[0].nextPaymentDate, '2026-07-01');
 });
 
+test('responds to subscription API preflight requests with CORS headers', async () => {
+  const handler = createSubscriptionsApiHandler(() => {
+    throw new Error('Dependencies should not be created for preflight requests');
+  });
+
+  const response = expectHandlerResponse(await handler(event(
+    'OPTIONS',
+    '/api/v1/subscriptions',
+    {
+      origin: 'https://client.example',
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'authorization, content-type',
+    }
+  ), {} as never));
+
+  assert.equal(response.statusCode, 204);
+  assert.equal(response.headers?.['Access-Control-Allow-Origin'], '*');
+  assert.equal(response.headers?.['Access-Control-Allow-Headers'], 'Authorization, Content-Type');
+  assert.equal(response.headers?.['Access-Control-Allow-Methods'], 'GET, POST, PATCH, DELETE, OPTIONS');
+});
+
+test('creates subscriptions for the API key owner and derives server-managed fields', async () => {
+  let insertPayload: unknown;
+  const createdRow = {
+    ...subscriptionRow,
+    id: '44444444-4444-4444-8444-444444444444',
+    name: 'GitHub',
+    category: 'Developer Tools',
+    amount: '12.50',
+    period: 'yearly',
+    last_payment_date: '2026-06-17',
+    next_payment_date: '2027-06-17',
+    notification_enabled: false,
+  };
+  const database = createDatabase((state: QueryState) => {
+    assert.equal(state.operation, 'insert');
+    insertPayload = state.payload;
+    return {
+      data: createdRow,
+      error: null,
+    };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-create',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'POST',
+    '/api/v1/subscriptions',
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({
+      name: ' GitHub ',
+      category: 'Developer Tools',
+      amount: 12.5,
+      currency: 'USD',
+      period: 'yearly',
+      lastPaymentDate: '2026-06-17',
+      notificationEnabled: false,
+    })
+  ), {} as never));
+  const body = parseJsonResponse<{ data: { id: string; amount: number; nextPaymentDate: string } }>(response);
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.headers?.['Access-Control-Allow-Origin'], '*');
+  assert.deepEqual(insertPayload, {
+    user_id: userId,
+    name: 'GitHub',
+    category: 'Developer Tools',
+    amount: 12.5,
+    currency: 'USD',
+    period: 'yearly',
+    last_payment_date: '2026-06-17',
+    next_payment_date: '2027-06-17',
+    custom_date: null,
+    notification_enabled: false,
+  });
+  assert.equal(body.data.id, createdRow.id);
+  assert.equal(body.data.amount, 12.5);
+  assert.equal(body.data.nextPaymentDate, '2027-06-17');
+});
+
+test('patches subscriptions only within the API key owner scope and recalculates billing dates', async () => {
+  let readFilters: Record<string, unknown> | null = null;
+  let updateFilters: Record<string, unknown> | null = null;
+  let updatePayload: unknown;
+  const database = createDatabase((state: QueryState) => {
+    if (state.operation === 'select') {
+      readFilters = { ...state.filters };
+      return {
+        data: subscriptionRow,
+        error: null,
+      };
+    }
+
+    assert.equal(state.operation, 'update');
+    updateFilters = { ...state.filters };
+    updatePayload = state.payload;
+    return {
+      data: {
+        ...subscriptionRow,
+        period: 'yearly',
+        next_payment_date: '2027-06-01',
+      },
+      error: null,
+    };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-patch',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'PATCH',
+    `/api/v1/subscriptions/${subscriptionRow.id}`,
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({ period: 'yearly' })
+  ), {} as never));
+  const body = parseJsonResponse<{ data: { period: string; nextPaymentDate: string } }>(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(readFilters, {
+    user_id: userId,
+    id: subscriptionRow.id,
+  });
+  assert.deepEqual(updateFilters, {
+    user_id: userId,
+    id: subscriptionRow.id,
+  });
+  assert.deepEqual(updatePayload, {
+    name: 'Netflix',
+    category: 'Streaming',
+    amount: 15.99,
+    currency: 'USD',
+    period: 'yearly',
+    last_payment_date: '2026-06-01',
+    next_payment_date: '2027-06-01',
+    custom_date: null,
+    notification_enabled: true,
+  });
+  assert.equal(body.data.period, 'yearly');
+  assert.equal(body.data.nextPaymentDate, '2027-06-01');
+});
+
+test('clears stale custom billing data when patching back to a standard period', async () => {
+  let updatePayload: unknown;
+  const customSubscriptionRow = {
+    ...subscriptionRow,
+    period: 'custom',
+    custom_date: '45',
+    next_payment_date: '2026-07-16',
+  };
+  const database = createDatabase((state: QueryState) => {
+    if (state.operation === 'select') {
+      return {
+        data: customSubscriptionRow,
+        error: null,
+      };
+    }
+
+    updatePayload = state.payload;
+    return {
+      data: {
+        ...subscriptionRow,
+        period: 'monthly',
+        custom_date: null,
+        next_payment_date: '2026-07-01',
+      },
+      error: null,
+    };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-patch-standard',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'PATCH',
+    `/api/v1/subscriptions/${subscriptionRow.id}`,
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({ period: 'monthly' })
+  ), {} as never));
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(updatePayload, {
+    name: 'Netflix',
+    category: 'Streaming',
+    amount: 15.99,
+    currency: 'USD',
+    period: 'monthly',
+    last_payment_date: '2026-06-01',
+    next_payment_date: '2026-07-01',
+    custom_date: null,
+    notification_enabled: true,
+  });
+});
+
+test('deletes subscriptions only within the API key owner scope', async () => {
+  let deleteFilters: Record<string, unknown> | null = null;
+  const database = createDatabase((state: QueryState) => {
+    assert.equal(state.operation, 'delete');
+    deleteFilters = { ...state.filters };
+    return {
+      data: { id: subscriptionRow.id },
+      error: null,
+    };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-delete',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'DELETE',
+    `/api/v1/subscriptions/${subscriptionRow.id}`,
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+  const body = parseJsonResponse<{ deleted: boolean }>(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(deleteFilters, {
+    user_id: userId,
+    id: subscriptionRow.id,
+  });
+  assert.equal(body.deleted, true);
+});
+
 test('rejects invalid API keys before accessing subscriptions', async () => {
   let subscriptionQueried = false;
   const database = createFakeSupabaseClient((state: QueryState) => {
@@ -198,6 +442,9 @@ test('rejects client-managed subscription fields', async () => {
 
   assert.equal(response.statusCode, 400);
   assert.equal(body.error.code, 'invalid_subscription_field');
+  assert.equal(response.headers?.['X-RateLimit-Limit'], '60');
+  assert.equal(response.headers?.['X-RateLimit-Remaining'], '59');
+  assert.equal(response.headers?.['Access-Control-Allow-Origin'], '*');
 });
 
 test('returns 429 when an API key exceeds its hourly limit', async () => {
@@ -341,4 +588,40 @@ test('hashes the supplied API key before lookup', async () => {
   ), {} as never);
 
   assert.equal(lookedUpHash, hashApiKey(apiKey));
+});
+
+test('uses request metadata as a fallback auth failure identity when IP headers are absent', async () => {
+  let identityHash: unknown;
+  const database = createFakeSupabaseClient(() => {
+    return { data: null, error: null };
+  }, (name, args) => {
+    assert.equal(name, 'lookup_api_key_for_auth');
+    identityHash = args.p_identity_hash;
+    return {
+      data: [{ limited: false, id: null, user_id: null, key_prefix: null }],
+      error: null,
+    };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-9',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    {
+      authorization: `Bearer ${apiKey}`,
+      'user-agent': 'SubscriptionBot/1.0',
+      'accept-language': 'en-US',
+      'accept-encoding': 'gzip',
+    }
+  ), {} as never);
+
+  assert.equal(
+    identityHash,
+    hashClientIdentity('fingerprint:SubscriptionBot/1.0:en-US:gzip')
+  );
 });
