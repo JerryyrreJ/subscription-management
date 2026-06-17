@@ -36,6 +36,8 @@ export interface ApiLimitsConfig {
   premiumRequestsPerHour: number;
   freeActiveKeys: number;
   premiumActiveKeys: number;
+  failedAuthRequestsPerHour: number;
+  rateLimitRetentionHours: number;
 }
 
 const optionalPositiveInteger = (
@@ -140,5 +142,15 @@ export const getApiLimitsConfig = (
     'API_PREMIUM_ACTIVE_KEYS',
     env.API_PREMIUM_ACTIVE_KEYS,
     5
+  ),
+  failedAuthRequestsPerHour: optionalPositiveInteger(
+    'API_FAILED_AUTH_RATE_LIMIT_PER_HOUR',
+    env.API_FAILED_AUTH_RATE_LIMIT_PER_HOUR,
+    300
+  ),
+  rateLimitRetentionHours: optionalPositiveInteger(
+    'API_RATE_LIMIT_RETENTION_HOURS',
+    env.API_RATE_LIMIT_RETENTION_HOURS,
+    48
   ),
 });

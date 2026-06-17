@@ -10,7 +10,7 @@ import {
   type SupabasePublicConfig,
 } from './_shared/env';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
-import { generateApiKey, getApiKeyPrefix, hashApiKey } from './_shared/apiKeys';
+import { generateApiKeyMaterial, hashApiKey, type ApiKeyMaterial } from './_shared/apiKeys';
 import { logEvent } from './_shared/logging';
 import { createSupabaseAdminClient, createSupabaseAuthClient } from './_shared/supabase';
 
@@ -32,9 +32,13 @@ interface ApiKeyDependencies {
   database: SupabaseClient;
   limits: ApiLimitsConfig;
   createAuthClient(config: SupabasePublicConfig): AuthClient;
-  createApiKey(): string;
+  createApiKeyMaterial(): ApiKeyMaterial;
   createRequestId(): string;
   now(): Date;
+}
+
+interface CreateApiKeyResult extends ApiKeyRow {
+  created: boolean;
 }
 
 const createKeyBodySchema = z.object({
@@ -77,7 +81,7 @@ const createDefaultDependencies = (): ApiKeyDependencies => {
     database: createSupabaseAdminClient(supabaseConfig),
     limits: getApiLimitsConfig(process.env),
     createAuthClient: createSupabaseAuthClient,
-    createApiKey: generateApiKey,
+    createApiKeyMaterial: generateApiKeyMaterial,
     createRequestId: () => crypto.randomUUID(),
     now: () => new Date(),
   };
@@ -110,6 +114,14 @@ const toPublicKey = (row: ApiKeyRow) => ({
   lastUsedAt: row.last_used_at,
   revokedAt: row.revoked_at,
 });
+
+const unwrapCreateApiKeyResult = (data: unknown): CreateApiKeyResult | null => {
+  if (Array.isArray(data)) {
+    return (data[0] as CreateApiKeyResult | undefined) ?? null;
+  }
+
+  return (data as CreateApiKeyResult | null) ?? null;
+};
 
 const getProfile = async (
   database: SupabaseClient,
@@ -196,10 +208,29 @@ export const createApiKeysHandler = (
 
     if (event.httpMethod === 'POST') {
       const parsed = parseCreateKeyBody(event.body);
-      const keys = await listKeys(dependencies.database, authenticated.userId);
       const activeKeyLimit = getKeyLimit(profile, dependencies.limits);
+      const apiKeyMaterial = dependencies.createApiKeyMaterial();
+      const { data: createData, error } = await dependencies.database.rpc(
+        'create_api_key_if_under_limit',
+        {
+          p_user_id: authenticated.userId,
+          p_name: parsed.name,
+          p_key_prefix: apiKeyMaterial.keyPrefix,
+          p_key_hash: hashApiKey(apiKeyMaterial.apiKey),
+          p_active_key_limit: activeKeyLimit,
+        }
+      );
 
-      if (keys.length >= activeKeyLimit) {
+      if (error) {
+        throw error;
+      }
+
+      const data = unwrapCreateApiKeyResult(createData);
+      if (!data) {
+        throw new Error('API key creation RPC did not return a result');
+      }
+
+      if (!data.created) {
         throw new HttpError(
           403,
           'api_key_limit_exceeded',
@@ -207,30 +238,13 @@ export const createApiKeysHandler = (
         );
       }
 
-      const apiKey = dependencies.createApiKey();
-      const { data, error } = await dependencies.database
-        .from('api_keys')
-        .insert({
-          user_id: authenticated.userId,
-          name: parsed.name,
-          key_prefix: getApiKeyPrefix(apiKey),
-          key_hash: hashApiKey(apiKey),
-        })
-        .select('id, name, key_prefix, created_at, last_used_at, revoked_at')
-        .single<ApiKeyRow>();
-
-      if (error) {
-        throw error;
-      }
-
       logEvent('info', 'API key created', requestId, {
         userId: authenticated.userId,
         keyId: data.id,
-        keyPrefix: data.key_prefix,
       });
 
       return jsonResponse(201, {
-        apiKey,
+        apiKey: apiKeyMaterial.apiKey,
         key: toPublicKey(data),
         requestId,
       });

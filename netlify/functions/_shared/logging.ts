@@ -1,4 +1,4 @@
-const SENSITIVE_KEY = /(authorization|token|secret|password|device.?key|service.?role)/i;
+const SENSITIVE_KEY = /(authorization|token|secret|password|device.?key|service.?role|key.?prefix|api.?key.?prefix)/i;
 const EMAIL_KEY = /email/i;
 
 export const maskEmail = (email?: string | null): string | undefined => {

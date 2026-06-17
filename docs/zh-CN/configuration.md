@@ -20,10 +20,12 @@
 | `STRIPE_PRICE_ID` | 服务端允许购买的唯一 Stripe Price | 仅服务端 |
 | `SITE_URL` | Checkout 成功和取消回调地址 | 仅服务端 |
 | `URL` | Netlify function 回调 URL | Netlify 提供 |
-| `API_FREE_RATE_LIMIT_PER_HOUR` | 普通用户开放 API 每小时请求数，默认 `60` | 仅服务端 |
-| `API_PREMIUM_RATE_LIMIT_PER_HOUR` | Premium 用户开放 API 每小时请求数，默认 `1000` | 仅服务端 |
+| `API_FREE_RATE_LIMIT_PER_HOUR` | 普通用户开放 API 每用户每小时请求数，默认 `60` | 仅服务端 |
+| `API_PREMIUM_RATE_LIMIT_PER_HOUR` | Premium 用户开放 API 每用户每小时请求数，默认 `1000` | 仅服务端 |
 | `API_FREE_ACTIVE_KEYS` | 普通用户可用 API Key 数量，默认 `1` | 仅服务端 |
 | `API_PREMIUM_ACTIVE_KEYS` | Premium 用户可用 API Key 数量，默认 `5` | 仅服务端 |
+| `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR` | 每个客户端身份每小时失败 API Key 鉴权次数，默认 `300` | 仅服务端 |
+| `API_RATE_LIMIT_RETENTION_HOURS` | 限流窗口定时清理前的保留时长，默认 `48` | 仅服务端 |
 
 ## 浏览器变量
 

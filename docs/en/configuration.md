@@ -20,10 +20,12 @@ The core app runs without environment variables. Add environment variables only 
 | `STRIPE_PRICE_ID` | The only Stripe Price accepted by the server | Server only |
 | `SITE_URL` | Checkout success and cancellation URL | Server only |
 | `URL` | Netlify function callback URLs | Provided by Netlify |
-| `API_FREE_RATE_LIMIT_PER_HOUR` | Free user public API requests per hour; defaults to `60` | Server only |
-| `API_PREMIUM_RATE_LIMIT_PER_HOUR` | Premium user public API requests per hour; defaults to `1000` | Server only |
+| `API_FREE_RATE_LIMIT_PER_HOUR` | Free user public API requests per user per hour; defaults to `60` | Server only |
+| `API_PREMIUM_RATE_LIMIT_PER_HOUR` | Premium user public API requests per user per hour; defaults to `1000` | Server only |
 | `API_FREE_ACTIVE_KEYS` | Free user active API key limit; defaults to `1` | Server only |
 | `API_PREMIUM_ACTIVE_KEYS` | Premium user active API key limit; defaults to `5` | Server only |
+| `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR` | Failed API key authentication attempts per client identity per hour; defaults to `300` | Server only |
+| `API_RATE_LIMIT_RETENTION_HOURS` | Rate limit window retention before scheduled cleanup; defaults to `48` | Server only |
 
 ## Browser Variables
 

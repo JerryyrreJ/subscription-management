@@ -9,8 +9,8 @@ only once. Store it like a password.
 
 Default limits:
 
-- Free users: 1 active key, 60 requests per hour
-- Premium users: 5 active keys, 1000 requests per hour
+- Free users: 1 active key, 60 requests per user per hour
+- Premium users: 5 active keys, 1000 requests per user per hour
 
 ## Authentication
 

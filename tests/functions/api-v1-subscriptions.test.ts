@@ -19,6 +19,8 @@ const limits = {
   premiumRequestsPerHour: 1000,
   freeActiveKeys: 1,
   premiumActiveKeys: 5,
+  failedAuthRequestsPerHour: 300,
+  rateLimitRetentionHours: 48,
 };
 
 const subscriptionRow = {
@@ -39,21 +41,15 @@ const subscriptionRow = {
 
 const createDatabase = (
   subscriptionResolver: (state: QueryState) => { data: unknown; error: { message: string } | null },
-  rateLimitAllowed = true
+  options: {
+    rateLimitAllowed?: boolean;
+    lookupFound?: boolean;
+    lookupLimited?: boolean;
+    touchError?: { message: string } | null;
+  } = {}
 ) => createFakeSupabaseClient((state: QueryState) => {
-  if (state.table === 'api_keys' && state.operation === 'select') {
-    return {
-      data: {
-        id: apiKeyId,
-        user_id: userId,
-        key_prefix: apiKey.slice(0, 14),
-      },
-      error: null,
-    };
-  }
-
   if (state.table === 'api_keys' && state.operation === 'update') {
-    return { data: null, error: null };
+    return { data: null, error: options.touchError ?? null };
   }
 
   if (state.table === 'user_profiles') {
@@ -66,14 +62,45 @@ const createDatabase = (
 
   return { data: null, error: { message: `Unexpected query: ${state.table}` } };
 }, (name, args) => {
-  assert.equal(name, 'consume_api_rate_limit');
-  assert.equal(args.p_api_key_id, apiKeyId);
+  if (name === 'lookup_api_key_for_auth') {
+    assert.equal(args.p_key_hash, hashApiKey(apiKey));
+    assert.match(String(args.p_identity_hash), /^[a-f0-9]{64}$/);
+    assert.equal(args.p_failure_limit, limits.failedAuthRequestsPerHour);
+
+    if (options.lookupLimited) {
+      return {
+        data: [{ limited: true, id: null, user_id: null, key_prefix: null }],
+        error: null,
+      };
+    }
+
+    if (options.lookupFound === false) {
+      return {
+        data: [{ limited: false, id: null, user_id: null, key_prefix: null }],
+        error: null,
+      };
+    }
+
+    return {
+      data: [{
+        limited: false,
+        id: apiKeyId,
+        user_id: userId,
+        key_prefix: apiKey.slice(0, 14),
+      }],
+      error: null,
+    };
+  }
+
+  assert.equal(name, 'consume_api_user_rate_limit');
+  assert.equal(args.p_user_id, userId);
+  assert.equal(Object.hasOwn(args, 'p_api_key_id'), false);
 
   return {
     data: [{
-      allowed: rateLimitAllowed,
-      request_count: rateLimitAllowed ? 1 : 60,
-      remaining: rateLimitAllowed ? 59 : 0,
+      allowed: options.rateLimitAllowed ?? true,
+      request_count: options.rateLimitAllowed === false ? 60 : 1,
+      remaining: options.rateLimitAllowed === false ? 0 : 59,
       reset_at: '2026-06-16T01:00:00.000Z',
     }],
     error: null,
@@ -109,15 +136,17 @@ test('lists subscriptions for the API key owner and includes rate limit headers'
 test('rejects invalid API keys before accessing subscriptions', async () => {
   let subscriptionQueried = false;
   const database = createFakeSupabaseClient((state: QueryState) => {
-    if (state.table === 'api_keys') {
-      return { data: null, error: null };
-    }
-
     if (state.table === 'subscriptions') {
       subscriptionQueried = true;
     }
 
     return { data: null, error: null };
+  }, (name) => {
+    assert.equal(name, 'lookup_api_key_for_auth');
+    return {
+      data: [{ limited: false, id: null, user_id: null, key_prefix: null }],
+      error: null,
+    };
   });
   const handler = createSubscriptionsApiHandler(() => ({
     database,
@@ -175,7 +204,7 @@ test('returns 429 when an API key exceeds its hourly limit', async () => {
   const database = createDatabase(() => ({
     data: [subscriptionRow],
     error: null,
-  }), false);
+  }), { rateLimitAllowed: false });
   const handler = createSubscriptionsApiHandler(() => ({
     database,
     limits,
@@ -195,6 +224,69 @@ test('returns 429 when an API key exceeds its hourly limit', async () => {
   assert.equal(response.headers?.['X-RateLimit-Remaining'], '0');
 });
 
+test('returns 429 when invalid API key attempts exceed the auth failure limit', async () => {
+  let profileQueried = false;
+  let subscriptionQueried = false;
+  const database = createFakeSupabaseClient((state: QueryState) => {
+    if (state.table === 'user_profiles') {
+      profileQueried = true;
+    }
+
+    if (state.table === 'subscriptions') {
+      subscriptionQueried = true;
+    }
+
+    return { data: null, error: null };
+  }, (name) => {
+    assert.equal(name, 'lookup_api_key_for_auth');
+    return {
+      data: [{ limited: true, id: null, user_id: null, key_prefix: null }],
+      error: null,
+    };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-5',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+  const body = parseJsonResponse<{ error: { code: string } }>(response);
+
+  assert.equal(response.statusCode, 429);
+  assert.equal(body.error.code, 'rate_limit_exceeded');
+  assert.equal(profileQueried, false);
+  assert.equal(subscriptionQueried, false);
+});
+
+test('does not fail the request when last_used_at cannot be updated', async () => {
+  const database = createDatabase(() => ({
+    data: [subscriptionRow],
+    error: null,
+  }), { touchError: { message: 'timestamp write failed' } });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-6',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+  const body = parseJsonResponse<{ data: Array<{ id: string }> }>(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.data[0].id, subscriptionRow.id);
+});
+
 test('returns 400 for malformed subscription ids', async () => {
   let subscriptionQueried = false;
   const database = createDatabase((state: QueryState) => {
@@ -207,7 +299,7 @@ test('returns 400 for malformed subscription ids', async () => {
   const handler = createSubscriptionsApiHandler(() => ({
     database,
     limits,
-    createRequestId: () => 'request-5',
+    createRequestId: () => 'request-7',
     now: () => new Date('2026-06-16T00:15:00.000Z'),
   }));
 
@@ -225,18 +317,20 @@ test('returns 400 for malformed subscription ids', async () => {
 
 test('hashes the supplied API key before lookup', async () => {
   let lookedUpHash: unknown;
-  const database = createFakeSupabaseClient((state: QueryState) => {
-    if (state.table === 'api_keys') {
-      lookedUpHash = state.filters.key_hash;
-      return { data: null, error: null };
-    }
-
+  const database = createFakeSupabaseClient(() => {
     return { data: null, error: null };
+  }, (name, args) => {
+    assert.equal(name, 'lookup_api_key_for_auth');
+    lookedUpHash = args.p_key_hash;
+    return {
+      data: [{ limited: false, id: null, user_id: null, key_prefix: null }],
+      error: null,
+    };
   });
   const handler = createSubscriptionsApiHandler(() => ({
     database,
     limits,
-    createRequestId: () => 'request-6',
+    createRequestId: () => 'request-8',
     now: () => new Date('2026-06-16T00:15:00.000Z'),
   }));
 

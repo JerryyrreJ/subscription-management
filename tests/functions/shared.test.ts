@@ -61,6 +61,8 @@ test('sanitizeLogDetails recursively redacts secrets and masks email addresses',
       nested: {
         stripeSecret: 'sk_test_secret',
         barkDeviceKey: 'device-key',
+        keyPrefix: 'subm_public',
+        key_prefix: 'subm_legacy',
         customerEmail: 'customer@example.test',
       },
     }),
@@ -70,6 +72,8 @@ test('sanitizeLogDetails recursively redacts secrets and masks email addresses',
       nested: {
         stripeSecret: '<redacted>',
         barkDeviceKey: '<redacted>',
+        keyPrefix: '<redacted>',
+        key_prefix: '<redacted>',
         customerEmail: 'c***@example.test',
       },
     }

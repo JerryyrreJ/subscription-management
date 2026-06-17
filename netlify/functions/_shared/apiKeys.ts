@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ApiLimitsConfig } from './env';
 import { extractBearerToken } from './auth';
 import { HttpError } from './http';
+import { logEvent } from './logging';
 
 export const API_KEY_PREFIX = 'subm_';
 
@@ -23,6 +24,18 @@ interface RateLimitResult {
   reset_at: string;
 }
 
+interface ApiKeyLookupResult {
+  limited: boolean;
+  id: string | null;
+  user_id: string | null;
+  key_prefix: string | null;
+}
+
+export interface ApiKeyMaterial {
+  apiKey: string;
+  keyPrefix: string;
+}
+
 export interface ApiClientContext {
   apiKeyId: string;
   userId: string;
@@ -36,13 +49,33 @@ export interface ApiClientContext {
   };
 }
 
-export const generateApiKey = (): string =>
-  `${API_KEY_PREFIX}${randomBytes(32).toString('base64url')}`;
+export const generateApiKeyMaterial = (): ApiKeyMaterial => {
+  const publicId = randomBytes(9).toString('base64url');
+  const secret = randomBytes(32).toString('base64url');
+  const keyPrefix = `${API_KEY_PREFIX}${publicId}`;
+
+  return {
+    apiKey: `${keyPrefix}.${secret}`,
+    keyPrefix,
+  };
+};
+
+export const generateApiKey = (): string => generateApiKeyMaterial().apiKey;
 
 export const hashApiKey = (apiKey: string): string =>
   createHash('sha256').update(apiKey).digest('hex');
 
-export const getApiKeyPrefix = (apiKey: string): string => apiKey.slice(0, 14);
+export const getApiKeyPrefix = (apiKey: string): string => {
+  const separatorIndex = apiKey.indexOf('.');
+  if (apiKey.startsWith(API_KEY_PREFIX) && separatorIndex > API_KEY_PREFIX.length) {
+    return apiKey.slice(0, separatorIndex);
+  }
+
+  return apiKey.slice(0, 14);
+};
+
+export const hashClientIdentity = (identity: string): string =>
+  createHash('sha256').update(identity).digest('hex');
 
 export const buildRateLimitHeaders = (
   limit: number,
@@ -60,6 +93,26 @@ const getWindowStart = (now: Date): string => {
   return windowStart.toISOString();
 };
 
+const getHeader = (
+  headers: Record<string, string | undefined>,
+  name: string
+): string | undefined => {
+  const target = name.toLowerCase();
+  const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === target);
+  return entry?.[1]?.trim() || undefined;
+};
+
+const getClientIdentity = (headers: Record<string, string | undefined>): string => {
+  const forwardedFor = getHeader(headers, 'x-forwarded-for')?.split(',')[0]?.trim();
+
+  return getHeader(headers, 'x-nf-client-connection-ip') ||
+    getHeader(headers, 'cf-connecting-ip') ||
+    getHeader(headers, 'x-real-ip') ||
+    getHeader(headers, 'client-ip') ||
+    forwardedFor ||
+    'unknown';
+};
+
 const unwrapRateLimitResult = (data: unknown): RateLimitResult | null => {
   if (Array.isArray(data)) {
     return (data[0] as RateLimitResult | undefined) ?? null;
@@ -68,11 +121,20 @@ const unwrapRateLimitResult = (data: unknown): RateLimitResult | null => {
   return (data as RateLimitResult | null) ?? null;
 };
 
+const unwrapApiKeyLookupResult = (data: unknown): ApiKeyLookupResult | null => {
+  if (Array.isArray(data)) {
+    return (data[0] as ApiKeyLookupResult | undefined) ?? null;
+  }
+
+  return (data as ApiKeyLookupResult | null) ?? null;
+};
+
 export const authenticateApiKey = async (
   headers: Record<string, string | undefined>,
   database: SupabaseClient,
   limits: ApiLimitsConfig,
-  now: Date = new Date()
+  now: Date = new Date(),
+  requestId = 'api-auth'
 ): Promise<ApiClientContext> => {
   const apiKey = extractBearerToken(headers);
   if (!apiKey.startsWith(API_KEY_PREFIX)) {
@@ -80,20 +142,43 @@ export const authenticateApiKey = async (
   }
 
   const keyHash = hashApiKey(apiKey);
-  const { data: apiKeyRecord, error: apiKeyError } = await database
-    .from('api_keys')
-    .select('id, user_id, key_prefix')
-    .eq('key_hash', keyHash)
-    .is('revoked_at', null)
-    .maybeSingle<ApiKeyRecord>();
+  const clientIdentityHash = hashClientIdentity(getClientIdentity(headers));
+  const { data: lookupData, error: lookupError } = await database.rpc(
+    'lookup_api_key_for_auth',
+    {
+      p_key_hash: keyHash,
+      p_identity_hash: clientIdentityHash,
+      p_window_start: getWindowStart(now),
+      p_failure_limit: limits.failedAuthRequestsPerHour,
+    }
+  );
 
-  if (apiKeyError) {
-    throw apiKeyError;
+  if (lookupError) {
+    throw lookupError;
   }
 
-  if (!apiKeyRecord) {
+  const lookup = unwrapApiKeyLookupResult(lookupData);
+  if (!lookup) {
+    throw new Error('API key lookup RPC did not return a result');
+  }
+
+  if (lookup.limited) {
+    throw new HttpError(
+      429,
+      'rate_limit_exceeded',
+      'Too many invalid API key attempts'
+    );
+  }
+
+  if (!lookup.id || !lookup.user_id || !lookup.key_prefix) {
     throw new HttpError(401, 'invalid_api_key', 'Invalid API key');
   }
+
+  const apiKeyRecord: ApiKeyRecord = {
+    id: lookup.id,
+    user_id: lookup.user_id,
+    key_prefix: lookup.key_prefix,
+  };
 
   const { data: profile, error: profileError } = await database
     .from('user_profiles')
@@ -108,9 +193,9 @@ export const authenticateApiKey = async (
   const isPremium = Boolean(profile?.is_premium);
   const limit = isPremium ? limits.premiumRequestsPerHour : limits.freeRequestsPerHour;
   const { data: rateLimitData, error: rateLimitError } = await database.rpc(
-    'consume_api_rate_limit',
+    'consume_api_user_rate_limit',
     {
-      p_api_key_id: apiKeyRecord.id,
+      p_user_id: apiKeyRecord.user_id,
       p_window_start: getWindowStart(now),
       p_limit: limit,
     }
@@ -141,7 +226,10 @@ export const authenticateApiKey = async (
     .eq('id', apiKeyRecord.id);
 
   if (touchError) {
-    throw touchError;
+    logEvent('warn', 'Failed to update API key last used timestamp', requestId, {
+      apiKeyId: apiKeyRecord.id,
+      error: touchError.message,
+    });
   }
 
   return {

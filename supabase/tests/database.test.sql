@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(35);
+SELECT plan(52);
 
 SELECT has_table('public', 'user_profiles', 'user_profiles exists');
 SELECT has_table('public', 'subscriptions', 'subscriptions exists');
@@ -10,6 +10,8 @@ SELECT has_table('public', 'notification_delivery_locks', 'delivery locks exist'
 SELECT has_table('public', 'payments', 'payments exists');
 SELECT has_table('public', 'api_keys', 'api_keys exists');
 SELECT has_table('public', 'api_rate_limit_windows', 'api rate limit windows exist');
+SELECT has_table('public', 'api_user_rate_limit_windows', 'user rate limit windows exist');
+SELECT has_table('public', 'api_auth_failure_windows', 'auth failure windows exist');
 
 SELECT has_column('public', 'payments', 'stripe_price_id', 'payments stores the trusted Stripe price');
 SELECT has_column('public', 'user_notification_settings', 'locale', 'notification settings store locale');
@@ -23,6 +25,21 @@ SELECT has_function(
   'consume_api_rate_limit',
   ARRAY['uuid', 'timestamp with time zone', 'integer']
 );
+SELECT has_function(
+  'public',
+  'consume_api_user_rate_limit',
+  ARRAY['uuid', 'timestamp with time zone', 'integer']
+);
+SELECT has_function(
+  'public',
+  'lookup_api_key_for_auth',
+  ARRAY['text', 'text', 'timestamp with time zone', 'integer']
+);
+SELECT has_function(
+  'public',
+  'create_api_key_if_under_limit',
+  ARRAY['uuid', 'text', 'text', 'text', 'integer']
+);
 
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.user_profiles'::regclass), 'user_profiles has RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.subscriptions'::regclass), 'subscriptions has RLS');
@@ -32,6 +49,8 @@ SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.payments'::re
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_delivery_locks'::regclass), 'delivery locks have RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_keys'::regclass), 'api_keys has RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_rate_limit_windows'::regclass), 'api rate limit windows have RLS');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_user_rate_limit_windows'::regclass), 'user rate limit windows have RLS');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_auth_failure_windows'::regclass), 'auth failure windows have RLS');
 
 SELECT ok(
   EXISTS (
@@ -90,6 +109,66 @@ SELECT is(
   has_function_privilege('authenticated', 'public.consume_api_rate_limit(uuid,timestamp with time zone,integer)', 'EXECUTE'),
   FALSE,
   'authenticated users cannot execute rate limit RPC'
+);
+
+SELECT is(
+  has_table_privilege('authenticated', 'public.api_user_rate_limit_windows', 'SELECT'),
+  FALSE,
+  'authenticated users cannot read user rate limit windows'
+);
+
+SELECT is(
+  has_table_privilege('authenticated', 'public.api_auth_failure_windows', 'SELECT'),
+  FALSE,
+  'authenticated users cannot read auth failure windows'
+);
+
+SELECT is(
+  has_function_privilege('authenticated', 'public.consume_api_user_rate_limit(uuid,timestamp with time zone,integer)', 'EXECUTE'),
+  FALSE,
+  'authenticated users cannot execute user rate limit RPC'
+);
+
+SELECT is(
+  has_function_privilege('authenticated', 'public.lookup_api_key_for_auth(text,text,timestamp with time zone,integer)', 'EXECUTE'),
+  FALSE,
+  'authenticated users cannot execute API key lookup RPC'
+);
+
+SELECT is(
+  has_function_privilege('authenticated', 'public.create_api_key_if_under_limit(uuid,text,text,text,integer)', 'EXECUTE'),
+  FALSE,
+  'authenticated users cannot execute API key creation RPC'
+);
+
+SELECT is(
+  has_table_privilege('service_role', 'public.api_user_rate_limit_windows', 'INSERT'),
+  TRUE,
+  'service_role can write user rate limit windows'
+);
+
+SELECT is(
+  has_table_privilege('service_role', 'public.api_auth_failure_windows', 'INSERT'),
+  TRUE,
+  'service_role can write auth failure windows'
+);
+
+SELECT is(
+  has_function_privilege('service_role', 'public.consume_api_user_rate_limit(uuid,timestamp with time zone,integer)', 'EXECUTE'),
+  TRUE,
+  'service_role can execute user rate limit RPC'
+);
+
+SELECT is(
+  has_function_privilege('service_role', 'public.lookup_api_key_for_auth(text,text,timestamp with time zone,integer)', 'EXECUTE'),
+  TRUE,
+  'service_role can execute API key lookup RPC'
+);
+
+SELECT is(
+  has_function_privilege('service_role', 'public.create_api_key_if_under_limit(uuid,text,text,text,integer)', 'EXECUTE'),
+  TRUE,
+  'service_role can execute API key creation RPC'
 );
 
 INSERT INTO auth.users (id, raw_user_meta_data)

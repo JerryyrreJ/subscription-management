@@ -259,7 +259,8 @@ export const createSubscriptionsApiHandler = (
       event.headers,
       dependencies.database,
       dependencies.limits,
-      dependencies.now()
+      dependencies.now(),
+      requestId
     );
     const subscriptionId = parseSubscriptionPath(event.path);
 
@@ -310,7 +311,6 @@ export const createSubscriptionsApiHandler = (
 
       logEvent('info', 'API subscription created', requestId, {
         apiKeyId: context.apiKeyId,
-        keyPrefix: context.keyPrefix,
         userId: context.userId,
         subscriptionId: data.id,
       });
