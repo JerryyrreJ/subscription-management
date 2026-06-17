@@ -24,6 +24,23 @@ Authorization: Bearer <api-key>
 
 API Key 绑定到创建它的用户。所有订阅查询、创建、更新和删除都会限制在这个用户范围内。
 
+## 权限范围（Scopes）
+
+每个 API Key 带有 scopes，用来限定它能做什么：
+
+| 范围 | 允许 |
+| --- | --- |
+| `read` | 查询、读取订阅；调用分析与审计端点 |
+| `write` | 在 `read` 基础上，额外允许创建、更新、取消、暂停、恢复和删除 |
+
+`read` 始终存在。新建 Key 默认同时拥有 `read` 和 `write`。如果要创建只读 Key（适合只做分析、绝不应修改数据的 Agent），在创建 Key 时传入 `scopes` 数组：
+
+```json
+{ "name": "Analysis agent", "scopes": ["read"] }
+```
+
+用只读 Key 执行写操作会返回 `403 insufficient_scope`。返回的 Key 对象会包含其 `scopes`。
+
 ## 安全建议
 
 - 不要把 API Key 提交到代码仓库。

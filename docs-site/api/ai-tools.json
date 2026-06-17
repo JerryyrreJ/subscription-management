@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "2026-06-17",
+  "schemaVersion": "2026-06-18",
   "name": "Subscription Manager AI tool schema",
   "sourceOpenApi": "api/openapi.yaml",
   "baseUrl": "https://your-site.example",
@@ -27,12 +27,18 @@
       "lastPaymentDate",
       "name",
       "notificationEnabled",
-      "period"
+      "period",
+      "status"
     ],
     "billingPeriods": [
       "monthly",
       "yearly",
       "custom"
+    ],
+    "lifecycleStates": [
+      "active",
+      "paused",
+      "cancelled"
     ],
     "currencies": [
       "CNY",
@@ -49,9 +55,12 @@
     "fieldSemantics": {
       "period": "The billing cycle. Send monthly, yearly, or custom. Do not send billingCycle to the v1 API.",
       "customDate": "The custom interval in days when period is custom. Despite the legacy name, this is not a calendar date. Do not send customIntervalDays to the v1 API.",
-      "lastPaymentDate": "The most recent payment date in YYYY-MM-DD format. The server uses it to calculate nextPaymentDate."
+      "lastPaymentDate": "The most recent payment date in YYYY-MM-DD format. The server uses it to calculate nextPaymentDate.",
+      "status": "Lifecycle state. active means billing; paused means temporarily stopped; cancelled means no longer billing but kept for history. Cancel or pause instead of deleting when the user may want the record back."
     },
-    "writeConfirmationPolicy": "Ask for user confirmation before create, update, or delete. For delete, repeat the target subscription name and id."
+    "scopes": "API keys carry scopes. A read key can call list, get, the analytics endpoints, and the audit log. A write key additionally allows create, update, cancel, pause, resume, and delete. Calling a write tool with a read-only key returns 403 insufficient_scope; do not retry, ask the user for a write-scoped key.",
+    "auditTrail": "Every successful create, update, and delete is recorded in the audit log with before/after state. Use list_audit_log to show the user what changed or to support an undo.",
+    "writeConfirmationPolicy": "Ask for user confirmation before any write (create, update, cancel, pause, resume, delete). For cancel and delete, repeat the target subscription name and id."
   },
   "tools": [
     {
@@ -59,21 +68,24 @@
       "operationId": "listSubscriptions",
       "method": "GET",
       "path": "/api/v1/subscriptions",
-      "purpose": "List subscriptions owned by the API key owner so an agent can search, summarize, compare, or identify records before writing. Results are newest first and paged; the response includes a pagination object with limit, offset, and hasMore.",
+      "purpose": "List subscriptions owned by the API key owner, with optional filters and sorting, so an agent can search, summarize, compare, or identify records before writing. Results are paged; the response includes a pagination object (limit, offset, hasMore) and an echo of the applied query.",
       "riskLevel": "low",
       "requiresConfirmation": false,
       "useWhen": [
         "The user asks to show, search, analyze, or summarize subscriptions.",
         "The user names a subscription but does not provide its UUID.",
-        "The agent needs current state before planning an update or delete."
+        "The user asks which subscriptions renew soon (use status=active with expiringBefore).",
+        "The agent needs current state before planning an update, cancel, or delete."
       ],
       "doNotUseWhen": [
-        "The user provides a known UUID and asks for only that exact record."
+        "The user provides a known UUID and asks for only that exact record.",
+        "The user wants computed totals or savings advice (use get_spend_summary or get_optimization_suggestions)."
       ],
       "naturalLanguageExamples": [
         "Show all my subscriptions.",
-        "Which subscriptions renew soon?",
-        "Find my Netflix subscription."
+        "Which subscriptions renew before the end of the month?",
+        "Find my Netflix subscription.",
+        "List my cancelled subscriptions."
       ],
       "parameters": {
         "type": "object",
@@ -90,6 +102,35 @@
             "minimum": 0,
             "default": 0,
             "description": "Number of subscriptions to skip from the start. Use offset + limit to fetch the next page while hasMore is true."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "paused", "cancelled"],
+            "description": "Filter by lifecycle state."
+          },
+          "category": {
+            "type": "string",
+            "description": "Exact category match, for example \"Streaming\"."
+          },
+          "period": {
+            "type": "string",
+            "enum": ["monthly", "yearly", "custom"],
+            "description": "Filter by billing period."
+          },
+          "q": {
+            "type": "string",
+            "description": "Case-insensitive search over the subscription name."
+          },
+          "expiringBefore": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Return subscriptions whose nextPaymentDate is on or before this date. Combine with status=active to find renewals due soon."
+          },
+          "sort": {
+            "type": "string",
+            "enum": ["createdAt", "-createdAt", "nextPaymentDate", "-nextPaymentDate", "amount", "-amount", "name", "-name"],
+            "default": "-createdAt",
+            "description": "Sort order. Prefix with - for descending, for example -nextPaymentDate."
           }
         },
         "additionalProperties": false
@@ -116,9 +157,7 @@
       ],
       "parameters": {
         "type": "object",
-        "required": [
-          "id"
-        ],
+        "required": ["id"],
         "properties": {
           "id": {
             "type": "string",
@@ -137,6 +176,7 @@
       "purpose": "Create a new tracked subscription for the API key owner.",
       "riskLevel": "medium",
       "requiresConfirmation": true,
+      "requiredScope": "write",
       "confirmationPrompt": "I will create a subscription named {name} for {amount} {currency}, billed {period}, with lastPaymentDate {lastPaymentDate}. Confirm?",
       "useWhen": [
         "The user asks to add, record, or start tracking a subscription that does not already exist."
@@ -161,12 +201,14 @@
       "purpose": "Update one or more writable fields on an existing subscription. The server recalculates nextPaymentDate from lastPaymentDate, period, and customDate.",
       "riskLevel": "medium",
       "requiresConfirmation": true,
+      "requiredScope": "write",
       "confirmationPrompt": "I will update subscription {id} with these fields: {patch}. Confirm?",
       "useWhen": [
-        "The target subscription has been identified and the user asks to change amount, category, currency, period, lastPaymentDate, customDate, name, or notificationEnabled."
+        "The target subscription has been identified and the user asks to change amount, category, currency, period, lastPaymentDate, customDate, name, notificationEnabled, or status."
       ],
       "doNotUseWhen": [
-        "The user wants to remove the record. Use delete_subscription after explicit confirmation.",
+        "The user wants to permanently remove the record. Use delete_subscription after explicit confirmation.",
+        "The user only wants to stop billing but keep history. Use cancel_subscription or pause_subscription.",
         "The user wants to change nextPaymentDate directly. Update lastPaymentDate and period instead."
       ],
       "naturalLanguageExamples": [
@@ -176,10 +218,7 @@
       ],
       "parameters": {
         "type": "object",
-        "required": [
-          "id",
-          "patch"
-        ],
+        "required": ["id", "patch"],
         "properties": {
           "id": {
             "type": "string",
@@ -194,34 +233,272 @@
       }
     },
     {
+      "name": "cancel_subscription",
+      "operationId": "updateSubscription",
+      "method": "PATCH",
+      "path": "/api/v1/subscriptions/{id}",
+      "fixedBody": {
+        "status": "cancelled"
+      },
+      "purpose": "Mark a subscription as cancelled. This is a soft state change: billing stops but the record and its history are kept, so it can be resumed later. Prefer this over delete_subscription when the user says they stopped using a service.",
+      "riskLevel": "high",
+      "requiresConfirmation": true,
+      "requiredScope": "write",
+      "confirmationPrompt": "I will mark subscription {name} ({id}) as cancelled. It will stop counting toward active spend but stay in your history. Confirm?",
+      "useWhen": [
+        "The user says they no longer use a service and want to stop tracking it as active.",
+        "The user asks to cancel a subscription but may want it back later."
+      ],
+      "doNotUseWhen": [
+        "The user wants the record permanently gone. Use delete_subscription.",
+        "The user only wants a temporary break. Use pause_subscription."
+      ],
+      "naturalLanguageExamples": [
+        "I don't use Figma anymore, cancel it.",
+        "Cancel my Spotify subscription."
+      ],
+      "parameters": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Subscription id returned by list_subscriptions."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "pause_subscription",
+      "operationId": "updateSubscription",
+      "method": "PATCH",
+      "path": "/api/v1/subscriptions/{id}",
+      "fixedBody": {
+        "status": "paused"
+      },
+      "purpose": "Mark a subscription as paused. Billing is treated as temporarily stopped; the record is kept and can be resumed.",
+      "riskLevel": "medium",
+      "requiresConfirmation": true,
+      "requiredScope": "write",
+      "confirmationPrompt": "I will pause subscription {name} ({id}). Confirm?",
+      "useWhen": [
+        "The user wants to temporarily stop a subscription without cancelling it."
+      ],
+      "doNotUseWhen": [
+        "The user is permanently done with the service. Use cancel_subscription or delete_subscription."
+      ],
+      "naturalLanguageExamples": [
+        "Pause my gym membership for now.",
+        "Temporarily stop tracking Netflix."
+      ],
+      "parameters": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Subscription id returned by list_subscriptions."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "resume_subscription",
+      "operationId": "updateSubscription",
+      "method": "PATCH",
+      "path": "/api/v1/subscriptions/{id}",
+      "fixedBody": {
+        "status": "active"
+      },
+      "purpose": "Reactivate a paused or cancelled subscription by setting its status back to active.",
+      "riskLevel": "medium",
+      "requiresConfirmation": true,
+      "requiredScope": "write",
+      "confirmationPrompt": "I will reactivate subscription {name} ({id}). Confirm?",
+      "useWhen": [
+        "The user wants to resume a paused or cancelled subscription."
+      ],
+      "doNotUseWhen": [
+        "The subscription is already active."
+      ],
+      "naturalLanguageExamples": [
+        "Reactivate my Spotify subscription.",
+        "I'm using Figma again, mark it active."
+      ],
+      "parameters": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Subscription id returned by list_subscriptions."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "delete_subscription",
       "operationId": "deleteSubscription",
       "method": "DELETE",
       "path": "/api/v1/subscriptions/{id}",
-      "purpose": "Permanently delete a tracked subscription record.",
+      "purpose": "Permanently delete a tracked subscription record. This cannot be undone and removes audit history for the record.",
       "riskLevel": "high",
       "requiresConfirmation": true,
-      "confirmationPrompt": "I will permanently delete subscription {name} ({id}). Confirm?",
+      "requiredScope": "write",
+      "confirmationPrompt": "I will permanently delete subscription {name} ({id}). This cannot be undone. Confirm?",
       "useWhen": [
-        "The user explicitly asks to delete or remove a tracked subscription and confirms the exact target."
+        "The user explicitly asks to permanently delete or remove a tracked subscription and confirms the exact target."
       ],
       "doNotUseWhen": [
-        "The user wants to pause, cancel externally, or mark inactive. The current API only deletes the local tracking record."
+        "The user only wants to stop billing or stop using the service. Use cancel_subscription so the record and history are kept.",
+        "The user wants a temporary break. Use pause_subscription."
       ],
       "naturalLanguageExamples": [
-        "Delete the duplicate Netflix record.",
-        "Remove this subscription from tracking."
+        "Delete the duplicate Netflix record permanently.",
+        "Remove this subscription and don't keep its history."
       ],
       "parameters": {
         "type": "object",
-        "required": [
-          "id"
-        ],
+        "required": ["id"],
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid",
             "description": "Subscription id returned by list_subscriptions or create_subscription."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_spend_summary",
+      "operationId": "getSpendSummary",
+      "method": "GET",
+      "path": "/api/v1/analytics/summary",
+      "purpose": "Return computed spend analytics: subscription counts by status, monthly and yearly totals grouped per currency (never converted across currencies), spend by category, and upcoming renewals within a horizon. Use this instead of listing and summing client-side.",
+      "riskLevel": "low",
+      "requiresConfirmation": false,
+      "useWhen": [
+        "The user asks how much they spend, where their money goes, or what renews soon.",
+        "The user wants a monthly or yearly spend breakdown."
+      ],
+      "doNotUseWhen": [
+        "The user wants the raw list of records (use list_subscriptions)."
+      ],
+      "naturalLanguageExamples": [
+        "How much am I spending per month?",
+        "What renews in the next two weeks?",
+        "Break down my spending by category."
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "horizonDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365,
+            "default": 30,
+            "description": "Window in days for upcomingRenewals (default 30)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "find_duplicate_subscriptions",
+      "operationId": "findDuplicateSubscriptions",
+      "method": "GET",
+      "path": "/api/v1/analytics/duplicates",
+      "purpose": "Return groups of non-cancelled subscriptions that share a normalized name, which usually indicates duplicate tracking or double billing.",
+      "riskLevel": "low",
+      "requiresConfirmation": false,
+      "useWhen": [
+        "The user asks whether they are paying for the same thing twice.",
+        "The agent is cleaning up the subscription list."
+      ],
+      "doNotUseWhen": [
+        "The user wants overlapping-but-differently-named services; this only matches by name."
+      ],
+      "naturalLanguageExamples": [
+        "Am I paying for anything twice?",
+        "Find duplicate subscriptions."
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_optimization_suggestions",
+      "operationId": "getOptimizationSuggestions",
+      "method": "GET",
+      "path": "/api/v1/analytics/optimizations",
+      "purpose": "Return factual optimization candidates: active monthly subscriptions with their current annualized cost (monthlyToAnnual), and subscriptions whose monthly cost is more than twice the per-currency average (aboveAverageInCurrency). No discount rates are invented; present the figures and let the user decide.",
+      "riskLevel": "low",
+      "requiresConfirmation": false,
+      "useWhen": [
+        "The user asks what they could cut or how to save money.",
+        "The user asks which subscriptions are expensive."
+      ],
+      "doNotUseWhen": [
+        "The user wants a guaranteed savings number; the API reports current costs, not negotiated discounts."
+      ],
+      "naturalLanguageExamples": [
+        "My subscription spending is too high, what can I cut?",
+        "Which subscriptions could save money on annual billing?"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_audit_log",
+      "operationId": "listAuditLog",
+      "method": "GET",
+      "path": "/api/v1/audit",
+      "purpose": "List the audit trail of write operations performed through the API, newest first, with before/after state in metadata. Use to show the user what changed or to reconstruct state for an undo.",
+      "riskLevel": "low",
+      "requiresConfirmation": false,
+      "useWhen": [
+        "The user asks what was changed, added, or removed.",
+        "The agent needs prior state to offer an undo."
+      ],
+      "doNotUseWhen": [
+        "The user wants current subscription state (use list_subscriptions)."
+      ],
+      "naturalLanguageExamples": [
+        "What changes have been made to my subscriptions?",
+        "Show the history for subscription 33333333-3333-4333-8333-333333333333."
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Maximum number of audit entries to return."
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Number of entries to skip from the start."
+          },
+          "subscriptionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Only return audit entries for this subscription."
           }
         },
         "additionalProperties": false
@@ -235,17 +512,15 @@
         "message": "Human-readable error",
         "field": "period",
         "suggestedFix": "Use one of the supported billing periods: monthly, yearly, custom.",
-        "allowedValues": [
-          "monthly",
-          "yearly",
-          "custom"
-        ]
+        "allowedValues": ["monthly", "yearly", "custom"]
       },
       "requestId": "request-..."
     },
     "agentBehavior": [
       "If field and suggestedFix are present, revise the payload and retry only when the user's intent is unchanged.",
-      "If the failed operation is create, update, or delete, ask for confirmation again before retrying when the effective write changes.",
+      "If the failed operation is create, update, cancel, pause, resume, or delete, ask for confirmation again before retrying when the effective write changes.",
+      "On 403 insufficient_scope, do not retry: the API key is read-only. Tell the user a write-scoped key is required for this action.",
+      "On 400 invalid_query, correct the filter or sort parameter named in field and retry.",
       "Validation errors (400) are rejected before the hourly quota is consumed, so fixing the payload and retrying does not cost rate-limit budget.",
       "On 429, wait the number of seconds in the Retry-After header before retrying.",
       "Use requestId when reporting unresolved API errors."
@@ -259,65 +534,28 @@
     },
     "subscriptionWrite": {
       "type": "object",
-      "required": [
-        "name",
-        "category",
-        "amount",
-        "currency",
-        "period",
-        "lastPaymentDate"
-      ],
+      "required": ["name", "category", "amount", "currency", "period", "lastPaymentDate"],
       "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 120
-        },
-        "category": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 80
-        },
-        "amount": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 999999.99,
-          "multipleOf": 0.01
-        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "amount": { "type": "number", "minimum": 0, "maximum": 999999.99, "multipleOf": 0.01 },
         "currency": {
           "type": "string",
-          "enum": [
-            "CNY",
-            "USD",
-            "EUR",
-            "JPY",
-            "GBP",
-            "AUD",
-            "CAD",
-            "CHF",
-            "HKD",
-            "SGD"
-          ]
+          "enum": ["CNY", "USD", "EUR", "JPY", "GBP", "AUD", "CAD", "CHF", "HKD", "SGD"]
         },
-        "period": {
-          "type": "string",
-          "enum": [
-            "monthly",
-            "yearly",
-            "custom"
-          ]
-        },
-        "lastPaymentDate": {
-          "$ref": "#/$defs/dateOnly"
-        },
+        "period": { "type": "string", "enum": ["monthly", "yearly", "custom"] },
+        "lastPaymentDate": { "$ref": "#/$defs/dateOnly" },
         "customDate": {
           "type": "string",
           "pattern": "^[1-9]\\d*$",
           "description": "Required only when period is custom. Omit for monthly or yearly subscriptions."
         },
-        "notificationEnabled": {
-          "type": "boolean",
-          "default": true
+        "notificationEnabled": { "type": "boolean", "default": true },
+        "status": {
+          "type": "string",
+          "enum": ["active", "paused", "cancelled"],
+          "default": "active",
+          "description": "Lifecycle state. Defaults to active on create."
         }
       },
       "additionalProperties": false
@@ -326,55 +564,18 @@
       "type": "object",
       "minProperties": 1,
       "properties": {
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 120
-        },
-        "category": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 80
-        },
-        "amount": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 999999.99,
-          "multipleOf": 0.01
-        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "amount": { "type": "number", "minimum": 0, "maximum": 999999.99, "multipleOf": 0.01 },
         "currency": {
           "type": "string",
-          "enum": [
-            "CNY",
-            "USD",
-            "EUR",
-            "JPY",
-            "GBP",
-            "AUD",
-            "CAD",
-            "CHF",
-            "HKD",
-            "SGD"
-          ]
+          "enum": ["CNY", "USD", "EUR", "JPY", "GBP", "AUD", "CAD", "CHF", "HKD", "SGD"]
         },
-        "period": {
-          "type": "string",
-          "enum": [
-            "monthly",
-            "yearly",
-            "custom"
-          ]
-        },
-        "lastPaymentDate": {
-          "$ref": "#/$defs/dateOnly"
-        },
-        "customDate": {
-          "type": "string",
-          "pattern": "^[1-9]\\d*$"
-        },
-        "notificationEnabled": {
-          "type": "boolean"
-        }
+        "period": { "type": "string", "enum": ["monthly", "yearly", "custom"] },
+        "lastPaymentDate": { "$ref": "#/$defs/dateOnly" },
+        "customDate": { "type": "string", "pattern": "^[1-9]\\d*$" },
+        "notificationEnabled": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["active", "paused", "cancelled"] }
       },
       "additionalProperties": false
     }

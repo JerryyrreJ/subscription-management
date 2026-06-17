@@ -28,6 +28,18 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/api/v1/analytics/*"
+  to = "/.netlify/functions/api-v1-analytics/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/v1/audit"
+  to = "/.netlify/functions/api-v1-audit"
+  status = 200
+  force = true
+
 # Redirect rules for SPA
 [[redirects]]
   from = "/*"

@@ -31,9 +31,11 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
 | `400` | `invalid_subscription_field` | 请求尝试写入服务端管理字段 |
 | `400` | `invalid_subscription_id` | 订阅 ID 不是合法 UUID |
 | `400` | `invalid_pagination` | `limit` 或 `offset` 查询参数超出范围 |
+| `400` | `invalid_query` | 过滤或 `sort` 查询参数非法 |
 | `400` | `empty_patch` | PATCH 请求体没有包含任何可写字段 |
 | `401` | `authentication_required` | 缺少 Bearer token |
 | `401` | `invalid_api_key` | API Key 无效或已撤销 |
+| `403` | `insufficient_scope` | API Key 缺少该操作所需的 `write` 权限 |
 | `404` | `subscription_not_found` | 当前 API Key owner 下不存在该订阅 |
 | `405` | `method_not_allowed` | HTTP method 不支持 |
 | `429` | `rate_limit_exceeded` | 用户请求限额或无效认证限额已耗尽 |
@@ -65,12 +67,17 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
       "lastPaymentDate",
       "name",
       "notificationEnabled",
-      "period"
+      "period",
+      "status"
     ]
   },
   "requestId": "request-..."
 }
 ```
+
+## 权限范围（Scopes）
+
+API Key 带有 scopes。`read` Key 可以查询、读取订阅，并调用分析与审计端点；`write` Key 额外允许创建、更新、取消、暂停、恢复和删除。用只读 Key 执行写操作会返回 `403 insufficient_scope`，此时不要重试——需要换用带 `write` 权限的 Key。详见 [API 认证](/zh-CN/api/authentication#权限范围-scopes)。
 
 ## Rate limit headers
 

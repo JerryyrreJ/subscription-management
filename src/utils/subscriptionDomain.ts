@@ -10,6 +10,8 @@ export const SUBSCRIPTION_CURRENCIES = [
 
 export const SUBSCRIPTION_PERIODS = ['monthly', 'yearly', 'custom'] as const;
 
+export const SUBSCRIPTION_STATUSES = ['active', 'paused', 'cancelled'] as const;
+
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must use YYYY-MM-DD').refine(
  value => {
   try {
@@ -43,6 +45,7 @@ const subscriptionInputObject = z.object({
  lastPaymentDate: dateOnlySchema,
  customDate: customDateSchema,
  notificationEnabled: z.boolean().default(true),
+ status: z.enum(SUBSCRIPTION_STATUSES).default('active'),
 });
 
 const validateCustomPeriod = (

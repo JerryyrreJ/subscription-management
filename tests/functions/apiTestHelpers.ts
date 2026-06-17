@@ -11,6 +11,7 @@ export interface QueryState {
   operation: 'select' | 'insert' | 'update' | 'delete';
   filters: Record<string, unknown>;
   payload?: unknown;
+  order?: { column: string; ascending: boolean };
 }
 
 type QueryResolver = (state: QueryState) => QueryResult;
@@ -41,7 +42,30 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
-  order(): this {
+  ilike(column: string, value: unknown): this {
+    this.state.filters[`${column}__ilike`] = value;
+    return this;
+  }
+
+  lte(column: string, value: unknown): this {
+    this.state.filters[`${column}__lte`] = value;
+    return this;
+  }
+
+  gte(column: string, value: unknown): this {
+    this.state.filters[`${column}__gte`] = value;
+    return this;
+  }
+
+  in(column: string, values: unknown): this {
+    this.state.filters[`${column}__in`] = values;
+    return this;
+  }
+
+  order(column?: string, options?: { ascending?: boolean }): this {
+    if (typeof column === 'string') {
+      this.state.order = { column, ascending: options?.ascending ?? true };
+    }
     return this;
   }
 

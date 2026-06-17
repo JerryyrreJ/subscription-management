@@ -14,10 +14,10 @@ Subscription API payloads use camelCase. Server-managed fields are returned in r
 | `GET /api/v1/subscriptions` | Search, summarize, analyze, or identify subscriptions | Low | Not required |
 | `GET /api/v1/subscriptions/{id}` | Fetch one known record by UUID | Low | Not required |
 | `POST /api/v1/subscriptions` | Record a new subscription | Medium | Required for AI agents |
-| `PATCH /api/v1/subscriptions/{id}` | Change writable fields on an existing subscription | Medium | Required for AI agents |
-| `DELETE /api/v1/subscriptions/{id}` | Permanently remove a tracked record | High | Required for AI agents |
+| `PATCH /api/v1/subscriptions/{id}` | Change writable fields, including `status` (cancel/pause/resume) | Medium–High | Required for AI agents |
+| `DELETE /api/v1/subscriptions/{id}` | Permanently remove a tracked record (prefer cancel to keep history) | High | Required for AI agents |
 
-For AI integrations, list subscriptions before updating or deleting unless the user already supplied a subscription UUID.
+For AI integrations, list subscriptions before updating or deleting unless the user already supplied a subscription UUID. Write operations require an API key with the `write` scope; read-only keys receive `403 insufficient_scope`.
 
 ## Pagination
 
@@ -45,6 +45,37 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
 
 Out-of-range values return `400 invalid_pagination`.
 
+## Filtering and sorting
+
+`GET /api/v1/subscriptions` accepts optional filters and a sort order alongside pagination:
+
+| Parameter | Rule |
+| --- | --- |
+| `status` | One of `active`, `paused`, `cancelled` |
+| `category` | Exact category match, e.g. `Streaming` |
+| `period` | One of `monthly`, `yearly`, `custom` |
+| `q` | Case-insensitive search over the subscription name |
+| `expiringBefore` | `YYYY-MM-DD`; returns records whose `nextPaymentDate` is on or before this date |
+| `sort` | One of `createdAt`, `-createdAt`, `nextPaymentDate`, `-nextPaymentDate`, `amount`, `-amount`, `name`, `-name` (default `-createdAt`; `-` prefix is descending) |
+
+Combine `status=active` with `expiringBefore` to answer "what renews soon". Invalid values return `400 invalid_query` with a `field` and `suggestedFix`.
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/subscriptions?status=active&expiringBefore=2026-07-01&sort=nextPaymentDate"
+```
+
+The response echoes the applied query so an agent can confirm what produced the result:
+
+```json
+{
+  "data": [ /* ... */ ],
+  "pagination": { "limit": 50, "offset": 0, "hasMore": false },
+  "query": { "sort": "nextPaymentDate", "filters": { "status": "active", "expiringBefore": "2026-07-01" } },
+  "requestId": "request-..."
+}
+```
+
 ## Subscription object
 
 ```json
@@ -58,6 +89,7 @@ Out-of-range values return `400 invalid_pagination`.
   "lastPaymentDate": "2026-06-01",
   "nextPaymentDate": "2026-07-01",
   "notificationEnabled": true,
+  "status": "active",
   "createdAt": "2026-06-16T00:00:00.000Z",
   "updatedAt": "2026-06-16T00:00:00.000Z"
 }
@@ -74,7 +106,8 @@ Out-of-range values return `400 invalid_pagination`.
   "period": "monthly",
   "lastPaymentDate": "2026-06-01",
   "customDate": null,
-  "notificationEnabled": true
+  "notificationEnabled": true,
+  "status": "active"
 }
 ```
 
@@ -99,8 +132,30 @@ Do not send server-managed fields in `POST` or `PATCH` requests.
 | `lastPaymentDate` | Required date in `YYYY-MM-DD` format |
 | `customDate` | Required only when `period` is `custom`; positive whole-number string of days |
 | `notificationEnabled` | Optional boolean, defaults to `true` |
+| `status` | Optional. One of `active`, `paused`, `cancelled`; defaults to `active` |
 
 `nextPaymentDate` is calculated by the server from `lastPaymentDate`, `period`, and `customDate`. On `PATCH`, it is recalculated only when one of those three fields changes; updating any other field leaves the stored `nextPaymentDate` untouched. Only the fields you send in a `PATCH` are validated, so updating one field never fails because of unrelated stored data.
+
+## Lifecycle: cancel, pause, resume vs delete
+
+A subscription has a `status`: `active` (billing), `paused` (temporarily stopped), or `cancelled` (no longer billing, kept for history). Changing status is a soft operation — the record and its audit history survive and can be reactivated. `DELETE` is permanent and removes the record and its audit history.
+
+Prefer a status change when the user says they stopped using a service but might come back:
+
+```bash
+# Cancel (keep history)
+curl -X PATCH \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"cancelled"}' \
+  https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
+
+# Pause, then later resume
+curl -X PATCH ... -d '{"status":"paused"}' .../{id}
+curl -X PATCH ... -d '{"status":"active"}'  .../{id}
+```
+
+Only `active` subscriptions count toward active spend in the [analytics](/en/api/analytics) endpoints. Use `DELETE` only when the user wants the record gone permanently.
 
 ## Natural language examples
 

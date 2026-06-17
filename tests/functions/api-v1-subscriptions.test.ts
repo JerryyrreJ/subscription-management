@@ -35,6 +35,7 @@ const subscriptionRow = {
   next_payment_date: '2026-07-01',
   custom_date: null,
   notification_enabled: true,
+  status: 'active',
   created_at: '2026-06-16T00:00:00.000Z',
   updated_at: '2026-06-16T00:00:00.000Z',
 };
@@ -45,6 +46,7 @@ const createDatabase = (
     rateLimitAllowed?: boolean;
     lookupFound?: boolean;
     lookupLimited?: boolean;
+    lookupScopes?: string[];
     touchError?: { message: string } | null;
   } = {}
 ) => createFakeSupabaseClient((state: QueryState) => {
@@ -54,6 +56,10 @@ const createDatabase = (
 
   if (state.table === 'user_profiles') {
     return { data: { is_premium: false }, error: null };
+  }
+
+  if (state.table === 'api_audit_log') {
+    return { data: null, error: null };
   }
 
   if (state.table === 'subscriptions') {
@@ -69,14 +75,14 @@ const createDatabase = (
 
     if (options.lookupLimited) {
       return {
-        data: [{ limited: true, id: null, user_id: null, key_prefix: null }],
+        data: [{ limited: true, id: null, user_id: null, key_prefix: null, scopes: null }],
         error: null,
       };
     }
 
     if (options.lookupFound === false) {
       return {
-        data: [{ limited: false, id: null, user_id: null, key_prefix: null }],
+        data: [{ limited: false, id: null, user_id: null, key_prefix: null, scopes: null }],
         error: null,
       };
     }
@@ -87,6 +93,7 @@ const createDatabase = (
         id: apiKeyId,
         user_id: userId,
         key_prefix: apiKey.slice(0, 14),
+        scopes: options.lookupScopes ?? ['read', 'write'],
       }],
       error: null,
     };
@@ -214,6 +221,7 @@ test('creates subscriptions for the API key owner and derives server-managed fie
     next_payment_date: '2027-06-17',
     custom_date: null,
     notification_enabled: false,
+    status: 'active',
   });
   assert.equal(body.data.id, createdRow.id);
   assert.equal(body.data.amount, 12.5);
@@ -282,6 +290,7 @@ test('patches subscriptions only within the API key owner scope and recalculates
     next_payment_date: '2027-06-01',
     custom_date: null,
     notification_enabled: true,
+    status: 'active',
   });
   assert.equal(body.data.period, 'yearly');
   assert.equal(body.data.nextPaymentDate, '2027-06-01');
@@ -342,18 +351,20 @@ test('clears stale custom billing data when patching back to a standard period',
     next_payment_date: '2026-07-01',
     custom_date: null,
     notification_enabled: true,
+    status: 'active',
   });
 });
 
-test('deletes subscriptions only within the API key owner scope', async () => {
+test('deletes subscriptions only within the API key owner scope after loading them for audit', async () => {
   let deleteFilters: Record<string, unknown> | null = null;
   const database = createDatabase((state: QueryState) => {
+    if (state.operation === 'select') {
+      return { data: subscriptionRow, error: null };
+    }
+
     assert.equal(state.operation, 'delete');
     deleteFilters = { ...state.filters };
-    return {
-      data: { id: subscriptionRow.id },
-      error: null,
-    };
+    return { data: null, error: null };
   });
   const handler = createSubscriptionsApiHandler(() => ({
     database,
@@ -888,4 +899,225 @@ test('preserves the stored next payment date when patching a non-billing field',
   // last_payment_date + 1 month would be 2026-07-01; the stored 2026-09-01 must be kept.
   assert.equal(updatePayload?.next_payment_date, '2026-09-01');
   assert.equal(updatePayload?.notification_enabled, false);
+});
+
+test('applies status, name search, and expiringBefore filters with sorting', async () => {
+  let capturedFilters: Record<string, unknown> = {};
+  let capturedOrder: { column: string; ascending: boolean } | undefined;
+  const database = createDatabase((state: QueryState) => {
+    capturedFilters = state.filters;
+    capturedOrder = state.order;
+    return { data: [subscriptionRow], error: null };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-filters',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` },
+    null,
+    { status: 'active', q: 'Net', expiringBefore: '2026-07-01', sort: 'nextPaymentDate' }
+  ), {} as never));
+  const body = parseJsonResponse<{ query: { sort: string; filters: Record<string, unknown> } }>(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(capturedFilters.status, 'active');
+  assert.equal(capturedFilters['name__ilike'], '%Net%');
+  assert.equal(capturedFilters['next_payment_date__lte'], '2026-07-01');
+  assert.deepEqual(capturedOrder, { column: 'next_payment_date', ascending: true });
+  assert.equal(body.query.sort, 'nextPaymentDate');
+  assert.deepEqual(body.query.filters, {
+    status: 'active',
+    q: 'Net',
+    expiringBefore: '2026-07-01',
+  });
+});
+
+test('rejects unsupported filter values with recovery hints', async () => {
+  const database = createDatabase(() => ({ data: [], error: null }));
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-bad-filter',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` },
+    null,
+    { status: 'archived' }
+  ), {} as never));
+  const body = parseJsonResponse<{ error: { code: string; field?: string; allowedValues?: string[] } }>(response);
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(body.error.code, 'invalid_query');
+  assert.equal(body.error.field, 'status');
+  assert.ok(body.error.allowedValues?.includes('cancelled'));
+});
+
+test('cancels a subscription via a status patch without deleting it', async () => {
+  let updatePayload: Record<string, unknown> | undefined;
+  const database = createDatabase((state: QueryState) => {
+    if (state.operation === 'select') {
+      return { data: subscriptionRow, error: null };
+    }
+
+    updatePayload = state.payload as Record<string, unknown>;
+    return { data: { ...subscriptionRow, status: 'cancelled' }, error: null };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-cancel',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'PATCH',
+    `/api/v1/subscriptions/${subscriptionRow.id}`,
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({ status: 'cancelled' })
+  ), {} as never));
+  const body = parseJsonResponse<{ data: { status: string } }>(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(updatePayload?.status, 'cancelled');
+  // Billing date is untouched by a pure status change.
+  assert.equal(updatePayload?.next_payment_date, subscriptionRow.next_payment_date);
+  assert.equal(body.data.status, 'cancelled');
+});
+
+test('rejects writes from a read-only API key before touching subscriptions', async () => {
+  let subscriptionTouched = false;
+  const database = createDatabase(() => {
+    subscriptionTouched = true;
+    return { data: subscriptionRow, error: null };
+  }, { lookupScopes: ['read'] });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-readonly-write',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'POST',
+    '/api/v1/subscriptions',
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({
+      name: 'Netflix',
+      category: 'Streaming',
+      amount: 15.99,
+      currency: 'USD',
+      period: 'monthly',
+      lastPaymentDate: '2026-06-01',
+    })
+  ), {} as never));
+  const body = parseJsonResponse<{ error: { code: string; suggestedFix?: string } }>(response);
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(body.error.code, 'insufficient_scope');
+  assert.match(body.error.suggestedFix ?? '', /write scope/);
+  assert.equal(subscriptionTouched, false);
+});
+
+test('allows reads from a read-only API key', async () => {
+  const database = createDatabase(() => ({ data: [subscriptionRow], error: null }), {
+    lookupScopes: ['read'],
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-readonly-read',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+
+  assert.equal(response.statusCode, 200);
+});
+
+test('records an audit entry when a subscription is created', async () => {
+  let auditInsert: Record<string, unknown> | undefined;
+  const createdRow = { ...subscriptionRow, id: '66666666-6666-4666-8666-666666666666' };
+  const database = createFakeSupabaseClient((state: QueryState) => {
+    if (state.table === 'user_profiles') {
+      return { data: { is_premium: false }, error: null };
+    }
+    if (state.table === 'api_keys' && state.operation === 'update') {
+      return { data: null, error: null };
+    }
+    if (state.table === 'api_audit_log' && state.operation === 'insert') {
+      auditInsert = state.payload as Record<string, unknown>;
+      return { data: null, error: null };
+    }
+    if (state.table === 'subscriptions') {
+      return { data: createdRow, error: null };
+    }
+    return { data: null, error: { message: `Unexpected query: ${state.table}` } };
+  }, (name) => {
+    if (name === 'lookup_api_key_for_auth') {
+      return {
+        data: [{
+          limited: false,
+          id: apiKeyId,
+          user_id: userId,
+          key_prefix: apiKey.slice(0, 14),
+          scopes: ['read', 'write'],
+        }],
+        error: null,
+      };
+    }
+    return {
+      data: [{ allowed: true, request_count: 1, remaining: 59, reset_at: '2026-06-16T01:00:00.000Z' }],
+      error: null,
+    };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-audit-create',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'POST',
+    '/api/v1/subscriptions',
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({
+      name: 'GitHub',
+      category: 'Developer Tools',
+      amount: 12.5,
+      currency: 'USD',
+      period: 'yearly',
+      lastPaymentDate: '2026-06-17',
+    })
+  ), {} as never));
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(auditInsert?.action, 'subscription.create');
+  assert.equal(auditInsert?.subscription_id, createdRow.id);
+  assert.equal(auditInsert?.user_id, userId);
+  assert.equal(auditInsert?.api_key_id, apiKeyId);
+  assert.ok(auditInsert?.metadata && typeof auditInsert.metadata === 'object');
 });

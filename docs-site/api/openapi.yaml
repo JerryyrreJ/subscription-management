@@ -14,7 +14,11 @@ tags:
     x-ai:
       domain: subscription_management
       ownerScope: authenticated_api_key_owner
-      writeSafety: Confirm create, update, and delete operations with the user before calling them from an AI agent.
+      writeSafety: Confirm create, update, cancel, pause, resume, and delete operations with the user before calling them from an AI agent. Write operations require an API key with the write scope.
+  - name: Analytics
+    description: Computed spend summaries, duplicate detection, and optimization candidates. Read-only; money is reported per currency and never converted.
+  - name: Audit
+    description: Read-only audit trail of write operations performed through the API.
 paths:
   /api/v1/subscriptions:
     get:
@@ -53,6 +57,52 @@ paths:
             type: integer
             minimum: 0
             default: 0
+        - name: status
+          in: query
+          required: false
+          description: Filter by lifecycle state.
+          schema:
+            $ref: "#/components/schemas/SubscriptionStatus"
+        - name: category
+          in: query
+          required: false
+          description: Exact category match, for example "Streaming".
+          schema:
+            type: string
+        - name: period
+          in: query
+          required: false
+          description: Filter by billing period.
+          schema:
+            $ref: "#/components/schemas/SubscriptionPeriod"
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive search over the subscription name.
+          schema:
+            type: string
+        - name: expiringBefore
+          in: query
+          required: false
+          description: Return subscriptions whose nextPaymentDate is on or before this date. Combine with status=active to find renewals due soon.
+          schema:
+            $ref: "#/components/schemas/DateOnly"
+        - name: sort
+          in: query
+          required: false
+          description: Sort order; prefix with - for descending, for example -nextPaymentDate.
+          schema:
+            type: string
+            default: "-createdAt"
+            enum:
+              - createdAt
+              - "-createdAt"
+              - nextPaymentDate
+              - "-nextPaymentDate"
+              - amount
+              - "-amount"
+              - name
+              - "-name"
       responses:
         "200":
           description: Subscriptions returned.
@@ -80,12 +130,16 @@ paths:
                         lastPaymentDate: "2026-06-01"
                         nextPaymentDate: "2026-07-01"
                         notificationEnabled: true
+                        status: active
                         createdAt: "2026-06-16T00:00:00.000Z"
                         updatedAt: "2026-06-16T00:00:00.000Z"
                     pagination:
                       limit: 50
                       offset: 0
                       hasMore: false
+                    query:
+                      sort: "-createdAt"
+                      filters: {}
                     requestId: request-1
         "401":
           $ref: "#/components/responses/Unauthorized"
@@ -155,6 +209,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -284,6 +340,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "429":
@@ -297,14 +355,14 @@ paths:
       description: Deletes one subscription if it belongs to the authenticated API key owner.
       operationId: deleteSubscription
       x-ai:
-        purpose: Permanently remove a subscription record from tracking.
+        purpose: Permanently remove a subscription record from tracking. This cannot be undone.
         naturalLanguageTriggers:
-          - Delete the Netflix subscription.
+          - Delete the Netflix subscription permanently.
           - Remove this duplicate subscription record.
         riskLevel: high
         requiresConfirmation: true
-        useWhen: The user clearly wants the tracked record removed and has confirmed the exact subscription.
-        doNotUseWhen: The user wants to mark a subscription inactive; the current API has no inactive status field.
+        useWhen: The user clearly wants the tracked record removed permanently and has confirmed the exact subscription.
+        doNotUseWhen: The user only wants to stop billing but keep the record; set status to cancelled or paused with updateSubscription instead.
       x-mint:
         href: /api-reference/subscriptions/delete
       responses:
@@ -340,6 +398,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "429":
@@ -371,12 +431,196 @@ paths:
               schema:
                 type: string
                 example: GET, POST, PATCH, DELETE, OPTIONS
+  /api/v1/analytics/summary:
+    get:
+      tags:
+        - Analytics
+      summary: Spend summary
+      description: Returns subscription counts by status, monthly and yearly totals grouped per currency (never converted across currencies), spend by category, and upcoming renewals within a horizon.
+      operationId: getSpendSummary
+      x-ai:
+        purpose: Answer how much the user spends, where the money goes, and what renews soon, without listing and summing records client-side.
+        naturalLanguageTriggers:
+          - How much am I spending per month?
+          - What renews in the next two weeks?
+          - Break down my spending by category.
+        riskLevel: low
+        requiresConfirmation: false
+        useWhen: The user wants computed spend totals, category breakdowns, or upcoming renewals.
+        doNotUseWhen: The user wants the raw subscription records; use listSubscriptions.
+      parameters:
+        - name: horizonDays
+          in: query
+          required: false
+          description: Window in days for the upcomingRenewals list (default 30).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+      responses:
+        "200":
+          description: Spend summary computed.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpendSummaryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/analytics/duplicates:
+    get:
+      tags:
+        - Analytics
+      summary: Duplicate subscriptions
+      description: Returns groups of non-cancelled subscriptions that share a normalized name, indicating likely duplicate tracking or double billing.
+      operationId: findDuplicateSubscriptions
+      x-ai:
+        purpose: Detect likely double-billing or duplicate tracking by matching normalized subscription names.
+        naturalLanguageTriggers:
+          - Am I paying for anything twice?
+          - Find duplicate subscriptions.
+        riskLevel: low
+        requiresConfirmation: false
+        useWhen: The user asks whether they pay for the same service more than once.
+        doNotUseWhen: The user wants overlapping but differently named services; only names are matched.
+      responses:
+        "200":
+          description: Duplicate groups returned.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DuplicatesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/analytics/optimizations:
+    get:
+      tags:
+        - Analytics
+      summary: Optimization candidates
+      description: Returns factual optimization candidates - active monthly subscriptions with their current annualized cost, and subscriptions whose monthly cost exceeds twice the per-currency average. No discount rates are invented.
+      operationId: getOptimizationSuggestions
+      x-ai:
+        purpose: Surface what the user could cut or switch to annual, using current costs only.
+        naturalLanguageTriggers:
+          - My subscription spending is too high, what can I cut?
+          - Which subscriptions could save money on annual billing?
+        riskLevel: low
+        requiresConfirmation: false
+        useWhen: The user asks how to save money or which subscriptions are expensive.
+        doNotUseWhen: The user wants a guaranteed savings figure; the API reports current costs, not negotiated discounts.
+      responses:
+        "200":
+          description: Optimization candidates returned.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OptimizationsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/audit:
+    get:
+      tags:
+        - Audit
+      summary: List audit log
+      description: Returns the audit trail of write operations performed through the API, newest first, with before/after state in metadata.
+      operationId: listAuditLog
+      x-ai:
+        purpose: Show what was changed, added, or removed, or reconstruct prior state to offer an undo.
+        naturalLanguageTriggers:
+          - What changes have been made to my subscriptions?
+          - Show the history for this subscription.
+        riskLevel: low
+        requiresConfirmation: false
+        useWhen: The user asks what changed or the agent needs prior state for an undo.
+        doNotUseWhen: The user wants current subscription state; use listSubscriptions.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of audit entries to return (1-100, default 50).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          description: Number of entries to skip from the start.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: subscriptionId
+          in: query
+          required: false
+          description: Only return audit entries for this subscription.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Audit entries returned.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     bearerApiKey:
       type: http
       scheme: bearer
-      description: Developer API key generated in the app.
+      description: Developer API key generated in the app. Keys carry scopes; a read key can call list, get, analytics, and audit endpoints, while a write key additionally allows create, update, cancel, pause, resume, and delete.
       x-default: subm_your_key_here
   headers:
     XRateLimitLimit:
@@ -423,6 +667,7 @@ components:
                     - name
                     - notificationEnabled
                     - period
+                    - status
                 requestId: request-1
             invalidPeriod:
               value:
@@ -456,6 +701,20 @@ components:
                 error:
                   code: invalid_api_key
                   message: Invalid API key
+                requestId: request-1
+    Forbidden:
+      description: The API key lacks the scope required for this operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            insufficientScope:
+              value:
+                error:
+                  code: insufficient_scope
+                  message: "This API key does not have the required 'write' scope"
+                  suggestedFix: Use an API key created with the write scope. Read-only keys can only list and read subscriptions.
                 requestId: request-1
     NotFound:
       description: The subscription was not found for the API key owner.
@@ -526,6 +785,13 @@ components:
         - monthly
         - yearly
         - custom
+    SubscriptionStatus:
+      type: string
+      description: Lifecycle state. active means billing; paused means temporarily stopped; cancelled means no longer billing but kept for history.
+      enum:
+        - active
+        - paused
+        - cancelled
     Currency:
       type: string
       description: ISO-like currency code supported by the app.
@@ -557,6 +823,7 @@ components:
         - lastPaymentDate
         - nextPaymentDate
         - notificationEnabled
+        - status
         - createdAt
         - updatedAt
       properties:
@@ -595,6 +862,8 @@ components:
           description: Required only when period is custom. Despite the legacy name, this is a positive whole-number string of days, not a calendar date.
         notificationEnabled:
           type: boolean
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
         createdAt:
           type: string
           format: date-time
@@ -642,6 +911,8 @@ components:
         notificationEnabled:
           type: boolean
           default: true
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
       additionalProperties: false
     SubscriptionPatch:
       type: object
@@ -672,6 +943,8 @@ components:
           description: Required only when period is custom. Despite the legacy name, this is a positive whole-number string of days, not a calendar date.
         notificationEnabled:
           type: boolean
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
       additionalProperties: false
     SubscriptionResponse:
       type: object
@@ -697,6 +970,16 @@ components:
             $ref: "#/components/schemas/Subscription"
         pagination:
           $ref: "#/components/schemas/Pagination"
+        query:
+          type: object
+          description: Echo of the sort and filters applied to this response.
+          properties:
+            sort:
+              type: string
+            filters:
+              type: object
+              additionalProperties: true
+          additionalProperties: false
         requestId:
           type: string
       additionalProperties: false
@@ -719,6 +1002,207 @@ components:
         hasMore:
           type: boolean
           description: True when at least one more record exists past this page. Fetch the next page with offset + limit.
+      additionalProperties: false
+    SpendSummary:
+      type: object
+      properties:
+        asOf:
+          type: string
+          format: date-time
+        horizonDays:
+          type: integer
+        counts:
+          type: object
+          properties:
+            total:
+              type: integer
+            active:
+              type: integer
+            paused:
+              type: integer
+            cancelled:
+              type: integer
+        byCurrency:
+          type: array
+          items:
+            type: object
+            properties:
+              currency:
+                type: string
+              activeSubscriptions:
+                type: integer
+              monthlyTotal:
+                type: number
+              yearlyTotal:
+                type: number
+        byCategory:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              activeSubscriptions:
+                type: integer
+              monthlyTotalsByCurrency:
+                type: object
+                additionalProperties:
+                  type: number
+        upcomingRenewals:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              category:
+                type: string
+              amount:
+                type: number
+              currency:
+                type: string
+              period:
+                $ref: "#/components/schemas/SubscriptionPeriod"
+              nextPaymentDate:
+                $ref: "#/components/schemas/DateOnly"
+              daysUntilRenewal:
+                type: integer
+    SpendSummaryResponse:
+      type: object
+      required:
+        - summary
+        - requestId
+      properties:
+        summary:
+          $ref: "#/components/schemas/SpendSummary"
+        requestId:
+          type: string
+      additionalProperties: false
+    DuplicatesResponse:
+      type: object
+      required:
+        - duplicates
+        - requestId
+      properties:
+        duplicates:
+          type: array
+          items:
+            type: object
+            properties:
+              normalizedName:
+                type: string
+              subscriptions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                    category:
+                      type: string
+                    amount:
+                      type: number
+                    currency:
+                      type: string
+                    period:
+                      $ref: "#/components/schemas/SubscriptionPeriod"
+                    status:
+                      $ref: "#/components/schemas/SubscriptionStatus"
+        requestId:
+          type: string
+      additionalProperties: false
+    OptimizationsResponse:
+      type: object
+      required:
+        - optimizations
+        - requestId
+      properties:
+        optimizations:
+          type: object
+          properties:
+            monthlyToAnnual:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  currency:
+                    type: string
+                  monthlyAmount:
+                    type: number
+                  yearlyAtCurrentRate:
+                    type: number
+            aboveAverageInCurrency:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  currency:
+                    type: string
+                  monthlyEquivalent:
+                    type: number
+                  currencyMonthlyAverage:
+                    type: number
+        requestId:
+          type: string
+      additionalProperties: false
+    AuditEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum:
+            - subscription.create
+            - subscription.update
+            - subscription.delete
+        subscriptionId:
+          type: string
+          format: uuid
+        apiKeyId:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Operation context. Holds before, after, and patch snapshots when available.
+        createdAt:
+          type: string
+          format: date-time
+    AuditListResponse:
+      type: object
+      required:
+        - data
+        - pagination
+        - requestId
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEntry"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+        requestId:
+          type: string
       additionalProperties: false
     Error:
       type: object

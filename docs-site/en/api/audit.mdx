@@ -1,0 +1,47 @@
+---
+title: "Audit log"
+description: "Read the audit trail of write operations performed through the public API."
+---
+
+# Audit log
+
+Every successful create, update, and delete performed through the public API is recorded. Use the audit log to show the user what changed, or to reconstruct prior state for an undo.
+
+`GET /api/v1/audit`
+
+| Parameter | Default | Rule |
+| --- | --- | --- |
+| `limit` | `50` | Page size, 1 to 100 |
+| `offset` | `0` | Number of entries to skip from the start |
+| `subscriptionId` | — | Optional UUID; only entries for that subscription |
+
+Entries are returned newest first. The endpoint needs only the `read` scope.
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/audit?limit=50&subscriptionId=33333333-3333-4333-8333-333333333333"
+```
+
+```json
+{
+  "data": [
+    {
+      "id": "...",
+      "action": "subscription.update",
+      "subscriptionId": "33333333-3333-4333-8333-333333333333",
+      "apiKeyId": "...",
+      "requestId": "request-...",
+      "metadata": {
+        "before": { "period": "monthly" },
+        "after": { "period": "yearly" },
+        "patch": { "period": "yearly" }
+      },
+      "createdAt": "2026-06-16T00:15:00.000Z"
+    }
+  ],
+  "pagination": { "limit": 50, "offset": 0, "hasMore": false },
+  "requestId": "request-..."
+}
+```
+
+`action` is one of `subscription.create`, `subscription.update`, or `subscription.delete`. The `metadata` object holds `before`, `after`, and `patch` snapshots where applicable — enough to describe or reverse a change.

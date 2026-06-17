@@ -29,6 +29,7 @@ interface ApiKeyLookupResult {
   id: string | null;
   user_id: string | null;
   key_prefix: string | null;
+  scopes: string[] | null;
 }
 
 export interface ApiKeyMaterial {
@@ -36,12 +37,17 @@ export interface ApiKeyMaterial {
   keyPrefix: string;
 }
 
+export type ApiScope = 'read' | 'write';
+
+export const DEFAULT_API_SCOPES: ApiScope[] = ['read', 'write'];
+
 export interface ApiKeyIdentity {
   apiKeyId: string;
   userId: string;
   keyPrefix: string;
   isPremium: boolean;
   rateLimitMax: number;
+  scopes: string[];
 }
 
 export interface ApiClientContext {
@@ -49,6 +55,7 @@ export interface ApiClientContext {
   userId: string;
   keyPrefix: string;
   isPremium: boolean;
+  scopes: string[];
   rateLimit: {
     limit: number;
     remaining: number;
@@ -56,6 +63,24 @@ export interface ApiClientContext {
     headers: Record<string, string>;
   };
 }
+
+// Enforce key scopes server-side so a read-only key can never write, regardless of
+// what a cooperative agent client decides to do with the tool schema's risk hints.
+export const assertScope = (scopes: string[], required: ApiScope): void => {
+  if (!scopes.includes(required)) {
+    throw new HttpError(
+      403,
+      'insufficient_scope',
+      `This API key does not have the required '${required}' scope`,
+      {},
+      {
+        suggestedFix: required === 'write'
+          ? 'Use an API key created with the write scope. Read-only keys can only list and read subscriptions.'
+          : 'Use an API key that includes the read scope.',
+      }
+    );
+  }
+};
 
 export const generateApiKeyMaterial = (): ApiKeyMaterial => {
   const publicId = randomBytes(9).toString('base64url');
@@ -229,6 +254,10 @@ export const identifyApiKey = async (
     keyPrefix: apiKeyRecord.key_prefix,
     isPremium,
     rateLimitMax: isPremium ? limits.premiumRequestsPerHour : limits.freeRequestsPerHour,
+    // Keys predating the scopes column (lookup returns null) keep full access.
+    scopes: Array.isArray(lookup.scopes) && lookup.scopes.length > 0
+      ? lookup.scopes
+      : DEFAULT_API_SCOPES,
   };
 };
 
@@ -270,6 +299,7 @@ export const consumeApiRateLimit = async (
     userId: identity.userId,
     keyPrefix: identity.keyPrefix,
     isPremium: identity.isPremium,
+    scopes: identity.scopes,
     rateLimit: {
       limit: identity.rateLimitMax,
       remaining: rateLimit.remaining,

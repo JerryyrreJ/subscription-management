@@ -28,6 +28,7 @@ supabase/migrations/20260615000100_baseline.sql
 supabase/migrations/20260615000200_harden_existing_schema.sql
 supabase/migrations/20260616000100_public_api.sql
 supabase/migrations/20260617000100_public_api_security_fixes.sql
+supabase/migrations/20260618000100_agent_operations_layer.sql
 ```
 
 For a new environment, run `supabase start` and `npm run db:verify`. For an existing production environment, first create a read-only DDL dump, confirm the baseline diff, run `supabase/audit/preflight.sql`, then mark the baseline and apply the hardening migration. See `supabase/README.md` for the complete workflow.

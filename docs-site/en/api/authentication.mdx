@@ -29,6 +29,23 @@ curl \
   https://your-site.example/api/v1/subscriptions
 ```
 
+## Scopes
+
+Each API key carries scopes that bound what it can do:
+
+| Scope | Allows |
+| --- | --- |
+| `read` | List and read subscriptions; call the analytics and audit endpoints |
+| `write` | Everything `read` allows, plus create, update, cancel, pause, resume, and delete |
+
+`read` is always present. By default a new key is granted both `read` and `write`. To create a read-only key — useful for analysis agents that should never modify data — pass a `scopes` array when creating the key:
+
+```json
+{ "name": "Analysis agent", "scopes": ["read"] }
+```
+
+A write operation attempted with a read-only key returns `403 insufficient_scope`. The created key object includes its `scopes`.
+
 ## Failed authentication limits
 
 Invalid API key attempts are rate-limited per client identity. The default limit is:

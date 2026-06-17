@@ -31,9 +31,11 @@ Errors use a stable JSON shape:
 | `400` | `invalid_subscription_field` | The request tried to write a server-managed field |
 | `400` | `invalid_subscription_id` | Subscription ID is not a valid UUID |
 | `400` | `invalid_pagination` | `limit` or `offset` query parameter is out of range |
+| `400` | `invalid_query` | A filter or `sort` query parameter is invalid |
 | `400` | `empty_patch` | PATCH body did not include any writable fields |
 | `401` | `authentication_required` | Missing Bearer token |
 | `401` | `invalid_api_key` | API key is invalid or revoked |
+| `403` | `insufficient_scope` | The API key lacks the `write` scope required for this operation |
 | `404` | `subscription_not_found` | Subscription does not exist for the API key owner |
 | `405` | `method_not_allowed` | HTTP method is not supported |
 | `429` | `rate_limit_exceeded` | User request limit or invalid-auth limit exceeded |
@@ -65,12 +67,17 @@ Example non-writable field error:
       "lastPaymentDate",
       "name",
       "notificationEnabled",
-      "period"
+      "period",
+      "status"
     ]
   },
   "requestId": "request-..."
 }
 ```
+
+## Scopes
+
+API keys carry scopes. A `read` key can list and read subscriptions and call the analytics and audit endpoints. A `write` key additionally allows create, update, cancel, pause, resume, and delete. A write call made with a read-only key returns `403 insufficient_scope`; do not retry — request a write-scoped key. See [Authentication](/en/api/authentication#scopes).
 
 ## Rate-limit headers
 

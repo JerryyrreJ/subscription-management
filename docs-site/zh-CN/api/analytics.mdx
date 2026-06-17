@@ -1,0 +1,101 @@
+---
+title: "分析"
+description: "为 AI Agent 提供的支出汇总、重复检测和优化建议。"
+---
+
+# 分析
+
+分析端点返回已计算好的洞察，Agent 无需自己拉取并聚合记录。它们是只读的（任意 Key 都可调用），并且**按币种分别统计金额**——绝不做汇率换算，因此数字始终准确。
+
+## 支出汇总
+
+`GET /api/v1/analytics/summary`
+
+| 参数 | 默认值 | 规则 |
+| --- | --- | --- |
+| `horizonDays` | `30` | `upcomingRenewals` 的天数窗口，范围 1 到 365 |
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/analytics/summary?horizonDays=30"
+```
+
+```json
+{
+  "summary": {
+    "asOf": "2026-06-16T00:15:00.000Z",
+    "horizonDays": 30,
+    "counts": { "total": 7, "active": 5, "paused": 1, "cancelled": 1 },
+    "byCurrency": [
+      { "currency": "USD", "activeSubscriptions": 4, "monthlyTotal": 234.99, "yearlyTotal": 2819.88 }
+    ],
+    "byCategory": [
+      { "category": "Streaming", "activeSubscriptions": 2, "monthlyTotalsByCurrency": { "USD": 24.99 } }
+    ],
+    "upcomingRenewals": [
+      { "id": "...", "name": "Rakuten", "category": "Shopping", "amount": 1000, "currency": "JPY", "period": "monthly", "nextPaymentDate": "2026-06-18", "daysUntilRenewal": 2 }
+    ]
+  },
+  "requestId": "request-..."
+}
+```
+
+只有 `active` 订阅计入 `byCurrency`、`byCategory` 和 `upcomingRenewals`。金额按币种分组，不要跨币种相加。
+
+## 重复检测
+
+`GET /api/v1/analytics/duplicates`
+
+返回名称规范化后相同（忽略大小写和空白）的非 cancelled 订阅分组——这通常意味着重复追踪或重复扣款。
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/analytics/duplicates"
+```
+
+```json
+{
+  "duplicates": [
+    {
+      "normalizedName": "netflix",
+      "subscriptions": [
+        { "id": "...", "name": "Netflix", "category": "Streaming", "amount": 15.99, "currency": "USD", "period": "monthly", "status": "active" },
+        { "id": "...", "name": "netflix", "category": "Streaming", "amount": 9.99, "currency": "USD", "period": "monthly", "status": "active" }
+      ]
+    }
+  ],
+  "requestId": "request-..."
+}
+```
+
+仅按名称匹配；名称不同但功能重叠的服务不会被检出。
+
+## 优化建议
+
+`GET /api/v1/analytics/optimizations`
+
+返回基于事实的候选项，不臆造折扣率：
+
+- `monthlyToAnnual`——活跃的月付订阅及其当前年化成本（`yearlyAtCurrentRate = monthlyAmount × 12`）。
+- `aboveAverageInCurrency`——月度等效成本超过同币种平均值两倍的订阅。
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/analytics/optimizations"
+```
+
+```json
+{
+  "optimizations": {
+    "monthlyToAnnual": [
+      { "id": "...", "name": "AWS", "currency": "USD", "monthlyAmount": 200, "yearlyAtCurrentRate": 2400 }
+    ],
+    "aboveAverageInCurrency": [
+      { "id": "...", "name": "AWS", "currency": "USD", "monthlyEquivalent": 200, "currencyMonthlyAverage": 58.75 }
+    ]
+  },
+  "requestId": "request-..."
+}
+```
+
+把这些数字呈现给用户，由用户决定；该 API 报告的是当前成本，而非谈判后的优惠。

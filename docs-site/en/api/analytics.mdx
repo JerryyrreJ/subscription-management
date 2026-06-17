@@ -1,0 +1,101 @@
+---
+title: "Analytics"
+description: "Computed spend summaries, duplicate detection, and optimization candidates for AI agents."
+---
+
+# Analytics
+
+The analytics endpoints return computed insights so an agent does not have to list and aggregate records itself. They are read-only (any key works) and **report money per currency** — amounts are never converted across currencies, so figures are always accurate.
+
+## Spend summary
+
+`GET /api/v1/analytics/summary`
+
+| Parameter | Default | Rule |
+| --- | --- | --- |
+| `horizonDays` | `30` | Window in days for `upcomingRenewals`, 1 to 365 |
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/analytics/summary?horizonDays=30"
+```
+
+```json
+{
+  "summary": {
+    "asOf": "2026-06-16T00:15:00.000Z",
+    "horizonDays": 30,
+    "counts": { "total": 7, "active": 5, "paused": 1, "cancelled": 1 },
+    "byCurrency": [
+      { "currency": "USD", "activeSubscriptions": 4, "monthlyTotal": 234.99, "yearlyTotal": 2819.88 }
+    ],
+    "byCategory": [
+      { "category": "Streaming", "activeSubscriptions": 2, "monthlyTotalsByCurrency": { "USD": 24.99 } }
+    ],
+    "upcomingRenewals": [
+      { "id": "...", "name": "Rakuten", "category": "Shopping", "amount": 1000, "currency": "JPY", "period": "monthly", "nextPaymentDate": "2026-06-18", "daysUntilRenewal": 2 }
+    ]
+  },
+  "requestId": "request-..."
+}
+```
+
+Only `active` subscriptions contribute to `byCurrency`, `byCategory`, and `upcomingRenewals`. Totals are grouped by currency; do not sum across currencies.
+
+## Duplicate detection
+
+`GET /api/v1/analytics/duplicates`
+
+Returns groups of non-cancelled subscriptions that share a normalized name (case- and whitespace-insensitive) — a strong signal of duplicate tracking or double billing.
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/analytics/duplicates"
+```
+
+```json
+{
+  "duplicates": [
+    {
+      "normalizedName": "netflix",
+      "subscriptions": [
+        { "id": "...", "name": "Netflix", "category": "Streaming", "amount": 15.99, "currency": "USD", "period": "monthly", "status": "active" },
+        { "id": "...", "name": "netflix", "category": "Streaming", "amount": 9.99, "currency": "USD", "period": "monthly", "status": "active" }
+      ]
+    }
+  ],
+  "requestId": "request-..."
+}
+```
+
+This matches by name only; overlapping but differently named services are not detected.
+
+## Optimization candidates
+
+`GET /api/v1/analytics/optimizations`
+
+Returns factual candidates with no invented discount rates:
+
+- `monthlyToAnnual` — active monthly subscriptions with their current annualized cost (`yearlyAtCurrentRate = monthlyAmount × 12`).
+- `aboveAverageInCurrency` — subscriptions whose monthly-equivalent cost exceeds twice the average for their currency.
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/analytics/optimizations"
+```
+
+```json
+{
+  "optimizations": {
+    "monthlyToAnnual": [
+      { "id": "...", "name": "AWS", "currency": "USD", "monthlyAmount": 200, "yearlyAtCurrentRate": 2400 }
+    ],
+    "aboveAverageInCurrency": [
+      { "id": "...", "name": "AWS", "currency": "USD", "monthlyEquivalent": 200, "currencyMonthlyAverage": 58.75 }
+    ]
+  },
+  "requestId": "request-..."
+}
+```
+
+Present these figures to the user and let them decide; the API reports current costs, not negotiated savings.

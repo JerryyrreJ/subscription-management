@@ -1,15 +1,17 @@
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { consumeApiRateLimit, identifyApiKey, type ApiClientContext } from './_shared/apiKeys';
+import { assertScope, consumeApiRateLimit, identifyApiKey, type ApiClientContext } from './_shared/apiKeys';
 import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
+import { recordAudit } from './_shared/audit';
 import { createSupabaseAdminClient } from './_shared/supabase';
 import { calculateNextPaymentDate } from '../../src/utils/dates';
 import {
   SUBSCRIPTION_CURRENCIES,
   SUBSCRIPTION_PERIODS,
+  SUBSCRIPTION_STATUSES,
   subscriptionCreateInputSchema,
   subscriptionPatchInputSchema,
 } from '../../src/utils/subscriptionDomain';
@@ -26,6 +28,7 @@ interface SubscriptionRow {
   next_payment_date: string;
   custom_date: string | null;
   notification_enabled: boolean;
+  status: string;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +52,7 @@ const SUBSCRIPTION_COLUMNS = [
   'next_payment_date',
   'custom_date',
   'notification_enabled',
+  'status',
   'created_at',
   'updated_at',
 ].join(', ');
@@ -62,6 +66,7 @@ const allowedSubscriptionFields = new Set([
   'lastPaymentDate',
   'customDate',
   'notificationEnabled',
+  'status',
 ]);
 
 const writableSubscriptionFields = Array.from(allowedSubscriptionFields).sort();
@@ -75,6 +80,7 @@ const subscriptionFieldGuidance: Record<string, string> = {
   lastPaymentDate: 'Use the most recent payment date in YYYY-MM-DD format.',
   customDate: 'Use a positive whole-number string when period is custom; omit customDate for monthly or yearly subscriptions.',
   notificationEnabled: 'Use true or false. Omit the field to use the default value true.',
+  status: `Use one of the supported lifecycle states: ${SUBSCRIPTION_STATUSES.join(', ')}. Set cancelled to stop tracking without deleting history.`,
 };
 
 const ALLOWED_METHODS = 'GET, POST, PATCH, DELETE, OPTIONS';
@@ -125,6 +131,68 @@ const parsePagination = (
 
   return result.data;
 };
+
+const SORTABLE_COLUMNS: Record<string, string> = {
+  createdAt: 'created_at',
+  nextPaymentDate: 'next_payment_date',
+  amount: 'amount',
+  name: 'name',
+};
+
+const SORT_OPTIONS = [
+  'createdAt',
+  '-createdAt',
+  'nextPaymentDate',
+  '-nextPaymentDate',
+  'amount',
+  '-amount',
+  'name',
+  '-name',
+] as const;
+
+const listFiltersSchema = z.object({
+  status: z.enum(SUBSCRIPTION_STATUSES).optional(),
+  category: z.string().trim().min(1).max(80).optional(),
+  period: z.enum(SUBSCRIPTION_PERIODS).optional(),
+  q: z.string().trim().min(1).max(120).optional(),
+  expiringBefore: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'expiringBefore must use YYYY-MM-DD')
+    .refine(value => !Number.isNaN(Date.parse(value)), 'expiringBefore is not a valid date')
+    .optional(),
+  sort: z.enum(SORT_OPTIONS).default('-createdAt'),
+});
+
+type ListFilters = z.infer<typeof listFiltersSchema>;
+
+// Filters parse separately from pagination so each surface keeps its own error
+// code (invalid_pagination vs invalid_query). Unknown keys are ignored by Zod,
+// so limit/offset passing through here is harmless.
+const parseListFilters = (
+  query: HandlerEvent['queryStringParameters']
+): ListFilters => {
+  const result = listFiltersSchema.safeParse(query ?? {});
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    const field = issue?.path.map(String).join('.') || undefined;
+    throw new HttpError(400, 'invalid_query', issue?.message || 'Invalid query parameters', {}, {
+      field,
+      allowedValues: field === 'status'
+        ? SUBSCRIPTION_STATUSES
+        : field === 'period'
+          ? SUBSCRIPTION_PERIODS
+          : field === 'sort'
+            ? SORT_OPTIONS
+            : undefined,
+      suggestedFix: 'Supported filters: status, category, period, q (name search), expiringBefore (YYYY-MM-DD), and sort (e.g. -nextPaymentDate).',
+    });
+  }
+
+  return result.data;
+};
+
+// Escape LIKE wildcards so a name search for "100% uptime" is treated literally.
+const escapeLikePattern = (value: string): string =>
+  value.replace(/[\\%_]/g, match => `\\${match}`);
 
 const parseSubscriptionId = (id: string): string => {
   const result = idSchema.safeParse(id);
@@ -182,7 +250,9 @@ const getValidationDetails = (error: z.ZodError) => {
       ? SUBSCRIPTION_CURRENCIES
       : field === 'period'
         ? SUBSCRIPTION_PERIODS
-        : undefined,
+        : field === 'status'
+          ? SUBSCRIPTION_STATUSES
+          : undefined,
     suggestedFix: field
       ? subscriptionFieldGuidance[field] ?? 'Correct the field value and retry the request.'
       : 'Validate the request body against the subscription write schema before retrying.',
@@ -218,6 +288,7 @@ const toApiSubscription = (row: SubscriptionRow) => ({
   nextPaymentDate: row.next_payment_date,
   customDate: row.custom_date ?? undefined,
   notificationEnabled: row.notification_enabled,
+  status: row.status,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -238,6 +309,7 @@ const toDatabasePayload = (
   ),
   custom_date: parsed.customDate || null,
   notification_enabled: parsed.notificationEnabled,
+  status: parsed.status,
 });
 
 const getSubscription = async (
@@ -318,6 +390,7 @@ const parsePatchInput = (
     lastPaymentDate: existing.lastPaymentDate,
     customDate: existing.customDate,
     notificationEnabled: existing.notificationEnabled,
+    status: existing.status,
   };
 
   for (const key of Object.keys(body)) {
@@ -402,6 +475,10 @@ export const createSubscriptionsApiHandler = (
     );
     const subscriptionId = parseSubscriptionPath(event.path);
 
+    // Enforce the key's scope before any quota is consumed: read for GET,
+    // write for POST/PATCH/DELETE. A 403 here never charges rate-limit budget.
+    assertScope(identity.scopes, event.httpMethod === 'GET' ? 'read' : 'write');
+
     // Charge the hourly quota only once the request is known to be well-formed,
     // so malformed input (400s) never burns an agent's rate-limit budget.
     const consume = async (): Promise<ApiClientContext> => {
@@ -412,12 +489,34 @@ export const createSubscriptionsApiHandler = (
 
     if (event.httpMethod === 'GET' && !subscriptionId) {
       const { limit, offset } = parsePagination(event.queryStringParameters);
+      const filters = parseListFilters(event.queryStringParameters);
       const context = await consume();
-      const { data, error } = await dependencies.database
+
+      let listQuery = dependencies.database
         .from('subscriptions')
         .select(SUBSCRIPTION_COLUMNS)
-        .eq('user_id', identity.userId)
-        .order('created_at', { ascending: false })
+        .eq('user_id', identity.userId);
+
+      if (filters.status) {
+        listQuery = listQuery.eq('status', filters.status);
+      }
+      if (filters.category) {
+        listQuery = listQuery.eq('category', filters.category);
+      }
+      if (filters.period) {
+        listQuery = listQuery.eq('period', filters.period);
+      }
+      if (filters.q) {
+        listQuery = listQuery.ilike('name', `%${escapeLikePattern(filters.q)}%`);
+      }
+      if (filters.expiringBefore) {
+        listQuery = listQuery.lte('next_payment_date', filters.expiringBefore);
+      }
+
+      const ascending = !filters.sort.startsWith('-');
+      const sortColumn = SORTABLE_COLUMNS[filters.sort.replace(/^-/, '')];
+      const { data, error } = await listQuery
+        .order(sortColumn, { ascending })
         .range(offset, offset + limit);
 
       if (error) {
@@ -428,9 +527,20 @@ export const createSubscriptionsApiHandler = (
       const hasMore = rows.length > limit;
       const page = hasMore ? rows.slice(0, limit) : rows;
 
+      const appliedFilters = Object.fromEntries(
+        Object.entries({
+          status: filters.status,
+          category: filters.category,
+          period: filters.period,
+          q: filters.q,
+          expiringBefore: filters.expiringBefore,
+        }).filter(([, value]) => value !== undefined)
+      );
+
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
         data: page.map(toApiSubscription),
         pagination: { limit, offset, hasMore },
+        query: { sort: filters.sort, filters: appliedFilters },
         requestId,
       })));
     }
@@ -471,8 +581,18 @@ export const createSubscriptionsApiHandler = (
         subscriptionId: data.id,
       });
 
+      const created = toApiSubscription(data);
+      await recordAudit(dependencies.database, {
+        userId: identity.userId,
+        apiKeyId: identity.apiKeyId,
+        action: 'subscription.create',
+        subscriptionId: created.id,
+        requestId,
+        metadata: { after: created },
+      }, now);
+
       return withCorsHeaders(withRateHeaders(context, jsonResponse(201, {
-        data: toApiSubscription(data),
+        data: created,
         requestId,
       })));
     }
@@ -512,28 +632,44 @@ export const createSubscriptionsApiHandler = (
         throw error;
       }
 
+      const updated = toApiSubscription(data);
+      await recordAudit(dependencies.database, {
+        userId: identity.userId,
+        apiKeyId: identity.apiKeyId,
+        action: 'subscription.update',
+        subscriptionId: updated.id,
+        requestId,
+        metadata: { before: existing, after: updated, patch: body },
+      }, now);
+
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
-        data: toApiSubscription(data),
+        data: updated,
         requestId,
       })));
     }
 
+    const existing = toApiSubscription(
+      await getSubscription(dependencies.database, identity.userId, id)
+    );
     const context = await consume();
-    const { data, error } = await dependencies.database
+    const { error } = await dependencies.database
       .from('subscriptions')
       .delete()
       .eq('user_id', identity.userId)
-      .eq('id', id)
-      .select('id')
-      .maybeSingle<{ id: string }>();
+      .eq('id', id);
 
     if (error) {
       throw error;
     }
 
-    if (!data) {
-      throw new HttpError(404, 'subscription_not_found', 'Subscription not found');
-    }
+    await recordAudit(dependencies.database, {
+      userId: identity.userId,
+      apiKeyId: identity.apiKeyId,
+      action: 'subscription.delete',
+      subscriptionId: id,
+      requestId,
+      metadata: { before: existing },
+    }, now);
 
     return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
       deleted: true,

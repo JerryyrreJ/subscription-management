@@ -23,6 +23,18 @@ Supabase 是 Subscription Manager 的可选云层。未配置 Supabase 时，应
 3. 在前端配置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`。
 4. 在 Netlify Functions 环境中配置 `SUPABASE_SERVICE_ROLE_KEY`。
 
+## SQL migrations
+
+正式 schema 由时间戳迁移管理：
+
+```text
+supabase/migrations/20260615000100_baseline.sql
+supabase/migrations/20260615000200_harden_existing_schema.sql
+supabase/migrations/20260616000100_public_api.sql
+supabase/migrations/20260617000100_public_api_security_fixes.sql
+supabase/migrations/20260618000100_agent_operations_layer.sql
+```
+
 ## 安全边界
 
 浏览器只能使用 anon key。任何需要绕过 RLS 或执行可信写入的逻辑，都必须放在 Netlify Functions 中，并使用 service role key。

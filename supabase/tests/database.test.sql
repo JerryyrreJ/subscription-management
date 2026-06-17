@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(52);
+SELECT plan(58);
 
 SELECT has_table('public', 'user_profiles', 'user_profiles exists');
 SELECT has_table('public', 'subscriptions', 'subscriptions exists');
@@ -12,9 +12,12 @@ SELECT has_table('public', 'api_keys', 'api_keys exists');
 SELECT has_table('public', 'api_rate_limit_windows', 'api rate limit windows exist');
 SELECT has_table('public', 'api_user_rate_limit_windows', 'user rate limit windows exist');
 SELECT has_table('public', 'api_auth_failure_windows', 'auth failure windows exist');
+SELECT has_table('public', 'api_audit_log', 'API audit log exists');
 
 SELECT has_column('public', 'payments', 'stripe_price_id', 'payments stores the trusted Stripe price');
 SELECT has_column('public', 'user_notification_settings', 'locale', 'notification settings store locale');
+SELECT has_column('public', 'subscriptions', 'status', 'subscriptions store lifecycle status');
+SELECT has_column('public', 'api_keys', 'scopes', 'API keys store permission scopes');
 SELECT has_function(
   'public',
   'complete_premium_purchase',
@@ -38,7 +41,7 @@ SELECT has_function(
 SELECT has_function(
   'public',
   'create_api_key_if_under_limit',
-  ARRAY['uuid', 'text', 'text', 'text', 'integer']
+  ARRAY['uuid', 'text', 'text', 'text', 'integer', 'text[]']
 );
 
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.user_profiles'::regclass), 'user_profiles has RLS');
@@ -51,6 +54,7 @@ SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_keys'::re
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_rate_limit_windows'::regclass), 'api rate limit windows have RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_user_rate_limit_windows'::regclass), 'user rate limit windows have RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_auth_failure_windows'::regclass), 'auth failure windows have RLS');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_audit_log'::regclass), 'API audit log has RLS');
 
 SELECT ok(
   EXISTS (
@@ -136,9 +140,15 @@ SELECT is(
 );
 
 SELECT is(
-  has_function_privilege('authenticated', 'public.create_api_key_if_under_limit(uuid,text,text,text,integer)', 'EXECUTE'),
+  has_function_privilege('authenticated', 'public.create_api_key_if_under_limit(uuid,text,text,text,integer,text[])', 'EXECUTE'),
   FALSE,
   'authenticated users cannot execute API key creation RPC'
+);
+
+SELECT is(
+  has_table_privilege('authenticated', 'public.api_audit_log', 'SELECT'),
+  FALSE,
+  'authenticated users cannot read API audit logs directly'
 );
 
 SELECT is(
@@ -154,6 +164,12 @@ SELECT is(
 );
 
 SELECT is(
+  has_table_privilege('service_role', 'public.api_audit_log', 'INSERT'),
+  TRUE,
+  'service_role can write API audit logs'
+);
+
+SELECT is(
   has_function_privilege('service_role', 'public.consume_api_user_rate_limit(uuid,timestamp with time zone,integer)', 'EXECUTE'),
   TRUE,
   'service_role can execute user rate limit RPC'
@@ -166,7 +182,7 @@ SELECT is(
 );
 
 SELECT is(
-  has_function_privilege('service_role', 'public.create_api_key_if_under_limit(uuid,text,text,text,integer)', 'EXECUTE'),
+  has_function_privilege('service_role', 'public.create_api_key_if_under_limit(uuid,text,text,text,integer,text[])', 'EXECUTE'),
   TRUE,
   'service_role can execute API key creation RPC'
 );

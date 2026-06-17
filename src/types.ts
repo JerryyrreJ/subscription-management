@@ -2,6 +2,8 @@ import type { SupportedLocale } from './i18n/types';
 
 export type Period = 'monthly' | 'yearly' | 'custom';
 
+export type SubscriptionStatus = 'active' | 'paused' | 'cancelled';
+
 export type Currency = 'CNY' | 'USD' | 'EUR' | 'JPY' | 'GBP' | 'AUD' | 'CAD' | 'CHF' | 'HKD' | 'SGD';
 
 export interface Subscription {
@@ -17,6 +19,7 @@ export interface Subscription {
  createdAt?: string;
  updatedAt?: string;
  notificationEnabled?: boolean; // 是否启用通知提醒（默认 true）
+ status?: SubscriptionStatus; // 生命周期状态（默认 active）
 }
 
 export type PendingSyncOperationType = 'create' | 'update' | 'delete';

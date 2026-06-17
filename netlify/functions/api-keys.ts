@@ -18,6 +18,7 @@ interface ApiKeyRow {
   id: string;
   name: string;
   key_prefix: string;
+  scopes: string[];
   created_at: string;
   last_used_at: string | null;
   revoked_at: string | null;
@@ -43,6 +44,8 @@ interface CreateApiKeyResult extends ApiKeyRow {
 
 const createKeyBodySchema = z.object({
   name: z.string().trim().min(1).max(80).default('Default key'),
+  // read is implied; pass ['read'] for a read-only key, omit for full read/write.
+  scopes: z.array(z.enum(['read', 'write'])).nonempty().optional(),
 });
 
 const revokeQuerySchema = z.object({
@@ -110,6 +113,7 @@ const toPublicKey = (row: ApiKeyRow) => ({
   id: row.id,
   name: row.name,
   keyPrefix: row.key_prefix,
+  scopes: row.scopes,
   createdAt: row.created_at,
   lastUsedAt: row.last_used_at,
   revokedAt: row.revoked_at,
@@ -146,7 +150,7 @@ const listKeys = async (
 ): Promise<ApiKeyRow[]> => {
   const { data, error } = await database
     .from('api_keys')
-    .select('id, name, key_prefix, created_at, last_used_at, revoked_at')
+    .select('id, name, key_prefix, scopes, created_at, last_used_at, revoked_at')
     .eq('user_id', userId)
     .is('revoked_at', null)
     .order('created_at', { ascending: false });
@@ -218,6 +222,7 @@ export const createApiKeysHandler = (
           p_key_prefix: apiKeyMaterial.keyPrefix,
           p_key_hash: hashApiKey(apiKeyMaterial.apiKey),
           p_active_key_limit: activeKeyLimit,
+          p_scopes: parsed.scopes ?? null,
         }
       );
 

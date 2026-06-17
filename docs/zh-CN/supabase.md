@@ -21,6 +21,9 @@ SUPABASE_SERVICE_ROLE_KEY=
 ```text
 supabase/migrations/20260615000100_baseline.sql
 supabase/migrations/20260615000200_harden_existing_schema.sql
+supabase/migrations/20260616000100_public_api.sql
+supabase/migrations/20260617000100_public_api_security_fixes.sql
+supabase/migrations/20260618000100_agent_operations_layer.sql
 ```
 
 全新环境使用 `supabase start` 和 `npm run db:verify`。现有线上环境必须先生成只读 DDL dump、确认 baseline diff、运行 `supabase/audit/preflight.sql`，再标记 baseline 并执行 hardening migration。完整步骤见 `supabase/README.md`。
@@ -32,6 +35,8 @@ supabase/migrations/20260615000200_harden_existing_schema.sql
 - Categories 保存用户自定义分类。
 - Notification settings 保存 Bark 提醒偏好和发送历史。
 - Delivery locks 防止定时通知重复发送。
+- API keys 只保存哈希后的 Key 信息和权限范围。
+- API audit logs 记录开放 API 写操作。
 
 ## 安全说明
 

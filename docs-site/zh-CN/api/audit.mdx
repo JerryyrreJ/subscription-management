@@ -1,0 +1,47 @@
+---
+title: "审计日志"
+description: "读取通过开放 API 执行的写操作审计记录。"
+---
+
+# 审计日志
+
+通过开放 API 成功执行的每一次创建、更新和删除都会被记录。用审计日志可以向用户展示发生了哪些变更，或为「撤销」重建变更前的状态。
+
+`GET /api/v1/audit`
+
+| 参数 | 默认值 | 规则 |
+| --- | --- | --- |
+| `limit` | `50` | 每页数量，范围 1 到 100 |
+| `offset` | `0` | 从开头跳过的条目数 |
+| `subscriptionId` | — | 可选 UUID；仅返回该订阅的条目 |
+
+条目按时间倒序返回。该端点只需 `read` 权限。
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/audit?limit=50&subscriptionId=33333333-3333-4333-8333-333333333333"
+```
+
+```json
+{
+  "data": [
+    {
+      "id": "...",
+      "action": "subscription.update",
+      "subscriptionId": "33333333-3333-4333-8333-333333333333",
+      "apiKeyId": "...",
+      "requestId": "request-...",
+      "metadata": {
+        "before": { "period": "monthly" },
+        "after": { "period": "yearly" },
+        "patch": { "period": "yearly" }
+      },
+      "createdAt": "2026-06-16T00:15:00.000Z"
+    }
+  ],
+  "pagination": { "limit": 50, "offset": 0, "hasMore": false },
+  "requestId": "request-..."
+}
+```
+
+`action` 为 `subscription.create`、`subscription.update` 或 `subscription.delete` 之一。`metadata` 中在适用时包含 `before`、`after`、`patch` 快照——足以描述或回退一次变更。

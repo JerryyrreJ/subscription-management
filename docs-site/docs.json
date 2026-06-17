@@ -63,6 +63,8 @@
                   "en/api/overview",
                   "en/api/authentication",
                   "en/api/subscriptions",
+                  "en/api/analytics",
+                  "en/api/audit",
                   "en/api/ai-tools",
                   "en/api/errors-and-limits"
                 ]
@@ -120,6 +122,8 @@
                   "zh-CN/api/overview",
                   "zh-CN/api/authentication",
                   "zh-CN/api/subscriptions",
+                  "zh-CN/api/analytics",
+                  "zh-CN/api/audit",
                   "zh-CN/api/ai-tools",
                   "zh-CN/api/errors-and-limits"
                 ]

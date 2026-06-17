@@ -51,6 +51,7 @@ test('creates an API key for an authenticated user and stores only the hash', as
         id: '22222222-2222-4222-8222-222222222222',
         name: 'Zapier',
         key_prefix: keyPrefix,
+        scopes: ['read', 'write'],
         created_at: '2026-06-16T00:00:00.000Z',
         last_used_at: null,
         revoked_at: null,
@@ -77,19 +78,75 @@ test('creates an API key for an authenticated user and stores only the hash', as
     { authorization: 'Bearer access-token' },
     JSON.stringify({ name: 'Zapier' })
   ), {} as never));
-  const body = parseJsonResponse<{ apiKey: string; key: { keyPrefix: string } }>(response);
+  const body = parseJsonResponse<{ apiKey: string; key: { keyPrefix: string; scopes: string[] } }>(response);
 
   assert.equal(response.statusCode, 201);
   assert.equal(body.apiKey, fullKey);
   assert.equal(body.key.keyPrefix, keyPrefix);
+  assert.deepEqual(body.key.scopes, ['read', 'write']);
   assert.deepEqual(rpcPayload, {
     p_user_id: user.id,
     p_name: 'Zapier',
     p_key_prefix: keyPrefix,
     p_key_hash: hashApiKey(fullKey),
     p_active_key_limit: limits.freeActiveKeys,
+    p_scopes: null,
   });
   assert.notEqual(body.key.keyPrefix, fullKey.slice(0, 14));
+});
+
+test('passes a read-only scope request through to the creation RPC', async () => {
+  const fullKey = 'subm_ro_public.test_secret';
+  const keyPrefix = 'subm_ro_public';
+  let capturedScopes: unknown;
+
+  const database = createFakeSupabaseClient((state: QueryState) => {
+    if (state.table === 'user_profiles') {
+      return { data: { is_premium: false }, error: null };
+    }
+
+    return { data: null, error: { message: `Unexpected query: ${state.table}` } };
+  }, (name, args) => {
+    assert.equal(name, 'create_api_key_if_under_limit');
+    capturedScopes = args.p_scopes;
+    return {
+      data: [{
+        created: true,
+        id: '33333333-3333-4333-8333-333333333333',
+        name: 'Reader',
+        key_prefix: keyPrefix,
+        scopes: ['read'],
+        created_at: '2026-06-16T00:00:00.000Z',
+        last_used_at: null,
+        revoked_at: null,
+      }],
+      error: null,
+    };
+  });
+
+  const handler = createApiKeysHandler(() => ({
+    supabaseConfig,
+    database,
+    limits,
+    createAuthClient: () => ({
+      auth: { getUser: async () => ({ data: { user }, error: null }) },
+    }),
+    createApiKeyMaterial: () => ({ apiKey: fullKey, keyPrefix }),
+    createRequestId: () => 'request-readonly',
+    now: () => new Date('2026-06-16T00:00:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'POST',
+    '/.netlify/functions/api-keys',
+    { authorization: 'Bearer access-token' },
+    JSON.stringify({ name: 'Reader', scopes: ['read'] })
+  ), {} as never));
+  const body = parseJsonResponse<{ key: { scopes: string[] } }>(response);
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(capturedScopes, ['read']);
+  assert.deepEqual(body.key.scopes, ['read']);
 });
 
 test('enforces active API key limits for free users through the creation RPC', async () => {
