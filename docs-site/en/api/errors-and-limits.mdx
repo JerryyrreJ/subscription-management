@@ -10,12 +10,17 @@ Errors use a stable JSON shape:
 ```json
 {
   "error": {
-    "code": "invalid_api_key",
-    "message": "Invalid API key"
+    "code": "invalid_subscription",
+    "message": "Invalid option",
+    "field": "period",
+    "suggestedFix": "Use one of the supported billing periods: monthly, yearly, custom.",
+    "allowedValues": ["monthly", "yearly", "custom"]
   },
   "requestId": "request-..."
 }
 ```
+
+`field`, `suggestedFix`, `allowedValues`, and `writableFields` are included when the server can provide a precise recovery hint. AI agents should use those fields to correct the payload instead of guessing.
 
 ## Common error codes
 
@@ -32,6 +37,39 @@ Errors use a stable JSON shape:
 | `405` | `method_not_allowed` | HTTP method is not supported |
 | `429` | `rate_limit_exceeded` | User request limit or invalid-auth limit exceeded |
 | `500` | `internal_error` | Unexpected server error |
+
+## Recovery fields
+
+| Field | Meaning |
+| --- | --- |
+| `field` | The request field that caused the error |
+| `suggestedFix` | Human- and AI-readable correction guidance |
+| `allowedValues` | Valid enum values for fields such as `currency` or `period` |
+| `writableFields` | Fields accepted by `POST` and `PATCH` subscription requests |
+
+Example non-writable field error:
+
+```json
+{
+  "error": {
+    "code": "invalid_subscription_field",
+    "message": "Field is not writable: nextPaymentDate",
+    "field": "nextPaymentDate",
+    "suggestedFix": "Remove server-managed fields such as id, nextPaymentDate, createdAt, and updatedAt before retrying.",
+    "writableFields": [
+      "amount",
+      "category",
+      "currency",
+      "customDate",
+      "lastPaymentDate",
+      "name",
+      "notificationEnabled",
+      "period"
+    ]
+  },
+  "requestId": "request-..."
+}
+```
 
 ## Rate-limit headers
 

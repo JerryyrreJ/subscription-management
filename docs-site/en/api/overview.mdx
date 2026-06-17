@@ -27,6 +27,17 @@ Subscription endpoints live under:
 - The API key owner determines the user scope.
 - Every subscription query is filtered by the authenticated API key owner.
 - `nextPaymentDate` is calculated by the server from billing period fields.
+- Write operations return AI-readable validation errors when a specific field can be corrected.
+
+## AI-ready artifacts
+
+Use these files when connecting an AI assistant or agent framework:
+
+| Artifact | Use it for |
+| --- | --- |
+| [OpenAPI schema](/api/openapi.yaml) | Endpoint schemas, examples, auth, and `x-ai` task metadata |
+| [AI tool schema](/api/ai-tools.json) | Function/tool definitions with risk levels and confirmation guidance |
+| [AI tool usage guide](/api/ai-tools) | Prompting, operation choice, and safety policy |
 
 ## Default plan limits
 

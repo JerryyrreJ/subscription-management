@@ -1,0 +1,366 @@
+{
+  "schemaVersion": "2026-06-17",
+  "name": "Subscription Manager AI tool schema",
+  "sourceOpenApi": "api/openapi.yaml",
+  "baseUrl": "https://your-site.example",
+  "auth": {
+    "type": "bearer",
+    "header": "Authorization",
+    "format": "Bearer <SUBSCRIPTION_MANAGER_API_KEY>",
+    "safety": "Treat API keys like passwords. Do not expose them in browser code, public prompts, logs, or repositories."
+  },
+  "globalConventions": {
+    "ownerScope": "All operations are scoped to the authenticated API key owner.",
+    "dateFormat": "YYYY-MM-DD",
+    "amountFormat": "Major currency units with at most 2 decimal places.",
+    "serverManagedFields": [
+      "id",
+      "nextPaymentDate",
+      "createdAt",
+      "updatedAt"
+    ],
+    "writableFields": [
+      "amount",
+      "category",
+      "currency",
+      "customDate",
+      "lastPaymentDate",
+      "name",
+      "notificationEnabled",
+      "period"
+    ],
+    "billingPeriods": [
+      "monthly",
+      "yearly",
+      "custom"
+    ],
+    "currencies": [
+      "CNY",
+      "USD",
+      "EUR",
+      "JPY",
+      "GBP",
+      "AUD",
+      "CAD",
+      "CHF",
+      "HKD",
+      "SGD"
+    ],
+    "fieldSemantics": {
+      "period": "The billing cycle. Send monthly, yearly, or custom. Do not send billingCycle to the v1 API.",
+      "customDate": "The custom interval in days when period is custom. Despite the legacy name, this is not a calendar date. Do not send customIntervalDays to the v1 API.",
+      "lastPaymentDate": "The most recent payment date in YYYY-MM-DD format. The server uses it to calculate nextPaymentDate."
+    },
+    "writeConfirmationPolicy": "Ask for user confirmation before create, update, or delete. For delete, repeat the target subscription name and id."
+  },
+  "tools": [
+    {
+      "name": "list_subscriptions",
+      "operationId": "listSubscriptions",
+      "method": "GET",
+      "path": "/api/v1/subscriptions",
+      "purpose": "List subscriptions owned by the API key owner so an agent can search, summarize, compare, or identify records before writing.",
+      "riskLevel": "low",
+      "requiresConfirmation": false,
+      "useWhen": [
+        "The user asks to show, search, analyze, or summarize subscriptions.",
+        "The user names a subscription but does not provide its UUID.",
+        "The agent needs current state before planning an update or delete."
+      ],
+      "doNotUseWhen": [
+        "The user provides a known UUID and asks for only that exact record."
+      ],
+      "naturalLanguageExamples": [
+        "Show all my subscriptions.",
+        "Which subscriptions renew soon?",
+        "Find my Netflix subscription."
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_subscription",
+      "operationId": "getSubscription",
+      "method": "GET",
+      "path": "/api/v1/subscriptions/{id}",
+      "purpose": "Fetch one subscription by UUID when the exact id is already known.",
+      "riskLevel": "low",
+      "requiresConfirmation": false,
+      "useWhen": [
+        "The agent needs to verify exact current state before writing.",
+        "The user provides a subscription UUID."
+      ],
+      "doNotUseWhen": [
+        "The user only provides a name or category. List subscriptions first and match the target."
+      ],
+      "naturalLanguageExamples": [
+        "Show details for subscription 33333333-3333-4333-8333-333333333333.",
+        "Verify this record before updating it."
+      ],
+      "parameters": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Subscription id returned by list_subscriptions or create_subscription."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_subscription",
+      "operationId": "createSubscription",
+      "method": "POST",
+      "path": "/api/v1/subscriptions",
+      "purpose": "Create a new tracked subscription for the API key owner.",
+      "riskLevel": "medium",
+      "requiresConfirmation": true,
+      "confirmationPrompt": "I will create a subscription named {name} for {amount} {currency}, billed {period}, with lastPaymentDate {lastPaymentDate}. Confirm?",
+      "useWhen": [
+        "The user asks to add, record, or start tracking a subscription that does not already exist."
+      ],
+      "doNotUseWhen": [
+        "The target subscription already exists. Use update_subscription instead.",
+        "The user is only asking for analysis or a recommendation."
+      ],
+      "naturalLanguageExamples": [
+        "Add ChatGPT Plus, 20 USD monthly, last paid 2026-06-17.",
+        "Record a yearly GitHub subscription for 48 USD."
+      ],
+      "parameters": {
+        "$ref": "#/$defs/subscriptionWrite"
+      }
+    },
+    {
+      "name": "update_subscription",
+      "operationId": "updateSubscription",
+      "method": "PATCH",
+      "path": "/api/v1/subscriptions/{id}",
+      "purpose": "Update one or more writable fields on an existing subscription. The server recalculates nextPaymentDate from lastPaymentDate, period, and customDate.",
+      "riskLevel": "medium",
+      "requiresConfirmation": true,
+      "confirmationPrompt": "I will update subscription {id} with these fields: {patch}. Confirm?",
+      "useWhen": [
+        "The target subscription has been identified and the user asks to change amount, category, currency, period, lastPaymentDate, customDate, name, or notificationEnabled."
+      ],
+      "doNotUseWhen": [
+        "The user wants to remove the record. Use delete_subscription after explicit confirmation.",
+        "The user wants to change nextPaymentDate directly. Update lastPaymentDate and period instead."
+      ],
+      "naturalLanguageExamples": [
+        "Change Netflix to yearly billing.",
+        "Update ChatGPT Plus to 20 USD.",
+        "Turn off notifications for this subscription."
+      ],
+      "parameters": {
+        "type": "object",
+        "required": [
+          "id",
+          "patch"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Subscription id returned by list_subscriptions or create_subscription."
+          },
+          "patch": {
+            "$ref": "#/$defs/subscriptionPatch"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "delete_subscription",
+      "operationId": "deleteSubscription",
+      "method": "DELETE",
+      "path": "/api/v1/subscriptions/{id}",
+      "purpose": "Permanently delete a tracked subscription record.",
+      "riskLevel": "high",
+      "requiresConfirmation": true,
+      "confirmationPrompt": "I will permanently delete subscription {name} ({id}). Confirm?",
+      "useWhen": [
+        "The user explicitly asks to delete or remove a tracked subscription and confirms the exact target."
+      ],
+      "doNotUseWhen": [
+        "The user wants to pause, cancel externally, or mark inactive. The current API only deletes the local tracking record."
+      ],
+      "naturalLanguageExamples": [
+        "Delete the duplicate Netflix record.",
+        "Remove this subscription from tracking."
+      ],
+      "parameters": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Subscription id returned by list_subscriptions or create_subscription."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ],
+  "errorRecovery": {
+    "shape": {
+      "error": {
+        "code": "invalid_subscription",
+        "message": "Human-readable error",
+        "field": "period",
+        "suggestedFix": "Use one of the supported billing periods: monthly, yearly, custom.",
+        "allowedValues": [
+          "monthly",
+          "yearly",
+          "custom"
+        ]
+      },
+      "requestId": "request-..."
+    },
+    "agentBehavior": [
+      "If field and suggestedFix are present, revise the payload and retry only when the user's intent is unchanged.",
+      "If the failed operation is create, update, or delete, ask for confirmation again before retrying when the effective write changes.",
+      "Use requestId when reporting unresolved API errors."
+    ]
+  },
+  "$defs": {
+    "dateOnly": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "Calendar date in YYYY-MM-DD format."
+    },
+    "subscriptionWrite": {
+      "type": "object",
+      "required": [
+        "name",
+        "category",
+        "amount",
+        "currency",
+        "period",
+        "lastPaymentDate"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "amount": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 999999.99,
+          "multipleOf": 0.01
+        },
+        "currency": {
+          "type": "string",
+          "enum": [
+            "CNY",
+            "USD",
+            "EUR",
+            "JPY",
+            "GBP",
+            "AUD",
+            "CAD",
+            "CHF",
+            "HKD",
+            "SGD"
+          ]
+        },
+        "period": {
+          "type": "string",
+          "enum": [
+            "monthly",
+            "yearly",
+            "custom"
+          ]
+        },
+        "lastPaymentDate": {
+          "$ref": "#/$defs/dateOnly"
+        },
+        "customDate": {
+          "type": "string",
+          "pattern": "^[1-9]\\d*$",
+          "description": "Required only when period is custom. Omit for monthly or yearly subscriptions."
+        },
+        "notificationEnabled": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "subscriptionPatch": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "amount": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 999999.99,
+          "multipleOf": 0.01
+        },
+        "currency": {
+          "type": "string",
+          "enum": [
+            "CNY",
+            "USD",
+            "EUR",
+            "JPY",
+            "GBP",
+            "AUD",
+            "CAD",
+            "CHF",
+            "HKD",
+            "SGD"
+          ]
+        },
+        "period": {
+          "type": "string",
+          "enum": [
+            "monthly",
+            "yearly",
+            "custom"
+          ]
+        },
+        "lastPaymentDate": {
+          "$ref": "#/$defs/dateOnly"
+        },
+        "customDate": {
+          "type": "string",
+          "pattern": "^[1-9]\\d*$"
+        },
+        "notificationEnabled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

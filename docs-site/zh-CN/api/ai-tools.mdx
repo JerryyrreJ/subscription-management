@@ -1,0 +1,89 @@
+---
+title: "AI 工具使用"
+description: "把开放 API 作为 AI Agent 的工具使用，包括操作语义、确认规则和错误恢复建议。"
+---
+
+# AI 工具使用
+
+开放 API 可以暴露给 AI 助手作为工具使用。如果框架支持 JSON tool/function 定义，使用 [AI tool schema](/api/ai-tools.json)。如果框架支持直接导入 OpenAPI，使用 [OpenAPI schema](/api/openapi.yaml)。
+
+## 推荐 Agent 策略
+
+允许 AI 写入前，建议给助手这段规则：
+
+```text
+你可以直接查询订阅。
+创建、更新或删除订阅前，必须总结即将执行的变更并询问用户确认。
+删除前，必须重复订阅名称和 id。
+不要发送服务端管理字段：id、nextPaymentDate、createdAt、updatedAt。
+如果 API 返回 field、suggestedFix、allowedValues 或 writableFields，使用这些提示修正 payload。
+```
+
+## 工具选择
+
+| 用户意图 | 工具 |
+| --- | --- |
+| “显示我的订阅” | `list_subscriptions` |
+| “找到我的 Netflix 订阅” | `list_subscriptions`，再按名称或分类匹配 |
+| “显示这个 id 的详情” | `get_subscription` |
+| “添加 ChatGPT Plus” | 确认后调用 `create_subscription` |
+| “把 Netflix 改成年付” | `list_subscriptions`，确认目标和变更后调用 `update_subscription` |
+| “删除重复的 Netflix 记录” | `list_subscriptions`，确认名称和 id 后调用 `delete_subscription` |
+
+## 风险等级
+
+| 风险 | 操作 | Agent 行为 |
+| --- | --- | --- |
+| 低 | 查询列表、查询单条 | 用户要求时可直接执行 |
+| 中 | 创建、更新 | 调用前确认计划写入内容 |
+| 高 | 删除 | 调用前确认准确记录名称和 id |
+
+当前 API 没有 inactive 状态字段。如果用户说“取消订阅”，需要先确认：是删除本地追踪记录，还是要去外部服务真正取消订阅。
+
+## 示例流程
+
+用户：
+
+```text
+把 Netflix 改成年付。
+```
+
+助手：
+
+1. 调用 `list_subscriptions`。
+2. 找到 Netflix 记录。
+3. 询问确认：
+
+```text
+我找到了 Netflix（33333333-3333-4333-8333-333333333333），当前为 monthly。我将把 period 改为 yearly，服务端会重新计算 nextPaymentDate。确认执行吗？
+```
+
+4. 用户确认后，调用 `update_subscription`：
+
+```json
+{
+  "id": "33333333-3333-4333-8333-333333333333",
+  "patch": {
+    "period": "yearly"
+  }
+}
+```
+
+## 错误恢复
+
+错误响应使用稳定结构：
+
+```json
+{
+  "error": {
+    "code": "invalid_subscription",
+    "message": "Invalid option",
+    "field": "period",
+    "suggestedFix": "Use one of the supported billing periods: monthly, yearly, custom.",
+    "allowedValues": ["monthly", "yearly", "custom"]
+  },
+  "requestId": "request-..."
+}
+```
+
+使用 `field` 和 `suggestedFix` 修正下一次请求。如果是写操作，并且修正后的 payload 改变了实际写入内容，需要重新向用户确认。

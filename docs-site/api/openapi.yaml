@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Subscription Manager Public API
   version: 1.0.0
-  description: Public API for subscription CRUD automation through Developer API keys.
+  description: Public API for subscription CRUD automation through Developer API keys. The operation descriptions include AI-oriented task semantics, risk levels, and confirmation guidance for agent integrations.
 servers:
   - url: https://your-site.example
     description: Replace with your deployed Subscription Manager site URL.
@@ -11,6 +11,10 @@ security:
 tags:
   - name: Subscriptions
     description: Create, read, update, and delete subscriptions for the API key owner.
+    x-ai:
+      domain: subscription_management
+      ownerScope: authenticated_api_key_owner
+      writeSafety: Confirm create, update, and delete operations with the user before calling them from an AI agent.
 paths:
   /api/v1/subscriptions:
     get:
@@ -19,6 +23,16 @@ paths:
       summary: List subscriptions
       description: Returns subscriptions owned by the authenticated API key owner.
       operationId: listSubscriptions
+      x-ai:
+        purpose: Find and inspect the authenticated user's subscriptions before planning analysis, update, or delete tasks.
+        naturalLanguageTriggers:
+          - Show my subscriptions.
+          - Which subscriptions are renewing soon?
+          - Find the Netflix subscription before I change it.
+        riskLevel: low
+        requiresConfirmation: false
+        useWhen: The user wants to view, search, summarize, compare, or identify subscriptions.
+        doNotUseWhen: The user provides a specific subscription UUID and wants only that record; use getSubscription instead.
       x-mint:
         href: /api-reference/subscriptions/list
       responses:
@@ -63,6 +77,16 @@ paths:
       summary: Create a subscription
       description: Creates a subscription for the authenticated API key owner. Server-managed fields are rejected if supplied.
       operationId: createSubscription
+      x-ai:
+        purpose: Record a new subscription that the user currently uses or wants to track.
+        naturalLanguageTriggers:
+          - Add ChatGPT Plus, 20 USD monthly, last paid today.
+          - Record a yearly GitHub subscription.
+          - I just subscribed to Netflix, track it for me.
+        riskLevel: medium
+        requiresConfirmation: true
+        useWhen: The user asks to add or record a subscription that does not already exist.
+        doNotUseWhen: The user is changing an existing subscription; identify the existing record and use updateSubscription.
       x-mint:
         href: /api-reference/subscriptions/create
       requestBody:
@@ -154,6 +178,15 @@ paths:
       summary: Get a subscription
       description: Returns one subscription if it belongs to the authenticated API key owner.
       operationId: getSubscription
+      x-ai:
+        purpose: Retrieve one known subscription by UUID after it has already been identified.
+        naturalLanguageTriggers:
+          - Show details for this subscription id.
+          - Verify the record before updating it.
+        riskLevel: low
+        requiresConfirmation: false
+        useWhen: A subscription UUID is already available and the agent needs exact current state.
+        doNotUseWhen: The user only provides a name such as Netflix; use listSubscriptions and match by name/category first.
       x-mint:
         href: /api-reference/subscriptions/get
       responses:
@@ -186,6 +219,16 @@ paths:
       summary: Update a subscription
       description: Updates a non-empty subset of writable fields. The server validates the merged result and recalculates nextPaymentDate.
       operationId: updateSubscription
+      x-ai:
+        purpose: Change writable fields on an existing subscription, such as amount, category, period, last payment date, custom interval, or notifications.
+        naturalLanguageTriggers:
+          - Change Netflix to yearly billing.
+          - Update ChatGPT Plus to 20 USD.
+          - Turn off renewal reminders for this subscription.
+        riskLevel: medium
+        requiresConfirmation: true
+        useWhen: The target subscription has been identified and the user wants to modify tracked details.
+        doNotUseWhen: The user wants to remove the subscription completely; use deleteSubscription after explicit confirmation.
       x-mint:
         href: /api-reference/subscriptions/update
       requestBody:
@@ -231,6 +274,15 @@ paths:
       summary: Delete a subscription
       description: Deletes one subscription if it belongs to the authenticated API key owner.
       operationId: deleteSubscription
+      x-ai:
+        purpose: Permanently remove a subscription record from tracking.
+        naturalLanguageTriggers:
+          - Delete the Netflix subscription.
+          - Remove this duplicate subscription record.
+        riskLevel: high
+        requiresConfirmation: true
+        useWhen: The user clearly wants the tracked record removed and has confirmed the exact subscription.
+        doNotUseWhen: The user wants to mark a subscription inactive; the current API has no inactive status field.
       x-mint:
         href: /api-reference/subscriptions/delete
       responses:
@@ -340,6 +392,29 @@ components:
                 error:
                   code: invalid_subscription_field
                   message: "Field is not writable: nextPaymentDate"
+                  field: nextPaymentDate
+                  suggestedFix: Remove server-managed fields such as id, nextPaymentDate, createdAt, and updatedAt before retrying.
+                  writableFields:
+                    - amount
+                    - category
+                    - currency
+                    - customDate
+                    - lastPaymentDate
+                    - name
+                    - notificationEnabled
+                    - period
+                requestId: request-1
+            invalidPeriod:
+              value:
+                error:
+                  code: invalid_subscription
+                  message: Invalid option
+                  field: period
+                  suggestedFix: "Use one of the supported billing periods: monthly, yearly, custom."
+                  allowedValues:
+                    - monthly
+                    - yearly
+                    - custom
                 requestId: request-1
     Unauthorized:
       description: The API key is missing, invalid, or revoked.
@@ -410,12 +485,14 @@ components:
   schemas:
     SubscriptionPeriod:
       type: string
+      description: Billing cadence used to calculate nextPaymentDate.
       enum:
         - monthly
         - yearly
         - custom
     Currency:
       type: string
+      description: ISO-like currency code supported by the app.
       enum:
         - CNY
         - USD
@@ -429,6 +506,7 @@ components:
         - SGD
     DateOnly:
       type: string
+      description: Calendar date without time, always in YYYY-MM-DD format.
       pattern: "^\\d{4}-\\d{2}-\\d{2}$"
       example: "2026-06-01"
     Subscription:
@@ -449,16 +527,20 @@ components:
         id:
           type: string
           format: uuid
+          description: Server-generated subscription identifier.
         name:
           type: string
+          description: Human-readable service or product name.
           minLength: 1
           maxLength: 120
         category:
           type: string
+          description: User-visible category label used for grouping and analytics.
           minLength: 1
           maxLength: 80
         amount:
           type: number
+          description: Payment amount in major currency units, with at most 2 decimal places.
           minimum: 0
           maximum: 999999.99
           multipleOf: 0.01
@@ -469,11 +551,12 @@ components:
         lastPaymentDate:
           $ref: "#/components/schemas/DateOnly"
         nextPaymentDate:
+          description: Server-calculated next payment date.
           $ref: "#/components/schemas/DateOnly"
         customDate:
           type: string
           pattern: "^[1-9]\\d*$"
-          description: Required only when period is custom.
+          description: Required only when period is custom. Despite the legacy name, this is a positive whole-number string of days, not a calendar date.
         notificationEnabled:
           type: boolean
         createdAt:
@@ -495,14 +578,17 @@ components:
       properties:
         name:
           type: string
+          description: Human-readable service or product name.
           minLength: 1
           maxLength: 120
         category:
           type: string
+          description: User-visible category label used for grouping and analytics.
           minLength: 1
           maxLength: 80
         amount:
           type: number
+          description: Payment amount in major currency units, with at most 2 decimal places.
           minimum: 0
           maximum: 999999.99
           multipleOf: 0.01
@@ -511,11 +597,12 @@ components:
         period:
           $ref: "#/components/schemas/SubscriptionPeriod"
         lastPaymentDate:
+          description: Most recent payment date. The server calculates nextPaymentDate from this value and period.
           $ref: "#/components/schemas/DateOnly"
         customDate:
           type: string
           pattern: "^[1-9]\\d*$"
-          description: Required only when period is custom.
+          description: Required only when period is custom. Despite the legacy name, this is a positive whole-number string of days, not a calendar date.
         notificationEnabled:
           type: boolean
           default: true
@@ -546,6 +633,7 @@ components:
         customDate:
           type: string
           pattern: "^[1-9]\\d*$"
+          description: Required only when period is custom. Despite the legacy name, this is a positive whole-number string of days, not a calendar date.
         notificationEnabled:
           type: boolean
       additionalProperties: false
@@ -583,6 +671,22 @@ components:
           type: string
         message:
           type: string
+        field:
+          type: string
+          description: Field that caused the error when the server can identify one.
+        suggestedFix:
+          type: string
+          description: Human- and AI-readable correction hint.
+        allowedValues:
+          type: array
+          items:
+            type: string
+          description: Allowed enum values when the error is caused by an unsupported enum.
+        writableFields:
+          type: array
+          items:
+            type: string
+          description: Writable subscription fields when the error is caused by a non-writable field.
       additionalProperties: false
     ErrorResponse:
       type: object

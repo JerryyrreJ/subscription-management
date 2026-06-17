@@ -1,11 +1,23 @@
 ---
 title: "Subscription CRUD"
-description: "Create, read, update, and delete subscriptions through the public API."
+description: "Create, read, update, and delete subscriptions with task semantics for AI agents."
 ---
 
 # Subscription CRUD
 
 Subscription API payloads use camelCase. Server-managed fields are returned in responses but rejected in write requests.
+
+## Operation semantics
+
+| Operation | Use when | Risk | Confirmation |
+| --- | --- | --- | --- |
+| `GET /api/v1/subscriptions` | Search, summarize, analyze, or identify subscriptions | Low | Not required |
+| `GET /api/v1/subscriptions/{id}` | Fetch one known record by UUID | Low | Not required |
+| `POST /api/v1/subscriptions` | Record a new subscription | Medium | Required for AI agents |
+| `PATCH /api/v1/subscriptions/{id}` | Change writable fields on an existing subscription | Medium | Required for AI agents |
+| `DELETE /api/v1/subscriptions/{id}` | Permanently remove a tracked record | High | Required for AI agents |
+
+For AI integrations, list subscriptions before updating or deleting unless the user already supplied a subscription UUID.
 
 ## Subscription object
 
@@ -47,37 +59,56 @@ The server manages:
 - `createdAt`
 - `updatedAt`
 
-## Billing periods
+Do not send server-managed fields in `POST` or `PATCH` requests.
 
-| Period | Meaning |
+## Field rules
+
+| Field | Rule |
 | --- | --- |
-| `monthly` | Adds one month to `lastPaymentDate` |
-| `yearly` | Adds one year to `lastPaymentDate` |
-| `custom` | Adds `customDate` days to `lastPaymentDate` |
+| `name` | Required, 1-120 characters |
+| `category` | Required, 1-80 characters |
+| `amount` | Required number, 0 to 999999.99, max 2 decimals |
+| `currency` | Required. One of `CNY`, `USD`, `EUR`, `JPY`, `GBP`, `AUD`, `CAD`, `CHF`, `HKD`, `SGD` |
+| `period` | Required. One of `monthly`, `yearly`, `custom` |
+| `lastPaymentDate` | Required date in `YYYY-MM-DD` format |
+| `customDate` | Required only when `period` is `custom`; positive whole-number string of days |
+| `notificationEnabled` | Optional boolean, defaults to `true` |
 
-`customDate` is required only when `period` is `custom`.
+`nextPaymentDate` is calculated by the server from `lastPaymentDate`, `period`, and `customDate`.
 
-## List subscriptions
+## Natural language examples
 
-```bash
-curl \
-  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  https://your-site.example/api/v1/subscriptions
+### Add a subscription
+
+User intent:
+
+```text
+Add ChatGPT Plus, 20 USD per month, last paid on 2026-06-17.
 ```
 
-## Create a subscription
+API call:
 
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Netflix","category":"Streaming","amount":15.99,"currency":"USD","period":"monthly","lastPaymentDate":"2026-06-01"}' \
+  -d '{"name":"ChatGPT Plus","category":"AI","amount":20,"currency":"USD","period":"monthly","lastPaymentDate":"2026-06-17","notificationEnabled":true}' \
   https://your-site.example/api/v1/subscriptions
 ```
 
-## Patch a subscription
+### Change billing period
 
-`PATCH` accepts any non-empty subset of writable fields. The server merges the patch with the existing record, validates the full result, and recalculates `nextPaymentDate`.
+User intent:
+
+```text
+Change Netflix to yearly billing.
+```
+
+Agent flow:
+
+1. Call `GET /api/v1/subscriptions` to identify the Netflix record.
+2. Ask the user to confirm the exact record and change.
+3. Call `PATCH /api/v1/subscriptions/{id}`.
 
 ```bash
 curl -X PATCH \
@@ -87,10 +118,44 @@ curl -X PATCH \
   https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
 ```
 
-## Delete a subscription
+### Remove a duplicate
+
+User intent:
+
+```text
+Delete the duplicate Netflix subscription.
+```
+
+Agent flow:
+
+1. Call `GET /api/v1/subscriptions` and find duplicate candidates.
+2. Ask the user to confirm the exact subscription name and id.
+3. Call `DELETE /api/v1/subscriptions/{id}`.
 
 ```bash
 curl -X DELETE \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
 ```
+
+## Custom billing period
+
+For non-monthly/non-yearly intervals, set `period` to `custom` and send `customDate` as a positive whole-number string of days.
+
+```json
+{
+  "name": "Domain renewal",
+  "category": "Infrastructure",
+  "amount": 12,
+  "currency": "USD",
+  "period": "custom",
+  "lastPaymentDate": "2026-06-01",
+  "customDate": "45"
+}
+```
+
+When patching from `custom` back to `monthly` or `yearly`, omit `customDate`. The server clears stale custom billing data.
+
+## AI tool schema
+
+Use [ai-tools.json](/api/ai-tools.json) for tool/function definitions, risk levels, and confirmation prompts.

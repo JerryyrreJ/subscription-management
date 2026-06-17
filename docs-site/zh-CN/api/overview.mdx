@@ -27,6 +27,17 @@ https://your-site.example/api/v1
 - API Key 所属用户决定访问范围。
 - 所有订阅查询都会按 API Key owner 过滤。
 - `nextPaymentDate` 由服务端根据计费周期字段计算。
+- 当字段可修正时，写操作会返回适合 AI 读取的校验错误。
+
+## 面向 AI 的交付物
+
+接入 AI 助手或 Agent 框架时，优先使用这些文件：
+
+| 交付物 | 用途 |
+| --- | --- |
+| [OpenAPI schema](/api/openapi.yaml) | 接口 schema、示例、认证方式，以及 `x-ai` 任务元数据 |
+| [AI tool schema](/api/ai-tools.json) | function/tool 定义、风险等级和确认策略 |
+| [AI 工具使用指南](/api/ai-tools) | 调用选择、提示词和安全策略 |
 
 ## 默认套餐限额
 

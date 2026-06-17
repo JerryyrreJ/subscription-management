@@ -5,12 +5,20 @@ const JSON_HEADERS = {
   'Cache-Control': 'no-store',
 };
 
+export interface HttpErrorDetails {
+  field?: string;
+  suggestedFix?: string;
+  allowedValues?: readonly string[];
+  writableFields?: readonly string[];
+}
+
 export class HttpError extends Error {
   constructor(
     public readonly statusCode: number,
     public readonly code: string,
     message: string,
-    public readonly headers: Record<string, string> = {}
+    public readonly headers: Record<string, string> = {},
+    public readonly details: HttpErrorDetails = {}
   ) {
     super(message);
     this.name = 'HttpError';
@@ -32,8 +40,16 @@ export const errorResponse = (
   requestId: string
 ): HandlerResponse => {
   if (error instanceof HttpError) {
+    const details = Object.fromEntries(
+      Object.entries(error.details).filter(([, value]) => value !== undefined)
+    );
+
     return jsonResponse(error.statusCode, {
-      error: { code: error.code, message: error.message },
+      error: {
+        code: error.code,
+        message: error.message,
+        ...(Object.keys(details).length > 0 ? details : {}),
+      },
       requestId,
     }, error.headers);
   }

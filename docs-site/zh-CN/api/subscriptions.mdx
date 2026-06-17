@@ -1,81 +1,161 @@
 ---
 title: "订阅 CRUD"
-description: "通过开放 API 创建、读取、更新和删除订阅。"
+description: "通过开放 API 创建、读取、更新和删除订阅，并提供适合 AI Agent 的任务语义。"
 ---
 
 # 订阅 CRUD
 
-订阅接口位于：
+订阅 API 使用 camelCase 字段。服务端管理字段会在响应中返回，但不能出现在写请求里。
+
+## 操作语义
+
+| 操作 | 适用场景 | 风险 | AI 是否需要确认 |
+| --- | --- | --- | --- |
+| `GET /api/v1/subscriptions` | 查询、搜索、汇总、分析或识别订阅 | 低 | 不需要 |
+| `GET /api/v1/subscriptions/{id}` | 已知 UUID，读取单条订阅 | 低 | 不需要 |
+| `POST /api/v1/subscriptions` | 记录一个新的订阅 | 中 | 需要 |
+| `PATCH /api/v1/subscriptions/{id}` | 修改已有订阅的可写字段 | 中 | 需要 |
+| `DELETE /api/v1/subscriptions/{id}` | 永久删除本地追踪记录 | 高 | 需要 |
+
+AI 集成在更新或删除前，应该先查询并确认目标订阅；除非用户已经提供了准确的订阅 UUID。
+
+## 订阅对象
+
+```json
+{
+  "id": "33333333-3333-4333-8333-333333333333",
+  "name": "Netflix",
+  "category": "Streaming",
+  "amount": 15.99,
+  "currency": "USD",
+  "period": "monthly",
+  "lastPaymentDate": "2026-06-01",
+  "nextPaymentDate": "2026-07-01",
+  "notificationEnabled": true,
+  "createdAt": "2026-06-16T00:00:00.000Z",
+  "updatedAt": "2026-06-16T00:00:00.000Z"
+}
+```
+
+## 可写字段
+
+```json
+{
+  "name": "Netflix",
+  "category": "Streaming",
+  "amount": 15.99,
+  "currency": "USD",
+  "period": "monthly",
+  "lastPaymentDate": "2026-06-01",
+  "customDate": null,
+  "notificationEnabled": true
+}
+```
+
+服务端管理这些字段：
+
+- `id`
+- `nextPaymentDate`
+- `createdAt`
+- `updatedAt`
+
+不要在 `POST` 或 `PATCH` 请求里发送服务端管理字段。
+
+## 字段规则
+
+| 字段 | 规则 |
+| --- | --- |
+| `name` | 必填，1-120 个字符 |
+| `category` | 必填，1-80 个字符 |
+| `amount` | 必填数字，范围 0 到 999999.99，最多 2 位小数 |
+| `currency` | 必填，可选 `CNY`、`USD`、`EUR`、`JPY`、`GBP`、`AUD`、`CAD`、`CHF`、`HKD`、`SGD` |
+| `period` | 必填，可选 `monthly`、`yearly`、`custom` |
+| `lastPaymentDate` | 必填，格式为 `YYYY-MM-DD` |
+| `customDate` | 仅当 `period` 为 `custom` 时必填；表示间隔天数，需为正整数字符串 |
+| `notificationEnabled` | 可选布尔值，默认 `true` |
+
+`nextPaymentDate` 由服务端根据 `lastPaymentDate`、`period` 和 `customDate` 计算。
+
+## 自然语言示例
+
+### 新增订阅
+
+用户意图：
 
 ```text
-/api/v1/subscriptions
+帮我记录 ChatGPT Plus，每月 20 美元，上次付款是 2026-06-17。
 ```
 
-## 订阅字段
-
-常用字段包括：
-
-| 字段 | 说明 |
-| --- | --- |
-| `id` | 订阅 ID |
-| `name` | 订阅名称 |
-| `amount` | 金额 |
-| `currency` | 币种 |
-| `billingCycle` | 计费周期 |
-| `billingInterval` | 自定义计费间隔 |
-| `billingIntervalUnit` | 自定义计费单位 |
-| `nextPaymentDate` | 下次付款日期 |
-| `category` | 分类 |
-| `isActive` | 是否启用 |
-
-## 获取列表
+API 调用：
 
 ```bash
-curl https://your-site.example/api/v1/subscriptions \
-  -H "Authorization: Bearer subm_your_key_here"
-```
-
-## 创建订阅
-
-```bash
-curl https://your-site.example/api/v1/subscriptions \
-  -X POST \
-  -H "Authorization: Bearer subm_your_key_here" \
+curl -X POST \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "Notion",
-    "amount": 10,
-    "currency": "USD",
-    "billingCycle": "monthly",
-    "startDate": "2026-06-17",
-    "category": "Productivity"
-  }'
+  -d '{"name":"ChatGPT Plus","category":"AI","amount":20,"currency":"USD","period":"monthly","lastPaymentDate":"2026-06-17","notificationEnabled":true}' \
+  https://your-site.example/api/v1/subscriptions
 ```
 
-服务端会根据计费周期计算 `nextPaymentDate`。
+### 修改计费周期
 
-## 更新订阅
+用户意图：
+
+```text
+把 Netflix 改成年付。
+```
+
+Agent 流程：
+
+1. 调用 `GET /api/v1/subscriptions` 找到 Netflix 记录。
+2. 向用户确认具体记录和修改内容。
+3. 调用 `PATCH /api/v1/subscriptions/{id}`。
 
 ```bash
-curl https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333 \
-  -X PATCH \
-  -H "Authorization: Bearer subm_your_key_here" \
+curl -X PATCH \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{ "amount": 12, "billingCycle": "yearly" }'
+  -d '{"period":"yearly"}' \
+  https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
 ```
 
-更新计费周期相关字段时，服务端会重新计算下次付款日期，并清理不再适用的自定义计费字段。
+### 删除重复记录
 
-## 删除订阅
+用户意图：
+
+```text
+删除重复的 Netflix 订阅。
+```
+
+Agent 流程：
+
+1. 调用 `GET /api/v1/subscriptions` 找到重复候选。
+2. 向用户确认订阅名称和 id。
+3. 调用 `DELETE /api/v1/subscriptions/{id}`。
 
 ```bash
-curl https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333 \
-  -X DELETE \
-  -H "Authorization: Bearer subm_your_key_here"
+curl -X DELETE \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
 ```
 
-删除操作同样受 API Key owner 限制，不能删除其他用户的订阅。
+## 自定义计费周期
 
-## 详细 schema
+如果不是月付或年付，把 `period` 设为 `custom`，并把 `customDate` 设为表示天数的正整数字符串。
 
-字段类型、必填项、响应示例和错误格式见 [API 参考](/api-reference)。
+```json
+{
+  "name": "Domain renewal",
+  "category": "Infrastructure",
+  "amount": 12,
+  "currency": "USD",
+  "period": "custom",
+  "lastPaymentDate": "2026-06-01",
+  "customDate": "45"
+}
+```
+
+从 `custom` 改回 `monthly` 或 `yearly` 时，省略 `customDate`。服务端会清理旧的自定义计费数据。
+
+## AI tool schema
+
+使用 [ai-tools.json](/api/ai-tools.json) 获取 tool/function 定义、风险等级和确认提示。

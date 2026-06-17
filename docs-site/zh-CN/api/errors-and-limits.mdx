@@ -1,40 +1,79 @@
 ---
 title: "错误和限流"
-description: "开放 API 的错误响应、状态码和 rate limit headers。"
+description: "开放 API 的错误响应、requestId、rate limit headers 和 CORS 行为。"
 ---
 
 # 错误和限流
 
-开放 API 使用统一 JSON 错误格式，并在认证成功后的响应中返回 rate limit headers。
-
-## 错误格式
+错误响应使用稳定 JSON 结构：
 
 ```json
 {
   "error": {
-    "code": "INVALID_REQUEST",
-    "message": "Invalid request body",
-    "details": {
-      "field": "amount"
-    }
-  }
+    "code": "invalid_subscription",
+    "message": "Invalid option",
+    "field": "period",
+    "suggestedFix": "Use one of the supported billing periods: monthly, yearly, custom.",
+    "allowedValues": ["monthly", "yearly", "custom"]
+  },
+  "requestId": "request-..."
 }
 ```
 
-## 常见状态码
+当服务端能定位具体修复方式时，会返回 `field`、`suggestedFix`、`allowedValues` 或 `writableFields`。AI Agent 应优先使用这些字段修正请求，而不是自行猜测。
 
-| 状态码 | 说明 |
+## 常见错误码
+
+| 状态码 | Code | 说明 |
+| ---: | --- | --- |
+| `400` | `invalid_json` | 请求体不是合法 JSON 对象 |
+| `400` | `invalid_subscription` | 订阅字段未通过校验 |
+| `400` | `invalid_subscription_field` | 请求尝试写入服务端管理字段 |
+| `400` | `invalid_subscription_id` | 订阅 ID 不是合法 UUID |
+| `400` | `empty_patch` | PATCH 请求体没有包含任何可写字段 |
+| `401` | `authentication_required` | 缺少 Bearer token |
+| `401` | `invalid_api_key` | API Key 无效或已撤销 |
+| `404` | `subscription_not_found` | 当前 API Key owner 下不存在该订阅 |
+| `405` | `method_not_allowed` | HTTP method 不支持 |
+| `429` | `rate_limit_exceeded` | 用户请求限额或无效认证限额已耗尽 |
+| `500` | `internal_error` | 未预期的服务端错误 |
+
+## 恢复字段
+
+| 字段 | 含义 |
 | --- | --- |
-| `400` | 请求体或参数无效 |
-| `401` | 缺少、错误或已撤销的 API Key |
-| `404` | 资源不存在，或不属于当前 API Key owner |
-| `405` | HTTP method 不支持 |
-| `429` | 请求超过限额 |
-| `500` | 服务端错误 |
+| `field` | 导致错误的请求字段 |
+| `suggestedFix` | 人和 AI 都能读懂的修正建议 |
+| `allowedValues` | `currency` 或 `period` 等枚举字段的合法值 |
+| `writableFields` | 订阅 `POST` 和 `PATCH` 请求接受的可写字段 |
+
+不可写字段示例：
+
+```json
+{
+  "error": {
+    "code": "invalid_subscription_field",
+    "message": "Field is not writable: nextPaymentDate",
+    "field": "nextPaymentDate",
+    "suggestedFix": "Remove server-managed fields such as id, nextPaymentDate, createdAt, and updatedAt before retrying.",
+    "writableFields": [
+      "amount",
+      "category",
+      "currency",
+      "customDate",
+      "lastPaymentDate",
+      "name",
+      "notificationEnabled",
+      "period"
+    ]
+  },
+  "requestId": "request-..."
+}
+```
 
 ## Rate limit headers
 
-认证成功后，响应会包含：
+认证成功后的响应会包含：
 
 ```text
 X-RateLimit-Limit
@@ -42,7 +81,7 @@ X-RateLimit-Remaining
 X-RateLimit-Reset
 ```
 
-`X-RateLimit-Reset` 表示当前限流窗口重置的时间。
+`X-RateLimit-Reset` 是 Unix 秒级时间戳，表示当前固定窗口何时重置。
 
 ## CORS
 
@@ -65,9 +104,4 @@ GET, POST, PATCH, DELETE, OPTIONS
 Authorization, Content-Type
 ```
 
-## 调试建议
-
-- 先确认 `Authorization` header 格式。
-- 再确认 API Key 是否仍处于 active 状态。
-- 查看响应里的 rate limit headers。
-- 对 `404` 同时检查 ID 是否存在，以及是否属于当前 key owner。
+不要把 API Key 暴露在不可信浏览器环境里。CORS 主要用于开发者工具、内部面板或可信本地工作流。

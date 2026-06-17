@@ -7,7 +7,11 @@ import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { createSupabaseAdminClient } from './_shared/supabase';
 import { calculateNextPaymentDate } from '../../src/utils/dates';
-import { subscriptionCreateInputSchema } from '../../src/utils/subscriptionDomain';
+import {
+  SUBSCRIPTION_CURRENCIES,
+  SUBSCRIPTION_PERIODS,
+  subscriptionCreateInputSchema,
+} from '../../src/utils/subscriptionDomain';
 
 interface SubscriptionRow {
   id: string;
@@ -59,6 +63,19 @@ const allowedSubscriptionFields = new Set([
   'notificationEnabled',
 ]);
 
+const writableSubscriptionFields = Array.from(allowedSubscriptionFields).sort();
+
+const subscriptionFieldGuidance: Record<string, string> = {
+  name: 'Provide a non-empty subscription name, for example "Netflix" or "ChatGPT Plus".',
+  category: 'Provide a short category label such as "Streaming", "Productivity", or "Developer Tools".',
+  amount: 'Use a number in major currency units with at most 2 decimal places, for example 15.99.',
+  currency: `Use one of the supported currency codes: ${SUBSCRIPTION_CURRENCIES.join(', ')}.`,
+  period: `Use one of the supported billing periods: ${SUBSCRIPTION_PERIODS.join(', ')}.`,
+  lastPaymentDate: 'Use the most recent payment date in YYYY-MM-DD format.',
+  customDate: 'Use a positive whole-number string when period is custom; omit customDate for monthly or yearly subscriptions.',
+  notificationEnabled: 'Use true or false. Omit the field to use the default value true.',
+};
+
 const ALLOWED_METHODS = 'GET, POST, PATCH, DELETE, OPTIONS';
 
 const CORS_HEADERS = {
@@ -83,7 +100,10 @@ const idSchema = z.string().uuid();
 const parseSubscriptionId = (id: string): string => {
   const result = idSchema.safeParse(id);
   if (!result.success) {
-    throw new HttpError(400, 'invalid_subscription_id', 'Subscription id must be a valid UUID');
+    throw new HttpError(400, 'invalid_subscription_id', 'Subscription id must be a valid UUID', {}, {
+      field: 'id',
+      suggestedFix: 'Use an id returned by listSubscriptions or createSubscription.',
+    });
   }
 
   return result.data;
@@ -97,22 +117,47 @@ const parseJsonObject = (body: string | null): Record<string, unknown> => {
   try {
     const parsed = JSON.parse(body) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new HttpError(400, 'invalid_json', 'Request body must be a JSON object');
+      throw new HttpError(400, 'invalid_json', 'Request body must be a JSON object', {}, {
+        suggestedFix: 'Send an object such as {"name":"Netflix","category":"Streaming","amount":15.99,"currency":"USD","period":"monthly","lastPaymentDate":"2026-06-01"}.',
+      });
     }
     return parsed as Record<string, unknown>;
   } catch (error) {
     if (error instanceof HttpError) {
       throw error;
     }
-    throw new HttpError(400, 'invalid_json', 'Request body must be valid JSON');
+    throw new HttpError(400, 'invalid_json', 'Request body must be valid JSON', {}, {
+      suggestedFix: 'Check JSON syntax, quotes, commas, and that Content-Type is application/json.',
+    });
   }
 };
 
 const assertAllowedFields = (body: Record<string, unknown>): void => {
   const unknownField = Object.keys(body).find(key => !allowedSubscriptionFields.has(key));
   if (unknownField) {
-    throw new HttpError(400, 'invalid_subscription_field', `Field is not writable: ${unknownField}`);
+    throw new HttpError(400, 'invalid_subscription_field', `Field is not writable: ${unknownField}`, {}, {
+      field: unknownField,
+      writableFields: writableSubscriptionFields,
+      suggestedFix: 'Remove server-managed fields such as id, nextPaymentDate, createdAt, and updatedAt before retrying.',
+    });
   }
+};
+
+const getValidationDetails = (error: z.ZodError) => {
+  const issue = error.issues[0];
+  const field = issue?.path.map(String).join('.') || undefined;
+
+  return {
+    field,
+    allowedValues: field === 'currency'
+      ? SUBSCRIPTION_CURRENCIES
+      : field === 'period'
+        ? SUBSCRIPTION_PERIODS
+        : undefined,
+    suggestedFix: field
+      ? subscriptionFieldGuidance[field] ?? 'Correct the field value and retry the request.'
+      : 'Validate the request body against the subscription write schema before retrying.',
+  };
 };
 
 const parseSubscriptionPath = (path: string): string | null => {
@@ -198,7 +243,9 @@ const parseCreateInput = (body: Record<string, unknown>) => {
       throw new HttpError(
         400,
         'invalid_subscription',
-        error.issues[0]?.message || 'Subscription data is invalid'
+        error.issues[0]?.message || 'Subscription data is invalid',
+        {},
+        getValidationDetails(error)
       );
     }
     throw error;
@@ -211,7 +258,10 @@ const parsePatchInput = (
 ) => {
   assertAllowedFields(body);
   if (Object.keys(body).length === 0) {
-    throw new HttpError(400, 'empty_patch', 'PATCH body must include at least one writable field');
+    throw new HttpError(400, 'empty_patch', 'PATCH body must include at least one writable field', {}, {
+      writableFields: writableSubscriptionFields,
+      suggestedFix: 'Send one or more writable fields, for example {"period":"yearly"} or {"amount":12.99}.',
+    });
   }
 
   const merged: Record<string, unknown> = {

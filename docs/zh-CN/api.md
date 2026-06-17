@@ -2,6 +2,8 @@
 
 v1 API 通过 API Key 开放订阅 CRUD。
 
+AI Agent 可以使用 `docs-site/api/ai-tools.json` 获取 tool/function 定义、风险等级、确认提示和错误恢复建议。OpenAPI schema 位于 `docs-site/api/openapi.yaml`。
+
 ## 访问权限
 
 在用户菜单的 **开发者 API** 中创建 API Key。完整 Key 只显示一次，请像密码一样保存。
@@ -52,6 +54,8 @@ Authorization: Bearer subm_xxx
 
 `id`、`nextPaymentDate`、`createdAt` 和 `updatedAt` 由服务端管理。`customDate` 只用于自定义扣费周期。
 
+对于 AI Agent，查询属于低风险，可以直接执行。创建和更新属于中风险，应先确认。删除属于高风险，必须确认准确的订阅名称和 id 后再执行。
+
 示例：
 
 ```bash
@@ -74,12 +78,16 @@ curl -X POST \
 ```json
 {
   "error": {
-    "code": "invalid_api_key",
-    "message": "Invalid API key"
+    "code": "invalid_subscription",
+    "message": "Invalid option",
+    "field": "period",
+    "suggestedFix": "Use one of the supported billing periods: monthly, yearly, custom."
   },
   "requestId": "..."
 }
 ```
+
+当服务端能给出明确修复建议时，错误中可能包含 `field`、`suggestedFix`、`allowedValues` 和 `writableFields`。
 
 API 响应包含：
 

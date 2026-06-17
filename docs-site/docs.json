@@ -63,6 +63,7 @@
                   "en/api/overview",
                   "en/api/authentication",
                   "en/api/subscriptions",
+                  "en/api/ai-tools",
                   "en/api/errors-and-limits"
                 ]
               }
@@ -119,6 +120,7 @@
                   "zh-CN/api/overview",
                   "zh-CN/api/authentication",
                   "zh-CN/api/subscriptions",
+                  "zh-CN/api/ai-tools",
                   "zh-CN/api/errors-and-limits"
                 ]
               }

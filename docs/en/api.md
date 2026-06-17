@@ -2,6 +2,10 @@
 
 The v1 API exposes subscription CRUD through API keys.
 
+AI agents can use `docs-site/api/ai-tools.json` for tool/function definitions,
+risk levels, confirmation prompts, and error recovery guidance. The OpenAPI
+schema is available at `docs-site/api/openapi.yaml`.
+
 ## Access
 
 Create an API key from **Developer API** in the user menu. The full key is shown
@@ -54,6 +58,10 @@ Writable fields use camelCase:
 `id`, `nextPaymentDate`, `createdAt`, and `updatedAt` are managed by the
 server. `customDate` is only used with custom billing periods.
 
+For AI agents, reads are low risk and can run directly. Create and update are
+medium risk and should be confirmed first. Delete is high risk and should only
+run after confirming the exact subscription name and id.
+
 Examples:
 
 ```bash
@@ -76,12 +84,17 @@ Errors use:
 ```json
 {
   "error": {
-    "code": "invalid_api_key",
-    "message": "Invalid API key"
+    "code": "invalid_subscription",
+    "message": "Invalid option",
+    "field": "period",
+    "suggestedFix": "Use one of the supported billing periods: monthly, yearly, custom."
   },
   "requestId": "..."
 }
 ```
+
+`field`, `suggestedFix`, `allowedValues`, and `writableFields` may be included
+when the server can provide a precise recovery hint.
 
 API responses include:
 

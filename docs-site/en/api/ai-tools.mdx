@@ -1,0 +1,89 @@
+---
+title: "AI tool usage"
+description: "Use the public API as AI agent tools with operation semantics, confirmation rules, and recovery guidance."
+---
+
+# AI tool usage
+
+The public API can be exposed to AI assistants as tools. Use the [AI tool schema](/api/ai-tools.json) when a framework accepts JSON tool definitions, and use the [OpenAPI schema](/api/openapi.yaml) when a framework imports OpenAPI directly.
+
+## Recommended agent policy
+
+Give the assistant this policy before allowing write access:
+
+```text
+You can read subscriptions without confirmation.
+Before creating, updating, or deleting subscriptions, summarize the exact planned change and ask for confirmation.
+Before deleting, repeat the subscription name and id.
+Never send server-managed fields: id, nextPaymentDate, createdAt, updatedAt.
+If the API returns field, suggestedFix, allowedValues, or writableFields, revise the payload using those hints.
+```
+
+## Tool selection
+
+| User intent | Tool |
+| --- | --- |
+| "Show my subscriptions" | `list_subscriptions` |
+| "Find my Netflix subscription" | `list_subscriptions`, then match by name/category |
+| "Show details for this id" | `get_subscription` |
+| "Add ChatGPT Plus" | Confirm, then `create_subscription` |
+| "Change Netflix to yearly" | `list_subscriptions`, confirm target/change, then `update_subscription` |
+| "Delete the duplicate Netflix record" | `list_subscriptions`, confirm exact name/id, then `delete_subscription` |
+
+## Risk levels
+
+| Risk | Operations | Agent behavior |
+| --- | --- | --- |
+| Low | List and get | Can run directly when the user asks |
+| Medium | Create and update | Confirm the planned write before calling |
+| High | Delete | Confirm the exact record name and id before calling |
+
+The API does not currently have an inactive status field. If the user asks to cancel a subscription, clarify whether they mean deleting the local tracking record or cancelling the service outside this app.
+
+## Example flow
+
+User:
+
+```text
+Change Netflix to yearly billing.
+```
+
+Assistant:
+
+1. Calls `list_subscriptions`.
+2. Finds the Netflix record.
+3. Asks:
+
+```text
+I found Netflix (33333333-3333-4333-8333-333333333333), currently monthly. I will change period to yearly and the server will recalculate nextPaymentDate. Confirm?
+```
+
+4. Calls `update_subscription` only after confirmation:
+
+```json
+{
+  "id": "33333333-3333-4333-8333-333333333333",
+  "patch": {
+    "period": "yearly"
+  }
+}
+```
+
+## Error recovery
+
+Errors use a stable shape:
+
+```json
+{
+  "error": {
+    "code": "invalid_subscription",
+    "message": "Invalid option",
+    "field": "period",
+    "suggestedFix": "Use one of the supported billing periods: monthly, yearly, custom.",
+    "allowedValues": ["monthly", "yearly", "custom"]
+  },
+  "requestId": "request-..."
+}
+```
+
+Use `field` and `suggestedFix` to correct the next request. For writes, ask for confirmation again if the corrected payload changes the effective action.

@@ -438,13 +438,67 @@ test('rejects client-managed subscription fields', async () => {
       nextPaymentDate: '2026-07-01',
     })
   ), {} as never));
-  const body = parseJsonResponse<{ error: { code: string } }>(response);
+  const body = parseJsonResponse<{
+    error: {
+      code: string;
+      field?: string;
+      suggestedFix?: string;
+      writableFields?: string[];
+    };
+  }>(response);
 
   assert.equal(response.statusCode, 400);
   assert.equal(body.error.code, 'invalid_subscription_field');
+  assert.equal(body.error.field, 'nextPaymentDate');
+  assert.match(body.error.suggestedFix ?? '', /server-managed fields/);
+  assert.ok(body.error.writableFields?.includes('period'));
   assert.equal(response.headers?.['X-RateLimit-Limit'], '60');
   assert.equal(response.headers?.['X-RateLimit-Remaining'], '59');
   assert.equal(response.headers?.['Access-Control-Allow-Origin'], '*');
+});
+
+test('returns AI recovery hints for invalid subscription payloads', async () => {
+  const database = createDatabase(() => ({
+    data: null,
+    error: null,
+  }));
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-invalid-period',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'POST',
+    '/api/v1/subscriptions',
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({
+      name: 'Netflix',
+      category: 'Streaming',
+      amount: 15.99,
+      currency: 'USD',
+      period: 'weekly',
+      lastPaymentDate: '2026-06-01',
+    })
+  ), {} as never));
+  const body = parseJsonResponse<{
+    error: {
+      code: string;
+      field?: string;
+      suggestedFix?: string;
+      allowedValues?: string[];
+    };
+  }>(response);
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(body.error.code, 'invalid_subscription');
+  assert.equal(body.error.field, 'period');
+  assert.match(body.error.suggestedFix ?? '', /supported billing periods/);
+  assert.deepEqual(body.error.allowedValues, ['monthly', 'yearly', 'custom']);
 });
 
 test('returns 429 when an API key exceeds its hourly limit', async () => {
@@ -555,10 +609,12 @@ test('returns 400 for malformed subscription ids', async () => {
     '/api/v1/subscriptions/not-a-uuid',
     { authorization: `Bearer ${apiKey}` }
   ), {} as never));
-  const body = parseJsonResponse<{ error: { code: string } }>(response);
+  const body = parseJsonResponse<{ error: { code: string; field?: string; suggestedFix?: string } }>(response);
 
   assert.equal(response.statusCode, 400);
   assert.equal(body.error.code, 'invalid_subscription_id');
+  assert.equal(body.error.field, 'id');
+  assert.match(body.error.suggestedFix ?? '', /listSubscriptions|createSubscription/);
   assert.equal(subscriptionQueried, false);
 });
 
