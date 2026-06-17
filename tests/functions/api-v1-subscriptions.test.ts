@@ -452,8 +452,10 @@ test('rejects client-managed subscription fields', async () => {
   assert.equal(body.error.field, 'nextPaymentDate');
   assert.match(body.error.suggestedFix ?? '', /server-managed fields/);
   assert.ok(body.error.writableFields?.includes('period'));
-  assert.equal(response.headers?.['X-RateLimit-Limit'], '60');
-  assert.equal(response.headers?.['X-RateLimit-Remaining'], '59');
+  // Validation failures are rejected before the hourly quota is consumed, so
+  // they carry no rate-limit headers (nothing was charged) but still set CORS.
+  assert.equal(response.headers?.['X-RateLimit-Limit'], undefined);
+  assert.equal(response.headers?.['X-RateLimit-Remaining'], undefined);
   assert.equal(response.headers?.['Access-Control-Allow-Origin'], '*');
 });
 
@@ -680,4 +682,210 @@ test('uses request metadata as a fallback auth failure identity when IP headers 
     identityHash,
     hashClientIdentity('fingerprint:SubscriptionBot/1.0:en-US:gzip')
   );
+});
+
+test('paginates the subscription list and reports whether more pages exist', async () => {
+  const database = createDatabase(() => ({
+    data: [subscriptionRow, { ...subscriptionRow, id: '55555555-5555-4555-8555-555555555555' }],
+    error: null,
+  }));
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-page',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` },
+    null,
+    { limit: '1', offset: '0' }
+  ), {} as never));
+  const body = parseJsonResponse<{
+    data: Array<{ id: string }>;
+    pagination: { limit: number; offset: number; hasMore: boolean };
+  }>(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.data.length, 1);
+  assert.deepEqual(body.pagination, { limit: 1, offset: 0, hasMore: true });
+});
+
+test('rejects out-of-range pagination parameters', async () => {
+  const database = createDatabase(() => ({ data: [], error: null }));
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-page-bad',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` },
+    null,
+    { limit: '500' }
+  ), {} as never));
+  const body = parseJsonResponse<{ error: { code: string; field?: string } }>(response);
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(body.error.code, 'invalid_pagination');
+  assert.equal(body.error.field, 'limit');
+});
+
+test('patches an unrelated field without re-validating pre-existing data', async () => {
+  let updatePayload: Record<string, unknown> | undefined;
+  const legacyRow = { ...subscriptionRow, currency: 'KRW' };
+  const database = createDatabase((state: QueryState) => {
+    if (state.operation === 'select') {
+      return { data: legacyRow, error: null };
+    }
+
+    updatePayload = state.payload as Record<string, unknown>;
+    return { data: { ...legacyRow, notification_enabled: false }, error: null };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-patch-legacy',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'PATCH',
+    `/api/v1/subscriptions/${subscriptionRow.id}`,
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({ notificationEnabled: false })
+  ), {} as never));
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(updatePayload?.currency, 'KRW');
+  assert.equal(updatePayload?.notification_enabled, false);
+});
+
+test('includes retry headers when invalid API key attempts are throttled', async () => {
+  const database = createFakeSupabaseClient(
+    () => ({ data: null, error: null }),
+    () => ({
+      data: [{ limited: true, id: null, user_id: null, key_prefix: null }],
+      error: null,
+    })
+  );
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-auth-throttle',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+
+  assert.equal(response.statusCode, 429);
+  assert.equal(response.headers?.['X-RateLimit-Limit'], '300');
+  assert.equal(response.headers?.['X-RateLimit-Remaining'], '0');
+  // 2026-06-16T00:15:00Z -> resets at the top of the next hour (00:00:00 window + 1h = 01:00:00), 2700s away.
+  assert.equal(response.headers?.['Retry-After'], '2700');
+});
+
+test('does not consume the hourly quota when the request body is invalid', async () => {
+  let consumeCalled = false;
+  const database = createFakeSupabaseClient((state: QueryState) => {
+    if (state.table === 'user_profiles') {
+      return { data: { is_premium: false }, error: null };
+    }
+    if (state.table === 'api_keys' && state.operation === 'update') {
+      return { data: null, error: null };
+    }
+    if (state.table === 'subscriptions') {
+      return { data: null, error: { message: 'subscriptions should not be touched' } };
+    }
+    return { data: null, error: null };
+  }, (name) => {
+    if (name === 'lookup_api_key_for_auth') {
+      return {
+        data: [{ limited: false, id: apiKeyId, user_id: userId, key_prefix: apiKey.slice(0, 14) }],
+        error: null,
+      };
+    }
+    if (name === 'consume_api_user_rate_limit') {
+      consumeCalled = true;
+      return {
+        data: [{ allowed: true, request_count: 1, remaining: 59, reset_at: '2026-06-16T01:00:00.000Z' }],
+        error: null,
+      };
+    }
+    return { data: null, error: null };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-no-quota',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'POST',
+    '/api/v1/subscriptions',
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({
+      name: 'Netflix',
+      category: 'Streaming',
+      amount: 15.99,
+      currency: 'USD',
+      period: 'weekly',
+      lastPaymentDate: '2026-06-01',
+    })
+  ), {} as never));
+  const body = parseJsonResponse<{ error: { code: string } }>(response);
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(body.error.code, 'invalid_subscription');
+  assert.equal(consumeCalled, false);
+});
+
+test('preserves the stored next payment date when patching a non-billing field', async () => {
+  let updatePayload: Record<string, unknown> | undefined;
+  const driftedRow = { ...subscriptionRow, next_payment_date: '2026-09-01' };
+  const database = createDatabase((state: QueryState) => {
+    if (state.operation === 'select') {
+      return { data: driftedRow, error: null };
+    }
+
+    updatePayload = state.payload as Record<string, unknown>;
+    return { data: { ...driftedRow, notification_enabled: false }, error: null };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-patch-preserve',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'PATCH',
+    `/api/v1/subscriptions/${subscriptionRow.id}`,
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({ notificationEnabled: false })
+  ), {} as never));
+
+  assert.equal(response.statusCode, 200);
+  // last_payment_date + 1 month would be 2026-07-01; the stored 2026-09-01 must be kept.
+  assert.equal(updatePayload?.next_payment_date, '2026-09-01');
+  assert.equal(updatePayload?.notification_enabled, false);
 });

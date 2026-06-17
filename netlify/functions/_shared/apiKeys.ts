@@ -36,6 +36,14 @@ export interface ApiKeyMaterial {
   keyPrefix: string;
 }
 
+export interface ApiKeyIdentity {
+  apiKeyId: string;
+  userId: string;
+  keyPrefix: string;
+  isPremium: boolean;
+  rateLimitMax: number;
+}
+
 export interface ApiClientContext {
   apiKeyId: string;
   userId: string;
@@ -129,13 +137,13 @@ const unwrapApiKeyLookupResult = (data: unknown): ApiKeyLookupResult | null => {
   return (data as ApiKeyLookupResult | null) ?? null;
 };
 
-export const authenticateApiKey = async (
+export const identifyApiKey = async (
   headers: Record<string, string | undefined>,
   database: SupabaseClient,
   limits: ApiLimitsConfig,
   now: Date = new Date(),
   requestId = 'api-auth'
-): Promise<ApiClientContext> => {
+): Promise<ApiKeyIdentity> => {
   const apiKey = extractBearerToken(headers);
   if (!apiKey.startsWith(API_KEY_PREFIX)) {
     throw new HttpError(401, 'invalid_api_key', 'Invalid API key');
@@ -163,10 +171,21 @@ export const authenticateApiKey = async (
   }
 
   if (lookup.limited) {
+    const windowStart = getWindowStart(now);
+    const resetAt = new Date(new Date(windowStart).getTime() + 60 * 60 * 1000).toISOString();
+    const retryAfterSeconds = Math.max(
+      0,
+      Math.ceil((new Date(resetAt).getTime() - now.getTime()) / 1000)
+    );
+
     throw new HttpError(
       429,
       'rate_limit_exceeded',
-      'Too many invalid API key attempts'
+      'Too many invalid API key attempts',
+      {
+        ...buildRateLimitHeaders(limits.failedAuthRequestsPerHour, 0, resetAt),
+        'Retry-After': String(retryAfterSeconds),
+      }
     );
   }
 
@@ -191,34 +210,6 @@ export const authenticateApiKey = async (
   }
 
   const isPremium = Boolean(profile?.is_premium);
-  const limit = isPremium ? limits.premiumRequestsPerHour : limits.freeRequestsPerHour;
-  const { data: rateLimitData, error: rateLimitError } = await database.rpc(
-    'consume_api_user_rate_limit',
-    {
-      p_user_id: apiKeyRecord.user_id,
-      p_window_start: getWindowStart(now),
-      p_limit: limit,
-    }
-  );
-
-  if (rateLimitError) {
-    throw rateLimitError;
-  }
-
-  const rateLimit = unwrapRateLimitResult(rateLimitData);
-  if (!rateLimit) {
-    throw new Error('Rate limit RPC did not return a result');
-  }
-
-  const rateLimitHeaders = buildRateLimitHeaders(
-    limit,
-    rateLimit.remaining,
-    rateLimit.reset_at
-  );
-
-  if (!rateLimit.allowed) {
-    throw new HttpError(429, 'rate_limit_exceeded', 'Rate limit exceeded', rateLimitHeaders);
-  }
 
   const { error: touchError } = await database
     .from('api_keys')
@@ -237,11 +228,64 @@ export const authenticateApiKey = async (
     userId: apiKeyRecord.user_id,
     keyPrefix: apiKeyRecord.key_prefix,
     isPremium,
+    rateLimitMax: isPremium ? limits.premiumRequestsPerHour : limits.freeRequestsPerHour,
+  };
+};
+
+export const consumeApiRateLimit = async (
+  database: SupabaseClient,
+  identity: ApiKeyIdentity,
+  now: Date = new Date()
+): Promise<ApiClientContext> => {
+  const { data: rateLimitData, error: rateLimitError } = await database.rpc(
+    'consume_api_user_rate_limit',
+    {
+      p_user_id: identity.userId,
+      p_window_start: getWindowStart(now),
+      p_limit: identity.rateLimitMax,
+    }
+  );
+
+  if (rateLimitError) {
+    throw rateLimitError;
+  }
+
+  const rateLimit = unwrapRateLimitResult(rateLimitData);
+  if (!rateLimit) {
+    throw new Error('Rate limit RPC did not return a result');
+  }
+
+  const rateLimitHeaders = buildRateLimitHeaders(
+    identity.rateLimitMax,
+    rateLimit.remaining,
+    rateLimit.reset_at
+  );
+
+  if (!rateLimit.allowed) {
+    throw new HttpError(429, 'rate_limit_exceeded', 'Rate limit exceeded', rateLimitHeaders);
+  }
+
+  return {
+    apiKeyId: identity.apiKeyId,
+    userId: identity.userId,
+    keyPrefix: identity.keyPrefix,
+    isPremium: identity.isPremium,
     rateLimit: {
-      limit,
+      limit: identity.rateLimitMax,
       remaining: rateLimit.remaining,
       resetAt: rateLimit.reset_at,
       headers: rateLimitHeaders,
     },
   };
+};
+
+export const authenticateApiKey = async (
+  headers: Record<string, string | undefined>,
+  database: SupabaseClient,
+  limits: ApiLimitsConfig,
+  now: Date = new Date(),
+  requestId = 'api-auth'
+): Promise<ApiClientContext> => {
+  const identity = await identifyApiKey(headers, database, limits, now, requestId);
+  return consumeApiRateLimit(database, identity, now);
 };

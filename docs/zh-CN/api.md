@@ -63,6 +63,14 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   https://your-site.example/api/v1/subscriptions
 ```
 
+列表接口支持分页。通过查询参数传入 `limit`（1-100，默认 50）和 `offset`
+（默认 0）；响应中包含带有 `limit`、`offset`、`hasMore` 的 `pagination` 对象。
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/subscriptions?limit=50&offset=50"
+```
+
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
@@ -94,3 +102,6 @@ API 响应包含：
 - `X-RateLimit-Limit`
 - `X-RateLimit-Remaining`
 - `X-RateLimit-Reset`
+
+校验错误（`400`）会在扣减限额之前被拒绝，因此不计入限额。`429` 响应会带
+`Retry-After` header，表示需要等待多少秒后再重试。

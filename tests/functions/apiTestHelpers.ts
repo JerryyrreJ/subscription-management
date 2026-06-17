@@ -45,6 +45,10 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  range(): this {
+    return this;
+  }
+
   insert(payload: unknown): this {
     this.state.operation = 'insert';
     this.state.payload = payload;

@@ -19,6 +19,32 @@ Subscription API payloads use camelCase. Server-managed fields are returned in r
 
 For AI integrations, list subscriptions before updating or deleting unless the user already supplied a subscription UUID.
 
+## Pagination
+
+`GET /api/v1/subscriptions` returns results newest first and accepts two optional query parameters:
+
+| Parameter | Default | Rule |
+| --- | --- | --- |
+| `limit` | `50` | Page size, 1 to 100 |
+| `offset` | `0` | Number of records to skip from the start |
+
+The response includes a `pagination` object. Fetch the next page with `offset + limit` while `hasMore` is `true`.
+
+```json
+{
+  "data": [ /* ... */ ],
+  "pagination": { "limit": 50, "offset": 0, "hasMore": false },
+  "requestId": "request-..."
+}
+```
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/subscriptions?limit=50&offset=50"
+```
+
+Out-of-range values return `400 invalid_pagination`.
+
 ## Subscription object
 
 ```json
@@ -74,7 +100,7 @@ Do not send server-managed fields in `POST` or `PATCH` requests.
 | `customDate` | Required only when `period` is `custom`; positive whole-number string of days |
 | `notificationEnabled` | Optional boolean, defaults to `true` |
 
-`nextPaymentDate` is calculated by the server from `lastPaymentDate`, `period`, and `customDate`.
+`nextPaymentDate` is calculated by the server from `lastPaymentDate`, `period`, and `customDate`. On `PATCH`, it is recalculated only when one of those three fields changes; updating any other field leaves the stored `nextPaymentDate` untouched. Only the fields you send in a `PATCH` are validated, so updating one field never fails because of unrelated stored data.
 
 ## Natural language examples
 

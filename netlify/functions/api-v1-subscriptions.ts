@@ -1,7 +1,7 @@
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { authenticateApiKey, type ApiClientContext } from './_shared/apiKeys';
+import { consumeApiRateLimit, identifyApiKey, type ApiClientContext } from './_shared/apiKeys';
 import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
@@ -11,6 +11,7 @@ import {
   SUBSCRIPTION_CURRENCIES,
   SUBSCRIPTION_PERIODS,
   subscriptionCreateInputSchema,
+  subscriptionPatchInputSchema,
 } from '../../src/utils/subscriptionDomain';
 
 interface SubscriptionRow {
@@ -96,6 +97,34 @@ const createDefaultDependencies = (): SubscriptionsApiDependencies => {
 };
 
 const idSchema = z.string().uuid();
+
+const DEFAULT_PAGE_LIMIT = 50;
+const MAX_PAGE_LIMIT = 100;
+
+const paginationSchema = z.object({
+  limit: z.coerce.number().int('limit must be a whole number')
+    .min(1, 'limit must be at least 1')
+    .max(MAX_PAGE_LIMIT, `limit cannot exceed ${MAX_PAGE_LIMIT}`)
+    .default(DEFAULT_PAGE_LIMIT),
+  offset: z.coerce.number().int('offset must be a whole number')
+    .min(0, 'offset cannot be negative')
+    .default(0),
+});
+
+const parsePagination = (
+  query: HandlerEvent['queryStringParameters']
+): { limit: number; offset: number } => {
+  const result = paginationSchema.safeParse(query ?? {});
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    throw new HttpError(400, 'invalid_pagination', issue?.message || 'Invalid pagination parameters', {}, {
+      field: issue?.path.map(String).join('.') || undefined,
+      suggestedFix: `Use limit between 1 and ${MAX_PAGE_LIMIT} and a non-negative offset, for example ?limit=${DEFAULT_PAGE_LIMIT}&offset=0.`,
+    });
+  }
+
+  return result.data;
+};
 
 const parseSubscriptionId = (id: string): string => {
   const result = idSchema.safeParse(id);
@@ -264,6 +293,22 @@ const parsePatchInput = (
     });
   }
 
+  let patch: Record<string, unknown>;
+  try {
+    patch = subscriptionPatchInputSchema.parse(body) as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new HttpError(
+        400,
+        'invalid_subscription',
+        error.issues[0]?.message || 'Subscription data is invalid',
+        {},
+        getValidationDetails(error)
+      );
+    }
+    throw error;
+  }
+
   const merged: Record<string, unknown> = {
     name: existing.name,
     category: existing.category,
@@ -273,14 +318,35 @@ const parsePatchInput = (
     lastPaymentDate: existing.lastPaymentDate,
     customDate: existing.customDate,
     notificationEnabled: existing.notificationEnabled,
-    ...body,
   };
 
-  if (body.period && body.period !== 'custom' && !Object.hasOwn(body, 'customDate')) {
+  for (const key of Object.keys(body)) {
+    merged[key] = patch[key];
+  }
+
+  if (Object.hasOwn(body, 'period') && merged.period !== 'custom' && !Object.hasOwn(body, 'customDate')) {
     merged.customDate = undefined;
   }
 
-  return parseCreateInput(merged);
+  // Only re-check the period/customDate relationship when the patch touches it,
+  // so updates to unrelated fields are never blocked by pre-existing data.
+  if (Object.hasOwn(body, 'period') || Object.hasOwn(body, 'customDate')) {
+    if (merged.period === 'custom' && !merged.customDate) {
+      throw new HttpError(400, 'invalid_subscription', 'Custom period is required', {}, {
+        field: 'customDate',
+        suggestedFix: subscriptionFieldGuidance.customDate,
+      });
+    }
+
+    if (merged.period !== 'custom' && merged.customDate) {
+      throw new HttpError(400, 'invalid_subscription', 'Custom period is only allowed for custom billing', {}, {
+        field: 'customDate',
+        suggestedFix: subscriptionFieldGuidance.customDate,
+      });
+    }
+  }
+
+  return merged as z.infer<typeof subscriptionCreateInputSchema>;
 };
 
 const withRateHeaders = (
@@ -326,36 +392,53 @@ export const createSubscriptionsApiHandler = (
   try {
     const dependencies = dependenciesFactory();
     requestId = dependencies.createRequestId();
-    const context = await authenticateApiKey(
+    const now = dependencies.now();
+    const identity = await identifyApiKey(
       event.headers,
       dependencies.database,
       dependencies.limits,
-      dependencies.now(),
+      now,
       requestId
     );
-    apiContext = context;
     const subscriptionId = parseSubscriptionPath(event.path);
 
+    // Charge the hourly quota only once the request is known to be well-formed,
+    // so malformed input (400s) never burns an agent's rate-limit budget.
+    const consume = async (): Promise<ApiClientContext> => {
+      const context = await consumeApiRateLimit(dependencies.database, identity, now);
+      apiContext = context;
+      return context;
+    };
+
     if (event.httpMethod === 'GET' && !subscriptionId) {
+      const { limit, offset } = parsePagination(event.queryStringParameters);
+      const context = await consume();
       const { data, error } = await dependencies.database
         .from('subscriptions')
         .select(SUBSCRIPTION_COLUMNS)
-        .eq('user_id', context.userId)
-        .order('created_at', { ascending: false });
+        .eq('user_id', identity.userId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit);
 
       if (error) {
         throw error;
       }
 
+      const rows = (data ?? []) as unknown as SubscriptionRow[];
+      const hasMore = rows.length > limit;
+      const page = hasMore ? rows.slice(0, limit) : rows;
+
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
-        data: ((data ?? []) as unknown as SubscriptionRow[]).map(toApiSubscription),
+        data: page.map(toApiSubscription),
+        pagination: { limit, offset, hasMore },
         requestId,
       })));
     }
 
     if (event.httpMethod === 'GET' && subscriptionId) {
       const id = parseSubscriptionId(subscriptionId);
-      const subscription = await getSubscription(dependencies.database, context.userId, id);
+      const context = await consume();
+      const subscription = await getSubscription(dependencies.database, identity.userId, id);
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
         data: toApiSubscription(subscription),
         requestId,
@@ -368,10 +451,11 @@ export const createSubscriptionsApiHandler = (
       }
 
       const parsed = parseCreateInput(parseJsonObject(event.body));
+      const context = await consume();
       const { data, error } = await dependencies.database
         .from('subscriptions')
         .insert({
-          user_id: context.userId,
+          user_id: identity.userId,
           ...toDatabasePayload(parsed),
         })
         .select(SUBSCRIPTION_COLUMNS)
@@ -382,8 +466,8 @@ export const createSubscriptionsApiHandler = (
       }
 
       logEvent('info', 'API subscription created', requestId, {
-        apiKeyId: context.apiKeyId,
-        userId: context.userId,
+        apiKeyId: identity.apiKeyId,
+        userId: identity.userId,
         subscriptionId: data.id,
       });
 
@@ -400,12 +484,26 @@ export const createSubscriptionsApiHandler = (
     const id = parseSubscriptionId(subscriptionId);
 
     if (event.httpMethod === 'PATCH') {
-      const existing = await getSubscription(dependencies.database, context.userId, id);
-      const parsed = parsePatchInput(parseJsonObject(event.body), toApiSubscription(existing));
+      const existing = toApiSubscription(
+        await getSubscription(dependencies.database, identity.userId, id)
+      );
+      const body = parseJsonObject(event.body);
+      const parsed = parsePatchInput(body, existing);
+      const context = await consume();
+
+      // Recalculate the next payment date only when a field that affects it
+      // changes; otherwise keep the stored value so unrelated edits don't move it.
+      const billingChanged = ['lastPaymentDate', 'period', 'customDate']
+        .some(field => Object.hasOwn(body, field));
+      const payload = toDatabasePayload(parsed);
+      if (!billingChanged) {
+        payload.next_payment_date = existing.nextPaymentDate;
+      }
+
       const { data, error } = await dependencies.database
         .from('subscriptions')
-        .update(toDatabasePayload(parsed))
-        .eq('user_id', context.userId)
+        .update(payload)
+        .eq('user_id', identity.userId)
         .eq('id', id)
         .select(SUBSCRIPTION_COLUMNS)
         .single<SubscriptionRow>();
@@ -420,10 +518,11 @@ export const createSubscriptionsApiHandler = (
       })));
     }
 
+    const context = await consume();
     const { data, error } = await dependencies.database
       .from('subscriptions')
       .delete()
-      .eq('user_id', context.userId)
+      .eq('user_id', identity.userId)
       .eq('id', id)
       .select('id')
       .maybeSingle<{ id: string }>();

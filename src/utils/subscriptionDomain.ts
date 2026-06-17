@@ -68,6 +68,8 @@ const validateCustomPeriod = (
 
 export const subscriptionCreateInputSchema = subscriptionInputObject.superRefine(validateCustomPeriod);
 
+export const subscriptionPatchInputSchema = subscriptionInputObject.partial();
+
 export const subscriptionRecordSchema = subscriptionInputObject.extend({
  id: z.string().trim().min(1, 'Subscription id is required'),
  nextPaymentDate: dateOnlySchema,

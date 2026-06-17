@@ -59,7 +59,7 @@
       "operationId": "listSubscriptions",
       "method": "GET",
       "path": "/api/v1/subscriptions",
-      "purpose": "List subscriptions owned by the API key owner so an agent can search, summarize, compare, or identify records before writing.",
+      "purpose": "List subscriptions owned by the API key owner so an agent can search, summarize, compare, or identify records before writing. Results are newest first and paged; the response includes a pagination object with limit, offset, and hasMore.",
       "riskLevel": "low",
       "requiresConfirmation": false,
       "useWhen": [
@@ -77,7 +77,21 @@
       ],
       "parameters": {
         "type": "object",
-        "properties": {},
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Maximum number of subscriptions to return (1-100, default 50)."
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Number of subscriptions to skip from the start. Use offset + limit to fetch the next page while hasMore is true."
+          }
+        },
         "additionalProperties": false
       }
     },
@@ -232,6 +246,8 @@
     "agentBehavior": [
       "If field and suggestedFix are present, revise the payload and retry only when the user's intent is unchanged.",
       "If the failed operation is create, update, or delete, ask for confirmation again before retrying when the effective write changes.",
+      "Validation errors (400) are rejected before the hourly quota is consumed, so fixing the payload and retrying does not cost rate-limit budget.",
+      "On 429, wait the number of seconds in the Retry-After header before retrying.",
       "Use requestId when reporting unresolved API errors."
     ]
   },

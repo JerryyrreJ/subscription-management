@@ -21,7 +21,7 @@ paths:
       tags:
         - Subscriptions
       summary: List subscriptions
-      description: Returns subscriptions owned by the authenticated API key owner.
+      description: Returns subscriptions owned by the authenticated API key owner, newest first. Use the limit and offset query parameters to page through results.
       operationId: listSubscriptions
       x-ai:
         purpose: Find and inspect the authenticated user's subscriptions before planning analysis, update, or delete tasks.
@@ -35,6 +35,24 @@ paths:
         doNotUseWhen: The user provides a specific subscription UUID and wants only that record; use getSubscription instead.
       x-mint:
         href: /api-reference/subscriptions/list
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of subscriptions to return (1-100, default 50).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          description: Number of subscriptions to skip from the start of the list (default 0).
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       responses:
         "200":
           description: Subscriptions returned.
@@ -64,6 +82,10 @@ paths:
                         notificationEnabled: true
                         createdAt: "2026-06-16T00:00:00.000Z"
                         updatedAt: "2026-06-16T00:00:00.000Z"
+                    pagination:
+                      limit: 50
+                      offset: 0
+                      hasMore: false
                     requestId: request-1
         "401":
           $ref: "#/components/responses/Unauthorized"
@@ -217,7 +239,7 @@ paths:
       tags:
         - Subscriptions
       summary: Update a subscription
-      description: Updates a non-empty subset of writable fields. The server validates the merged result and recalculates nextPaymentDate.
+      description: Updates a non-empty subset of writable fields. Only the supplied fields are validated. nextPaymentDate is recalculated only when lastPaymentDate, period, or customDate changes; otherwise the stored value is kept.
       operationId: updateSubscription
       x-ai:
         purpose: Change writable fields on an existing subscription, such as amount, category, period, last payment date, custom interval, or notifications.
@@ -372,16 +394,14 @@ components:
       schema:
         type: integer
         example: 1781690400
+    RetryAfter:
+      description: Seconds to wait before retrying. Sent with 429 responses, including when too many invalid API key attempts are throttled.
+      schema:
+        type: integer
+        example: 2700
   responses:
     BadRequest:
-      description: The request payload or path parameter is invalid.
-      headers:
-        X-RateLimit-Limit:
-          $ref: "#/components/headers/XRateLimitLimit"
-        X-RateLimit-Remaining:
-          $ref: "#/components/headers/XRateLimitRemaining"
-        X-RateLimit-Reset:
-          $ref: "#/components/headers/XRateLimitReset"
+      description: The request payload or path parameter is invalid. Validation failures are rejected before the hourly quota is consumed, so they do not carry rate-limit headers.
       content:
         application/json:
           schema:
@@ -415,6 +435,14 @@ components:
                     - monthly
                     - yearly
                     - custom
+                requestId: request-1
+            invalidPagination:
+              value:
+                error:
+                  code: invalid_pagination
+                  message: limit cannot exceed 100
+                  field: limit
+                  suggestedFix: "Use limit between 1 and 100 and a non-negative offset, for example ?limit=50&offset=0."
                 requestId: request-1
     Unauthorized:
       description: The API key is missing, invalid, or revoked.
@@ -458,6 +486,8 @@ components:
           $ref: "#/components/headers/XRateLimitRemaining"
         X-RateLimit-Reset:
           $ref: "#/components/headers/XRateLimitReset"
+        Retry-After:
+          $ref: "#/components/headers/RetryAfter"
       content:
         application/json:
           schema:
@@ -468,6 +498,12 @@ components:
                 error:
                   code: rate_limit_exceeded
                   message: Rate limit exceeded
+                requestId: request-1
+            tooManyInvalidKeys:
+              value:
+                error:
+                  code: rate_limit_exceeded
+                  message: Too many invalid API key attempts
                 requestId: request-1
     InternalError:
       description: Unexpected server error.
@@ -652,14 +688,37 @@ components:
       type: object
       required:
         - data
+        - pagination
         - requestId
       properties:
         data:
           type: array
           items:
             $ref: "#/components/schemas/Subscription"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
         requestId:
           type: string
+      additionalProperties: false
+    Pagination:
+      type: object
+      required:
+        - limit
+        - offset
+        - hasMore
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Page size that was applied to this response.
+        offset:
+          type: integer
+          minimum: 0
+          description: Number of records skipped before this page.
+        hasMore:
+          type: boolean
+          description: True when at least one more record exists past this page. Fetch the next page with offset + limit.
       additionalProperties: false
     Error:
       type: object

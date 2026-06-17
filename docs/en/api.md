@@ -69,6 +69,15 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   https://your-site.example/api/v1/subscriptions
 ```
 
+The list endpoint is paged. Pass `limit` (1-100, default 50) and `offset`
+(default 0) as query parameters; the response includes a `pagination` object
+with `limit`, `offset`, and `hasMore`.
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  "https://your-site.example/api/v1/subscriptions?limit=50&offset=50"
+```
+
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
@@ -101,3 +110,7 @@ API responses include:
 - `X-RateLimit-Limit`
 - `X-RateLimit-Remaining`
 - `X-RateLimit-Reset`
+
+Validation errors (`400`) are rejected before the quota is consumed, so they
+do not count against your limit. `429` responses include a `Retry-After`
+header with the number of seconds to wait before retrying.

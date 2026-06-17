@@ -30,6 +30,7 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
 | `400` | `invalid_subscription` | 订阅字段未通过校验 |
 | `400` | `invalid_subscription_field` | 请求尝试写入服务端管理字段 |
 | `400` | `invalid_subscription_id` | 订阅 ID 不是合法 UUID |
+| `400` | `invalid_pagination` | `limit` 或 `offset` 查询参数超出范围 |
 | `400` | `empty_patch` | PATCH 请求体没有包含任何可写字段 |
 | `401` | `authentication_required` | 缺少 Bearer token |
 | `401` | `invalid_api_key` | API Key 无效或已撤销 |
@@ -82,6 +83,14 @@ X-RateLimit-Reset
 ```
 
 `X-RateLimit-Reset` 是 Unix 秒级时间戳，表示当前固定窗口何时重置。
+
+校验失败（`400`）会在扣减每小时限额之前被拒绝，因此不计入限额，也不带 rate limit headers。修正请求体后重试是「免费」的。
+
+`429` 响应还会带 `Retry-After` header，表示需要等待多少秒后再重试。它同时适用于「用户请求限额」和「无效 API Key 尝试过多」两种封锁。
+
+```text
+Retry-After: 2700
+```
 
 ## CORS
 
