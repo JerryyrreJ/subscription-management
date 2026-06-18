@@ -23,6 +23,7 @@
     "test:notifications": "tsx scripts/test-scheduled-function-v2.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
     "@netlify/functions": "^5.1.2",
     "@sparticuz/chromium": "^141.0.0",
     "@supabase/supabase-js": "^2.57.4",

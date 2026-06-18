@@ -60,6 +60,9 @@ const AdvancedReport = lazy(() =>
 const AddSubscriptionModal = lazy(() =>
  import('./components/AddSubscriptionModal').then(module => ({ default: module.AddSubscriptionModal }))
 );
+const AiCaptureModal = lazy(() =>
+ import('./components/AiCaptureModal').then(module => ({ default: module.AiCaptureModal }))
+);
 const SubscriptionDetailsModal = lazy(() =>
  import('./components/SubscriptionDetailsModal').then(module => ({ default: module.SubscriptionDetailsModal }))
 );
@@ -132,6 +135,7 @@ export function App() {
  sortOrder: 'asc'
  });
  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+ const [isAiCaptureOpen, setIsAiCaptureOpen] = useState(false);
  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -819,7 +823,13 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  ))}
 
  <button
- onClick={() => setIsAddModalOpen(true)}
+ onClick={() => {
+ if (user && session?.access_token && config.hasSupabaseConfig) {
+ setIsAiCaptureOpen(true);
+ } else {
+ setIsAddModalOpen(true);
+ }
+ }}
  className="group h-[200px] sm:h-[250px] bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey p-4 sm:p-6 flex flex-col items-center justify-center gap-3 sm:gap-4 transition-all duration-300 hover:scale-105 hover:shadow-apple-lg app-dark-card"
  >
  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#f4f5f7] dark:bg-[#202225] flex items-center justify-center group-hover:bg-emerald-50 dark:group-hover:bg-emerald-500/10 transition-colors app-dark-icon-shell">
@@ -854,6 +864,26 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
    createCategory
   }}
   isNotificationReady={notificationReady}
+  />
+ </Suspense>
+ )}
+
+ {isAiCaptureOpen && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('aiCapture:title')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={() => setIsAiCaptureOpen(false)}
+  />
+ )}
+ >
+  <AiCaptureModal
+  isOpen={isAiCaptureOpen}
+  onClose={() => setIsAiCaptureOpen(false)}
+  accessToken={session?.access_token ?? ''}
+  onCommit={createSubscription}
+  onManualFallback={() => { setIsAiCaptureOpen(false); setIsAddModalOpen(true); }}
   />
  </Suspense>
  )}

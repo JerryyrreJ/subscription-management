@@ -8,6 +8,7 @@ import { dashboard as enDashboard } from './locales/en/dashboard';
 import { developerApi as enDeveloperApi } from './locales/en/developerApi';
 import { editSubscription as enEditSubscription } from './locales/en/editSubscription';
 import { addSubscription as enAddSubscription } from './locales/en/addSubscription';
+import { aiCapture as enAiCapture } from './locales/en/aiCapture';
 import { accountModals as enAccountModals } from './locales/en/accountModals';
 import { importData as enImportData } from './locales/en/importData';
 import { notificationSettings as enNotificationSettings } from './locales/en/notificationSettings';
@@ -29,6 +30,7 @@ import { dashboard as zhDashboard } from './locales/zh-CN/dashboard';
 import { developerApi as zhDeveloperApi } from './locales/zh-CN/developerApi';
 import { editSubscription as zhEditSubscription } from './locales/zh-CN/editSubscription';
 import { addSubscription as zhAddSubscription } from './locales/zh-CN/addSubscription';
+import { aiCapture as zhAiCapture } from './locales/zh-CN/aiCapture';
 import { accountModals as zhAccountModals } from './locales/zh-CN/accountModals';
 import { importData as zhImportData } from './locales/zh-CN/importData';
 import { notificationSettings as zhNotificationSettings } from './locales/zh-CN/notificationSettings';
@@ -45,6 +47,7 @@ export const resources = {
  en: {
   accountModals: enAccountModals,
   addSubscription: enAddSubscription,
+  aiCapture: enAiCapture,
   analytics: enAnalytics,
   categoryLabels: enCategoryLabels,
   common: enCommon,
@@ -68,6 +71,7 @@ export const resources = {
  'zh-CN': {
   accountModals: zhAccountModals,
   addSubscription: zhAddSubscription,
+  aiCapture: zhAiCapture,
   analytics: zhAnalytics,
   categoryLabels: zhCategoryLabels,
   common: zhCommon,

@@ -85,8 +85,17 @@ The core app runs without environment variables. Optional services use the follo
 | Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Authentication, cloud sync, scheduled notification access |
 | Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` | Payment UI, checkout, and webhook handling |
 | Public API | `API_FREE_RATE_LIMIT_PER_HOUR`, `API_PREMIUM_RATE_LIMIT_PER_HOUR`, `API_FREE_ACTIVE_KEYS`, `API_PREMIUM_ACTIVE_KEYS`, `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR`, `API_RATE_LIMIT_RETENTION_HOURS` | Optional API quota overrides |
+| AI capture | `ANTHROPIC_API_KEY`, `AI_MODEL`, `AI_FREE_DAILY_PARSES`, `AI_PREMIUM_DAILY_PARSES`, `AI_MAX_INPUT_CHARS`, `AI_MAX_IMAGE_BYTES`, `AI_MONTHLY_BUDGET_USD` | Optional AI-assisted capture; leave the key unset to disable |
 | Bark | Configured in the app | Push reminders for upcoming renewals |
 | Netlify | `URL` is provided by Netlify | Function callbacks and scheduled reminders |
+
+## AI capture & privacy
+
+Adding a subscription can start from a sentence, a pasted bank/credit-card statement, or a screenshot. The **Add with AI** flow asks the model to extract subscriptions, then you confirm or edit each draft before anything is saved — the AI only proposes, it never writes to your data directly.
+
+- **Optional & swappable.** Set `ANTHROPIC_API_KEY` to enable it; leave it unset and the app falls back to the manual form. The model and every guardrail are env-configurable (`AI_MODEL`, quotas, input caps, monthly budget — see `.env.example`), and the model call sits behind a small `SubscriptionParser` interface, so switching models or providers — or self-hosting with your own key — is a config/implementation change, not a rewrite.
+- **Volume & cost control.** Each user has a daily parse quota (free vs premium), every request caps the input size, and a workspace-wide monthly budget breaker pauses the feature once the configured spend ceiling is reached. The key stays server-side only.
+- **Privacy.** What you paste or upload is sent once to the model provider for that single extraction. It is **not stored and not logged** — the server keeps only aggregate token counts (for the budget breaker) and a per-user daily counter, never the content. Screenshots are downscaled in the browser before upload.
 
 ## Documentation
 

@@ -154,3 +154,52 @@ export const getApiLimitsConfig = (
     48
   ),
 });
+
+const optionalPositiveNumber = (
+  name: string,
+  value: string | undefined,
+  fallback: number
+): number => {
+  const normalized = optionalValue(value);
+  if (!normalized) {
+    return fallback;
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Invalid positive number server environment variable: ${name}`);
+  }
+
+  return parsed;
+};
+
+// AI capture configuration. Everything is env-driven so the model/provider, the
+// quota ceilings, the input caps, and the budget breaker can be retuned — or the
+// feature self-hosted with a different key/model — without code changes. apiKey
+// is optional: when absent the feature reports itself unavailable and the UI
+// falls back to the manual form.
+export interface AiConfig {
+  provider: string;
+  apiKey: string | null;
+  model: string;
+  freeDailyParses: number;
+  premiumDailyParses: number;
+  maxInputChars: number;
+  maxImageBytes: number;
+  monthlyBudgetUsd: number;
+  inputUsdPerMillion: number;
+  outputUsdPerMillion: number;
+}
+
+export const getAiConfig = (env: Environment = process.env): AiConfig => ({
+  provider: optionalValue(env.AI_PROVIDER) ?? 'anthropic',
+  apiKey: optionalValue(env.ANTHROPIC_API_KEY) ?? null,
+  model: optionalValue(env.AI_MODEL) ?? 'claude-haiku-4-5',
+  freeDailyParses: optionalPositiveInteger('AI_FREE_DAILY_PARSES', env.AI_FREE_DAILY_PARSES, 20),
+  premiumDailyParses: optionalPositiveInteger('AI_PREMIUM_DAILY_PARSES', env.AI_PREMIUM_DAILY_PARSES, 200),
+  maxInputChars: optionalPositiveInteger('AI_MAX_INPUT_CHARS', env.AI_MAX_INPUT_CHARS, 20000),
+  maxImageBytes: optionalPositiveInteger('AI_MAX_IMAGE_BYTES', env.AI_MAX_IMAGE_BYTES, 4 * 1024 * 1024),
+  monthlyBudgetUsd: optionalPositiveNumber('AI_MONTHLY_BUDGET_USD', env.AI_MONTHLY_BUDGET_USD, 50),
+  inputUsdPerMillion: optionalPositiveNumber('AI_INPUT_USD_PER_MTOK', env.AI_INPUT_USD_PER_MTOK, 1),
+  outputUsdPerMillion: optionalPositiveNumber('AI_OUTPUT_USD_PER_MTOK', env.AI_OUTPUT_USD_PER_MTOK, 5),
+});
