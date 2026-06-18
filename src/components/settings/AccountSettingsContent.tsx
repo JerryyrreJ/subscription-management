@@ -17,7 +17,7 @@ export function AccountSettingsContent({
   onUpdateEmail,
   onUpdatePassword
 }: AccountSettingsContentProps) {
-  const { t } = useTranslation(['accountModals', 'app']);
+  const { t } = useTranslation(['accountModals', 'settingsHub']);
   
   const [nickname, setNickname] = useState(userNickname || '');
   const [email, setEmail] = useState('');
@@ -60,7 +60,7 @@ export function AccountSettingsContent({
       setSuccessState({ type: 'nickname', success: true });
       setTimeout(() => setSuccessState({ type: '', success: false }), 2000);
     } catch (error) {
-      setErrorState({ type: 'nickname', error: error instanceof Error ? error.message : t('accountModals:updateFailed') });
+      setErrorState({ type: 'nickname', error: error instanceof Error ? error.message : t('accountModals:nicknameUpdateFailed') });
     } finally {
       setLoadingState({ type: '', loading: false });
     }
@@ -122,10 +122,10 @@ export function AccountSettingsContent({
     <div className="space-y-8 max-w-2xl">
       <div>
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-          {t('accountModals:accountSettingsTitle', 'Account Profile')}
+          {t('settingsHub:accountTitle')}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {t('accountModals:accountSettingsSubtitle', 'Manage your personal information and security.')}
+          {t('settingsHub:accountSubtitle')}
         </p>
       </div>
 
@@ -136,19 +136,19 @@ export function AccountSettingsContent({
             <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
               <User className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('accountModals:editNicknameTitle', 'Profile Name')}</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('accountModals:editNicknameTitle')}</h3>
           </div>
           
           <form onSubmit={handleUpdateNickname} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t('accountModals:displayNameLabel', 'Display Name')}
+                {t('accountModals:displayNameLabel')}
               </label>
               <input
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
-                placeholder={t('accountModals:displayNamePlaceholder', 'Enter your name')}
+                placeholder={t('accountModals:displayNamePlaceholder')}
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
               />
               <p className="text-xs text-gray-500 mt-2">{t('accountModals:displayNameHint')}</p>
@@ -162,7 +162,7 @@ export function AccountSettingsContent({
                 disabled={loadingState.loading || !nickname.trim() || nickname === userNickname}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-medium transition-colors flex items-center gap-2"
               >
-                {successState.type === 'nickname' ? <><Check className="w-4 h-4"/> {t('app:saved', 'Saved')}</> : t('app:save', 'Save Changes')}
+                {successState.type === 'nickname' ? <><Check className="w-4 h-4"/> {t('settingsHub:saved')}</> : t('settingsHub:saveChanges')}
               </button>
             </div>
           </form>
@@ -174,14 +174,14 @@ export function AccountSettingsContent({
             <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
               <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('accountModals:updateEmailTitle', 'Email Address')}</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('accountModals:updateEmailTitle')}</h3>
           </div>
           
           <form onSubmit={handleUpdateEmail} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('accountModals:currentEmailLabel', 'Current Email')}
+                  {t('accountModals:currentEmailLabel')}
                 </label>
                 <input
                   type="email"
@@ -192,13 +192,13 @@ export function AccountSettingsContent({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('accountModals:newEmailLabel', 'New Email')}
+                  {t('accountModals:newEmailLabel')}
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={t('accountModals:newEmailPlaceholder', 'Enter new email')}
+                  placeholder={t('accountModals:newEmailPlaceholder')}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
@@ -207,7 +207,7 @@ export function AccountSettingsContent({
               <p className="text-sm text-red-500 flex items-center gap-1"><AlertCircle className="w-4 h-4"/> {errorState.error}</p>
             )}
             {successState.type === 'email' && (
-              <p className="text-sm text-emerald-600 flex items-center gap-1"><Check className="w-4 h-4"/> {t('accountModals:emailUpdateInitiated', 'Check your email to verify the change.')}</p>
+              <p className="text-sm text-emerald-600 flex items-center gap-1"><Check className="w-4 h-4"/> {t('accountModals:emailUpdateInitiatedBody')}</p>
             )}
             <div className="flex justify-end">
               <button
@@ -215,7 +215,7 @@ export function AccountSettingsContent({
                 disabled={loadingState.loading || !email.trim() || email === userEmail}
                 className="px-5 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-50 rounded-xl font-medium transition-colors"
               >
-                {t('accountModals:updateEmail', 'Update Email')}
+                {t('accountModals:updateEmail')}
               </button>
             </div>
           </form>
@@ -227,13 +227,13 @@ export function AccountSettingsContent({
             <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center">
               <Lock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('accountModals:updatePasswordTitle', 'Change Password')}</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('accountModals:updatePasswordTitle')}</h3>
           </div>
           
           <form onSubmit={handleUpdatePassword} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {t('accountModals:newPasswordLabel', 'New Password')}
+                {t('accountModals:newPasswordLabel')}
               </label>
               <input
                 type="password"
@@ -291,7 +291,7 @@ export function AccountSettingsContent({
                 disabled={loadingState.loading || !password || !confirmPassword || Boolean(passwordValidation) || !passwordsMatch}
                 className="px-5 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-50 rounded-xl font-medium transition-colors flex items-center gap-2"
               >
-                {successState.type === 'password' ? <><Check className="w-4 h-4"/> {t('app:saved', 'Updated')}</> : t('accountModals:updatePassword', 'Update Password')}
+                {successState.type === 'password' ? <><Check className="w-4 h-4"/> {t('settingsHub:updated')}</> : t('accountModals:updatePassword')}
               </button>
             </div>
           </form>

@@ -6,6 +6,7 @@ import {
  ExchangeRates,
 } from '../types';
 import { getCurrentLocale, getIntlLocale } from './locale';
+import { TFunction } from 'i18next';
 
 export const CURRENCIES: CurrencyInfo[] = [
  { code: 'CNY', symbol: '¥', name: '人民币' },
@@ -24,6 +25,14 @@ export const DEFAULT_CURRENCY: Currency = 'CNY';
 
 export const getCurrencyInfo = (code: Currency): CurrencyInfo => {
  return CURRENCIES.find(currency => currency.code === code) || CURRENCIES[0];
+};
+
+export const formatCurrencyOptionLabel = (
+ code: Currency,
+ t: TFunction
+): string => {
+ const currencyInfo = getCurrencyInfo(code);
+ return `${t(`currency:${code}`)} ${code} (${currencyInfo.symbol})`;
 };
 
 const currencyFormatterCache = new Map<string, Intl.NumberFormat>();

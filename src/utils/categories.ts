@@ -1,4 +1,5 @@
 import { DataScope, GUEST_DATA_SCOPE, getActiveDataScope, resolveScopedStorageKey } from './dataScope'
+import type { TFunction } from 'i18next'
 
 /**
  * 订阅类型管理工具函数
@@ -28,6 +29,20 @@ export const DEFAULT_CATEGORIES: Category[] = [
 
 // 兜底类型（不可删除）
 export const FALLBACK_CATEGORY = 'Uncategorized'
+
+const BUILT_IN_CATEGORY_LABEL_KEYS: Record<string, string> = {
+ Entertainment: 'Entertainment',
+ Software: 'Software',
+ Music: 'Music',
+ Productivity: 'Productivity',
+ Other: 'Other',
+ Uncategorized: 'Uncategorized'
+}
+
+export function getCategoryDisplayName(categoryName: string, t: TFunction): string {
+ const labelKey = BUILT_IN_CATEGORY_LABEL_KEYS[categoryName]
+ return labelKey ? t(`categoryLabels:${labelKey}`) : categoryName
+}
 
 /**
  * 从 localStorage 加载所有类型数据

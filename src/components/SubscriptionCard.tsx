@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Subscription } from '../types';
 import { formatDate, parseDateOnly, getTodayDateOnly } from '../utils/dates';
 import { formatCurrency } from '../utils/currency';
+import { getCategoryDisplayName } from '../utils/categories';
 import { resolveSubscriptionRenewal } from '../utils/subscriptionRenewal';
 
 interface SubscriptionCardProps {
@@ -14,7 +15,7 @@ interface SubscriptionCardProps {
 }
 
 export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: SubscriptionCardProps) {
- const { t } = useTranslation(['subscriptionCard', 'addSubscription']);
+ const { t } = useTranslation(['subscriptionCard', 'addSubscription', 'categoryLabels']);
 
  // 检查是否需要自动续期
  const renewal = resolveSubscriptionRenewal(subscription);
@@ -76,7 +77,7 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  <div className="flex justify-between items-start mb-3 sm:mb-4">
  <div className="flex-1 min-w-0 pr-2">
  <h3 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-white truncate app-dark-text-primary">{subscription.name}</h3>
- <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 app-dark-text-muted">{subscription.category}</span>
+ <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 app-dark-text-muted">{getCategoryDisplayName(subscription.category, t)}</span>
  </div>
  <div className="text-right flex-shrink-0">
  <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight app-dark-text-primary">

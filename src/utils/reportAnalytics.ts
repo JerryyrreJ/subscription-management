@@ -1,6 +1,7 @@
 import { Subscription, Currency, ExchangeRates } from '../types';
 import type { TFunction } from 'i18next';
 import { convertCurrency } from './currency';
+import { getCategoryDisplayName } from './categories';
 import { formatMonthYear, getDateOnlyDay, parseDateOnly } from './dates';
 import { resolveSubscriptionRenewal } from './subscriptionRenewal';
 
@@ -82,7 +83,7 @@ const getCountKey = (count: number, singularKey: string, pluralKey: string) => {
 
 const getCategoryLabel = (category: string | undefined, t: TFunction) => {
  const trimmedCategory = category?.trim();
- return trimmedCategory || t('analytics:uncategorized');
+ return getCategoryDisplayName(trimmedCategory || 'Uncategorized', t);
 };
 
 const getBillingCycleLabel = (
@@ -416,6 +417,7 @@ export const generateOptimizationSuggestions = (
 
  categoryMap.forEach((subs, category) => {
  if (subs.length >= 3 && category !== UNCATEGORIZED_KEY) {
+ const displayCategory = getCategoryLabel(category, t);
  const totalCost = subs.reduce((sum, sub) => {
  return sum + convertCurrency(
  calculateMonthlyCost(sub),
@@ -426,16 +428,16 @@ export const generateOptimizationSuggestions = (
  );
  }, 0);
 
- suggestions.push({
+suggestions.push({
  type: 'multiple_in_category',
- title: t('analytics:suggestionCategoryTitle', { category }),
+ title: t('analytics:suggestionCategoryTitle', { category: displayCategory }),
  description: t(
   getCountKey(
    subs.length,
    'analytics:suggestionCategoryDescriptionOne',
    'analytics:suggestionCategoryDescriptionOther'
   ),
-  { count: subs.length, category }
+  { count: subs.length, category: displayCategory }
  ),
  potentialSaving: totalCost * 0.3, // Assume 30% potential savings
  subscriptions: subs.map(s => s.name),

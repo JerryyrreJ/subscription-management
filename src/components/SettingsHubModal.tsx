@@ -69,7 +69,7 @@ export function SettingsHubModal({
   notificationSettings,
   onSaveNotificationSettings
 }: SettingsHubModalProps) {
-  const { t } = useTranslation(['app', 'userMenu', 'categorySettings', 'notificationSettings', 'developerApi']);
+  const { t } = useTranslation(['settingsHub']);
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
 
   useEffect(() => {
@@ -81,11 +81,11 @@ export function SettingsHubModal({
   if (!isOpen) return null;
 
   const tabs = [
-    { id: 'general', label: t('app:generalSettings', 'General'), icon: Settings, requiresAuth: false },
-    { id: 'account', label: t('userMenu:accountSettings', 'Account'), icon: User, requiresAuth: true },
-    { id: 'categories', label: t('categorySettings:title', 'Categories'), icon: Folder, requiresAuth: false },
-    { id: 'notifications', label: t('notificationSettings:title', 'Notifications'), icon: Bell, requiresAuth: false },
-    { id: 'api', label: t('developerApi:title', 'Developer API'), icon: Code2, requiresAuth: true },
+    { id: 'general', label: t('settingsHub:tabs.general'), icon: Settings, requiresAuth: false },
+    { id: 'account', label: t('settingsHub:tabs.account'), icon: User, requiresAuth: true },
+    { id: 'categories', label: t('settingsHub:tabs.categories'), icon: Folder, requiresAuth: false },
+    { id: 'notifications', label: t('settingsHub:tabs.notifications'), icon: Bell, requiresAuth: false },
+    { id: 'api', label: t('settingsHub:tabs.api'), icon: Code2, requiresAuth: true },
   ] as const;
 
   const visibleTabs = tabs.filter(tab => !tab.requiresAuth || user);
@@ -104,7 +104,7 @@ export function SettingsHubModal({
         <div className="w-full sm:w-72 flex-shrink-0 bg-gray-50/50 dark:bg-white/[0.02] border-b sm:border-b sm:border-b-transparent sm:border-r border-gray-200/50 dark:border-white/10 flex flex-col">
           <div className="p-4 sm:p-6 pb-2 sm:pb-4">
             <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
-              {t('app:settings', 'Settings')}
+              {t('settingsHub:title')}
             </h2>
           </div>
           <div className="flex sm:block sm:flex-1 overflow-x-auto sm:overflow-y-auto px-3 pb-3 sm:pb-0 gap-2 sm:space-y-1">
@@ -136,7 +136,7 @@ export function SettingsHubModal({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {userProfile?.nickname || t('userMenu:user', 'User')}
+                  {userProfile?.nickname || t('settingsHub:profileFallback')}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {user.email}
@@ -151,7 +151,7 @@ export function SettingsHubModal({
           <div className="flex justify-end p-3 sm:p-6 pb-0">
             <button
               onClick={onClose}
-              aria-label={t('app:close', 'Close')}
+              aria-label={t('settingsHub:close')}
               className="p-2 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
             >
               <X className="w-5 h-5" />

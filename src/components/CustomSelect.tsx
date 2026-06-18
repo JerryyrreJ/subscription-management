@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Option {
  value: string;
@@ -20,13 +21,15 @@ export function CustomSelect({
  value,
  onChange,
  options,
- placeholder = 'Select an option',
+ placeholder,
  className = '',
  required = false,
  disabled = false
 }: CustomSelectProps) {
+ const { t } = useTranslation(['common']);
  const [isOpen, setIsOpen] = useState(false);
  const selectRef = useRef<HTMLDivElement>(null);
+ const resolvedPlaceholder = placeholder ?? t('common:selectOption');
 
  // 获取当前选中的选项
  const selectedOption = options.find(option => option.value === value);
@@ -91,7 +94,7 @@ export function CustomSelect({
  tabIndex={-1}
  aria-hidden="true"
  >
- {!value && <option value="">Select</option>}
+ {!value && <option value="">{t('common:select')}</option>}
  {options.map(option => (
  <option key={option.value} value={option.value}>
  {option.label}
@@ -118,14 +121,14 @@ export function CustomSelect({
  `}
  aria-haspopup="listbox"
  aria-expanded={isOpen}
- aria-label={selectedOption ? selectedOption.label : placeholder}
+ aria-label={selectedOption ? selectedOption.label : resolvedPlaceholder}
  >
  <span
  className={`min-w-0 flex-1 truncate whitespace-nowrap pr-3 ${
  selectedOption ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
  }`}
  >
- {selectedOption ? selectedOption.label : placeholder}
+ {selectedOption ? selectedOption.label : resolvedPlaceholder}
  </span>
  <ChevronDown
  className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${

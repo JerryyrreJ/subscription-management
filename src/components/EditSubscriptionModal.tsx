@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Period, Subscription, Currency, CloudMutationResult } from '../types';
-import { CURRENCIES } from '../utils/currency';
-import { getAllCategories, getAllCategoriesWithDetails, addCustomCategory } from '../utils/categories';
+import { CURRENCIES, formatCurrencyOptionLabel } from '../utils/currency';
+import { getAllCategories, getAllCategoriesWithDetails, addCustomCategory, getCategoryDisplayName } from '../utils/categories';
 import { MAX_SUBSCRIPTION_AMOUNT, validateSubscriptionAmount } from '../utils/subscriptionValidation';
 import { CustomSelect } from './CustomSelect';
 import { CustomDatePicker } from './CustomDatePicker';
@@ -31,7 +31,7 @@ export function EditSubscriptionModal({
  categorySync,
  isBarkEnabled
 }: EditSubscriptionModalProps) {
- const { t } = useTranslation(['editSubscription', 'app']);
+ const { t } = useTranslation(['editSubscription', 'app', 'currency', 'categoryLabels']);
  const [formData, setFormData] = useState({
  name: subscription.name,
  category: subscription.category,
@@ -252,7 +252,7 @@ export function EditSubscriptionModal({
  value={formData.category}
  onChange={handleCategoryChange}
  options={[
- ...categories.map(cat => ({ value: cat, label: cat })),
+ ...categories.map(cat => ({ value: cat, label: getCategoryDisplayName(cat, t) })),
  { value: '__add_new__', label: t('editSubscription:addNewCategory') }
  ]}
  required={true}
@@ -268,10 +268,10 @@ export function EditSubscriptionModal({
  <CustomSelect
  value={formData.currency}
  onChange={(value) => setFormData({ ...formData, currency: value as Currency })}
- options={CURRENCIES.map(currency => ({
+options={CURRENCIES.map(currency => ({
  value: currency.code,
- label: currency.code
- }))}
+ label: formatCurrencyOptionLabel(currency.code, t)
+}))}
  required={true}
  />
  </div>

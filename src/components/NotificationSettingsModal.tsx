@@ -25,7 +25,7 @@ export function NotificationSettingsModal({
  onOpenAuth,
  isStandalone = true
 }: NotificationSettingsModalProps) {
- const { t } = useTranslation(['notificationSettings']);
+  const { t } = useTranslation(['notificationSettings', 'settingsHub']);
  const { language } = useAppLanguage();
  const { user } = useAuth();
  const requiresLogin = !user;
@@ -160,7 +160,7 @@ export function NotificationSettingsModal({
         {t('notificationSettings:title')}
       </h2>
       <p className="text-sm text-gray-500 dark:text-gray-400">
-        {t('notificationSettings:barkSectionDescription', 'Manage Bark push notifications.')}
+        {t('settingsHub:notificationSubtitle')}
       </p>
     </div>
   )}

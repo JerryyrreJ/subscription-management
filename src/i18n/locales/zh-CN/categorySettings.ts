@@ -26,7 +26,7 @@ export const categorySettings = {
  deleteDialogUsedByOne: '当前有 {{count}} 个订阅正在使用这个分类：',
  deleteDialogUsedByOther: '当前有 {{count}} 个订阅正在使用这个分类：',
  deleteDialogMoveTo: '将这些订阅移动到：',
- deleteDialogDefaultTarget: '未分类（默认）',
+ deleteDialogDefaultTarget: '{{category}}（默认）',
  deleteDialogMoveHint: '如果不选择，受影响的订阅会被移动到“未分类”。',
  deleteDialogSafeMessage: '当前没有订阅使用这个分类，可以安全地{{action}}。',
  deleteDialogSafeActionHide: '隐藏',

@@ -9,17 +9,17 @@ interface GeneralSettingsContentProps {
 }
 
 export function GeneralSettingsContent({ onExportData, onImportData }: GeneralSettingsContentProps) {
-  const { t } = useTranslation(['userMenu', 'app']);
+  const { t } = useTranslation(['userMenu', 'settingsHub']);
   const { language, setLanguage } = useAppLanguage();
 
   return (
     <div className="space-y-8 max-w-2xl">
       <div>
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-          {t('app:generalSettings', 'General Settings')}
+          {t('settingsHub:generalTitle')}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {t('app:generalSettingsSubtitle', 'Manage language preferences and local data.')}
+          {t('settingsHub:generalSubtitle')}
         </p>
       </div>
 
@@ -31,8 +31,8 @@ export function GeneralSettingsContent({ onExportData, onImportData }: GeneralSe
               <Globe className="w-5 h-5 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('userMenu:languageSectionTitle', 'Language')}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Choose your preferred display language.</p>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('settingsHub:languageTitle')}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('settingsHub:languageDescription')}</p>
             </div>
           </div>
           
@@ -64,8 +64,8 @@ export function GeneralSettingsContent({ onExportData, onImportData }: GeneralSe
               <Download className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('app:dataManagement', 'Data Management')}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Export or import your local data backups.</p>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('settingsHub:dataManagementTitle')}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('settingsHub:dataManagementDescription')}</p>
             </div>
           </div>
           

@@ -32,6 +32,7 @@ import {
  buildCategoryImportPlan,
  buildSubscriptionImportPlan,
  exportData,
+ ImportDataError,
  validateImportData,
  ExportData
 } from './utils/exportImport';
@@ -111,7 +112,7 @@ function LazyModalFallback({
 }
 
 export function App() {
- const { t, i18n } = useTranslation(['app']);
+ const { t, i18n } = useTranslation(['app', 'importData', 'settingsHub', 'userMenu']);
  const {
  user,
  userProfile,
@@ -599,13 +600,21 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  exportData();
  } catch (error) {
  console.error('Failed to export data:', error);
- alert('Failed to export data. Please try again.');
+ alert(t('importData:exportFailed'));
  }
  };
 
  // 导入数据 - 打开文件选择器
  const handleImportData = () => {
  fileInputRef.current?.click();
+ };
+
+ const getImportDataErrorMessage = (error: unknown): string => {
+ if (error instanceof ImportDataError) {
+  return t(`importData:errors.${error.code}`, error.params);
+ }
+
+ return t('importData:errors.invalidFile');
  };
 
  const handleSaveNotificationSettings = async (newSettings: ReminderSettings) => {
@@ -643,7 +652,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setIsImportModalOpen(true);
  } catch (error) {
  console.error('Failed to validate import file:', error);
- alert(error instanceof Error ? error.message : 'Invalid import file');
+ alert(getImportDataErrorMessage(error));
  }
 
  // 重置文件输入，允许重复选择同一文件
@@ -702,10 +711,10 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  // 重置筛选状态
  setSelectedCategory(null);
 
- alert('Data imported successfully!');
+ alert(t('importData:importSuccess'));
  } catch (error) {
  console.error('Failed to import data:', error);
- alert(error instanceof Error ? error.message : 'Failed to import data');
+ alert(t('importData:importFailed'));
  }
  };
 
@@ -913,7 +922,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  <Suspense
  fallback={(
   <LazyModalFallback
-   title={t('app:settings')}
+   title={t('settingsHub:title')}
    description={t('app:loadingNotificationSettingsDescription')}
    onClose={() => setIsSettingsHubOpen(false)}
   />

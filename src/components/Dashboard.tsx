@@ -14,10 +14,11 @@ import {
 import {
  convertCurrencySafe,
  formatCurrency,
- CURRENCIES
+ CURRENCIES,
+ formatCurrencyOptionLabel
 } from '../utils/currency';
 import { CustomSelect } from './CustomSelect';
-import { getVisibleCategories } from '../utils/categories';
+import { getCategoryDisplayName, getVisibleCategories } from '../utils/categories';
 
 interface DashboardProps {
  subscriptions: Subscription[];
@@ -54,16 +55,16 @@ export function Dashboard({
  exchangeRatesStale,
  exchangeRateError,
 }: DashboardProps) {
- const { t } = useTranslation(['dashboard']);
+ const { t } = useTranslation(['dashboard', 'currency', 'categoryLabels']);
  const displayCurrency = baseCurrency;
 
  // 类型筛选选项
  const categoryOptions = [
  { value: 'all', label: t('dashboard:allCategories') },
- ...getVisibleCategories().map(cat => ({
+...getVisibleCategories().map(cat => ({
  value: cat.name,
- label: cat.name
- }))
+ label: getCategoryDisplayName(cat.name, t)
+}))
  ];
 
  const handleCategoryChange = (value: string) => {
@@ -206,10 +207,10 @@ export function Dashboard({
  <CustomSelect
  value={baseCurrency}
  onChange={(value) => onBaseCurrencyChange(value as Currency)}
- options={CURRENCIES.map(currency => ({
+options={CURRENCIES.map(currency => ({
  value: currency.code,
- label: `${currency.code} (${currency.symbol})`
- }))}
+ label: formatCurrencyOptionLabel(currency.code, t)
+}))}
  className="dashboard-select-glass"
  />
  </div>
@@ -265,10 +266,10 @@ viewMode === 'yearly'
  <CustomSelect
  value={baseCurrency}
  onChange={(value) => onBaseCurrencyChange(value as Currency)}
- options={CURRENCIES.map(currency => ({
+options={CURRENCIES.map(currency => ({
  value: currency.code,
- label: `${currency.code} (${currency.symbol})`
- }))}
+ label: formatCurrencyOptionLabel(currency.code, t)
+}))}
  className="dashboard-select-glass"
  />
  </div>

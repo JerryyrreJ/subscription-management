@@ -24,6 +24,38 @@ export interface ImportPlan<T> {
  deleteIds: string[];
 }
 
+export type ImportDataErrorCode =
+ | 'invalidFile'
+ | 'parseFailed'
+ | 'readFailed'
+ | 'subscriptionsRequired'
+ | 'categoriesMustBeArray'
+ | 'subscriptionIdRequired'
+ | 'duplicateSubscriptionId'
+ | 'subscriptionNameRequired'
+ | 'subscriptionCategoryRequired'
+ | 'subscriptionAmountInvalid'
+ | 'subscriptionPeriodInvalid'
+ | 'subscriptionLastPaymentRequired'
+ | 'subscriptionNextPaymentRequired'
+ | 'subscriptionCurrencyInvalid'
+ | 'subscriptionValidationFailed'
+ | 'categoryIdRequired'
+ | 'duplicateCategoryId'
+ | 'categoryNameRequired';
+
+export class ImportDataError extends Error {
+ code: ImportDataErrorCode;
+ params: Record<string, string | number>;
+
+ constructor(code: ImportDataErrorCode, params: Record<string, string | number> = {}) {
+  super(code);
+  this.name = 'ImportDataError';
+  this.code = code;
+  this.params = params;
+ }
+}
+
 const SUBSCRIPTION_PERIODS = new Set(['monthly', 'yearly', 'custom']);
 const SUBSCRIPTION_CURRENCIES = new Set(['CNY', 'USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CAD', 'CHF', 'HKD', 'SGD']);
 
@@ -31,7 +63,7 @@ const parseImportPayload = (content: string): ExportData => {
  const data = JSON.parse(content) as ExportData;
 
  if (!data.subscriptions || !Array.isArray(data.subscriptions)) {
-  throw new Error('Invalid data format: subscriptions array is required');
+  throw new ImportDataError('subscriptionsRequired');
  }
 
  const seenSubscriptionIds = new Set<string>();
@@ -40,7 +72,7 @@ const parseImportPayload = (content: string): ExportData => {
  let categories: Category[] | undefined;
  if (data.categories !== undefined) {
   if (!Array.isArray(data.categories)) {
-  throw new Error('Invalid data format: categories must be an array');
+  throw new ImportDataError('categoriesMustBeArray');
   }
 
   const seenCategoryIds = new Set<string>();
@@ -60,46 +92,49 @@ const normalizeImportSubscription = (
  seenIds: Set<string>
 ): Subscription => {
  if (!sub.id || typeof sub.id !== 'string') {
-  throw new Error(`Invalid subscription data at index ${index}: id is required`);
+  throw new ImportDataError('subscriptionIdRequired', { index });
  }
 
  if (seenIds.has(sub.id)) {
-  throw new Error(`Invalid subscription data: duplicate id "${sub.id}"`);
+  throw new ImportDataError('duplicateSubscriptionId', { id: sub.id });
  }
  seenIds.add(sub.id);
 
  if (!sub.name || typeof sub.name !== 'string') {
-  throw new Error(`Invalid subscription data at index ${index}: name is required`);
+  throw new ImportDataError('subscriptionNameRequired', { index });
  }
 
  if (!sub.category || typeof sub.category !== 'string') {
-  throw new Error(`Invalid subscription data at index ${index}: category is required`);
+  throw new ImportDataError('subscriptionCategoryRequired', { index });
  }
 
  if (typeof sub.amount !== 'number' || Number.isNaN(sub.amount)) {
-  throw new Error(`Invalid subscription data at index ${index}: amount must be a number`);
+  throw new ImportDataError('subscriptionAmountInvalid', { index });
  }
 
  if (!sub.period || typeof sub.period !== 'string' || !SUBSCRIPTION_PERIODS.has(sub.period)) {
-  throw new Error(`Invalid subscription data at index ${index}: period is invalid`);
+  throw new ImportDataError('subscriptionPeriodInvalid', { index });
  }
 
  if (!sub.lastPaymentDate || typeof sub.lastPaymentDate !== 'string') {
-  throw new Error(`Invalid subscription data at index ${index}: lastPaymentDate is required`);
+  throw new ImportDataError('subscriptionLastPaymentRequired', { index });
  }
 
  if (!sub.nextPaymentDate || typeof sub.nextPaymentDate !== 'string') {
-  throw new Error(`Invalid subscription data at index ${index}: nextPaymentDate is required`);
+  throw new ImportDataError('subscriptionNextPaymentRequired', { index });
  }
 
  if (sub.currency && !SUBSCRIPTION_CURRENCIES.has(sub.currency)) {
-  throw new Error(`Invalid subscription data at index ${index}: currency is invalid`);
+  throw new ImportDataError('subscriptionCurrencyInvalid', { index });
  }
 
  try {
-  return normalizeSubscriptionRecord(sub);
+ return normalizeSubscriptionRecord(sub);
  } catch (error) {
-  throw new Error(`Invalid subscription data at index ${index}: ${error instanceof Error ? error.message : 'validation failed'}`);
+  throw new ImportDataError('subscriptionValidationFailed', {
+   index,
+   message: error instanceof Error ? error.message : 'validation failed'
+  });
  }
 };
 
@@ -109,16 +144,16 @@ const normalizeImportCategory = (
  seenIds: Set<string>
 ): Category => {
  if (!category.id || typeof category.id !== 'string') {
-  throw new Error(`Invalid category data at index ${index}: id is required`);
+  throw new ImportDataError('categoryIdRequired', { index });
  }
 
  if (seenIds.has(category.id)) {
-  throw new Error(`Invalid category data: duplicate id "${category.id}"`);
+  throw new ImportDataError('duplicateCategoryId', { id: category.id });
  }
  seenIds.add(category.id);
 
  if (!category.name || typeof category.name !== 'string') {
-  throw new Error(`Invalid category data at index ${index}: name is required`);
+  throw new ImportDataError('categoryNameRequired', { index });
  }
 
  return {
@@ -184,16 +219,16 @@ export function readImportData(file: File): Promise<ExportData> {
  const content = e.target?.result as string;
  resolve(parseImportPayload(content));
  } catch (error) {
- if (error instanceof Error) {
- reject(new Error(`Failed to parse import file: ${error.message}`));
+ if (error instanceof ImportDataError) {
+ reject(error);
  } else {
- reject(new Error('Failed to parse import file'));
+ reject(new ImportDataError('parseFailed'));
  }
  }
  };
 
  reader.onerror = () => {
- reject(new Error('Failed to read file'));
+ reject(new ImportDataError('readFailed'));
  };
 
  reader.readAsText(file);

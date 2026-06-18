@@ -26,7 +26,7 @@ export const categorySettings = {
  deleteDialogUsedByOne: 'This category is being used by {{count}} subscription:',
  deleteDialogUsedByOther: 'This category is being used by {{count}} subscriptions:',
  deleteDialogMoveTo: 'Move these subscriptions to:',
- deleteDialogDefaultTarget: 'Uncategorized (default)',
+ deleteDialogDefaultTarget: '{{category}} (default)',
  deleteDialogMoveHint: 'If not selected, affected subscriptions will be moved to "Uncategorized".',
  deleteDialogSafeMessage: 'No subscriptions are using this category. It is safe to {{action}} it.',
  deleteDialogSafeActionHide: 'hide',

@@ -10,7 +10,8 @@ import {
  deleteCategory,
  restoreCategory,
  restoreDefaultCategories,
- FALLBACK_CATEGORY
+ FALLBACK_CATEGORY,
+ getCategoryDisplayName
 } from '../utils/categories'
 import { Subscription } from '../types'
 import { DeleteCategoryDialog } from './DeleteCategoryDialog'
@@ -42,7 +43,7 @@ export function CategorySettingsModal({
   categorySync,
   isStandalone = true
 }: CategorySettingsModalProps) {
-  const { t } = useTranslation(['categorySettings', 'app'])
+  const { t } = useTranslation(['categorySettings', 'app', 'settingsHub', 'categoryLabels'])
  const [categories, setCategories] = useState<Category[]>([])
  const [newCategoryName, setNewCategoryName] = useState('')
  const [error, setError] = useState('')
@@ -386,7 +387,7 @@ export function CategorySettingsModal({
  {/* Category name */}
  <div className="flex-1 flex items-center gap-2">
  <span className="text-sm text-gray-900 dark:text-white">
- {category.name}
+ {getCategoryDisplayName(category.name, t)}
  </span>
  {category.isBuiltIn && (
  <span className="text-xs px-2 py-0.5 bg-[#e5e7eb] dark:bg-[#2a2d31] dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg">
@@ -431,7 +432,7 @@ export function CategorySettingsModal({
  <p>• {t('categorySettings:infoDrag')}</p>
  <p>• {t('categorySettings:infoBuiltIn')}</p>
  <p>• {t('categorySettings:infoCustom')}</p>
- <p>• {t('categorySettings:infoFallback', { category: FALLBACK_CATEGORY })}</p>
+ <p>• {t('categorySettings:infoFallback', { category: getCategoryDisplayName(FALLBACK_CATEGORY, t) })}</p>
  </div>
  </div>
 
@@ -454,10 +455,10 @@ export function CategorySettingsModal({
         {!isStandalone && (
           <div className="mb-6 px-4 sm:px-6 pt-2">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-              {t('categorySettings:title', 'Category Settings')}
+              {t('categorySettings:title')}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t('categorySettings:subtitle', 'Manage and organize your subscription categories.')}
+              {t('settingsHub:categorySubtitle')}
             </p>
           </div>
         )}

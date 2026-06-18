@@ -1,6 +1,6 @@
 import { Subscription, Currency, ExchangeRates } from '../types';
 import { generateReportData, ReportData } from '../utils/reportAnalytics';
-import { formatCurrency } from '../utils/currency';
+import { formatCurrency, formatCurrencyOptionLabel } from '../utils/currency';
 import { SpendingTrendChart } from './SpendingTrendChart';
 import { CategoryPieChart } from './CategoryPieChart';
 import { TopSubscriptionsChart } from './TopSubscriptionsChart';
@@ -24,7 +24,7 @@ export function AdvancedReport({
  exchangeRates,
  onClose,
 }: AdvancedReportProps) {
- const { t } = useTranslation(['analytics']);
+ const { t } = useTranslation(['analytics', 'currency', 'categoryLabels']);
  const { language } = useAppLanguage();
  const [isVisible, setIsVisible] = useState(false);
 
@@ -80,7 +80,7 @@ export function AdvancedReport({
           </span>
         </h2>
         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mt-1.5 font-light">
-          <span>{t('analytics:analysisSummary', { currency: baseCurrency })}</span>
+          <span>{t('analytics:analysisSummary', { currency: formatCurrencyOptionLabel(baseCurrency, t) })}</span>
           <div className="relative group">
             <HelpCircle className="w-4 h-4 cursor-help text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"/>
             <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-gray-900/95 dark:bg-white/95 backdrop-blur-sm text-white dark:text-gray-900 text-xs rounded-lg shadow-fey whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">

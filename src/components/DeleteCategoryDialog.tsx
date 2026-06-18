@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CustomSelect } from './CustomSelect'
+import { getCategoryDisplayName } from '../utils/categories'
 
 interface DeleteCategoryDialogProps {
  isOpen: boolean
@@ -24,7 +25,7 @@ export function DeleteCategoryDialog({
  onConfirm,
  onCancel
 }: DeleteCategoryDialogProps) {
- const { t } = useTranslation(['categorySettings', 'app'])
+ const { t } = useTranslation(['categorySettings', 'app', 'categoryLabels'])
  const [moveToCategory, setMoveToCategory] = useState<string>('')
 
  if (!isOpen) return null
@@ -54,7 +55,7 @@ export function DeleteCategoryDialog({
  {isBuiltIn ? t('categorySettings:deleteDialogHideTitle') : t('categorySettings:deleteDialogDeleteTitle')}
  </h3>
  <p className="text-sm text-gray-500 dark:text-gray-400">
-"{categoryName}"
+"{getCategoryDisplayName(categoryName, t)}"
  </p>
  </div>
  </div>
@@ -93,10 +94,10 @@ export function DeleteCategoryDialog({
  value={moveToCategory}
  onChange={setMoveToCategory}
  options={[
- { value: '', label: t('categorySettings:deleteDialogDefaultTarget') },
+ { value: '', label: t('categorySettings:deleteDialogDefaultTarget', { category: getCategoryDisplayName('Uncategorized', t) }) },
  ...availableCategories
  .filter(cat => cat !== categoryName)
- .map(cat => ({ value: cat, label: cat }))
+ .map(cat => ({ value: cat, label: getCategoryDisplayName(cat, t) }))
  ]}
  required={false}
  />

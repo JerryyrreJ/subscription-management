@@ -1,7 +1,9 @@
 import { app as enApp } from './locales/en/app';
 import { auth as enAuth } from './locales/en/auth';
 import { categorySettings as enCategorySettings } from './locales/en/categorySettings';
+import { categoryLabels as enCategoryLabels } from './locales/en/categoryLabels';
 import { common as enCommon } from './locales/en/common';
+import { currency as enCurrency } from './locales/en/currency';
 import { dashboard as enDashboard } from './locales/en/dashboard';
 import { developerApi as enDeveloperApi } from './locales/en/developerApi';
 import { editSubscription as enEditSubscription } from './locales/en/editSubscription';
@@ -14,12 +16,15 @@ import { footer as enFooter } from './locales/en/footer';
 import { pricing as enPricing } from './locales/en/pricing';
 import { subscriptionDetails as enSubscriptionDetails } from './locales/en/subscriptionDetails';
 import { subscriptionCard as enSubscriptionCard } from './locales/en/subscriptionCard';
+import { settingsHub as enSettingsHub } from './locales/en/settingsHub';
 import { theme as enTheme } from './locales/en/theme';
 import { userMenu as enUserMenu } from './locales/en/userMenu';
 import { app as zhApp } from './locales/zh-CN/app';
 import { auth as zhAuth } from './locales/zh-CN/auth';
 import { categorySettings as zhCategorySettings } from './locales/zh-CN/categorySettings';
+import { categoryLabels as zhCategoryLabels } from './locales/zh-CN/categoryLabels';
 import { common as zhCommon } from './locales/zh-CN/common';
+import { currency as zhCurrency } from './locales/zh-CN/currency';
 import { dashboard as zhDashboard } from './locales/zh-CN/dashboard';
 import { developerApi as zhDeveloperApi } from './locales/zh-CN/developerApi';
 import { editSubscription as zhEditSubscription } from './locales/zh-CN/editSubscription';
@@ -32,6 +37,7 @@ import { footer as zhFooter } from './locales/zh-CN/footer';
 import { pricing as zhPricing } from './locales/zh-CN/pricing';
 import { subscriptionDetails as zhSubscriptionDetails } from './locales/zh-CN/subscriptionDetails';
 import { subscriptionCard as zhSubscriptionCard } from './locales/zh-CN/subscriptionCard';
+import { settingsHub as zhSettingsHub } from './locales/zh-CN/settingsHub';
 import { theme as zhTheme } from './locales/zh-CN/theme';
 import { userMenu as zhUserMenu } from './locales/zh-CN/userMenu';
 
@@ -40,7 +46,9 @@ export const resources = {
   accountModals: enAccountModals,
   addSubscription: enAddSubscription,
   analytics: enAnalytics,
+  categoryLabels: enCategoryLabels,
   common: enCommon,
+  currency: enCurrency,
   app: enApp,
   auth: enAuth,
   categorySettings: enCategorySettings,
@@ -51,6 +59,7 @@ export const resources = {
   importData: enImportData,
   notificationSettings: enNotificationSettings,
   pricing: enPricing,
+  settingsHub: enSettingsHub,
   subscriptionDetails: enSubscriptionDetails,
   subscriptionCard: enSubscriptionCard,
   theme: enTheme,
@@ -60,7 +69,9 @@ export const resources = {
   accountModals: zhAccountModals,
   addSubscription: zhAddSubscription,
   analytics: zhAnalytics,
+  categoryLabels: zhCategoryLabels,
   common: zhCommon,
+  currency: zhCurrency,
   app: zhApp,
   auth: zhAuth,
   categorySettings: zhCategorySettings,
@@ -71,6 +82,7 @@ export const resources = {
   importData: zhImportData,
   notificationSettings: zhNotificationSettings,
   pricing: zhPricing,
+  settingsHub: zhSettingsHub,
   subscriptionDetails: zhSubscriptionDetails,
   subscriptionCard: zhSubscriptionCard,
   theme: zhTheme,

@@ -5,7 +5,7 @@ export const developerApi = {
  login: '登录',
  plan: '套餐',
  free: '普通',
- premium: 'Premium',
+ premium: '高级版',
  activeKeys: '可用 Key',
  requests: '请求额度',
  keyCreated: 'API Key 已创建',

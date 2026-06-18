@@ -33,7 +33,7 @@ export function UserMenu({
  onSync,
  onLogin
 }: UserMenuProps) {
- const { t } = useTranslation(['userMenu', 'app']);
+ const { t } = useTranslation(['userMenu', 'settingsHub']);
  const [isOpen, setIsOpen] = useState(false);
  const [isClosing, setIsClosing] = useState(false);
  const menuRef = useRef<HTMLDivElement>(null);
@@ -182,7 +182,7 @@ export function UserMenu({
         className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
       >
         <Settings className="w-4 h-4 text-gray-400"/>
-        {t('app:settings', 'Settings')}
+        {t('settingsHub:title')}
       </button>
 
       {onPricingClick && (
@@ -191,7 +191,7 @@ export function UserMenu({
           className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-amber-700 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
         >
           <DollarSign className="w-4 h-4"/>
-          {t('userMenu:pricing', 'Pricing & Premium')}
+          {user ? t('userMenu:viewPricing') : t('userMenu:upgradeToPremium')}
         </button>
       )}
 

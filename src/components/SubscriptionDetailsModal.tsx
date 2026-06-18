@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Subscription } from '../types';
 import { formatDate } from '../utils/dates';
 import { formatCurrency } from '../utils/currency';
+import { getCategoryDisplayName } from '../utils/categories';
 import { resolveSubscriptionRenewal } from '../utils/subscriptionRenewal';
 
 interface SubscriptionDetailsModalProps {
@@ -20,7 +21,7 @@ export function SubscriptionDetailsModal({
  onEdit,
  onDelete,
 }: SubscriptionDetailsModalProps) {
- const { t } = useTranslation(['subscriptionDetails', 'addSubscription']);
+ const { t } = useTranslation(['subscriptionDetails', 'addSubscription', 'categoryLabels']);
 
  if (!isOpen || !subscription) return null;
 
@@ -49,7 +50,7 @@ export function SubscriptionDetailsModal({
  <div className="space-y-4">
  <div className="flex items-center space-x-3">
  <Tag className="w-5 h-5 text-gray-400 dark:text-gray-500"/>
- <span className="text-gray-600 dark:text-gray-300">{subscription.category}</span>
+ <span className="text-gray-600 dark:text-gray-300">{getCategoryDisplayName(subscription.category, t)}</span>
  </div>
 
  <div className="flex items-center space-x-3">
