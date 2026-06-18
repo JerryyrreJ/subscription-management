@@ -2,7 +2,6 @@ import { RenewalHeatmapData } from '../utils/reportAnalytics';
 import { useTranslation } from 'react-i18next';
 import { Currency } from '../types';
 import { formatCurrency } from '../utils/currency';
-import { Calendar } from 'lucide-react';
 import { useState } from 'react';
 
 interface RenewalHeatmapProps {

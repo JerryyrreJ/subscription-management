@@ -16,6 +16,7 @@ import { Dashboard } from './components/Dashboard';
 import { SubscriptionCard } from './components/SubscriptionCard';
 import { ThemeToggle } from './components/ThemeToggle';
 import { UserMenu } from './components/UserMenu';
+import type { SettingsTab } from './components/SettingsHubModal';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
 import { useCategorySync } from './hooks/useCategorySync';
@@ -67,29 +68,14 @@ const EditSubscriptionModal = lazy(() =>
 const AuthModal = lazy(() =>
  import('./components/AuthModal').then(module => ({ default: module.AuthModal }))
 );
-const EditNicknameModal = lazy(() =>
- import('./components/EditNicknameModal').then(module => ({ default: module.EditNicknameModal }))
-);
-const EditEmailModal = lazy(() =>
- import('./components/EditEmailModal').then(module => ({ default: module.EditEmailModal }))
-);
-const EditPasswordModal = lazy(() =>
- import('./components/EditPasswordModal').then(module => ({ default: module.EditPasswordModal }))
-);
-const CategorySettingsModal = lazy(() =>
- import('./components/CategorySettingsModal').then(module => ({ default: module.CategorySettingsModal }))
+const SettingsHubModal = lazy(() =>
+ import('./components/SettingsHubModal').then(module => ({ default: module.SettingsHubModal }))
 );
 const ImportDataModal = lazy(() =>
  import('./components/ImportDataModal').then(module => ({ default: module.ImportDataModal }))
 );
 const PricingModal = lazy(() =>
  import('./components/PricingModal').then(module => ({ default: module.PricingModal }))
-);
-const NotificationSettingsModal = lazy(() =>
- import('./components/NotificationSettingsModal').then(module => ({ default: module.NotificationSettingsModal }))
-);
-const DeveloperApiModal = lazy(() =>
- import('./components/DeveloperApiModal').then(module => ({ default: module.DeveloperApiModal }))
 );
 
 const initialSyncTaskGate = createScopedTaskGate<string>();
@@ -133,6 +119,7 @@ export function App() {
  loading,
  signOut,
  refreshUserProfile,
+ updateUserNickname,
  updateUserEmail,
  updateUserPassword
  } = useAuth();
@@ -147,20 +134,16 @@ export function App() {
  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
- const [isEditNicknameModalOpen, setIsEditNicknameModalOpen] = useState(false);
- const [isEditEmailModalOpen, setIsEditEmailModalOpen] = useState(false);
- const [isEditPasswordModalOpen, setIsEditPasswordModalOpen] = useState(false);
- const [isCategorySettingsModalOpen, setIsCategorySettingsModalOpen] = useState(false);
+ const [isSettingsHubOpen, setIsSettingsHubOpen] = useState(false);
+ const [settingsHubTab, setSettingsHubTab] = useState<SettingsTab>('general');
  const [hasInitialSync, setHasInitialSync] = useState(false);
  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
  const [importPreviewData, setImportPreviewData] = useState<ExportData | null>(null);
  const fileInputRef = useRef<HTMLInputElement>(null);
  const [notificationSettings, setNotificationSettings] = useState<ReminderSettings>(loadNotificationSettings());
- const [isNotificationSettingsModalOpen, setIsNotificationSettingsModalOpen] = useState(false);
  const [isAdvancedReportOpen, setIsAdvancedReportOpen] = useState(false);
  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
- const [isDeveloperApiModalOpen, setIsDeveloperApiModalOpen] = useState(false);
  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
 const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');
@@ -625,6 +608,29 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  fileInputRef.current?.click();
  };
 
+ const handleSaveNotificationSettings = async (newSettings: ReminderSettings) => {
+ const nextSettings: ReminderSettings = {
+ ...newSettings,
+ locale: appLocale,
+ };
+
+ setNotificationSettings(nextSettings);
+ saveNotificationSettings(nextSettings, notificationScope);
+
+ if (user && config.hasSupabaseConfig) {
+ try {
+ await NotificationSettingsService.saveSettings(nextSettings);
+ } catch (error) {
+ console.error('Failed to sync notification settings to cloud:', error);
+ }
+ }
+ };
+
+ const openSettingsHub = (tab: SettingsTab = 'general') => {
+ setSettingsHubTab(tab);
+ setIsSettingsHubOpen(true);
+ };
+
  // 文件选择后的处理
  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
  const file = event.target.files?.[0];
@@ -750,14 +756,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  userProfile={userProfile}
  syncStatus={syncStatus}
  lastSyncTime={lastSyncTime}
- onEditNickname={() => setIsEditNicknameModalOpen(true)}
- onEditEmail={() => setIsEditEmailModalOpen(true)}
- onEditPassword={() => setIsEditPasswordModalOpen(true)}
- onDeveloperApi={() => setIsDeveloperApiModalOpen(true)}
- onCategorySettings={() => setIsCategorySettingsModalOpen(true)}
- onExportData={handleExportData}
- onImportData={handleImportData}
- onNotificationSettings={() => setIsNotificationSettingsModalOpen(true)}
+ onOpenSettings={() => openSettingsHub()}
  onPricingClick={() => setIsPricingModalOpen(true)}
  onSignOut={handleSignOut}
  onSync={syncSubscriptions}
@@ -770,14 +769,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  userProfile={null}
  syncStatus="idle"
  lastSyncTime={null}
- onEditNickname={() => {}}
- onEditEmail={() => {}}
- onEditPassword={() => {}}
- onDeveloperApi={undefined}
- onCategorySettings={() => setIsCategorySettingsModalOpen(true)}
- onExportData={handleExportData}
- onImportData={handleImportData}
- onNotificationSettings={() => setIsNotificationSettingsModalOpen(true)}
+ onOpenSettings={() => openSettingsHub()}
  onPricingClick={() => setIsPricingModalOpen(true)}
  onSignOut={() => {}}
  onSync={() => {}}
@@ -848,7 +840,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   isOpen={isAddModalOpen}
   onClose={() => setIsAddModalOpen(false)}
   onAdd={handleAddSubscription}
-  onOpenNotificationSettings={() => setIsNotificationSettingsModalOpen(true)}
+  onOpenNotificationSettings={() => openSettingsHub('notifications')}
   categorySync={{
    createCategory
   }}
@@ -917,83 +909,45 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  </Suspense>
  )}
 
- {config.features.authentication && isEditNicknameModalOpen && (
+ {isSettingsHubOpen && (
  <Suspense
  fallback={(
   <LazyModalFallback
-   title={t('userMenu:editNickname')}
+   title={t('app:settings')}
    description={t('app:loadingNotificationSettingsDescription')}
-   onClose={() => setIsEditNicknameModalOpen(false)}
+   onClose={() => setIsSettingsHubOpen(false)}
   />
  )}
  >
-  <EditNicknameModal
-  isOpen={isEditNicknameModalOpen}
-  onClose={() => setIsEditNicknameModalOpen(false)}
-  />
- </Suspense>
- )}
-
- {config.features.authentication && isEditEmailModalOpen && (
- <Suspense
- fallback={(
-  <LazyModalFallback
-   title={t('userMenu:editEmail')}
-   description={t('app:loadingNotificationSettingsDescription')}
-   onClose={() => setIsEditEmailModalOpen(false)}
-  />
- )}
- >
-  <EditEmailModal
-  isOpen={isEditEmailModalOpen}
-  onClose={() => setIsEditEmailModalOpen(false)}
-  currentEmail={user?.email || ''}
+  <SettingsHubModal
+  isOpen={isSettingsHubOpen}
+  onClose={() => setIsSettingsHubOpen(false)}
+  activeTab={settingsHubTab}
+  user={user}
+  userProfile={userProfile}
+  accessToken={session?.access_token}
+  onOpenAuth={() => {
+   setIsSettingsHubOpen(false);
+   setIsAuthModalOpen(true);
+  }}
+  onUpdateNickname={updateUserNickname}
   onUpdateEmail={async (newEmail: string) => {
    const result = await updateUserEmail(newEmail);
    if (result.error) {
     throw new Error(result.error.message);
    }
   }}
-  />
- </Suspense>
- )}
-
- {config.features.authentication && isEditPasswordModalOpen && (
- <Suspense
- fallback={(
-  <LazyModalFallback
-   title={t('userMenu:changePassword')}
-   description={t('app:loadingNotificationSettingsDescription')}
-   onClose={() => setIsEditPasswordModalOpen(false)}
-  />
- )}
- >
-  <EditPasswordModal
-  isOpen={isEditPasswordModalOpen}
-  onClose={() => setIsEditPasswordModalOpen(false)}
   onUpdatePassword={async (newPassword: string) => {
    const result = await updateUserPassword(newPassword);
    if (result.error) {
     throw new Error(result.error.message);
    }
   }}
-  />
- </Suspense>
- )}
-
- {isCategorySettingsModalOpen && (
- <Suspense
- fallback={(
-  <LazyModalFallback
-   title={t('userMenu:categorySettings')}
-   description={t('app:loadingNotificationSettingsDescription')}
-   onClose={() => setIsCategorySettingsModalOpen(false)}
-  />
- )}
- >
-  <CategorySettingsModal
-  isOpen={isCategorySettingsModalOpen}
-  onClose={() => setIsCategorySettingsModalOpen(false)}
+  onExportData={handleExportData}
+  onImportData={() => {
+   setIsSettingsHubOpen(false);
+   handleImportData();
+  }}
   subscriptions={subscriptions}
   onCategoriesChanged={() => {
    // 类型变更时，重新加载订阅列表以确保UI更新
@@ -1008,6 +962,8 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
    deleteCategory: deleteCategorySync,
    updateCategoriesOrder
   }}
+  notificationSettings={notificationSettings}
+  onSaveNotificationSettings={handleSaveNotificationSettings}
   />
  </Suspense>
  )}
@@ -1036,43 +992,6 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   />
  </Suspense>
  )}
-
- {isNotificationSettingsModalOpen && (
- <Suspense
- fallback={(
-  <LazyModalFallback
-   title={t('app:loadingNotificationSettingsTitle')}
-   description={t('app:loadingNotificationSettingsDescription')}
-   onClose={() => setIsNotificationSettingsModalOpen(false)}
-  />
- )}
- >
-  <NotificationSettingsModal
-  isOpen={isNotificationSettingsModalOpen}
-  onClose={() => setIsNotificationSettingsModalOpen(false)}
-  settings={notificationSettings}
-  onOpenAuth={() => setIsAuthModalOpen(true)}
-  onSave={async (newSettings) => {
-  const nextSettings: ReminderSettings = {
-  ...newSettings,
-  locale: appLocale,
-  };
-
-  setNotificationSettings(nextSettings);
-  saveNotificationSettings(nextSettings, notificationScope);
-
-  // 如果用户已登录且云同步可用，同时保存到云端
-  if (user && config.hasSupabaseConfig) {
-  try {
-  await NotificationSettingsService.saveSettings(nextSettings);
-  } catch (error) {
-  console.error('Failed to sync notification settings to cloud:', error);
-  }
-  }
-  }}
-  />
- </Suspense>
-)}
 
  {/* 隐藏的文件输入 */}
  <input
@@ -1127,27 +1046,6 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  </Suspense>
  )}
 
- {config.features.authentication && isDeveloperApiModalOpen && (
- <Suspense
- fallback={(
-  <LazyModalFallback
-   title={t('app:loadingDeveloperApiTitle')}
-   description={t('app:loadingDeveloperApiDescription')}
-   onClose={() => setIsDeveloperApiModalOpen(false)}
-  />
- )}
- >
-  <DeveloperApiModal
-  isOpen={isDeveloperApiModalOpen}
-  accessToken={session?.access_token}
-  onClose={() => setIsDeveloperApiModalOpen(false)}
-  onOpenAuth={() => {
-   setIsDeveloperApiModalOpen(false);
-   setIsAuthModalOpen(true);
-  }}
-  />
- </Suspense>
- )}
  </div>
 
  <Footer />

@@ -13,6 +13,7 @@ interface DeveloperApiModalProps {
  accessToken?: string;
  onClose: () => void;
  onOpenAuth: () => void;
+ isStandalone?: boolean;
 }
 
 const formatDateTime = (value: string | null, emptyLabel: string): string => {
@@ -49,6 +50,7 @@ export function DeveloperApiModal({
  accessToken,
  onClose,
  onOpenAuth,
+ isStandalone = true
 }: DeveloperApiModalProps) {
  const { t } = useTranslation(['developerApi']);
  const defaultKeyName = t('developerApi:defaultKeyName');
@@ -149,27 +151,39 @@ export function DeveloperApiModal({
 
  const canCreateKey = Boolean(limits && keys.length < limits.activeKeys);
 
- return (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
-   <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-[#1a1c1e]/95 shadow-apple-xl">
-    <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-[#1a1c1e]/95 backdrop-blur-xl rounded-t-3xl">
-     <div className="flex items-center gap-3">
-      <div className="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
-       <Code2 className="w-5 h-5 text-emerald-600 dark:text-emerald-300"/>
+  const content = (
+  <div className="flex flex-col h-full">
+    {isStandalone && (
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-[#1a1c1e]/95 backdrop-blur-xl rounded-t-3xl">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
+            <Code2 className="w-5 h-5 text-emerald-600 dark:text-emerald-300"/>
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('developerApi:title')}</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('developerApi:subtitle')}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-2 rounded-2xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors"
+        >
+          <X className="w-5 h-5"/>
+        </button>
       </div>
-      <div>
-       <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('developerApi:title')}</h2>
-       <p className="text-sm text-gray-500 dark:text-gray-400">{t('developerApi:subtitle')}</p>
+    )}
+
+    {!isStandalone && (
+      <div className="px-6 pt-2 pb-4">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
+          {t('developerApi:title')}
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {t('developerApi:subtitle')}
+        </p>
       </div>
-     </div>
-     <button
-      type="button"
-      onClick={onClose}
-      className="p-2 rounded-2xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors"
-     >
-      <X className="w-5 h-5"/>
-     </button>
-    </div>
+    )}
 
     <div className="p-6 space-y-6">
      {!accessToken ? (
@@ -303,7 +317,16 @@ export function DeveloperApiModal({
       </>
      )}
     </div>
-   </div>
   </div>
- );
+  );
+
+  if (!isStandalone) return content;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-[#1a1c1e]/95 shadow-apple-xl">
+        {content}
+      </div>
+    </div>
+  );
 }

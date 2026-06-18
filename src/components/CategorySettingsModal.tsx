@@ -24,23 +24,25 @@ interface CategorySyncMethods {
 }
 
 interface CategorySettingsModalProps {
- isOpen: boolean
- onClose: () => void
- subscriptions: Subscription[]
- onCategoriesChanged?: () => void
- onUpdateSubscriptions?: (updatedSubscriptions: Subscription[]) => Promise<void>
- categorySync?: CategorySyncMethods
+  isOpen: boolean
+  onClose: () => void
+  subscriptions: Subscription[]
+  onCategoriesChanged?: () => void
+  onUpdateSubscriptions?: (updatedSubscriptions: Subscription[]) => Promise<void>
+  categorySync?: CategorySyncMethods
+  isStandalone?: boolean
 }
 
 export function CategorySettingsModal({
- isOpen,
- onClose,
- subscriptions,
- onCategoriesChanged,
- onUpdateSubscriptions,
- categorySync
+  isOpen,
+  onClose,
+  subscriptions,
+  onCategoriesChanged,
+  onUpdateSubscriptions,
+  categorySync,
+  isStandalone = true
 }: CategorySettingsModalProps) {
- const { t } = useTranslation(['categorySettings', 'app'])
+  const { t } = useTranslation(['categorySettings', 'app'])
  const [categories, setCategories] = useState<Category[]>([])
  const [newCategoryName, setNewCategoryName] = useState('')
  const [error, setError] = useState('')
@@ -271,25 +273,25 @@ export function CategorySettingsModal({
  ? categories
  : categories.filter(cat => !cat.isHidden)
 
- return (
- <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-2 sm:p-4 z-50 modal-overlay">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-lg w-full max-h-[90vh] overflow-hidden modal-content flex flex-col">
- {/* Header */}
- <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
- <div className="flex items-center justify-between">
- <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
- {t('categorySettings:title')}
- </h2>
- <button
- onClick={handleClose}
- className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
- >
- <X className="w-5 h-5 sm:w-6 sm:h-6"/>
- </button>
- </div>
- </div>
+  const content = (
+    <>
+      {isStandalone && (
+        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
+              {t('categorySettings:title')}
+            </h2>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+            >
+              <X className="w-5 h-5 sm:w-6 sm:h-6"/>
+            </button>
+          </div>
+        </div>
+      )}
 
- {/* Content */}
+      {/* Content */}
  <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
  {/* Add New Category */}
  <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-4 space-y-3">
@@ -433,43 +435,93 @@ export function CategorySettingsModal({
  </div>
  </div>
 
- {/* Footer */}
- <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700">
- <button
- onClick={handleClose}
- className="w-full bg-emerald-600 dark:bg-emerald-500 text-white py-2 px-4 rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors duration-200"
- >
- {t('categorySettings:done')}
- </button>
- </div>
- </div>
+      {isStandalone && (
+        <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={handleClose}
+            className="w-full bg-emerald-600 dark:bg-emerald-500 text-white py-2 px-4 rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors duration-200"
+          >
+            {t('categorySettings:done')}
+          </button>
+        </div>
+      )}
+    </>
+  )
 
- {/* Delete Category Dialog */}
- {deleteDialogState.category && (
- <DeleteCategoryDialog
- isOpen={deleteDialogState.isOpen}
- categoryName={deleteDialogState.category.name}
- isBuiltIn={deleteDialogState.category.isBuiltIn}
- affectedCount={subscriptions.filter(sub => sub.category === deleteDialogState.category!.name).length}
- affectedSubscriptions={subscriptions
- .filter(sub => sub.category === deleteDialogState.category!.name)
- .map(sub => ({ id: sub.id, name: sub.name }))
- }
- availableCategories={categories
- .filter(cat => !cat.isHidden && cat.name !== deleteDialogState.category!.name)
- .map(cat => cat.name)
- }
- onConfirm={handleConfirmDelete}
- onCancel={handleCancelDelete}
- />
- )}
+  if (!isStandalone) {
+    return (
+      <div className="h-full flex flex-col max-w-2xl">
+        {!isStandalone && (
+          <div className="mb-6 px-4 sm:px-6 pt-2">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
+              {t('categorySettings:title', 'Category Settings')}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {t('categorySettings:subtitle', 'Manage and organize your subscription categories.')}
+            </p>
+          </div>
+        )}
+        {content}
+        {/* Dialogs need to render outside the main scroll container but they are position fixed so it's fine */}
+        {deleteDialogState.category && (
+          <DeleteCategoryDialog
+            isOpen={deleteDialogState.isOpen}
+            categoryName={deleteDialogState.category.name}
+            isBuiltIn={deleteDialogState.category.isBuiltIn}
+            affectedCount={subscriptions.filter(sub => sub.category === deleteDialogState.category!.name).length}
+            affectedSubscriptions={subscriptions
+              .filter(sub => sub.category === deleteDialogState.category!.name)
+              .map(sub => ({ id: sub.id, name: sub.name }))
+            }
+            availableCategories={categories
+              .filter(cat => !cat.isHidden && cat.name !== deleteDialogState.category!.name)
+              .map(cat => cat.name)
+            }
+            onConfirm={handleConfirmDelete}
+            onCancel={handleCancelDelete}
+          />
+        )}
+        <RestoreDefaultsDialog
+          isOpen={restoreDialogOpen}
+          onConfirm={handleConfirmRestore}
+          onCancel={handleCancelRestore}
+        />
+      </div>
+    )
+  }
 
- {/* Restore Defaults Dialog */}
- <RestoreDefaultsDialog
- isOpen={restoreDialogOpen}
- onConfirm={handleConfirmRestore}
- onCancel={handleCancelRestore}
- />
- </div>
- )
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-2 sm:p-4 z-50 modal-overlay">
+      <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-lg w-full max-h-[90vh] overflow-hidden modal-content flex flex-col">
+        {content}
+      </div>
+
+      {/* Delete Category Dialog */}
+      {deleteDialogState.category && (
+        <DeleteCategoryDialog
+          isOpen={deleteDialogState.isOpen}
+          categoryName={deleteDialogState.category.name}
+          isBuiltIn={deleteDialogState.category.isBuiltIn}
+          affectedCount={subscriptions.filter(sub => sub.category === deleteDialogState.category!.name).length}
+          affectedSubscriptions={subscriptions
+            .filter(sub => sub.category === deleteDialogState.category!.name)
+            .map(sub => ({ id: sub.id, name: sub.name }))
+          }
+          availableCategories={categories
+            .filter(cat => !cat.isHidden && cat.name !== deleteDialogState.category!.name)
+            .map(cat => cat.name)
+          }
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+        />
+      )}
+
+      {/* Restore Defaults Dialog */}
+      <RestoreDefaultsDialog
+        isOpen={restoreDialogOpen}
+        onConfirm={handleConfirmRestore}
+        onCancel={handleCancelRestore}
+      />
+    </div>
+  )
 }

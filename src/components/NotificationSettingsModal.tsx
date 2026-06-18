@@ -14,6 +14,7 @@ interface NotificationSettingsModalProps {
  settings: ReminderSettings;
  onSave: (settings: ReminderSettings) => void;
  onOpenAuth?: () => void;
+ isStandalone?: boolean;
 }
 
 export function NotificationSettingsModal({
@@ -21,7 +22,8 @@ export function NotificationSettingsModal({
  onClose,
  settings,
  onSave,
- onOpenAuth
+ onOpenAuth,
+ isStandalone = true
 }: NotificationSettingsModalProps) {
  const { t } = useTranslation(['notificationSettings']);
  const { language } = useAppLanguage();
@@ -131,26 +133,37 @@ export function NotificationSettingsModal({
 
  if (!isOpen) return null;
 
- return (
- <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
- {/* Header */}
- <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-[#1a1c1e] z-10">
- <div className="flex items-center gap-3">
- <div className="w-10 h-10 rounded-full bg-[#e5e7eb] dark:bg-[#2a2d31] dark:bg-zinc-800/50 flex items-center justify-center">
- <Bell className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400"/>
- </div>
- <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
- {t('notificationSettings:title')}
- </h2>
- </div>
- <button
- onClick={onClose}
- className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
- >
- <X className="w-6 h-6"/>
- </button>
- </div>
+  const content = (
+  <div className="flex flex-col h-full">
+  {isStandalone && (
+  <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-[#1a1c1e] z-10">
+  <div className="flex items-center gap-3">
+  <div className="w-10 h-10 rounded-full bg-[#e5e7eb] dark:bg-[#2a2d31] dark:bg-zinc-800/50 flex items-center justify-center">
+  <Bell className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400"/>
+  </div>
+  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+  {t('notificationSettings:title')}
+  </h2>
+  </div>
+  <button
+  onClick={onClose}
+  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+  >
+  <X className="w-6 h-6"/>
+  </button>
+  </div>
+  )}
+
+  {!isStandalone && (
+    <div className="px-6 pt-2 pb-4">
+      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
+        {t('notificationSettings:title')}
+      </h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        {t('notificationSettings:barkSectionDescription', 'Manage Bark push notifications.')}
+      </p>
+    </div>
+  )}
 
  {/* Login Required Banner - Only show when not logged in */}
  {!user && (
@@ -456,33 +469,43 @@ export function NotificationSettingsModal({
  </div>
  </div>
 
- {/* Footer */}
- <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 sticky bottom-0 bg-white dark:bg-[#1a1c1e]">
- <button
- onClick={onClose}
- className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
- >
- {t('notificationSettings:cancel')}
- </button>
- <button
- onClick={handleSave}
- className={`flex-1 px-4 py-2.5 rounded-2xl font-medium transition-all ${
- user
- ? 'bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white'
- : 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white shadow-apple hover:shadow-fey'
- }`}
- >
- {user ? (
- t('notificationSettings:saveSettings')
- ) : (
- <span className="flex items-center justify-center gap-2">
- <LogIn className="w-4 h-4"/>
- {t('notificationSettings:loginToConfigure')}
- </span>
- )}
- </button>
- </div>
- </div>
- </div>
- );
+  <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 sticky bottom-0 bg-white dark:bg-[#1a1c1e] dark:bg-transparent mt-auto">
+  {isStandalone && (
+  <button
+  onClick={onClose}
+  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+  >
+  {t('notificationSettings:cancel')}
+  </button>
+  )}
+  <button
+  onClick={handleSave}
+  className={`flex-1 px-4 py-2.5 rounded-2xl font-medium transition-all ${
+  user
+  ? 'bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white'
+  : 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white shadow-apple hover:shadow-fey'
+  }`}
+  >
+  {user ? (
+  t('notificationSettings:saveSettings')
+  ) : (
+  <span className="flex items-center justify-center gap-2">
+  <LogIn className="w-4 h-4"/>
+  {t('notificationSettings:loginToConfigure')}
+  </span>
+  )}
+  </button>
+  </div>
+  </div>
+  );
+
+  if (!isStandalone) return content;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+        {content}
+      </div>
+    </div>
+  );
 }

@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Edit3, LogOut, RotateCcw, Mail, Lock, Folder, Download, Upload, LogIn, Bell, DollarSign, Globe, Code2 } from 'lucide-react';
+import { DollarSign, LogIn, LogOut, RotateCcw, Settings, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useAppLanguage } from '../hooks/useAppLanguage';
-import { LANGUAGE_LABELS, SUPPORTED_LOCALES } from '../i18n/types';
 
 interface UserProfile {
  nickname?: string;
@@ -17,14 +15,7 @@ interface UserMenuProps {
  userProfile: UserProfile | null;
  syncStatus: 'idle' | 'syncing' | 'success' | 'error';
  lastSyncTime: Date | null;
- onEditNickname: () => void;
- onEditEmail: () => void;
- onEditPassword: () => void;
- onDeveloperApi?: () => void;
- onCategorySettings: () => void;
- onExportData: () => void;
- onImportData: () => void;
- onNotificationSettings: () => void; // 新增通知设置
+ onOpenSettings: () => void;
  onPricingClick?: () => void; // 新增定价页面
  onSignOut: () => void;
  onSync: () => void;
@@ -36,21 +27,13 @@ export function UserMenu({
  userProfile,
  syncStatus,
  lastSyncTime,
- onEditNickname,
- onEditEmail,
- onEditPassword,
- onDeveloperApi,
- onCategorySettings,
- onExportData,
- onImportData,
- onNotificationSettings,
+ onOpenSettings,
  onPricingClick,
  onSignOut,
  onSync,
  onLogin
 }: UserMenuProps) {
- const { t } = useTranslation(['userMenu']);
- const { language, setLanguage } = useAppLanguage();
+ const { t } = useTranslation(['userMenu', 'app']);
  const [isOpen, setIsOpen] = useState(false);
  const [isClosing, setIsClosing] = useState(false);
  const menuRef = useRef<HTMLDivElement>(null);
@@ -192,127 +175,27 @@ export function UserMenu({
  </div>
  )}
 
- {/* 菜单项 */}
- <div className="py-1">
- {/* 已登录用户专属功能 */}
- {user && (
- <>
- <button
- onClick={() => handleMenuItemClick(onEditNickname)}
- className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
- >
- <Edit3 className="w-4 h-4 text-gray-400"/>
- {t('userMenu:editNickname')}
- </button>
+    {/* 菜单项 */}
+    <div className="py-1">
+      <button
+        onClick={() => handleMenuItemClick(onOpenSettings)}
+        className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+      >
+        <Settings className="w-4 h-4 text-gray-400"/>
+        {t('app:settings', 'Settings')}
+      </button>
 
- <button
- onClick={() => handleMenuItemClick(onEditEmail)}
- className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
- >
- <Mail className="w-4 h-4 text-gray-400"/>
- {t('userMenu:changeEmail')}
- </button>
+      {onPricingClick && (
+        <button
+          onClick={() => handleMenuItemClick(onPricingClick)}
+          className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-amber-700 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition-colors"
+        >
+          <DollarSign className="w-4 h-4"/>
+          {t('userMenu:pricing', 'Pricing & Premium')}
+        </button>
+      )}
 
- <button
- onClick={() => handleMenuItemClick(onEditPassword)}
- className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
- >
- <Lock className="w-4 h-4 text-gray-400"/>
- {t('userMenu:changePassword')}
- </button>
 
- {onDeveloperApi && (
- <button
- onClick={() => handleMenuItemClick(onDeveloperApi)}
- className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
- >
- <Code2 className="w-4 h-4 text-gray-400"/>
- {t('userMenu:developerApi')}
- </button>
- )}
-
- <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
- </>
- )}
-
- {/* 通用功能 - 登录与否都可用 */}
- <button
- onClick={() => handleMenuItemClick(onExportData)}
- className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
- >
- <Download className="w-4 h-4 text-gray-400"/>
- {t('userMenu:exportData')}
- </button>
-
- <button
- onClick={() => handleMenuItemClick(onImportData)}
- className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
- >
- <Upload className="w-4 h-4 text-gray-400"/>
- {t('userMenu:importData')}
- </button>
-
- <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-
- <button
- onClick={() => handleMenuItemClick(onNotificationSettings)}
- className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
- >
- <Bell className="w-4 h-4 text-gray-400"/>
- {t('userMenu:notificationSettings')}
- </button>
-
- <button
- onClick={() => handleMenuItemClick(onCategorySettings)}
- className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
- >
- <Folder className="w-4 h-4 text-gray-400"/>
- {t('userMenu:categorySettings')}
- </button>
-
- <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-
- <div className="px-3 py-2">
- <div className="flex items-center gap-2 mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">
- <Globe className="w-3.5 h-3.5"/>
- {t('userMenu:languageSectionTitle')}
- </div>
- <div className="grid grid-cols-2 gap-2">
- {SUPPORTED_LOCALES.map(locale => {
- const isActive = language === locale;
-
- return (
- <button
- key={locale}
- type="button"
- onClick={() => void setLanguage(locale)}
- className={`px-3 py-2 text-xs rounded-2xl border transition-colors ${
- isActive
- ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300'
- : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-[#1a1c1e] dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
- }`}
- >
- {LANGUAGE_LABELS[locale]}
- </button>
- );
- })}
- </div>
- </div>
-
- {/* Pricing - 所有用户都可见 */}
- {onPricingClick && (
- <>
- <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-
- <button
- onClick={() => handleMenuItemClick(onPricingClick)}
- className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
- >
- <DollarSign className="w-4 h-4 text-gray-400"/>
- {user ? t('userMenu:viewPricing') : t('userMenu:upgradeToPremium')}
- </button>
- </>
- )}
 
  {/* 登出按钮 - 仅已登录时显示 */}
  {user && (
