@@ -23,36 +23,36 @@ const getSuggestionIcon = (type: OptimizationSuggestion['type']) => {
 };
 
 const getSuggestionColor = (type: OptimizationSuggestion['type']) => {
- switch (type) {
- case 'expensive':
- return {
- bg: 'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30',
- border: 'border-amber-200/50 dark:border-amber-800/50',
- icon: 'text-amber-600 dark:text-amber-400',
- badge: 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-apple',
- };
- case 'multiple_in_category':
- return {
- bg: 'bg-gradient-to-br from-sky-50 dark:from-sky-950/30 dark:',
- border: 'border-sky-200/50 dark:border-sky-800/50',
- icon: 'text-sky-600 dark:text-sky-400',
- badge: 'bg-gradient-to-r from-sky-500 text-white shadow-apple',
- };
- case 'annual_saving':
- return {
- bg: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30',
- border: 'border-emerald-200/50 dark:border-emerald-800/50',
- icon: 'text-emerald-600 dark:text-emerald-400',
- badge: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-apple',
- };
- default:
- return {
- bg: 'bg-zinc-50 dark:bg-zinc-900/50',
- border: 'border-zinc-200 dark:border-zinc-800 dark:border-zinc-700/50 dark:border-zinc-700/50',
- icon: 'text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400',
- badge: 'bg-gradient-to-r text-white shadow-apple',
- };
- }
+  switch (type) {
+    case 'expensive':
+      return {
+        bg: 'bg-transparent',
+        border: 'border-gray-200 dark:border-white/10',
+        icon: 'text-gray-500 dark:text-gray-400',
+        badge: 'bg-gray-900 text-white dark:bg-white dark:text-gray-900',
+      };
+    case 'multiple_in_category':
+      return {
+        bg: 'bg-transparent',
+        border: 'border-gray-200 dark:border-white/10',
+        icon: 'text-gray-500 dark:text-gray-400',
+        badge: 'bg-gray-900 text-white dark:bg-white dark:text-gray-900',
+      };
+    case 'annual_saving':
+      return {
+        bg: 'bg-transparent',
+        border: 'border-gray-200 dark:border-white/10',
+        icon: 'text-gray-500 dark:text-gray-400',
+        badge: 'bg-gray-900 text-white dark:bg-white dark:text-gray-900',
+      };
+    default:
+      return {
+        bg: 'bg-transparent',
+        border: 'border-gray-200 dark:border-white/10',
+        icon: 'text-gray-500 dark:text-gray-400',
+        badge: 'bg-gray-900 text-white dark:bg-white dark:text-gray-900',
+      };
+  }
 };
 
 export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionProps) {
@@ -60,13 +60,12 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
 
  if (suggestions.length === 0) {
  return (
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey hover:shadow-apple-lg transition-shadow p-6 border border-gray-100 dark:border-gray-700">
- <div className="flex items-center gap-2 mb-4">
- <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
- <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- {t('analytics:insightsTitle')}
- </h3>
- </div>
+ <div className="bg-white dark:bg-white/5 rounded-2xl p-6 border border-gray-200 dark:border-white/10">
+      <div className="flex items-center justify-between mb-8">
+        <h3 className="text-base font-medium text-gray-900 dark:text-white">
+          {t('analytics:insightsTitle')}
+        </h3>
+      </div>
  <div className="text-center py-8">
  <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-fey">
  <svg
@@ -98,22 +97,19 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
  );
 
  return (
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey hover:shadow-apple-lg transition-shadow p-6 border border-gray-100 dark:border-gray-700">
- <div className="flex items-center justify-between mb-4">
- <div className="flex items-center gap-2">
- <div className="w-1 h-6 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
- <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- {t('analytics:insightsTitle')}
- </h3>
- </div>
- {totalPotentialSaving > 0 && (
- <div className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-3xl shadow-apple hover:shadow-fey transition-shadow">
- <span className="text-sm font-semibold text-white">
- {t('analytics:potentialSavings', { amount: formatCurrency(totalPotentialSaving, baseCurrency) })}
- </span>
- </div>
- )}
- </div>
+ <div className="bg-white dark:bg-white/5 rounded-2xl p-6 border border-gray-200 dark:border-white/10">
+      <div className="flex items-center justify-between mb-8">
+        <h3 className="text-base font-medium text-gray-900 dark:text-white">
+          {t('analytics:insightsTitle')}
+        </h3>
+        {totalPotentialSaving > 0 && (
+          <div className="px-3 py-1 bg-gray-100 dark:bg-white/10 rounded-lg border border-gray-200 dark:border-white/10">
+            <span className="text-xs font-medium text-gray-900 dark:text-white">
+              {t('analytics:potentialSavings', { amount: formatCurrency(totalPotentialSaving, baseCurrency) })}
+            </span>
+          </div>
+        )}
+      </div>
 
  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
  {t(
@@ -131,7 +127,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
  return (
  <div
  key={index}
- className={`p-4 rounded-3xl border ${colors.bg} ${colors.border} shadow-apple hover:shadow-fey transition-all`}
+ className={`p-5 rounded-xl border ${colors.bg} ${colors.border} transition-all`}
  >
  <div className="flex items-start gap-3">
  <div className={`${colors.icon} flex-shrink-0 mt-0.5`}>
@@ -144,7 +140,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
  {suggestion.title}
  </h4>
  {suggestion.potentialSaving && suggestion.potentialSaving > 0 && (
- <span className={`text-xs px-3 py-1.5 rounded-2xl ${colors.badge} flex-shrink-0 font-medium`}>
+ <span className={`text-[10px] px-2 py-0.5 rounded uppercase tracking-wider ${colors.badge} flex-shrink-0 font-bold`}>
  {t('analytics:saveAmount', { amount: formatCurrency(suggestion.potentialSaving, baseCurrency) })}
  </span>
  )}
@@ -163,7 +159,7 @@ export function InsightsSection({ suggestions, baseCurrency }: InsightsSectionPr
  {suggestion.subscriptions.slice(0, 5).map((subName, idx) => (
  <span
  key={idx}
- className="text-xs px-2.5 py-1 bg-white dark:bg-[#1a1c1e] rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 shadow-apple-sm"
+ className="text-xs px-2 py-1 bg-gray-50 dark:bg-white/[0.02] rounded-md border border-gray-200/50 dark:border-white/5 text-gray-600 dark:text-gray-400 font-light"
  >
  {subName}
  </span>

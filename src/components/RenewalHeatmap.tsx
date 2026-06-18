@@ -30,13 +30,12 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
  };
 
  return (
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey p-6">
- <div className="flex items-center gap-2 mb-4">
- <Calendar className="w-5 h-5 text-red-600"/>
- <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- {t('analytics:renewalHeatmapTitle')}
- </h3>
- </div>
+  <div className="bg-white dark:bg-white/5 rounded-2xl p-6 border border-gray-200 dark:border-white/10">
+    <div className="flex items-center justify-between mb-8">
+      <h3 className="text-base font-medium text-gray-900 dark:text-white">
+        {t('analytics:renewalHeatmapTitle')}
+      </h3>
+    </div>
 
  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
  {t('analytics:renewalHeatmapDescription')}
@@ -135,11 +134,11 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
 
  {/* Selected date details */}
  {selectedDay && selectedDay.count > 0 && (
- <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-200 dark:border-red-800">
- <div className="flex items-center justify-between mb-3">
- <h4 className="font-semibold text-gray-900 dark:text-white">
- {t('analytics:renewalDetailsTitle', { day: selectedDay.date })}
- </h4>
+      <div className="p-4 bg-gray-50 dark:bg-white/[0.02] rounded-xl border border-gray-200 dark:border-white/10">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-medium text-sm text-gray-900 dark:text-white">
+            {t('analytics:renewalDetailsTitle', { day: selectedDay.date })}
+          </h4>
  <button
  onClick={() => setSelectedDay(null)}
  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
@@ -169,11 +168,11 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
  <div className="space-y-1.5 max-h-40 overflow-y-auto">
  {selectedDay.subscriptions.map((sub, index) => (
  <div
- key={index}
- className="flex justify-between items-center text-sm bg-white dark:bg-[#1a1c1e] px-3 py-2 rounded-2xl"
- >
- <span className="text-gray-700 dark:text-gray-300 font-medium">{sub.name}</span>
- <span className="text-gray-600 dark:text-gray-400">
+                  key={index}
+                  className="flex justify-between items-center text-sm bg-white dark:bg-white/5 border border-gray-200/50 dark:border-white/10 px-3 py-2 rounded-lg"
+                >
+                  <span className="text-gray-700 dark:text-gray-300 font-light">{sub.name}</span>
+                  <span className="text-gray-900 dark:text-white font-medium">
  {formatCurrency(sub.cost, baseCurrency)}
  </span>
  </div>

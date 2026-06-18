@@ -16,13 +16,12 @@ export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsCh
  const { t } = useTranslation(['analytics']);
 
  return (
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey hover:shadow-apple-lg transition-shadow p-6 border border-gray-100 dark:border-gray-700">
- <div className="flex items-center gap-2 mb-4">
- <div className="w-1 h-6 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full"></div>
- <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- {t('analytics:topSubscriptions')}
- </h3>
- </div>
+  <div className="bg-white dark:bg-white/5 rounded-2xl p-6 border border-gray-200 dark:border-white/10">
+    <div className="flex items-center justify-between mb-8">
+      <h3 className="text-base font-medium text-gray-900 dark:text-white">
+        {t('analytics:topSubscriptions')}
+      </h3>
+    </div>
 
  <ResponsiveContainer width="100%"height={280}>
  <BarChart
@@ -76,39 +75,39 @@ export function TopSubscriptionsChart({ data, baseCurrency }: TopSubscriptionsCh
  </ResponsiveContainer>
 
  {/* Refined detailed list */}
- <div className="mt-6 space-y-2.5">
- {data.map((sub, index) => (
- <div
- key={sub.name}
- className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800/50 rounded-3xl border border-gray-200/50 dark:border-gray-700/50 hover:shadow-apple hover:scale-[1.01] transition-all"
- >
- <div className="flex items-center gap-3 flex-1 min-w-0">
- <div
- className="flex items-center justify-center w-8 h-8 rounded-2xl font-semibold text-sm flex-shrink-0 text-white shadow-apple"
- style={{ backgroundColor: COLORS[index % COLORS.length] }}
- >
- {index + 1}
- </div>
- <div className="min-w-0 flex-1">
- <p className="font-medium text-gray-900 dark:text-white truncate text-sm">
- {sub.name}
- </p>
- <p className="text-xs text-gray-500 dark:text-gray-400">
- {sub.category} · {sub.billingCycle}
- </p>
- </div>
- </div>
- <div className="text-right flex-shrink-0 ml-4">
- <p className="font-semibold text-gray-900 dark:text-white text-sm">
- {formatCurrency(sub.monthlyCost, baseCurrency)}{t('analytics:perMonthShort')}
- </p>
- <p className="text-xs text-gray-500 dark:text-gray-400">
- {formatCurrency(sub.yearlyCost, baseCurrency)}{t('analytics:perYearShort')}
- </p>
- </div>
- </div>
- ))}
- </div>
+      <div className="mt-6 space-y-2">
+        {data.map((sub, index) => (
+          <div
+            key={sub.name}
+            className="flex items-center justify-between p-3 border border-gray-200/60 dark:border-white/5 bg-transparent hover:bg-gray-50 dark:hover:bg-white/[0.02] rounded-xl transition-colors"
+          >
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div
+                className="flex items-center justify-center w-6 h-6 rounded-full font-medium text-xs flex-shrink-0 text-white"
+                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+              >
+                {index + 1}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-gray-900 dark:text-white truncate text-sm">
+                  {sub.name}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-light">
+                  {sub.category} · {sub.billingCycle}
+                </p>
+              </div>
+            </div>
+            <div className="text-right flex-shrink-0 ml-4">
+              <p className="font-medium text-gray-900 dark:text-white text-sm">
+                {formatCurrency(sub.monthlyCost, baseCurrency)}<span className="text-gray-400 font-light text-xs ml-1">{t('analytics:perMonthShort')}</span>
+              </p>
+              <p className="text-xs text-gray-400 font-light">
+                {formatCurrency(sub.yearlyCost, baseCurrency)}<span className="ml-1">{t('analytics:perYearShort')}</span>
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
  </div>
  );
 }

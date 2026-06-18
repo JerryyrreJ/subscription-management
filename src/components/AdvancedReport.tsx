@@ -65,81 +65,69 @@ export function AdvancedReport({
  onClick={handleClose}
  >
  <div
- className={`bg-white dark:bg-gray-900 rounded-2xl shadow-apple-xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden transition-all duration-300 ease-out ${
+ className={`bg-[#fcfcfc]/95 dark:bg-[#0a0a0a]/95 backdrop-blur-2xl rounded-[2rem] border border-gray-200/50 dark:border-white/10 shadow-fey w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden transition-all duration-300 ease-out ${
  isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
  }`}
  onClick={(e) => e.stopPropagation()}
  >
- {/* Elegant Header - Slate to Teal Gradient */}
- <div className="flex-shrink-0 bg-gradient-to-r from-slate-700 via-slate-600 to-teal-600 dark:from-slate-800 dark:via-slate-700 dark:to-teal-700 text-white p-6 rounded-t-2xl relative overflow-hidden">
- {/* Subtle pattern overlay */}
- <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/10 pointer-events-none"></div>
-
- <div className="flex items-center justify-between relative z-10">
- <div>
- <h2 className="text-2xl font-bold mb-1 bg-gradient-to-r from-white to-teal-100 bg-clip-text text-transparent tracking-tight">
- {t('analytics:title')}
- </h2>
- <div className="flex items-center gap-2 text-teal-100/90 text-sm">
- <span>{t('analytics:analysisSummary', { currency: baseCurrency })}</span>
- <div className="relative group">
- <HelpCircle className="w-4 h-4 cursor-help"/>
- <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-slate-900/95 backdrop-blur-sm text-white text-xs rounded-2xl shadow-apple-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-teal-500/20">
- {t('analytics:currencyHelp')}
- <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
- <div className="border-4 border-transparent border-t-slate-900/95"></div>
- </div>
- </div>
- </div>
- </div>
- </div>
- <button
- onClick={handleClose}
- className="p-2 hover:bg-white/20 rounded-3xl transition-all hover:shadow-fey hover:scale-105"
- aria-label={t('analytics:closeReportAria')}
- >
- <X className="w-6 h-6"/>
- </button>
- </div>
- </div>
+    {/* Elegant Minimalist Header */}
+    <div className="flex-shrink-0 border-b border-gray-200/50 dark:border-white/10 bg-transparent px-8 py-6 relative z-10 flex items-center justify-between">
+      <div>
+        <h2 className="text-2xl font-medium text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
+          {t('analytics:title')}
+          <span className="px-2.5 py-1 rounded-full border border-gray-200 dark:border-white/10 text-xs text-gray-500 dark:text-gray-400 font-normal tracking-normal bg-white/50 dark:bg-white/5">
+            Pro
+          </span>
+        </h2>
+        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mt-1.5 font-light">
+          <span>{t('analytics:analysisSummary', { currency: baseCurrency })}</span>
+          <div className="relative group">
+            <HelpCircle className="w-4 h-4 cursor-help text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"/>
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-gray-900/95 dark:bg-white/95 backdrop-blur-sm text-white dark:text-gray-900 text-xs rounded-lg shadow-fey whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              {t('analytics:currencyHelp')}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-gray-900/95 dark:border-t-white/95"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button
+        onClick={handleClose}
+        className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-all text-gray-400 hover:text-gray-600 dark:hover:text-white"
+        aria-label={t('analytics:closeReportAria')}
+      >
+        <X className="w-5 h-5"/>
+      </button>
+    </div>
 
  {/* Scrollable Content Area */}
  <div id="report-content"className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
  {/* Refined Overview Cards */}
- <div className="p-6 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-b border-gray-200 dark:border-gray-700">
- <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
- <div className="w-1 h-6 bg-gradient-to-b from-teal-500 to-emerald-500 rounded-full"></div>
- {t('analytics:dataOverview')}
- </h3>
+ <div className="p-8 border-b border-gray-200/50 dark:border-white/10">
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
- {/* Monthly Spend - Emerald Gradient */}
- <div className="group bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 p-5 rounded-3xl border border-emerald-200/50 dark:border-emerald-800/50 shadow-apple hover:shadow-apple-lg transition-all duration-300 hover:scale-[1.02]">
- <div className="flex items-center gap-3 mb-3">
- <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-fey group-hover:shadow-apple-lg transition-shadow">
- <DollarSign className="w-5 h-5 text-white"/>
+ {/* Monthly Spend */}
+ <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-gray-200 dark:border-white/10">
+ <div className="flex items-center gap-3 mb-4">
+ <DollarSign className="w-4 h-4 text-gray-400"/>
+ <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">{t('analytics:monthlySpend')}</span>
  </div>
- <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('analytics:monthlySpend')}</span>
- </div>
- <p className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400 bg-clip-text text-transparent tracking-tight">
+ <p className="text-2xl font-semibold text-gray-900 dark:text-white">
  {formatCurrency(reportData.overview.totalMonthlySpend, baseCurrency)}
  </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+ <p className="text-xs text-gray-400 mt-2">
  {t('analytics:yearlySpend', { amount: formatCurrency(reportData.overview.totalYearlySpend, baseCurrency) })}
  </p>
  </div>
 
- {/* Active Subscriptions - Sky Gradient */}
- <div className="group bg-gradient-to-br from-sky-50 dark:from-sky-950/30 dark: p-5 rounded-3xl border border-sky-200/50 dark:border-sky-800/50 shadow-apple hover:shadow-apple-lg transition-all duration-300 hover:scale-[1.02]">
- <div className="flex items-center gap-3 mb-3">
- <div className="p-2.5 bg-gradient-to-br from-sky-500 rounded-2xl shadow-fey group-hover:shadow-apple-lg transition-shadow">
- <Package className="w-5 h-5 text-white"/>
+ {/* Active Subscriptions */}
+ <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-gray-200 dark:border-white/10">
+ <div className="flex items-center gap-3 mb-4">
+ <Package className="w-4 h-4 text-gray-400"/>
+ <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">{t('analytics:activeSubscriptions')}</span>
  </div>
- <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('analytics:activeSubscriptions')}</span>
- </div>
- <p className="text-2xl font-bold bg-gradient-to-r from-sky-600 dark:from-sky-400 dark: bg-clip-text text-transparent tracking-tight">
+ <p className="text-2xl font-semibold text-gray-900 dark:text-white">
  {reportData.overview.activeSubscriptions}
  </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+ <p className="text-xs text-gray-400 mt-2">
  {t(
   reportData.overview.categoryBreakdown.length === 1
    ? 'analytics:categoriesCountOne'
@@ -149,32 +137,28 @@ export function AdvancedReport({
  </p>
  </div>
 
- {/* Average Cost - Amber Gradient */}
- <div className="group bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-5 rounded-3xl border border-amber-200/50 dark:border-amber-800/50 shadow-apple hover:shadow-apple-lg transition-all duration-300 hover:scale-[1.02]">
- <div className="flex items-center gap-3 mb-3">
- <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-fey group-hover:shadow-apple-lg transition-shadow">
- <TrendingUp className="w-5 h-5 text-white"/>
+ {/* Average Cost */}
+ <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-gray-200 dark:border-white/10">
+ <div className="flex items-center gap-3 mb-4">
+ <TrendingUp className="w-4 h-4 text-gray-400"/>
+ <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">{t('analytics:avgCost')}</span>
  </div>
- <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('analytics:avgCost')}</span>
- </div>
- <p className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent tracking-tight">
+ <p className="text-2xl font-semibold text-gray-900 dark:text-white">
  {formatCurrency(reportData.overview.avgSubscriptionCost, baseCurrency)}
  </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">{t('analytics:perMonthPerSubscription')}</p>
+ <p className="text-xs text-gray-400 mt-2">{t('analytics:perMonthPerSubscription')}</p>
  </div>
 
- {/* Largest Category - Indigo Gradient */}
- <div className="group bg-zinc-50 dark:bg-zinc-900/50 p-5 rounded-3xl border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700/50 dark:border-zinc-700/50 shadow-apple hover:shadow-apple-lg transition-all duration-300 hover:scale-[1.02]">
- <div className="flex items-center gap-3 mb-3">
- <div className="p-2.5 bg-gradient-to-br rounded-2xl shadow-fey group-hover:shadow-apple-lg transition-shadow">
- <Calendar className="w-5 h-5 text-white"/>
+ {/* Largest Category */}
+ <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-gray-200 dark:border-white/10">
+ <div className="flex items-center gap-3 mb-4">
+ <Calendar className="w-4 h-4 text-gray-400"/>
+ <span className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-medium">{t('analytics:largestCategory')}</span>
  </div>
- <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('analytics:largestCategory')}</span>
- </div>
- <p className="text-xl font-bold bg-gradient-to-r dark: dark: bg-clip-text text-transparent truncate tracking-tight">
+ <p className="text-2xl font-semibold text-gray-900 dark:text-white truncate">
  {reportData.overview.categoryBreakdown[0]?.category || t('analytics:notAvailable')}
  </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+ <p className="text-xs text-gray-400 mt-2">
  {t(
   (reportData.overview.categoryBreakdown[0]?.count || 0) === 1
    ? 'analytics:subscriptionsCountOne'
@@ -186,8 +170,8 @@ export function AdvancedReport({
  </div>
  </div>
 
- {/* Main Content Area */}
- <div className="p-6 space-y-6">
+      {/* Main Content Area */}
+      <div className="p-8 space-y-8">
  {/* Spending Trend Chart */}
  <SpendingTrendChart data={reportData.spendingTrend} baseCurrency={baseCurrency} />
 
@@ -205,25 +189,24 @@ export function AdvancedReport({
  suggestions={reportData.optimizationSuggestions}
  baseCurrency={baseCurrency}
  />
-
- {/* Elegant Action Buttons */}
- <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
- <button
- onClick={handleClose}
- className="flex-1 px-6 py-3 bg-white dark:bg-[#1a1c1e] text-gray-700 dark:text-gray-300 rounded-3xl border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-fey transition-all font-medium"
- >
- {t('analytics:closeReport')}
- </button>
- <button
- onClick={handleExportPDF}
- className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-600 to-emerald-600 text-white rounded-3xl hover:from-teal-700 hover:to-emerald-700 transition-all font-medium shadow-fey hover:shadow-apple-lg hover:scale-[1.02] flex items-center justify-center gap-2"
- >
- <Download className="w-5 h-5"/>
- <span>{t('analytics:exportPdfReport')}</span>
- </button>
- </div>
- </div>
- </div>
+        {/* Elegant Action Buttons */}
+        <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200/50 dark:border-white/5">
+          <button
+            onClick={handleClose}
+            className="px-6 py-2.5 bg-transparent text-gray-600 dark:text-gray-400 rounded-xl hover:text-gray-900 dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-white/5 transition-all text-sm font-medium"
+          >
+            {t('analytics:closeReport')}
+          </button>
+          <button
+            onClick={handleExportPDF}
+            className="px-6 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-all text-sm font-medium shadow-sm flex items-center justify-center gap-2"
+          >
+            <Download className="w-4 h-4"/>
+            <span>{t('analytics:exportPdfReport')}</span>
+          </button>
+        </div>
+      </div>
+    </div>
  </div>
  </div>
  );

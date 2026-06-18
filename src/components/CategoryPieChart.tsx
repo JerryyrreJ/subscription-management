@@ -24,13 +24,12 @@ export function CategoryPieChart({ data, baseCurrency }: CategoryPieChartProps) 
  }));
 
  return (
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey hover:shadow-apple-lg transition-shadow p-6 border border-gray-100 dark:border-gray-700">
- <div className="flex items-center gap-2 mb-4">
- <div className="w-1 h-6 bg-gradient-to-b from-sky-500 rounded-full"></div>
- <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- {t('analytics:categorySpendingDistribution')}
- </h3>
- </div>
+  <div className="bg-white dark:bg-white/5 rounded-2xl p-6 border border-gray-200 dark:border-white/10">
+    <div className="flex items-center justify-between mb-8">
+      <h3 className="text-base font-medium text-gray-900 dark:text-white">
+        {t('analytics:categorySpendingDistribution')}
+      </h3>
+    </div>
 
  <ResponsiveContainer width="100%"height={300}>
  <PieChart>
@@ -67,28 +66,28 @@ export function CategoryPieChart({ data, baseCurrency }: CategoryPieChartProps) 
  {/* Refined Legend List */}
  <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
  {data.map((item, index) => (
- <div key={item.category} className="flex items-center justify-between text-sm p-2 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
- <div className="flex items-center gap-2 flex-1 min-w-0">
- <div
- className="w-3 h-3 rounded-full flex-shrink-0 shadow-apple-sm"
- style={{ backgroundColor: COLORS[index % COLORS.length] }}
- />
- <span className="text-gray-700 dark:text-gray-300 truncate font-medium">
- {item.category}
- </span>
- <span className="text-gray-500 dark:text-gray-400 flex-shrink-0 text-xs">
- ({item.subscriptionCount})
- </span>
- </div>
- <div className="text-right flex-shrink-0 ml-2">
- <span className="font-semibold text-gray-900 dark:text-white">
- {formatCurrency(item.totalSpend, baseCurrency)}
- </span>
- <span className="text-gray-500 dark:text-gray-400 ml-2 text-xs">
- {item.percentage.toFixed(1)}%
- </span>
- </div>
- </div>
+            <div className="flex items-center justify-between text-sm p-3 border-b border-gray-100 dark:border-white/5 last:border-0 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors rounded-xl">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div
+                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                />
+                <span className="text-gray-700 dark:text-gray-300 truncate font-light">
+                  {item.category}
+                </span>
+                <span className="text-gray-400 flex-shrink-0 text-xs font-light">
+                  ({item.subscriptionCount})
+                </span>
+              </div>
+              <div className="text-right flex-shrink-0 ml-4">
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {formatCurrency(item.totalSpend, baseCurrency)}
+                </span>
+                <span className="text-gray-400 ml-3 text-xs font-light inline-block w-10 text-right">
+                  {item.percentage.toFixed(1)}%
+                </span>
+              </div>
+            </div>
  ))}
  </div>
  </div>

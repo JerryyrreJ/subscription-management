@@ -13,13 +13,12 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
  const { t } = useTranslation(['analytics']);
 
  return (
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey hover:shadow-apple-lg transition-shadow p-6 border border-gray-100 dark:border-gray-700">
- <div className="flex items-center gap-2 mb-4">
- <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
- <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
- {t('analytics:spendingTrendTitle')}
- </h3>
- </div>
+  <div className="bg-white dark:bg-white/5 rounded-2xl p-6 border border-gray-200 dark:border-white/10">
+    <div className="flex items-center justify-between mb-8">
+      <h3 className="text-base font-medium text-gray-900 dark:text-white">
+        {t('analytics:spendingTrendTitle')}
+      </h3>
+    </div>
 
  <ResponsiveContainer width="100%"height={300}>
  <LineChart data={data}>
@@ -83,16 +82,16 @@ export function SpendingTrendChart({ data, baseCurrency }: SpendingTrendChartPro
  </LineChart>
  </ResponsiveContainer>
 
- <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
- <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/30 dark:to-emerald-950/30 rounded-2xl border border-teal-200/50 dark:border-teal-800/50">
- <div className="w-3 h-3 bg-teal-500 rounded-full shadow-apple-sm"></div>
- <span className="text-gray-700 dark:text-gray-300 font-medium">{t('analytics:monthlySpendTrend')}</span>
- </div>
- <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-sky-50 dark:from-sky-950/30 dark: rounded-2xl border border-sky-200/50 dark:border-sky-800/50">
- <div className="w-3 h-3 bg-sky-500 rounded-full shadow-apple-sm"></div>
- <span className="text-gray-700 dark:text-gray-300 font-medium">{t('analytics:subscriptionCountChange')}</span>
- </div>
- </div>
- </div>
+    <div className="mt-6 flex flex-wrap gap-6 text-sm">
+      <div className="flex items-center gap-2">
+        <div className="w-2.5 h-2.5 bg-[#10b981] rounded-full"></div>
+        <span className="text-gray-500 dark:text-gray-400 font-light">{t('analytics:monthlySpendTrend')}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-2.5 h-2.5 bg-[#0ea5e9] rounded-full"></div>
+        <span className="text-gray-500 dark:text-gray-400 font-light">{t('analytics:subscriptionCountChange')}</span>
+      </div>
+    </div>
+  </div>
  );
 }
