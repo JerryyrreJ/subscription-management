@@ -182,6 +182,9 @@ export interface AiConfig {
   provider: string;
   apiKey: string | null;
   model: string;
+  fallbackModels: string[];
+  openRouterSiteUrl: string | null;
+  openRouterAppTitle: string | null;
   freeDailyParses: number;
   premiumDailyParses: number;
   maxInputChars: number;
@@ -191,15 +194,58 @@ export interface AiConfig {
   outputUsdPerMillion: number;
 }
 
-export const getAiConfig = (env: Environment = process.env): AiConfig => ({
-  provider: optionalValue(env.AI_PROVIDER) ?? 'anthropic',
-  apiKey: optionalValue(env.ANTHROPIC_API_KEY) ?? null,
-  model: optionalValue(env.AI_MODEL) ?? 'claude-haiku-4-5',
-  freeDailyParses: optionalPositiveInteger('AI_FREE_DAILY_PARSES', env.AI_FREE_DAILY_PARSES, 20),
-  premiumDailyParses: optionalPositiveInteger('AI_PREMIUM_DAILY_PARSES', env.AI_PREMIUM_DAILY_PARSES, 200),
-  maxInputChars: optionalPositiveInteger('AI_MAX_INPUT_CHARS', env.AI_MAX_INPUT_CHARS, 20000),
-  maxImageBytes: optionalPositiveInteger('AI_MAX_IMAGE_BYTES', env.AI_MAX_IMAGE_BYTES, 4 * 1024 * 1024),
-  monthlyBudgetUsd: optionalPositiveNumber('AI_MONTHLY_BUDGET_USD', env.AI_MONTHLY_BUDGET_USD, 50),
-  inputUsdPerMillion: optionalPositiveNumber('AI_INPUT_USD_PER_MTOK', env.AI_INPUT_USD_PER_MTOK, 1),
-  outputUsdPerMillion: optionalPositiveNumber('AI_OUTPUT_USD_PER_MTOK', env.AI_OUTPUT_USD_PER_MTOK, 5),
-});
+const csvValues = (value: string | undefined): string[] | undefined => {
+  const normalized = optionalValue(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+};
+
+const inferAiProvider = (env: Environment): string => {
+  const explicit = optionalValue(env.AI_PROVIDER);
+  if (explicit) {
+    return explicit.toLowerCase();
+  }
+
+  return optionalValue(env.OPENROUTER_API_KEY) ? 'openrouter' : 'anthropic';
+};
+
+export const getAiConfig = (env: Environment = process.env): AiConfig => {
+  const provider = inferAiProvider(env);
+  const isOpenRouter = provider === 'openrouter';
+
+  return {
+    provider,
+    apiKey: isOpenRouter
+      ? optionalValue(env.OPENROUTER_API_KEY) ?? null
+      : optionalValue(env.ANTHROPIC_API_KEY) ?? null,
+    model: optionalValue(env.AI_MODEL) ?? (
+      isOpenRouter ? 'google/gemini-2.5-flash-lite' : 'claude-haiku-4-5'
+    ),
+    fallbackModels: csvValues(env.AI_FALLBACK_MODELS) ?? (
+      isOpenRouter ? ['google/gemini-2.5-flash'] : []
+    ),
+    openRouterSiteUrl: optionalValue(env.OPENROUTER_SITE_URL || env.SITE_URL || env.URL) ?? null,
+    openRouterAppTitle: optionalValue(env.OPENROUTER_APP_TITLE) ?? null,
+    freeDailyParses: optionalPositiveInteger('AI_FREE_DAILY_PARSES', env.AI_FREE_DAILY_PARSES, 20),
+    premiumDailyParses: optionalPositiveInteger('AI_PREMIUM_DAILY_PARSES', env.AI_PREMIUM_DAILY_PARSES, 200),
+    maxInputChars: optionalPositiveInteger('AI_MAX_INPUT_CHARS', env.AI_MAX_INPUT_CHARS, 20000),
+    maxImageBytes: optionalPositiveInteger('AI_MAX_IMAGE_BYTES', env.AI_MAX_IMAGE_BYTES, 4 * 1024 * 1024),
+    monthlyBudgetUsd: optionalPositiveNumber('AI_MONTHLY_BUDGET_USD', env.AI_MONTHLY_BUDGET_USD, 50),
+    inputUsdPerMillion: optionalPositiveNumber(
+      'AI_INPUT_USD_PER_MTOK',
+      env.AI_INPUT_USD_PER_MTOK,
+      isOpenRouter ? 0.1 : 1
+    ),
+    outputUsdPerMillion: optionalPositiveNumber(
+      'AI_OUTPUT_USD_PER_MTOK',
+      env.AI_OUTPUT_USD_PER_MTOK,
+      isOpenRouter ? 0.4 : 5
+    ),
+  };
+};

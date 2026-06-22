@@ -39,6 +39,9 @@ export const aiCapture = {
     invalid_capture: 'Provide some text or an image to parse.',
     ai_parse_failed: "AI couldn't read that. Try clearer text or a sharper screenshot.",
     network_error: 'Could not reach the AI service. Check your connection and try again.',
+    invalid_response: 'AI capture returned an unexpected response. In local development, use npm run dev:full and restart the server.',
+    request_failed: 'AI capture request failed. Try again later, or check the Netlify Function logs.',
+    internal_error: 'AI capture had a server error. Check the Netlify Function logs.',
     generic: 'Something went wrong. You can add subscriptions manually.',
   },
 };

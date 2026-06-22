@@ -39,6 +39,9 @@ export const aiCapture = {
     invalid_capture: '请提供一段文本或一张图片。',
     ai_parse_failed: 'AI 没能识别。请换更清晰的文本或更清楚的截图。',
     network_error: '无法连接 AI 服务，请检查网络后重试。',
+    invalid_response: 'AI 服务返回异常。若在本地开发，请使用 npm run dev:full 并重启服务。',
+    request_failed: 'AI 服务请求失败。请稍后重试，或查看 Netlify Function 日志。',
+    internal_error: 'AI 服务内部出错。请查看 Netlify Function 日志。',
     generic: '出了点问题。你可以手动添加订阅。',
   },
 };

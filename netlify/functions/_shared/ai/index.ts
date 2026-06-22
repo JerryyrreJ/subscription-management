@@ -1,5 +1,6 @@
 import type { AiConfig } from '../env';
 import { createAnthropicParser } from './anthropicParser';
+import { createOpenRouterParser } from './openRouterParser';
 import type { SubscriptionParser } from './types';
 
 export type { CaptureInput, CaptureImage, ParseResult, ParseUsage, SubscriptionParser } from './types';
@@ -15,6 +16,8 @@ export const createParser = (config: AiConfig): SubscriptionParser | null => {
   switch (config.provider) {
     case 'anthropic':
       return createAnthropicParser(config);
+    case 'openrouter':
+      return createOpenRouterParser(config);
     default:
       return null;
   }

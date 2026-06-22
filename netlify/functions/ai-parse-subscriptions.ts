@@ -39,6 +39,26 @@ interface CostRow {
   output_tokens: number | string | null;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const describeError = (error: unknown): Record<string, unknown> => {
+  if (error instanceof Error) {
+    return { error: error.message };
+  }
+
+  if (isRecord(error)) {
+    return {
+      error: typeof error.message === 'string' ? error.message : 'Unknown error',
+      code: typeof error.code === 'string' ? error.code : undefined,
+      details: typeof error.details === 'string' ? error.details : undefined,
+      hint: typeof error.hint === 'string' ? error.hint : undefined,
+    };
+  }
+
+  return { error: 'Unknown error' };
+};
+
 const ALLOWED_METHODS = 'POST, OPTIONS';
 
 const CORS_HEADERS = {
@@ -271,7 +291,7 @@ export const createAiParseHandler = (
     } catch (parseError) {
       logEvent('error', 'AI parse failed', requestId, {
         userId: authenticated.userId,
-        error: parseError instanceof Error ? parseError.message : 'Unknown error',
+        ...describeError(parseError),
       });
       throw new HttpError(502, 'ai_parse_failed', 'AI could not read that input', {}, {
         suggestedFix: 'Try clearer wording or a sharper screenshot, or add the subscription manually.',
@@ -290,7 +310,7 @@ export const createAiParseHandler = (
       }
     } catch (recordError) {
       logEvent('warn', 'Failed to record AI cost', requestId, {
-        error: recordError instanceof Error ? recordError.message : 'Unknown error',
+        ...describeError(recordError),
       });
     }
 
@@ -309,7 +329,7 @@ export const createAiParseHandler = (
   } catch (error) {
     // Never include the request body (it may contain a bank statement).
     logEvent('error', 'AI capture request failed', requestId, {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      ...describeError(error),
     });
     return withCorsHeaders(errorResponse(error, requestId));
   }
