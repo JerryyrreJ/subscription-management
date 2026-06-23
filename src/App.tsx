@@ -17,6 +17,7 @@ import { SubscriptionCard } from './components/SubscriptionCard';
 import { ThemeToggle } from './components/ThemeToggle';
 import { UserMenu } from './components/UserMenu';
 import type { SettingsTab } from './components/SettingsHubModal';
+import type { UndoableAiAction } from './components/AiCaptureModal';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
 import { useCategorySync } from './hooks/useCategorySync';
@@ -115,7 +116,7 @@ function LazyModalFallback({
 }
 
 export function App() {
- const { t, i18n } = useTranslation(['app', 'importData', 'settingsHub', 'userMenu']);
+ const { t, i18n } = useTranslation(['app', 'importData', 'settingsHub', 'userMenu', 'aiCapture']);
  const {
  user,
  userProfile,
@@ -156,6 +157,9 @@ const [exchangeRatesUpdatedAt, setExchangeRatesUpdatedAt] = useState<number | nu
 const [, setIsExchangeRatesRefreshing] = useState(false);
 const [exchangeRatesStale, setExchangeRatesStale] = useState(false);
 const [exchangeRateError, setExchangeRateError] = useState<string | undefined>();
+ const [undoAction, setUndoAction] = useState<UndoableAiAction | null>(null);
+ const [undoError, setUndoError] = useState<string | null>(null);
+ const undoTimerRef = useRef<number | null>(null);
  const appLocale = normalizeLocale(i18n.language);
  const notificationReady = isBarkReady(notificationSettings);
  const notificationScope = user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE;
@@ -644,6 +648,44 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setIsSettingsHubOpen(true);
  };
 
+ const clearUndoTimer = useCallback(() => {
+ if (undoTimerRef.current) {
+  window.clearTimeout(undoTimerRef.current);
+  undoTimerRef.current = null;
+ }
+ }, []);
+
+ const showUndoAction = useCallback((action: UndoableAiAction) => {
+ clearUndoTimer();
+ setUndoError(null);
+ setUndoAction(action);
+ undoTimerRef.current = window.setTimeout(() => {
+  setUndoAction(null);
+  undoTimerRef.current = null;
+ }, 5000);
+ }, [clearUndoTimer]);
+
+ const handleUndoAction = useCallback(async () => {
+ if (!undoAction) {
+  return;
+ }
+
+ clearUndoTimer();
+ try {
+  await undoAction.undo();
+  undoAction.onRestored?.();
+  setUndoAction(null);
+  setUndoError(null);
+ } catch (error) {
+  console.error('Failed to undo AI action:', error);
+  setUndoError(t('aiCapture:undo.failed'));
+ }
+ }, [clearUndoTimer, t, undoAction]);
+
+ useEffect(() => () => {
+ clearUndoTimer();
+ }, [clearUndoTimer]);
+
  // 文件选择后的处理
  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
  const file = event.target.files?.[0];
@@ -882,7 +924,11 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   isOpen={isAiCaptureOpen}
   onClose={() => setIsAiCaptureOpen(false)}
   accessToken={session?.access_token ?? ''}
-  onCommit={createSubscription}
+  subscriptions={subscriptions}
+  onCreate={createSubscription}
+  onUpdate={updateSubscription}
+  onDelete={deleteSubscription}
+  onShowUndo={showUndoAction}
   onManualFallback={() => { setIsAiCaptureOpen(false); setIsAddModalOpen(true); }}
   />
  </Suspense>
@@ -1083,6 +1129,36 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   }}
  />
  </Suspense>
+ )}
+
+ {undoAction && (
+ <div className="fixed inset-x-0 bottom-5 z-[70] flex justify-center px-4 pointer-events-none">
+  <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-[#1a1c1e]/95 shadow-apple-xl backdrop-blur-xl px-4 py-3">
+  <div className="flex items-center gap-3">
+  <div className="min-w-0 flex-1">
+  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{undoAction.message}</p>
+  {undoError && <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{undoError}</p>}
+  </div>
+  <button
+  onClick={handleUndoAction}
+  className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-sm font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors"
+  >
+  {undoAction.undoLabel}
+  </button>
+  <button
+  onClick={() => {
+   clearUndoTimer();
+   setUndoAction(null);
+   setUndoError(null);
+  }}
+  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1"
+  aria-label={t('aiCapture:undo.dismiss')}
+  >
+  ×
+  </button>
+  </div>
+  </div>
+ </div>
  )}
 
  </div>

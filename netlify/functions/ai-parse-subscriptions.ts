@@ -8,10 +8,12 @@ import {
   type SupabaseAdminConfig,
   type SupabasePublicConfig,
 } from './_shared/env';
-import { errorResponse, HttpError, jsonResponse } from './_shared/http';
+import { errorResponse, HttpError, isNetworkFetchError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { createSupabaseAdminClient, createSupabaseAuthClient } from './_shared/supabase';
 import { createParser, type CaptureInput, type SubscriptionParser } from './_shared/ai';
+import type { AiSubscriptionContextItem } from '../../src/utils/aiCommand';
+import { SUBSCRIPTION_CURRENCIES, SUBSCRIPTION_PERIODS } from '../../src/utils/subscriptionDomain';
 
 interface AiParseDependencies {
   supabaseConfig: SupabaseAdminConfig;
@@ -68,6 +70,7 @@ const CORS_HEADERS = {
 };
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const MAX_CONTEXT_SUBSCRIPTIONS = 200;
 
 const createDefaultDependencies = (): AiParseDependencies => {
   const supabaseConfig = getSupabaseAdminConfig(process.env);
@@ -131,7 +134,7 @@ const parseCaptureInput = (
   }
 
   const record = parsed as Record<string, unknown>;
-  const input: CaptureInput = {};
+  const input: CaptureInput = { subscriptions: [] };
 
   if (record.text !== undefined && record.text !== null) {
     if (typeof record.text !== 'string') {
@@ -179,6 +182,56 @@ const parseCaptureInput = (
     });
   }
 
+  if (record.subscriptions !== undefined && record.subscriptions !== null) {
+    if (!Array.isArray(record.subscriptions)) {
+      throw new HttpError(400, 'invalid_capture', 'subscriptions must be an array', {}, { field: 'subscriptions' });
+    }
+
+    input.subscriptions = record.subscriptions
+      .slice(0, MAX_CONTEXT_SUBSCRIPTIONS)
+      .map((item): AiSubscriptionContextItem | null => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          return null;
+        }
+
+        const subscription = item as Record<string, unknown>;
+        const id = typeof subscription.id === 'string' ? subscription.id.trim() : '';
+        const name = typeof subscription.name === 'string' ? subscription.name.trim().slice(0, 120) : '';
+        const category = typeof subscription.category === 'string' ? subscription.category.trim().slice(0, 80) : '';
+        const amount = Number(subscription.amount);
+        const currency = typeof subscription.currency === 'string' ? subscription.currency.toUpperCase() : '';
+        const period = typeof subscription.period === 'string' ? subscription.period.toLowerCase() : '';
+        const lastPaymentDate = typeof subscription.lastPaymentDate === 'string' ? subscription.lastPaymentDate : '';
+        const customDate = typeof subscription.customDate === 'string' ? subscription.customDate : undefined;
+
+        if (
+          !id ||
+          !name ||
+          !Number.isFinite(amount) ||
+          !(SUBSCRIPTION_CURRENCIES as readonly string[]).includes(currency) ||
+          !(SUBSCRIPTION_PERIODS as readonly string[]).includes(period) ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(lastPaymentDate)
+        ) {
+          return null;
+        }
+
+        return {
+          id,
+          name,
+          category,
+          amount,
+          currency: currency as AiSubscriptionContextItem['currency'],
+          period: period as AiSubscriptionContextItem['period'],
+          lastPaymentDate,
+          customDate,
+          notificationEnabled: subscription.notificationEnabled === undefined
+            ? true
+            : Boolean(subscription.notificationEnabled),
+        };
+      })
+      .filter((subscription): subscription is AiSubscriptionContextItem => Boolean(subscription));
+  }
+
   return input;
 };
 
@@ -187,6 +240,19 @@ const unwrapQuota = (data: unknown): QuotaResult | null => {
     return (data[0] as QuotaResult | undefined) ?? null;
   }
   return (data as QuotaResult | null) ?? null;
+};
+
+const runDatabaseRequest = async <T>(operation: () => PromiseLike<T> | T): Promise<T> => {
+  try {
+    return await operation();
+  } catch (error) {
+    if (isNetworkFetchError(error)) {
+      throw new HttpError(503, 'database_unavailable', 'Database service is temporarily unavailable', {}, {
+        suggestedFix: 'Check the network connection to Supabase and try again.',
+      });
+    }
+    throw error;
+  }
 };
 
 export const createAiParseHandler = (
@@ -230,11 +296,11 @@ export const createAiParseHandler = (
     const { today, day, month } = dateKeys(now);
 
     // Global monthly budget circuit breaker.
-    const { data: costRow, error: costError } = await dependencies.database
+    const { data: costRow, error: costError } = await runDatabaseRequest(() => dependencies.database
       .from('ai_cost_windows')
       .select('input_tokens, output_tokens')
       .eq('window_start', month)
-      .maybeSingle<CostRow>();
+      .maybeSingle<CostRow>());
     if (costError) {
       throw costError;
     }
@@ -247,11 +313,11 @@ export const createAiParseHandler = (
       });
     }
 
-    const { data: profile, error: profileError } = await dependencies.database
+    const { data: profile, error: profileError } = await runDatabaseRequest(() => dependencies.database
       .from('user_profiles')
       .select('is_premium')
       .eq('user_id', authenticated.userId)
-      .maybeSingle<ProfileRow>();
+      .maybeSingle<ProfileRow>());
     if (profileError) {
       throw profileError;
     }
@@ -262,11 +328,11 @@ export const createAiParseHandler = (
 
     // Per-user daily quota. Charged before the model call so abuse and model
     // failures can't run up an unbounded bill.
-    const { data: quotaData, error: quotaError } = await dependencies.database.rpc('consume_ai_quota', {
+    const { data: quotaData, error: quotaError } = await runDatabaseRequest(() => dependencies.database.rpc('consume_ai_quota', {
       p_user_id: authenticated.userId,
       p_window_start: day,
       p_limit: limit,
-    });
+    }));
     if (quotaError) {
       throw quotaError;
     }
@@ -293,6 +359,11 @@ export const createAiParseHandler = (
         userId: authenticated.userId,
         ...describeError(parseError),
       });
+      if (isNetworkFetchError(parseError)) {
+        throw new HttpError(503, 'ai_provider_unavailable', 'AI provider is temporarily unavailable', {}, {
+          suggestedFix: 'Check the network connection to the configured AI provider and try again.',
+        });
+      }
       throw new HttpError(502, 'ai_parse_failed', 'AI could not read that input', {}, {
         suggestedFix: 'Try clearer wording or a sharper screenshot, or add the subscription manually.',
       });
@@ -300,11 +371,11 @@ export const createAiParseHandler = (
 
     // Record token usage for the budget breaker (best-effort).
     try {
-      const { error: recordError } = await dependencies.database.rpc('add_ai_cost', {
+      const { error: recordError } = await runDatabaseRequest(() => dependencies.database.rpc('add_ai_cost', {
         p_window_start: month,
         p_input_tokens: result.usage.inputTokens,
         p_output_tokens: result.usage.outputTokens,
-      });
+      }));
       if (recordError) {
         throw new Error(recordError.message);
       }
@@ -316,13 +387,13 @@ export const createAiParseHandler = (
 
     logEvent('info', 'AI capture parsed', requestId, {
       userId: authenticated.userId,
-      drafts: result.drafts.length,
+      commandType: result.command.type,
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
     });
 
     return withCorsHeaders(jsonResponse(200, {
-      drafts: result.drafts,
+      command: result.command,
       quota: { remaining: quota.remaining, limit, resetAt: quota.reset_at },
       requestId,
     }));

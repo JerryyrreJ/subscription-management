@@ -53,6 +53,25 @@ test('authenticateRequest rejects an invalid token with 401', async () => {
   );
 });
 
+test('authenticateRequest reports Supabase auth network failures as 503', async () => {
+  await assert.rejects(
+    authenticateRequest(
+      { authorization: 'Bearer access-token' },
+      {
+        auth: {
+          getUser: async () => {
+            throw new TypeError('fetch failed');
+          },
+        },
+      }
+    ),
+    (error: unknown) =>
+      error instanceof HttpError &&
+      error.statusCode === 503 &&
+      error.code === 'auth_service_unavailable'
+  );
+});
+
 test('sanitizeLogDetails recursively redacts secrets and masks email addresses', () => {
   assert.deepEqual(
     sanitizeLogDetails({

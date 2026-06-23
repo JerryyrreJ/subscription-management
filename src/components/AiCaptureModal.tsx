@@ -1,19 +1,49 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, X, Upload, Loader2, Check, AlertTriangle, Image as ImageIcon } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  Image as ImageIcon,
+  Loader2,
+  Pencil,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Subscription, Currency, Period } from '../types';
-import { SUBSCRIPTION_CURRENCIES, SUBSCRIPTION_PERIODS, createSubscriptionRecord, getSubscriptionValidationMessage } from '../utils/subscriptionDomain';
+import {
+  SUBSCRIPTION_CURRENCIES,
+  SUBSCRIPTION_PERIODS,
+  createSubscriptionRecord,
+  getSubscriptionValidationMessage,
+} from '../utils/subscriptionDomain';
+import { buildAiSubscriptionContext, type AiCommand } from '../utils/aiCommand';
+import { formatCurrency } from '../utils/currency';
 import { parseCapture, AiParseError, type DraftSubscription, type ParseQuota } from '../services/aiParseService';
+
+export interface UndoableAiAction {
+  id: string;
+  message: string;
+  undoLabel: string;
+  undo: () => Promise<void>;
+  onRestored?: () => void;
+}
 
 interface AiCaptureModalProps {
   isOpen: boolean;
   onClose: () => void;
   accessToken: string;
-  onCommit: (subscription: Subscription) => Promise<unknown>;
+  subscriptions: Subscription[];
+  onCreate: (subscription: Subscription) => Promise<Subscription>;
+  onUpdate: (subscription: Subscription) => Promise<Subscription>;
+  onDelete: (subscriptionId: string) => Promise<void>;
+  onShowUndo: (action: UndoableAiAction) => void;
   onManualFallback: () => void;
 }
 
 type Phase = 'capture' | 'parsing' | 'review';
+type ActionStatus = 'pending' | 'saving' | 'done';
 
 interface DraftState extends DraftSubscription {
   key: string;
@@ -21,8 +51,6 @@ interface DraftState extends DraftSubscription {
   error?: string;
 }
 
-// Downscale to a long edge of 1568px and re-encode as JPEG before upload — caps
-// image tokens (cost) and keeps the request well under platform size limits.
 const prepareImage = (file: File): Promise<{ mediaType: string; dataBase64: string }> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -67,26 +95,52 @@ const warnedFields = (warnings: string[]): Set<string> => {
 
 let draftCounter = 0;
 
-export function AiCaptureModal({ isOpen, onClose, accessToken, onCommit, onManualFallback }: AiCaptureModalProps) {
+export function AiCaptureModal({
+  isOpen,
+  onClose,
+  accessToken,
+  subscriptions,
+  onCreate,
+  onUpdate,
+  onDelete,
+  onShowUndo,
+  onManualFallback,
+}: AiCaptureModalProps) {
   const { t } = useTranslation(['aiCapture', 'addSubscription', 'app']);
   const [phase, setPhase] = useState<Phase>('capture');
   const [text, setText] = useState('');
   const [image, setImage] = useState<{ mediaType: string; dataBase64: string } | null>(null);
+  const [command, setCommand] = useState<AiCommand | null>(null);
   const [drafts, setDrafts] = useState<DraftState[]>([]);
   const [quota, setQuota] = useState<ParseQuota | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
+  const [actionStatus, setActionStatus] = useState<ActionStatus>('pending');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSnapshot, setActionSnapshot] = useState<Subscription | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
       setPhase('capture');
       setText('');
       setImage(null);
+      setCommand(null);
       setDrafts([]);
       setQuota(null);
       setErrorCode(null);
       setSavedCount(0);
+      setActionStatus('pending');
+      setActionError(null);
+      setActionSnapshot(null);
     }
   }, [isOpen]);
 
@@ -95,6 +149,8 @@ export function AiCaptureModal({ isOpen, onClose, accessToken, onCommit, onManua
   }
 
   const errorMessage = (code: string): string => t([`aiCapture:errors.${code}`, 'aiCapture:errors.generic']);
+  const inputBase = 'w-full px-3 py-2 border rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm';
+  const fieldBorder = (warned: boolean) => warned ? 'border-amber-400 dark:border-amber-500' : 'border-gray-300 dark:border-gray-600';
 
   const handleImage = async (file: File | undefined) => {
     if (!file) return;
@@ -107,6 +163,7 @@ export function AiCaptureModal({ isOpen, onClose, accessToken, onCommit, onManua
 
   const handleParse = async () => {
     setErrorCode(null);
+    setActionError(null);
     if (!text.trim() && !image) {
       setErrorCode('invalid_capture');
       return;
@@ -116,9 +173,15 @@ export function AiCaptureModal({ isOpen, onClose, accessToken, onCommit, onManua
       const result = await parseCapture(accessToken, {
         text: text.trim() || undefined,
         image: image ?? undefined,
+        subscriptions: buildAiSubscriptionContext(subscriptions),
       });
       setQuota(result.quota);
-      setDrafts(result.drafts.map((d) => ({ ...d, key: `d${draftCounter++}`, status: 'pending' as const })));
+      setCommand(result.command);
+      setDrafts(result.command.type === 'create'
+        ? result.command.drafts.map((d) => ({ ...d, key: `d${draftCounter++}`, status: 'pending' as const }))
+        : []);
+      setActionStatus('pending');
+      setActionSnapshot(null);
       setPhase('review');
     } catch (error) {
       setErrorCode(error instanceof AiParseError ? error.code : 'generic');
@@ -128,6 +191,29 @@ export function AiCaptureModal({ isOpen, onClose, accessToken, onCommit, onManua
 
   const updateDraft = (key: string, patch: Partial<DraftSubscription>) => {
     setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, ...patch, error: undefined } : d)));
+  };
+
+  const findTarget = (): Subscription | null => {
+    if (!command || (command.type !== 'update' && command.type !== 'delete')) {
+      return null;
+    }
+    return subscriptions.find(subscription => subscription.id === command.subscriptionId) ?? actionSnapshot;
+  };
+
+  const restoreReview = (snapshot?: Subscription | null, draftKey?: string) => {
+    if (!mountedRef.current) return;
+    setPhase('review');
+    setActionStatus('pending');
+    setActionError(null);
+    if (snapshot) {
+      setActionSnapshot(snapshot);
+    }
+    if (draftKey) {
+      setDrafts((prev) => prev.map((draft) =>
+        draft.key === draftKey ? { ...draft, status: 'pending', error: undefined } : draft
+      ));
+      setSavedCount((count) => Math.max(0, count - 1));
+    }
   };
 
   const saveDraft = async (draft: DraftState) => {
@@ -144,9 +230,18 @@ export function AiCaptureModal({ isOpen, onClose, accessToken, onCommit, onManua
         customDate: draft.period === 'custom' ? draft.customDate : undefined,
         notificationEnabled: draft.notificationEnabled,
       });
-      await onCommit(subscription);
+      const created = await onCreate(subscription);
       setDrafts((prev) => prev.map((d) => (d.key === draft.key ? { ...d, status: 'saved' } : d)));
       setSavedCount((c) => c + 1);
+      onShowUndo({
+        id: crypto.randomUUID(),
+        message: t('aiCapture:undo.created', { name: created.name }),
+        undoLabel: t('aiCapture:undo.action'),
+        undo: async () => {
+          await onDelete(created.id);
+        },
+        onRestored: () => restoreReview(null, draft.key),
+      });
     } catch (error) {
       setDrafts((prev) => prev.map((d) =>
         d.key === draft.key ? { ...d, status: 'pending', error: getSubscriptionValidationMessage(error) } : d
@@ -158,9 +253,251 @@ export function AiCaptureModal({ isOpen, onClose, accessToken, onCommit, onManua
     setDrafts((prev) => prev.filter((d) => d.key !== key));
   };
 
+  const confirmDelete = async () => {
+    const target = findTarget();
+    if (!target) {
+      setActionError(t('aiCapture:targetMissing'));
+      return;
+    }
+
+    setActionStatus('saving');
+    setActionError(null);
+    try {
+      await onDelete(target.id);
+      setActionSnapshot(target);
+      setActionStatus('done');
+      onShowUndo({
+        id: crypto.randomUUID(),
+        message: t('aiCapture:undo.deleted', { name: target.name }),
+        undoLabel: t('aiCapture:undo.action'),
+        undo: async () => {
+          await onCreate(target);
+        },
+        onRestored: () => restoreReview(target),
+      });
+    } catch (error) {
+      setActionStatus('pending');
+      setActionError(getSubscriptionValidationMessage(error));
+    }
+  };
+
+  const confirmUpdate = async () => {
+    const target = findTarget();
+    if (!target || !command || command.type !== 'update') {
+      setActionError(t('aiCapture:targetMissing'));
+      return;
+    }
+
+    const updated = {
+      ...target,
+      ...command.patch,
+      customDate: command.patch.period && command.patch.period !== 'custom'
+        ? undefined
+        : command.patch.customDate ?? target.customDate,
+    };
+    setActionStatus('saving');
+    setActionError(null);
+    try {
+      await onUpdate(updated);
+      setActionSnapshot(target);
+      setActionStatus('done');
+      onShowUndo({
+        id: crypto.randomUUID(),
+        message: t('aiCapture:undo.updated', { name: target.name }),
+        undoLabel: t('aiCapture:undo.action'),
+        undo: async () => {
+          await onUpdate(target);
+        },
+        onRestored: () => restoreReview(target),
+      });
+    } catch (error) {
+      setActionStatus('pending');
+      setActionError(getSubscriptionValidationMessage(error));
+    }
+  };
+
   const remaining = drafts.filter((d) => d.status !== 'saved');
-  const inputBase = 'w-full px-3 py-2 border rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm';
-  const fieldBorder = (warned: boolean) => warned ? 'border-amber-400 dark:border-amber-500' : 'border-gray-300 dark:border-gray-600';
+  const target = findTarget();
+
+  const renderCommandReview = () => {
+    if (!command || command.type === 'none') {
+      return (
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40 p-5 text-center">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{t('aiCapture:noneAction')}</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {command?.type === 'none' && command.reason ? command.reason : t('aiCapture:noneFound')}
+          </p>
+        </div>
+      );
+    }
+
+    if (command.type === 'delete') {
+      return (
+        <div className="rounded-2xl border border-red-100 dark:border-red-900/50 bg-red-50/70 dark:bg-red-950/20 p-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-red-100 dark:bg-red-500/10 flex items-center justify-center">
+              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-300" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-white">
+                {actionStatus === 'done'
+                  ? t('aiCapture:deleteDone', { name: actionSnapshot?.name ?? target?.name ?? '' })
+                  : t('aiCapture:deleteTitle', { name: target?.name ?? t('aiCapture:unknownTarget') })}
+              </p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{t('aiCapture:deleteHint')}</p>
+            </div>
+          </div>
+          {actionError && <p className="text-xs text-red-600 dark:text-red-300">{actionError}</p>}
+          {actionStatus !== 'done' && (
+            <button
+              onClick={confirmDelete}
+              disabled={actionStatus === 'saving' || !target}
+              className="w-full flex items-center justify-center gap-2 bg-red-600 text-white py-2.5 rounded-2xl font-medium hover:bg-red-700 disabled:opacity-50"
+            >
+              {actionStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              {actionStatus === 'saving' ? t('aiCapture:deleting') : t('aiCapture:confirmDelete')}
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    if (command.type === 'update') {
+      const patchEntries = Object.entries(command.patch);
+      return (
+        <div className="rounded-2xl border border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center">
+              <Pencil className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-white">
+                {actionStatus === 'done'
+                  ? t('aiCapture:updateDone', { name: actionSnapshot?.name ?? target?.name ?? '' })
+                  : t('aiCapture:updateTitle', { name: target?.name ?? t('aiCapture:unknownTarget') })}
+              </p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{t('aiCapture:updateHint')}</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {patchEntries.map(([field, value]) => (
+              <div key={field} className="flex items-center justify-between gap-3 rounded-xl bg-white/80 dark:bg-gray-800/60 px-3 py-2 text-sm">
+                <span className="text-gray-500 dark:text-gray-400">{t(`aiCapture:fields.${field}`)}</span>
+                <span className="font-medium text-gray-900 dark:text-white text-right">
+                  {field === 'amount' && target
+                    ? formatCurrency(Number(value), (command.patch.currency ?? target.currency) as Currency)
+                    : String(value)}
+                </span>
+              </div>
+            ))}
+          </div>
+          {actionError && <p className="text-xs text-red-600 dark:text-red-300">{actionError}</p>}
+          {actionStatus !== 'done' && (
+            <button
+              onClick={confirmUpdate}
+              disabled={actionStatus === 'saving' || !target}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 dark:bg-emerald-500 text-white py-2.5 rounded-2xl font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50"
+            >
+              {actionStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {actionStatus === 'saving' ? t('aiCapture:updating') : t('aiCapture:confirmUpdate')}
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {drafts.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">{t('aiCapture:noneFound')}</p>}
+        {drafts.length > 0 && remaining.length > 0 && <p className="text-xs text-gray-400 dark:text-gray-500">{t('aiCapture:reviewHint')}</p>}
+        <div className="space-y-3">
+          {drafts.filter((d) => d.status !== 'saved').map((draft) => {
+            const warned = warnedFields(draft.warnings);
+            return (
+              <div key={draft.key} className="border border-gray-200 dark:border-gray-700 rounded-2xl p-3 space-y-2 bg-gray-50/50 dark:bg-gray-800/40">
+                <input
+                  value={draft.name}
+                  onChange={(e) => updateDraft(draft.key, { name: e.target.value })}
+                  placeholder={t('addSubscription:nameLabel')}
+                  className={`${inputBase} ${fieldBorder(false)} font-medium`}
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="number" step="0.01" min="0"
+                    value={draft.amount}
+                    onChange={(e) => updateDraft(draft.key, { amount: Number(e.target.value) })}
+                    className={`${inputBase} ${fieldBorder(warned.has('amount'))} w-[40%]`}
+                  />
+                  <select
+                    value={draft.currency}
+                    onChange={(e) => updateDraft(draft.key, { currency: e.target.value as Currency })}
+                    className={`${inputBase} ${fieldBorder(warned.has('currency'))} w-[30%]`}
+                  >
+                    {SUBSCRIPTION_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <select
+                    value={draft.period}
+                    onChange={(e) => updateDraft(draft.key, { period: e.target.value as Period })}
+                    className={`${inputBase} ${fieldBorder(warned.has('period'))} w-[30%]`}
+                  >
+                    {SUBSCRIPTION_PERIODS.map((p) => <option key={p} value={p}>{t(`addSubscription:period${p.charAt(0).toUpperCase()}${p.slice(1)}`)}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={draft.category}
+                    onChange={(e) => updateDraft(draft.key, { category: e.target.value })}
+                    placeholder={t('addSubscription:categoryLabel')}
+                    className={`${inputBase} ${fieldBorder(warned.has('category'))} flex-1`}
+                  />
+                  <input
+                    type="date"
+                    value={draft.lastPaymentDate}
+                    onChange={(e) => updateDraft(draft.key, { lastPaymentDate: e.target.value })}
+                    className={`${inputBase} ${fieldBorder(warned.has('lastPaymentDate'))} flex-1`}
+                  />
+                </div>
+                {draft.period === 'custom' && (
+                  <input
+                    type="number" min="1"
+                    value={draft.customDate ?? ''}
+                    onChange={(e) => updateDraft(draft.key, { customDate: e.target.value })}
+                    placeholder={t('addSubscription:customPeriodLabel')}
+                    className={`${inputBase} ${fieldBorder(warned.has('customDate'))}`}
+                  />
+                )}
+
+                {draft.warnings.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {draft.warnings.map((w) => (
+                      <span key={w} className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                        {t([`aiCapture:warnings.${w}`, 'aiCapture:needsReview'])}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {draft.error && <p className="text-xs text-red-600 dark:text-red-400">{draft.error}</p>}
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => saveDraft(draft)}
+                    disabled={draft.status === 'saving'}
+                    className="flex items-center justify-center gap-1.5 flex-1 bg-emerald-600 dark:bg-emerald-500 text-white py-2 rounded-2xl text-sm font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50"
+                  >
+                    {draft.status === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    {draft.status === 'saving' ? t('aiCapture:saving') : t('aiCapture:save')}
+                  </button>
+                  <button onClick={() => discardDraft(draft.key)} className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-2xl text-sm hover:bg-gray-200 dark:hover:bg-gray-600">
+                    {t('aiCapture:discard')}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>
+    );
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-2 sm:p-4 z-50">
@@ -216,7 +553,7 @@ export function AiCaptureModal({ isOpen, onClose, accessToken, onCommit, onManua
                 )}
               </div>
 
-              <p className="text-xs text-gray-400 dark:text-gray-500">🔒 {t('aiCapture:privacyNote')}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">{t('aiCapture:privacyNote')}</p>
 
               <div className="flex gap-3 pt-1">
                 <button
@@ -238,107 +575,22 @@ export function AiCaptureModal({ isOpen, onClose, accessToken, onCommit, onManua
             <>
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {remaining.length > 0 ? t('aiCapture:reviewTitle', { count: drafts.length }) : t('aiCapture:done', { count: savedCount })}
+                  {command?.type === 'create'
+                    ? (remaining.length > 0 ? t('aiCapture:reviewTitle', { count: drafts.length }) : t('aiCapture:done', { count: savedCount }))
+                    : t('aiCapture:commandReviewTitle')}
                 </p>
                 {quota && <span className="text-xs text-gray-400 dark:text-gray-500">{t('aiCapture:quotaRemaining', { remaining: quota.remaining, limit: quota.limit })}</span>}
               </div>
 
-              {drafts.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">{t('aiCapture:noneFound')}</p>}
-              {drafts.length > 0 && remaining.length > 0 && <p className="text-xs text-gray-400 dark:text-gray-500">{t('aiCapture:reviewHint')}</p>}
-
-              <div className="space-y-3">
-                {drafts.filter((d) => d.status !== 'saved').map((draft) => {
-                  const warned = warnedFields(draft.warnings);
-                  return (
-                    <div key={draft.key} className="border border-gray-200 dark:border-gray-700 rounded-2xl p-3 space-y-2 bg-gray-50/50 dark:bg-gray-800/40">
-                      <input
-                        value={draft.name}
-                        onChange={(e) => updateDraft(draft.key, { name: e.target.value })}
-                        placeholder={t('addSubscription:nameLabel')}
-                        className={`${inputBase} ${fieldBorder(false)} font-medium`}
-                      />
-                      <div className="flex gap-2">
-                        <input
-                          type="number" step="0.01" min="0"
-                          value={draft.amount}
-                          onChange={(e) => updateDraft(draft.key, { amount: Number(e.target.value) })}
-                          className={`${inputBase} ${fieldBorder(warned.has('amount'))} w-[40%]`}
-                        />
-                        <select
-                          value={draft.currency}
-                          onChange={(e) => updateDraft(draft.key, { currency: e.target.value as Currency })}
-                          className={`${inputBase} ${fieldBorder(warned.has('currency'))} w-[30%]`}
-                        >
-                          {SUBSCRIPTION_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <select
-                          value={draft.period}
-                          onChange={(e) => updateDraft(draft.key, { period: e.target.value as Period })}
-                          className={`${inputBase} ${fieldBorder(warned.has('period'))} w-[30%]`}
-                        >
-                          {SUBSCRIPTION_PERIODS.map((p) => <option key={p} value={p}>{t(`addSubscription:period${p.charAt(0).toUpperCase()}${p.slice(1)}`)}</option>)}
-                        </select>
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          value={draft.category}
-                          onChange={(e) => updateDraft(draft.key, { category: e.target.value })}
-                          placeholder={t('addSubscription:categoryLabel')}
-                          className={`${inputBase} ${fieldBorder(warned.has('category'))} flex-1`}
-                        />
-                        <input
-                          type="date"
-                          value={draft.lastPaymentDate}
-                          onChange={(e) => updateDraft(draft.key, { lastPaymentDate: e.target.value })}
-                          className={`${inputBase} ${fieldBorder(warned.has('lastPaymentDate'))} flex-1`}
-                        />
-                      </div>
-                      {draft.period === 'custom' && (
-                        <input
-                          type="number" min="1"
-                          value={draft.customDate ?? ''}
-                          onChange={(e) => updateDraft(draft.key, { customDate: e.target.value })}
-                          placeholder={t('addSubscription:customPeriodLabel')}
-                          className={`${inputBase} ${fieldBorder(warned.has('customDate'))}`}
-                        />
-                      )}
-
-                      {draft.warnings.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {draft.warnings.map((w) => (
-                            <span key={w} className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-                              {t([`aiCapture:warnings.${w}`, 'aiCapture:needsReview'])}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {draft.error && <p className="text-xs text-red-600 dark:text-red-400">{draft.error}</p>}
-
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={() => saveDraft(draft)}
-                          disabled={draft.status === 'saving'}
-                          className="flex items-center justify-center gap-1.5 flex-1 bg-emerald-600 dark:bg-emerald-500 text-white py-2 rounded-2xl text-sm font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50"
-                        >
-                          {draft.status === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                          {draft.status === 'saving' ? t('aiCapture:saving') : t('aiCapture:save')}
-                        </button>
-                        <button onClick={() => discardDraft(draft.key)} className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-2xl text-sm hover:bg-gray-200 dark:hover:bg-gray-600">
-                          {t('aiCapture:discard')}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              {renderCommandReview()}
 
               <div className="flex gap-3 pt-1">
-                {remaining.length === 0 ? (
+                {(command?.type === 'create' ? remaining.length === 0 : actionStatus === 'done') ? (
                   <button onClick={onClose} className="flex-1 bg-emerald-600 dark:bg-emerald-500 text-white py-2.5 rounded-2xl font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600">
                     {t('aiCapture:close')}
                   </button>
                 ) : (
-                  <button onClick={() => { setPhase('capture'); setErrorCode(null); }} className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2.5 rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600">
+                  <button onClick={() => { setPhase('capture'); setErrorCode(null); setActionError(null); }} className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2.5 rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600">
                     {t('aiCapture:retry')}
                   </button>
                 )}

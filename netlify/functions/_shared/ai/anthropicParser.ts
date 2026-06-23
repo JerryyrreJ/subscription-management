@@ -1,29 +1,41 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AiConfig } from '../env';
-import { normalizeDrafts } from '../../../../src/utils/subscriptionDraft';
+import { normalizeAiCommand } from '../../../../src/utils/aiCommand';
 import { SUBSCRIPTION_CURRENCIES, SUBSCRIPTION_PERIODS } from '../../../../src/utils/subscriptionDomain';
 import type { CaptureInput, ParseResult, SubscriptionParser } from './types';
 
 // Static instruction block — kept byte-stable so prompt caching can engage.
 // No per-request data here; the current date is passed in the user turn.
 const SYSTEM_PROMPT = [
-  'You extract subscription records from messy user input — a sentence, a pasted bank/credit-card statement, a receipt email, or a screenshot of a subscriptions list.',
+  'You are a subscription command parser. Convert the user input into exactly one structured command for a subscription tracker.',
   '',
-  'Return ONLY structured data of the subscriptions you can identify. Rules:',
-  '- One object per distinct recurring subscription. Do not invent subscriptions that are not present. If you find none, return an empty list.',
-  '- Ignore one-off purchases, refunds, transfers, and non-recurring charges.',
-  '- amount: the recurring charge as a number in major currency units (e.g. 15.99). No currency symbol.',
+  'Return ONLY JSON matching the schema. Supported actions:',
+  '- create: user wants to add one or more subscriptions from text, a statement, a receipt, or a screenshot.',
+  '- update: user wants to change fields on exactly one existing subscription.',
+  '- delete: user wants to cancel, remove, delete, or stop tracking exactly one existing subscription.',
+  '- none: no supported action, missing target, ambiguous target, or not enough information.',
+  '',
+  'Rules:',
+  '- For update/delete, choose subscriptionId ONLY from the provided currentSubscriptions list. Never invent IDs.',
+  '- If the user names a subscription but multiple current subscriptions match, return none with a short reason.',
+  '- If the target is absent from currentSubscriptions, return none with a short reason.',
+  '- For create, one subscription object per distinct recurring subscription. Do not invent subscriptions that are not present.',
+  '- For create, ignore one-off purchases, refunds, transfers, and non-recurring charges.',
+  '- amount: recurring charge as a number in major currency units (e.g. 15.99). No currency symbol.',
   `- currency: one of ${SUBSCRIPTION_CURRENCIES.join(', ')}. Infer from symbols (¥=CNY, $=USD, €=EUR, £=GBP, etc.). If unsure, use USD.`,
-  `- period: one of ${SUBSCRIPTION_PERIODS.join(', ')}. Use "custom" only for intervals that are not monthly or yearly, and then set customDate to the interval length in days.`,
-  '- lastPaymentDate: the most recent charge date in YYYY-MM-DD. If the input does not state one, use the provided current date.',
-  '- category: a short label such as Streaming, Productivity, AI, Music, Developer Tools. Leave empty if unclear.',
-  '- name: the service name (e.g. "Netflix", "ChatGPT Plus").',
-  'Do not include any commentary — only the structured subscriptions.',
+  `- period: one of ${SUBSCRIPTION_PERIODS.join(', ')}. Use custom only for intervals that are not monthly or yearly, and then set customDate to the interval length in days.`,
+  '- lastPaymentDate: most recent charge date in YYYY-MM-DD. If creating and the input does not state one, use the provided current date.',
+  '- For update, include only changed fields in patch.',
+  '- Never execute anything; only describe the command for user confirmation.',
 ].join('\n');
 
 const OUTPUT_SCHEMA = {
   type: 'object',
   properties: {
+    action: { type: 'string', enum: ['create', 'update', 'delete', 'none'] },
+    subscriptionId: { type: 'string' },
+    reason: { type: 'string' },
+    message: { type: 'string' },
     subscriptions: {
       type: 'array',
       items: {
@@ -42,8 +54,22 @@ const OUTPUT_SCHEMA = {
         additionalProperties: false,
       },
     },
+    patch: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        category: { type: 'string' },
+        amount: { type: 'number' },
+        currency: { type: 'string', enum: [...SUBSCRIPTION_CURRENCIES] },
+        period: { type: 'string', enum: [...SUBSCRIPTION_PERIODS] },
+        lastPaymentDate: { type: 'string' },
+        customDate: { type: 'string' },
+        notificationEnabled: { type: 'boolean' },
+      },
+      additionalProperties: false,
+    },
   },
-  required: ['subscriptions'],
+  required: ['action'],
   additionalProperties: false,
 };
 
@@ -75,8 +101,16 @@ export const createAnthropicParser = (config: AiConfig): SubscriptionParser => {
 
       const instruction = input.text && input.text.trim()
         ? input.text
-        : 'Extract every subscription you can find in the attached image.';
-      content.push({ type: 'text', text: `Current date: ${today}\n\n${instruction}` });
+        : 'Parse the requested subscription command from the attached image.';
+      content.push({
+        type: 'text',
+        text: [
+          `Current date: ${today}`,
+          `Current subscriptions: ${JSON.stringify(input.subscriptions)}`,
+          '',
+          instruction,
+        ].join('\n'),
+      });
 
       const params: StructuredMessageParams = {
         model: config.model,
@@ -99,10 +133,10 @@ export const createAnthropicParser = (config: AiConfig): SubscriptionParser => {
         raw = {};
       }
 
-      const { drafts } = normalizeDrafts(raw, today);
+      const { command } = normalizeAiCommand(raw, today, input.subscriptions);
 
       return {
-        drafts,
+        command,
         usage: {
           inputTokens: response.usage.input_tokens ?? 0,
           outputTokens: response.usage.output_tokens ?? 0,

@@ -1,6 +1,7 @@
-import type { DraftSubscription } from '../utils/subscriptionDraft';
+import type { AiCommand, AiSubscriptionContextItem } from '../utils/aiCommand';
 
 export type { DraftSubscription } from '../utils/subscriptionDraft';
+export type { AiCommand, AiSubscriptionContextItem } from '../utils/aiCommand';
 
 export interface ParseQuota {
   remaining: number;
@@ -9,13 +10,14 @@ export interface ParseQuota {
 }
 
 export interface ParseCaptureResult {
-  drafts: DraftSubscription[];
+  command: AiCommand;
   quota: ParseQuota | null;
 }
 
 export interface CaptureRequest {
   text?: string;
   image?: { mediaType: string; dataBase64: string };
+  subscriptions?: AiSubscriptionContextItem[];
 }
 
 // Stable error codes the function emits; the UI maps them to localized copy and
@@ -67,7 +69,7 @@ export async function parseCapture(
     throw new AiParseError(code, message);
   }
 
-  if (!isRecord(body) || !Array.isArray(body.drafts)) {
+  if (!isRecord(body) || !isRecord(body.command)) {
     throw new AiParseError('invalid_response', 'AI capture returned an invalid response');
   }
 
@@ -79,5 +81,5 @@ export async function parseCapture(
       }
     : null;
 
-  return { drafts: body.drafts as DraftSubscription[], quota };
+  return { command: body.command as unknown as AiCommand, quota };
 }

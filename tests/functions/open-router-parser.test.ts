@@ -34,6 +34,7 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
       choices: [{
         message: {
           content: JSON.stringify({
+            action: 'create',
             subscriptions: [{
               name: 'Netflix',
               category: 'Streaming',
@@ -57,6 +58,17 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
     const result = await parser.parse({
       text: 'Netflix $15.99 monthly',
       image: { mediaType: 'image/png', dataBase64: 'abc123' },
+      subscriptions: [{
+        id: 'sub-warmcar',
+        name: 'Warmcar',
+        category: 'Entertainment',
+        amount: 99,
+        currency: 'CNY',
+        period: 'custom',
+        lastPaymentDate: '2026-06-13',
+        customDate: '90',
+        notificationEnabled: true,
+      }],
     }, '2026-06-19');
 
     assert.equal(capturedUrl, 'https://openrouter.ai/api/v1/chat/completions');
@@ -78,9 +90,10 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
     assert.deepEqual(content[0].image_url, { url: 'data:image/png;base64,abc123' });
     assert.equal(content[1].type, 'text');
     assert.match(String(content[1].text), /Current date: 2026-06-19/);
+    assert.match(String(content[1].text), /sub-warmcar/);
 
-    assert.equal(result.drafts.length, 1);
-    assert.equal(result.drafts[0].name, 'Netflix');
+    assert.equal(result.command.type, 'create');
+    assert.equal(result.command.type === 'create' ? result.command.drafts[0].name : '', 'Netflix');
     assert.equal(result.usage.inputTokens, 321);
     assert.equal(result.usage.outputTokens, 45);
   } finally {
@@ -101,7 +114,7 @@ test('OpenRouter parser throws provider errors without exposing input content', 
   try {
     const parser = createOpenRouterParser(config);
     await assert.rejects(
-      parser.parse({ text: 'private statement text' }, '2026-06-19'),
+      parser.parse({ text: 'private statement text', subscriptions: [] }, '2026-06-19'),
       /No available provider found/
     );
   } finally {

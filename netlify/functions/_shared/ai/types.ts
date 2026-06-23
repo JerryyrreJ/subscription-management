@@ -1,4 +1,4 @@
-import type { DraftSubscription } from '../../../../src/utils/subscriptionDraft';
+import type { AiCommand, AiSubscriptionContextItem } from '../../../../src/utils/aiCommand';
 
 // The seam that keeps the model out of the business logic. The function depends
 // only on SubscriptionParser; swapping models or providers — or self-hosting with
@@ -13,6 +13,7 @@ export interface CaptureImage {
 export interface CaptureInput {
   text?: string;
   image?: CaptureImage;
+  subscriptions: AiSubscriptionContextItem[];
 }
 
 export interface ParseUsage {
@@ -21,7 +22,7 @@ export interface ParseUsage {
 }
 
 export interface ParseResult {
-  drafts: DraftSubscription[];
+  command: AiCommand;
   usage: ParseUsage;
 }
 

@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js';
-import { HttpError } from './http';
+import { HttpError, isNetworkFetchError } from './http';
 
 export interface AuthClient {
   auth: {
@@ -39,14 +39,24 @@ export const authenticateRequest = async (
   authClient: AuthClient
 ): Promise<AuthenticatedRequest> => {
   const accessToken = extractBearerToken(headers);
-  const { data, error } = await authClient.auth.getUser(accessToken);
+  let result: Awaited<ReturnType<AuthClient['auth']['getUser']>>;
+  try {
+    result = await authClient.auth.getUser(accessToken);
+  } catch (error) {
+    if (isNetworkFetchError(error)) {
+      throw new HttpError(503, 'auth_service_unavailable', 'Authentication service is temporarily unavailable', {}, {
+        suggestedFix: 'Check the network connection to Supabase and try again.',
+      });
+    }
+    throw error;
+  }
 
-  if (error || !data.user) {
+  if (result.error || !result.data.user) {
     throw new HttpError(401, 'invalid_access_token', 'Invalid or expired access token');
   }
 
   return {
-    userId: data.user.id,
-    email: data.user.email,
+    userId: result.data.user.id,
+    email: result.data.user.email,
   };
 };

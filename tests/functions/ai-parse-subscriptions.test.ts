@@ -48,6 +48,7 @@ interface BuildOptions {
   parser?: SubscriptionParser | null;
   costRow?: { input_tokens: number; output_tokens: number } | null;
   quota?: QuotaRow;
+  queryResolver?: (state: QueryState) => { data: unknown; error: { message: string } | null };
 }
 
 const buildHandler = (opts: BuildOptions = {}) => {
@@ -57,10 +58,13 @@ const buildHandler = (opts: BuildOptions = {}) => {
     parse: async () => {
       flags.parseCalled = true;
       return {
-        drafts: [{
-          name: 'Netflix', category: 'Streaming', amount: 15.99, currency: 'USD',
-          period: 'monthly', lastPaymentDate: '2026-06-01', notificationEnabled: true, warnings: [],
-        }],
+        command: {
+          type: 'create',
+          drafts: [{
+            name: 'Netflix', category: 'Streaming', amount: 15.99, currency: 'USD',
+            period: 'monthly', lastPaymentDate: '2026-06-01', notificationEnabled: true, warnings: [],
+          }],
+        },
         usage: { inputTokens: 120, outputTokens: 40 },
       };
     },
@@ -69,7 +73,7 @@ const buildHandler = (opts: BuildOptions = {}) => {
   const quota: QuotaRow = opts.quota ?? { allowed: true, request_count: 1, remaining: 19, reset_at: '2026-06-20T00:00:00.000Z' };
   const costRow = opts.costRow ?? null;
 
-  const database = createFakeSupabaseClient((state: QueryState) => {
+  const defaultQueryResolver = (state: QueryState) => {
     if (state.table === 'user_profiles') {
       return { data: { is_premium: false }, error: null };
     }
@@ -77,7 +81,9 @@ const buildHandler = (opts: BuildOptions = {}) => {
       return { data: costRow, error: null };
     }
     return { data: null, error: { message: `Unexpected query: ${state.table}` } };
-  }, (name) => {
+  };
+
+  const database = createFakeSupabaseClient(opts.queryResolver ?? defaultQueryResolver, (name) => {
     if (name === 'consume_ai_quota') {
       flags.consumeCalled = true;
       return { data: [quota], error: null };
@@ -109,18 +115,54 @@ const postEvent = (body: unknown) => event(
   JSON.stringify(body)
 );
 
-test('parses a capture and returns drafts + remaining quota', async () => {
+test('parses a capture and returns command + remaining quota', async () => {
   const { handler, flags } = buildHandler();
   const response = expectHandlerResponse(await handler(postEvent({ text: 'Netflix 15.99 monthly' }), {} as never));
-  const body = parseJsonResponse<{ drafts: Array<{ name: string }>; quota: { remaining: number; limit: number } }>(response);
+  const body = parseJsonResponse<{ command: { type: string; drafts: Array<{ name: string }> }; quota: { remaining: number; limit: number } }>(response);
 
   assert.equal(response.statusCode, 200);
-  assert.equal(body.drafts.length, 1);
-  assert.equal(body.drafts[0].name, 'Netflix');
+  assert.equal(body.command.type, 'create');
+  assert.equal(body.command.drafts.length, 1);
+  assert.equal(body.command.drafts[0].name, 'Netflix');
   assert.equal(body.quota.remaining, 19);
   assert.equal(body.quota.limit, 20);
   assert.equal(flags.parseCalled, true);
   assert.equal(flags.addCostCalled, true);
+});
+
+test('passes current subscriptions context into the parser', async () => {
+  let receivedCount = 0;
+  const { handler } = buildHandler({
+    parser: {
+      parse: async (input) => {
+        receivedCount = input.subscriptions.length;
+        return {
+          command: { type: 'delete', subscriptionId: input.subscriptions[0]?.id ?? '' },
+          usage: { inputTokens: 20, outputTokens: 10 },
+        };
+      },
+    },
+  });
+  const response = expectHandlerResponse(await handler(postEvent({
+    text: 'delete Warmcar',
+    subscriptions: [{
+      id: 'sub-warmcar',
+      name: 'Warmcar',
+      category: 'Entertainment',
+      amount: 99,
+      currency: 'CNY',
+      period: 'custom',
+      lastPaymentDate: '2026-06-13',
+      customDate: '90',
+      notificationEnabled: true,
+    }],
+  }), {} as never));
+  const body = parseJsonResponse<{ command: { type: string; subscriptionId: string } }>(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(receivedCount, 1);
+  assert.equal(body.command.type, 'delete');
+  assert.equal(body.command.subscriptionId, 'sub-warmcar');
 });
 
 test('returns 503 when no model is configured', async () => {
@@ -156,6 +198,26 @@ test('pauses when the monthly budget is exceeded', async () => {
   assert.equal(flags.parseCalled, false);
 });
 
+test('returns 503 when Supabase database queries cannot connect', async () => {
+  const { handler, flags } = buildHandler({
+    queryResolver: (state) => {
+      if (state.table === 'user_profiles') {
+        throw new TypeError('fetch failed');
+      }
+      if (state.table === 'ai_cost_windows') {
+        return { data: null, error: null };
+      }
+      return { data: null, error: { message: `Unexpected query: ${state.table}` } };
+    },
+  });
+  const response = expectHandlerResponse(await handler(postEvent({ text: 'Netflix' }), {} as never));
+  const body = parseJsonResponse<{ error: { code: string } }>(response);
+
+  assert.equal(response.statusCode, 503);
+  assert.equal(body.error.code, 'database_unavailable');
+  assert.equal(flags.parseCalled, false);
+});
+
 test('returns 429 with Retry-After when the daily quota is exhausted', async () => {
   const { handler, flags } = buildHandler({ quota: { allowed: false, request_count: 20, remaining: 0, reset_at: '2026-06-20T00:00:00.000Z' } });
   const response = expectHandlerResponse(await handler(postEvent({ text: 'Netflix' }), {} as never));
@@ -165,6 +227,21 @@ test('returns 429 with Retry-After when the daily quota is exhausted', async () 
   assert.equal(body.error.code, 'ai_quota_exceeded');
   assert.ok(response.headers?.['Retry-After']);
   assert.equal(flags.parseCalled, false);
+});
+
+test('returns 503 when the configured AI provider cannot connect', async () => {
+  const { handler } = buildHandler({
+    parser: {
+      parse: async () => {
+        throw new TypeError('fetch failed');
+      },
+    },
+  });
+  const response = expectHandlerResponse(await handler(postEvent({ text: 'Netflix' }), {} as never));
+  const body = parseJsonResponse<{ error: { code: string } }>(response);
+
+  assert.equal(response.statusCode, 503);
+  assert.equal(body.error.code, 'ai_provider_unavailable');
 });
 
 test('rejects an empty capture', async () => {

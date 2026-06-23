@@ -12,6 +12,9 @@ export interface HttpErrorDetails {
   writableFields?: readonly string[];
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object';
+
 export class HttpError extends Error {
   constructor(
     public readonly statusCode: number,
@@ -24,6 +27,28 @@ export class HttpError extends Error {
     this.name = 'HttpError';
   }
 }
+
+export const isNetworkFetchError = (error: unknown, seen = new Set<unknown>()): boolean => {
+  if (!error || seen.has(error)) {
+    return false;
+  }
+  seen.add(error);
+
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  if (message.includes('fetch failed')) {
+    return true;
+  }
+
+  if (isRecord(error)) {
+    const code = typeof error.code === 'string' ? error.code : undefined;
+    if (code && ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'EAI_AGAIN'].includes(code)) {
+      return true;
+    }
+    return isNetworkFetchError(error.cause, seen);
+  }
+
+  return false;
+};
 
 export const jsonResponse = (
   statusCode: number,
