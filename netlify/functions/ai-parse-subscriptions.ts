@@ -13,6 +13,7 @@ import { logEvent } from './_shared/logging';
 import { createSupabaseAdminClient, createSupabaseAuthClient } from './_shared/supabase';
 import { createParser, type CaptureInput, type SubscriptionParser } from './_shared/ai';
 import type { AiSubscriptionContextItem } from '../../src/utils/aiCommand';
+import { calculateNextPaymentDate } from '../../src/utils/dates';
 import { SUBSCRIPTION_CURRENCIES, SUBSCRIPTION_PERIODS } from '../../src/utils/subscriptionDomain';
 
 interface AiParseDependencies {
@@ -205,6 +206,9 @@ const parseCaptureInput = (
         const currency = typeof subscription.currency === 'string' ? subscription.currency.toUpperCase() : '';
         const period = typeof subscription.period === 'string' ? subscription.period.toLowerCase() : '';
         const lastPaymentDate = typeof subscription.lastPaymentDate === 'string' ? subscription.lastPaymentDate : '';
+        const nextPaymentDate = typeof subscription.nextPaymentDate === 'string'
+          ? subscription.nextPaymentDate
+          : '';
         const customDate = typeof subscription.customDate === 'string' ? subscription.customDate : undefined;
 
         if (
@@ -226,6 +230,9 @@ const parseCaptureInput = (
           currency: currency as AiSubscriptionContextItem['currency'],
           period: period as AiSubscriptionContextItem['period'],
           lastPaymentDate,
+          nextPaymentDate: /^\d{4}-\d{2}-\d{2}$/.test(nextPaymentDate)
+            ? nextPaymentDate
+            : calculateNextPaymentDate(lastPaymentDate, period, customDate),
           customDate,
           notificationEnabled: subscription.notificationEnabled === undefined
             ? true

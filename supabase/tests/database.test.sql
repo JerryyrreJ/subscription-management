@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(58);
+SELECT plan(68);
 
 SELECT has_table('public', 'user_profiles', 'user_profiles exists');
 SELECT has_table('public', 'subscriptions', 'subscriptions exists');
@@ -13,6 +13,8 @@ SELECT has_table('public', 'api_rate_limit_windows', 'api rate limit windows exi
 SELECT has_table('public', 'api_user_rate_limit_windows', 'user rate limit windows exist');
 SELECT has_table('public', 'api_auth_failure_windows', 'auth failure windows exist');
 SELECT has_table('public', 'api_audit_log', 'API audit log exists');
+SELECT has_table('public', 'ai_usage_windows', 'AI usage windows exist');
+SELECT has_table('public', 'ai_cost_windows', 'AI cost windows exist');
 
 SELECT has_column('public', 'payments', 'stripe_price_id', 'payments stores the trusted Stripe price');
 SELECT has_column('public', 'user_notification_settings', 'locale', 'notification settings store locale');
@@ -43,6 +45,26 @@ SELECT has_function(
   'create_api_key_if_under_limit',
   ARRAY['uuid', 'text', 'text', 'text', 'integer', 'text[]']
 );
+SELECT has_function(
+  'public',
+  'consume_ai_quota',
+  ARRAY['uuid', 'date', 'integer']
+);
+SELECT has_function(
+  'public',
+  'add_ai_cost',
+  ARRAY['date', 'bigint', 'bigint']
+);
+SELECT has_function(
+  'public',
+  'reserve_ai_budget',
+  ARRAY['date', 'bigint', 'bigint', 'numeric', 'numeric', 'numeric']
+);
+SELECT has_function(
+  'public',
+  'adjust_ai_cost',
+  ARRAY['date', 'bigint', 'bigint']
+);
 
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.user_profiles'::regclass), 'user_profiles has RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.subscriptions'::regclass), 'subscriptions has RLS');
@@ -55,6 +77,8 @@ SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_rate_limi
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_user_rate_limit_windows'::regclass), 'user rate limit windows have RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_auth_failure_windows'::regclass), 'auth failure windows have RLS');
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.api_audit_log'::regclass), 'API audit log has RLS');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.ai_usage_windows'::regclass), 'AI usage windows have RLS');
+SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.ai_cost_windows'::regclass), 'AI cost windows have RLS');
 
 SELECT ok(
   EXISTS (
@@ -146,6 +170,18 @@ SELECT is(
 );
 
 SELECT is(
+  has_function_privilege('authenticated', 'public.reserve_ai_budget(date,bigint,bigint,numeric,numeric,numeric)', 'EXECUTE'),
+  FALSE,
+  'authenticated users cannot execute AI budget reservation RPC'
+);
+
+SELECT is(
+  has_function_privilege('authenticated', 'public.adjust_ai_cost(date,bigint,bigint)', 'EXECUTE'),
+  FALSE,
+  'authenticated users cannot execute AI cost adjustment RPC'
+);
+
+SELECT is(
   has_table_privilege('authenticated', 'public.api_audit_log', 'SELECT'),
   FALSE,
   'authenticated users cannot read API audit logs directly'
@@ -185,6 +221,18 @@ SELECT is(
   has_function_privilege('service_role', 'public.create_api_key_if_under_limit(uuid,text,text,text,integer,text[])', 'EXECUTE'),
   TRUE,
   'service_role can execute API key creation RPC'
+);
+
+SELECT is(
+  has_function_privilege('service_role', 'public.reserve_ai_budget(date,bigint,bigint,numeric,numeric,numeric)', 'EXECUTE'),
+  TRUE,
+  'service_role can execute AI budget reservation RPC'
+);
+
+SELECT is(
+  has_function_privilege('service_role', 'public.adjust_ai_cost(date,bigint,bigint)', 'EXECUTE'),
+  TRUE,
+  'service_role can execute AI cost adjustment RPC'
 );
 
 INSERT INTO auth.users (id, raw_user_meta_data)

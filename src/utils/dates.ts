@@ -166,6 +166,27 @@ export const addBillingPeriodToDate = (
  }
 };
 
+export const subtractBillingPeriodFromDate = (
+ dateString: string,
+ period: string,
+ customDate?: string
+): string => {
+ const date = parseDateOnly(dateString);
+
+ switch (period) {
+ case 'monthly':
+ return formatDateOnly(addMonthsClamped(date, -1));
+ case 'yearly':
+ return formatDateOnly(addYearsClamped(date, -1));
+ case 'custom': {
+ const customDays = parseCustomDays(customDate);
+ return customDays ? formatDateOnly(addDaysUtc(date, -customDays)) : dateString;
+ }
+ default:
+ return dateString;
+ }
+};
+
 export const compareDateOnly = (left: string, right: string): number =>
  parseDateOnly(left).getTime() - parseDateOnly(right).getTime();
 

@@ -11,6 +11,7 @@ const context: AiSubscriptionContextItem[] = [{
   currency: 'CNY',
   period: 'custom',
   lastPaymentDate: '2026-06-13',
+  nextPaymentDate: '2026-09-11',
   customDate: '90',
   notificationEnabled: true,
 }, {
@@ -21,6 +22,27 @@ const context: AiSubscriptionContextItem[] = [{
   currency: 'CNY',
   period: 'monthly',
   lastPaymentDate: '2026-06-01',
+  nextPaymentDate: '2026-07-01',
+  notificationEnabled: true,
+}, {
+  id: 'sub-tello',
+  name: 'Tello',
+  category: 'USCard',
+  amount: 5,
+  currency: 'USD',
+  period: 'monthly',
+  lastPaymentDate: '2026-05-27',
+  nextPaymentDate: '2026-06-27',
+  notificationEnabled: true,
+}, {
+  id: 'sub-fish-cloud',
+  name: '🐟云',
+  category: 'Productivity',
+  amount: 4.28,
+  currency: 'CNY',
+  period: 'monthly',
+  lastPaymentDate: '2026-05-28',
+  nextPaymentDate: '2026-06-28',
   notificationEnabled: true,
 }];
 
@@ -78,6 +100,59 @@ test('keeps incomplete custom period updates for user completion', () => {
     period: 'custom',
   });
   assert.deepEqual(command.type === 'update' ? command.missingFields : [], ['customDate']);
+});
+
+test('converts requested renewal dates into last payment date updates', () => {
+  const { command } = normalizeAiCommand({
+    action: 'update',
+    subscriptionId: 'sub-tello',
+    patch: { nextPaymentDate: '2026-06-23' },
+  }, '2026-06-25', context);
+
+  assert.equal(command.type, 'update');
+  assert.deepEqual(command.type === 'update' ? command.patch : {}, {
+    lastPaymentDate: '2026-05-23',
+  });
+});
+
+test('accepts common renewal date aliases from AI providers', () => {
+  const { command } = normalizeAiCommand({
+    action: 'update',
+    subscriptionId: 'sub-tello',
+    patch: { dueDate: '2026-06-23' },
+  }, '2026-06-25', context);
+
+  assert.equal(command.type, 'update');
+  assert.deepEqual(command.type === 'update' ? command.patch : {}, {
+    lastPaymentDate: '2026-05-23',
+  });
+});
+
+test('normalizes multiple update operations in one command', () => {
+  const { command } = normalizeAiCommand({
+    action: 'update',
+    updates: [{
+      subscriptionId: 'sub-tello',
+      patch: { nextPaymentDate: '2026-06-23' },
+    }, {
+      targetName: '鱼云',
+      patch: { nextPaymentDate: '2026-07-21', amount: 10.22, currency: 'CNY' },
+    }],
+  }, '2026-06-25', context);
+
+  assert.equal(command.type, 'batchUpdate');
+  assert.deepEqual(command.type === 'batchUpdate' ? command.updates.map(update => update.subscriptionId) : [], [
+    'sub-tello',
+    'sub-fish-cloud',
+  ]);
+  assert.deepEqual(command.type === 'batchUpdate' ? command.updates[0].patch : {}, {
+    lastPaymentDate: '2026-05-23',
+  });
+  assert.deepEqual(command.type === 'batchUpdate' ? command.updates[1].patch : {}, {
+    amount: 10.22,
+    currency: 'CNY',
+    lastPaymentDate: '2026-06-21',
+  });
 });
 
 test('does not require custom interval when the target already has one', () => {

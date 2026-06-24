@@ -66,6 +66,7 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
         currency: 'CNY',
         period: 'custom',
         lastPaymentDate: '2026-06-13',
+        nextPaymentDate: '2026-09-11',
         customDate: '90',
         notificationEnabled: true,
       }],
@@ -84,6 +85,7 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
 
     const messages = capturedBody.messages as Array<{ role: string; content: unknown }>;
     assert.equal(messages[0].role, 'system');
+    assert.match(String(messages[0].content), /续费日期/);
     assert.equal(messages[1].role, 'user');
     const content = messages[1].content as Array<Record<string, unknown>>;
     assert.equal(content[0].type, 'image_url');
@@ -91,6 +93,11 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
     assert.equal(content[1].type, 'text');
     assert.match(String(content[1].text), /Current date: 2026-06-19/);
     assert.match(String(content[1].text), /sub-warmcar/);
+    assert.match(String(content[1].text), /nextPaymentDate/);
+    const responseFormat = capturedBody.response_format as {
+      json_schema: { schema: { properties: { patch: { properties: Record<string, unknown> } } } };
+    };
+    assert.ok(responseFormat.json_schema.schema.properties.patch.properties.nextPaymentDate);
 
     assert.equal(result.command.type, 'create');
     assert.equal(result.command.type === 'create' ? result.command.drafts[0].name : '', 'Netflix');

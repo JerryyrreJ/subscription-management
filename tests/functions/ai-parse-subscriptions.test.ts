@@ -134,10 +134,12 @@ test('parses a capture and returns command + remaining quota', async () => {
 
 test('passes current subscriptions context into the parser', async () => {
   let receivedCount = 0;
+  let receivedNextPaymentDate = '';
   const { handler } = buildHandler({
     parser: {
       parse: async (input) => {
         receivedCount = input.subscriptions.length;
+        receivedNextPaymentDate = input.subscriptions[0]?.nextPaymentDate ?? '';
         return {
           command: { type: 'delete', subscriptionId: input.subscriptions[0]?.id ?? '' },
           usage: { inputTokens: 20, outputTokens: 10 },
@@ -163,6 +165,7 @@ test('passes current subscriptions context into the parser', async () => {
 
   assert.equal(response.statusCode, 200);
   assert.equal(receivedCount, 1);
+  assert.equal(receivedNextPaymentDate, '2026-09-11');
   assert.equal(body.command.type, 'delete');
   assert.equal(body.command.subscriptionId, 'sub-warmcar');
 });

@@ -18,7 +18,7 @@ import {
   createSubscriptionRecord,
   getSubscriptionValidationMessage,
 } from '../utils/subscriptionDomain';
-import { buildAiSubscriptionContext, type AiCommand } from '../utils/aiCommand';
+import { buildAiSubscriptionContext, type AiCommand, type AiUpdateOperation } from '../utils/aiCommand';
 import { formatCurrency } from '../utils/currency';
 import { parseCapture, AiParseError, type DraftSubscription, type ParseQuota } from '../services/aiParseService';
 
@@ -121,6 +121,7 @@ export function AiCaptureModal({
   const [actionStatus, setActionStatus] = useState<ActionStatus>('pending');
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSnapshot, setActionSnapshot] = useState<Subscription | null>(null);
+  const [batchSnapshots, setBatchSnapshots] = useState<Subscription[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(false);
 
@@ -144,6 +145,7 @@ export function AiCaptureModal({
       setActionStatus('pending');
       setActionError(null);
       setActionSnapshot(null);
+      setBatchSnapshots([]);
     }
   }, [isOpen]);
 
@@ -203,10 +205,15 @@ export function AiCaptureModal({
     return subscriptions.find(subscription => subscription.id === candidate.subscriptionId) ?? actionSnapshot;
   };
 
+  const findTargetForUpdate = (update: AiUpdateOperation): Subscription | null =>
+    subscriptions.find(subscription => subscription.id === update.subscriptionId) ??
+    batchSnapshots.find(subscription => subscription.id === update.subscriptionId) ??
+    null;
+
   const updateMissingFields = (
-    nextCommand: Extract<AiCommand, { type: 'update' }>,
+    nextCommand: AiUpdateOperation,
     targetSubscription: Subscription | null
-  ): Extract<AiCommand, { type: 'update' }> => {
+  ): AiUpdateOperation => {
     const period = nextCommand.patch.period ?? targetSubscription?.period;
     const customDate = nextCommand.patch.customDate ?? targetSubscription?.customDate;
     const missingFields = period === 'custom' && !isPositiveWholeDays(customDate)
@@ -230,7 +237,34 @@ export function AiCaptureModal({
         patch: { ...prev.patch, ...patch },
       };
 
-      return updateMissingFields(nextCommand, findTargetForCommand(prev));
+      return {
+        type: 'update',
+        ...updateMissingFields(nextCommand, findTargetForCommand(prev)),
+      };
+    });
+    setActionError(null);
+  };
+
+  const updateBatchPatch = (index: number, patch: AiUpdateOperation['patch']) => {
+    setCommand((prev) => {
+      if (!prev || prev.type !== 'batchUpdate') {
+        return prev;
+      }
+
+      const updates = prev.updates.map((update, currentIndex) => {
+        if (currentIndex !== index) {
+          return update;
+        }
+
+        const nextUpdate = {
+          ...update,
+          patch: { ...update.patch, ...patch },
+        };
+
+        return updateMissingFields(nextUpdate, findTargetForUpdate(update));
+      });
+
+      return { ...prev, updates };
     });
     setActionError(null);
   };
@@ -253,6 +287,14 @@ export function AiCaptureModal({
       ));
       setSavedCount((count) => Math.max(0, count - 1));
     }
+  };
+
+  const restoreBatchReview = (snapshots: Subscription[]) => {
+    if (!mountedRef.current) return;
+    setPhase('review');
+    setActionStatus('pending');
+    setActionError(null);
+    setBatchSnapshots(snapshots);
   };
 
   const saveDraft = async (draft: DraftState) => {
@@ -359,8 +401,108 @@ export function AiCaptureModal({
     }
   };
 
+  const confirmBatchUpdate = async () => {
+    if (!command || command.type !== 'batchUpdate') {
+      setActionError(t('aiCapture:targetMissing'));
+      return;
+    }
+
+    const updatePlans = command.updates.map(update => ({
+      update,
+      target: findTargetForUpdate(update),
+    }));
+    if (updatePlans.some(plan => !plan.target)) {
+      setActionError(t('aiCapture:targetMissing'));
+      return;
+    }
+    if (command.updates.some(update => (update.missingFields ?? []).length > 0)) {
+      setActionError(t('aiCapture:missingFieldsHint'));
+      return;
+    }
+
+    const snapshots = updatePlans.map(plan => plan.target as Subscription);
+    setActionStatus('saving');
+    setActionError(null);
+    try {
+      for (const plan of updatePlans) {
+        const targetSubscription = plan.target as Subscription;
+        await onUpdate({
+          ...targetSubscription,
+          ...plan.update.patch,
+          customDate: plan.update.patch.period && plan.update.patch.period !== 'custom'
+            ? undefined
+            : plan.update.patch.customDate ?? targetSubscription.customDate,
+        });
+      }
+      setBatchSnapshots(snapshots);
+      setActionStatus('done');
+      onShowUndo({
+        id: crypto.randomUUID(),
+        message: t('aiCapture:undo.batchUpdated', { count: snapshots.length }),
+        undoLabel: t('aiCapture:undo.action'),
+        undo: async () => {
+          for (const snapshot of snapshots) {
+            await onUpdate(snapshot);
+          }
+        },
+        onRestored: () => restoreBatchReview(snapshots),
+      });
+    } catch (error) {
+      setActionStatus('pending');
+      setActionError(getSubscriptionValidationMessage(error));
+    }
+  };
+
   const remaining = drafts.filter((d) => d.status !== 'saved');
   const target = findTarget();
+
+  const renderUpdatePatchFields = (
+    update: AiUpdateOperation,
+    targetSubscription: Subscription | null,
+    keyPrefix: string,
+    onPatchChange: (patch: AiUpdateOperation['patch']) => void
+  ) => {
+    const showCustomDateInput = update.patch.period === 'custom' || (update.missingFields ?? []).includes('customDate');
+    const customDateValue = update.patch.customDate ?? targetSubscription?.customDate ?? '';
+    const hasMissingFields = (update.missingFields ?? []).length > 0;
+    const patchEntries = Object.entries(update.patch).filter(([field]) => !(showCustomDateInput && field === 'customDate'));
+
+    return (
+      <>
+        <div className="space-y-2">
+          {patchEntries.map(([field, value]) => (
+            <div key={`${keyPrefix}-${field}`} className="flex items-center justify-between gap-3 rounded-xl bg-white/80 dark:bg-gray-800/60 px-3 py-2 text-sm">
+              <span className="text-gray-500 dark:text-gray-400">{t(`aiCapture:fields.${field}`)}</span>
+              <span className="font-medium text-gray-900 dark:text-white text-right">
+                {field === 'amount' && targetSubscription
+                  ? formatCurrency(Number(value), (update.patch.currency ?? targetSubscription.currency) as Currency)
+                  : String(value)}
+              </span>
+            </div>
+          ))}
+        </div>
+        {showCustomDateInput && (
+          <div className="rounded-xl bg-white/80 dark:bg-gray-800/60 px-3 py-3 space-y-2">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400" htmlFor={`${keyPrefix}-custom-date`}>
+              {t('aiCapture:fields.customDate')}
+            </label>
+            <input
+              id={`${keyPrefix}-custom-date`}
+              type="number"
+              min="1"
+              value={customDateValue}
+              onChange={(e) => onPatchChange({ customDate: e.target.value })}
+              placeholder={t('addSubscription:customPeriodLabel')}
+              className={`${inputBase} ${fieldBorder(hasMissingFields)}`}
+            />
+            {hasMissingFields && (
+              <p className="text-xs text-amber-700 dark:text-amber-300">{t('aiCapture:missingFieldsHint')}</p>
+            )}
+          </div>
+        )}
+      </>
+    );
+  };
 
   const renderCommandReview = () => {
     if (!command || command.type === 'none') {
@@ -405,11 +547,60 @@ export function AiCaptureModal({
       );
     }
 
+    if (command.type === 'batchUpdate') {
+      const hasMissingFields = command.updates.some(update => (update.missingFields ?? []).length > 0);
+      return (
+        <div className="rounded-2xl border border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center">
+              <Pencil className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-white">
+                {actionStatus === 'done'
+                  ? t('aiCapture:batchUpdateDone', { count: batchSnapshots.length || command.updates.length })
+                  : t('aiCapture:batchUpdateTitle', { count: command.updates.length })}
+              </p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{t('aiCapture:updateHint')}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {command.updates.map((update, index) => {
+              const updateTarget = findTargetForUpdate(update);
+              return (
+                <div key={`${update.subscriptionId}-${index}`} className="rounded-2xl border border-emerald-100/80 dark:border-emerald-900/40 bg-white/55 dark:bg-gray-900/20 p-3 space-y-3">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {updateTarget?.name ?? t('aiCapture:unknownTarget')}
+                  </p>
+                  {renderUpdatePatchFields(
+                    update,
+                    updateTarget,
+                    `ai-batch-update-${index}`,
+                    (patch) => updateBatchPatch(index, patch)
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {actionError && <p className="text-xs text-red-600 dark:text-red-300">{actionError}</p>}
+          {actionStatus !== 'done' && (
+            <button
+              onClick={confirmBatchUpdate}
+              disabled={actionStatus === 'saving' || hasMissingFields}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 dark:bg-emerald-500 text-white py-2.5 rounded-2xl font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50"
+            >
+              {actionStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {actionStatus === 'saving' ? t('aiCapture:updating') : t('aiCapture:confirmBatchUpdate', { count: command.updates.length })}
+            </button>
+          )}
+        </div>
+      );
+    }
+
     if (command.type === 'update') {
-      const showCustomDateInput = command.patch.period === 'custom' || (command.missingFields ?? []).includes('customDate');
-      const customDateValue = command.patch.customDate ?? target?.customDate ?? '';
       const hasMissingFields = (command.missingFields ?? []).length > 0;
-      const patchEntries = Object.entries(command.patch).filter(([field]) => !(showCustomDateInput && field === 'customDate'));
       return (
         <div className="rounded-2xl border border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 space-y-4">
           <div className="flex items-start gap-3">
@@ -425,37 +616,7 @@ export function AiCaptureModal({
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{t('aiCapture:updateHint')}</p>
             </div>
           </div>
-          <div className="space-y-2">
-            {patchEntries.map(([field, value]) => (
-              <div key={field} className="flex items-center justify-between gap-3 rounded-xl bg-white/80 dark:bg-gray-800/60 px-3 py-2 text-sm">
-                <span className="text-gray-500 dark:text-gray-400">{t(`aiCapture:fields.${field}`)}</span>
-                <span className="font-medium text-gray-900 dark:text-white text-right">
-                  {field === 'amount' && target
-                    ? formatCurrency(Number(value), (command.patch.currency ?? target.currency) as Currency)
-                    : String(value)}
-                </span>
-              </div>
-            ))}
-          </div>
-          {showCustomDateInput && (
-            <div className="rounded-xl bg-white/80 dark:bg-gray-800/60 px-3 py-3 space-y-2">
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400" htmlFor="ai-update-custom-date">
-                {t('aiCapture:fields.customDate')}
-              </label>
-              <input
-                id="ai-update-custom-date"
-                type="number"
-                min="1"
-                value={customDateValue}
-                onChange={(e) => updateCommandPatch({ customDate: e.target.value })}
-                placeholder={t('addSubscription:customPeriodLabel')}
-                className={`${inputBase} ${fieldBorder(hasMissingFields)}`}
-              />
-              {hasMissingFields && (
-                <p className="text-xs text-amber-700 dark:text-amber-300">{t('aiCapture:missingFieldsHint')}</p>
-              )}
-            </div>
-          )}
+          {renderUpdatePatchFields(command, target, 'ai-update', updateCommandPatch)}
           {actionError && <p className="text-xs text-red-600 dark:text-red-300">{actionError}</p>}
           {actionStatus !== 'done' && (
             <button

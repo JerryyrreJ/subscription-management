@@ -8,6 +8,7 @@ import {
   formatInstantToDateOnly,
   getAutoRenewedDates,
   getDaysUntil,
+  subtractBillingPeriodFromDate,
 } from '../../src/utils/dates.ts';
 
 const withMockedNow = (isoDateTime: string, run: () => void) => {
@@ -57,6 +58,11 @@ test('auto renew keeps month-end cadence for overdue monthly subscriptions', () 
 
 test('custom billing still advances by the requested number of days', () => {
   assert.equal(addBillingPeriodToDate('2026-03-24', 'custom', '10'), '2026-04-03');
+});
+
+test('billing periods can be subtracted from a requested renewal date', () => {
+  assert.equal(subtractBillingPeriodFromDate('2026-06-23', 'monthly'), '2026-05-23');
+  assert.equal(subtractBillingPeriodFromDate('2026-06-23', 'custom', '10'), '2026-06-13');
 });
 
 test('formatInstantToDateOnly respects the provided time zone', () => {
