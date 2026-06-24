@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Check,
+  CheckCircle2,
   Image as ImageIcon,
   Loader2,
   Pencil,
+  RotateCcw,
   Sparkles,
   Trash2,
   Upload,
@@ -19,7 +21,6 @@ import {
   getSubscriptionValidationMessage,
 } from '../utils/subscriptionDomain';
 import { buildAiSubscriptionContext, type AiCommand, type AiUpdateOperation } from '../utils/aiCommand';
-import { formatCurrency } from '../utils/currency';
 import { parseCapture, AiParseError, type DraftSubscription, type ParseQuota } from '../services/aiParseService';
 
 export interface UndoableAiAction {
@@ -49,6 +50,17 @@ interface DraftState extends DraftSubscription {
   key: string;
   status: 'pending' | 'saving' | 'saved';
   error?: string;
+}
+
+interface CreatedRecord {
+  draftKey: string;
+  subscription: Subscription;
+}
+
+interface CompletionState {
+  title: string;
+  detail: string;
+  undoAction?: UndoableAiAction;
 }
 
 const prepareImage = (file: File): Promise<{ mediaType: string; dataBase64: string }> =>
@@ -122,6 +134,9 @@ export function AiCaptureModal({
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSnapshot, setActionSnapshot] = useState<Subscription | null>(null);
   const [batchSnapshots, setBatchSnapshots] = useState<Subscription[]>([]);
+  const [createdRecords, setCreatedRecords] = useState<CreatedRecord[]>([]);
+  const [completion, setCompletion] = useState<CompletionState | null>(null);
+  const [inlineUndoStatus, setInlineUndoStatus] = useState<'idle' | 'running' | 'done'>('idle');
   const fileRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(false);
 
@@ -146,6 +161,9 @@ export function AiCaptureModal({
       setActionError(null);
       setActionSnapshot(null);
       setBatchSnapshots([]);
+      setCreatedRecords([]);
+      setCompletion(null);
+      setInlineUndoStatus('idle');
     }
   }, [isOpen]);
 
@@ -156,6 +174,53 @@ export function AiCaptureModal({
   const errorMessage = (code: string): string => t([`aiCapture:errors.${code}`, 'aiCapture:errors.generic']);
   const inputBase = 'w-full px-3 py-2 border rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm';
   const fieldBorder = (warned: boolean) => warned ? 'border-amber-400 dark:border-amber-500' : 'border-gray-300 dark:border-gray-600';
+
+  const showUndoAction = (action: UndoableAiAction) => {
+    setCompletion((prev) => prev ? { ...prev, undoAction: action } : prev);
+    setInlineUndoStatus('idle');
+    onShowUndo(action);
+  };
+
+  const createUndoAction = (action: UndoableAiAction): UndoableAiAction => {
+    let didRun = false;
+    let didRestore = false;
+
+    return {
+      ...action,
+      undo: async () => {
+        if (didRun) {
+          return;
+        }
+        didRun = true;
+        await action.undo();
+      },
+      onRestored: () => {
+        if (didRestore) {
+          return;
+        }
+        didRestore = true;
+        action.onRestored?.();
+      },
+    };
+  };
+
+  const handleInlineUndo = async () => {
+    if (!completion?.undoAction || inlineUndoStatus === 'running' || inlineUndoStatus === 'done') {
+      return;
+    }
+
+    setInlineUndoStatus('running');
+    setActionError(null);
+    try {
+      await completion.undoAction.undo();
+      completion.undoAction.onRestored?.();
+      setInlineUndoStatus('done');
+      setCompletion(null);
+    } catch (error) {
+      setInlineUndoStatus('idle');
+      setActionError(getSubscriptionValidationMessage(error));
+    }
+  };
 
   const handleImage = async (file: File | undefined) => {
     if (!file) return;
@@ -169,6 +234,9 @@ export function AiCaptureModal({
   const handleParse = async () => {
     setErrorCode(null);
     setActionError(null);
+    setCompletion(null);
+    setCreatedRecords([]);
+    setInlineUndoStatus('idle');
     if (!text.trim() && !image) {
       setErrorCode('invalid_capture');
       return;
@@ -278,6 +346,8 @@ export function AiCaptureModal({
     setPhase('review');
     setActionStatus('pending');
     setActionError(null);
+    setCompletion(null);
+    setInlineUndoStatus('idle');
     if (snapshot) {
       setActionSnapshot(snapshot);
     }
@@ -294,7 +364,24 @@ export function AiCaptureModal({
     setPhase('review');
     setActionStatus('pending');
     setActionError(null);
+    setCompletion(null);
+    setInlineUndoStatus('idle');
     setBatchSnapshots(snapshots);
+  };
+
+  const restoreCreateReview = (records: CreatedRecord[]) => {
+    if (!mountedRef.current) return;
+    const restoredKeys = new Set(records.map(record => record.draftKey));
+    setPhase('review');
+    setActionStatus('pending');
+    setActionError(null);
+    setCompletion(null);
+    setInlineUndoStatus('idle');
+    setDrafts((prev) => prev.map((draft) =>
+      restoredKeys.has(draft.key) ? { ...draft, status: 'pending', error: undefined } : draft
+    ));
+    setCreatedRecords((prev) => prev.filter(record => !restoredKeys.has(record.draftKey)));
+    setSavedCount((count) => Math.max(0, count - records.length));
   };
 
   const saveDraft = async (draft: DraftState) => {
@@ -312,17 +399,30 @@ export function AiCaptureModal({
         notificationEnabled: draft.notificationEnabled,
       });
       const created = await onCreate(subscription);
+      const nextCreatedRecords = [...createdRecords, { draftKey: draft.key, subscription: created }];
+      const willComplete = drafts.filter((item) => item.status !== 'saved' && item.key !== draft.key).length === 0;
       setDrafts((prev) => prev.map((d) => (d.key === draft.key ? { ...d, status: 'saved' } : d)));
       setSavedCount((c) => c + 1);
-      onShowUndo({
-        id: crypto.randomUUID(),
-        message: t('aiCapture:undo.created', { name: created.name }),
-        undoLabel: t('aiCapture:undo.action'),
-        undo: async () => {
-          await onDelete(created.id);
-        },
-        onRestored: () => restoreReview(null, draft.key),
-      });
+      setCreatedRecords(nextCreatedRecords);
+      if (willComplete) {
+        const undoAction = createUndoAction({
+          id: crypto.randomUUID(),
+          message: t('aiCapture:undo.batchCreated', { count: nextCreatedRecords.length }),
+          undoLabel: t('aiCapture:undo.action'),
+          undo: async () => {
+            for (const record of [...nextCreatedRecords].reverse()) {
+              await onDelete(record.subscription.id);
+            }
+          },
+          onRestored: () => restoreCreateReview(nextCreatedRecords),
+        });
+        setCompletion({
+          title: t('aiCapture:completeTitle'),
+          detail: t('aiCapture:createCompleteDetail', { count: nextCreatedRecords.length }),
+          undoAction,
+        });
+        showUndoAction(undoAction);
+      }
     } catch (error) {
       setDrafts((prev) => prev.map((d) =>
         d.key === draft.key ? { ...d, status: 'pending', error: getSubscriptionValidationMessage(error) } : d
@@ -347,7 +447,7 @@ export function AiCaptureModal({
       await onDelete(target.id);
       setActionSnapshot(target);
       setActionStatus('done');
-      onShowUndo({
+      const undoAction = createUndoAction({
         id: crypto.randomUUID(),
         message: t('aiCapture:undo.deleted', { name: target.name }),
         undoLabel: t('aiCapture:undo.action'),
@@ -356,6 +456,12 @@ export function AiCaptureModal({
         },
         onRestored: () => restoreReview(target),
       });
+      setCompletion({
+        title: t('aiCapture:completeTitle'),
+        detail: t('aiCapture:deleteCompleteDetail', { name: target.name }),
+        undoAction,
+      });
+      showUndoAction(undoAction);
     } catch (error) {
       setActionStatus('pending');
       setActionError(getSubscriptionValidationMessage(error));
@@ -386,7 +492,7 @@ export function AiCaptureModal({
       await onUpdate(updated);
       setActionSnapshot(target);
       setActionStatus('done');
-      onShowUndo({
+      const undoAction = createUndoAction({
         id: crypto.randomUUID(),
         message: t('aiCapture:undo.updated', { name: target.name }),
         undoLabel: t('aiCapture:undo.action'),
@@ -395,6 +501,12 @@ export function AiCaptureModal({
         },
         onRestored: () => restoreReview(target),
       });
+      setCompletion({
+        title: t('aiCapture:completeTitle'),
+        detail: t('aiCapture:updateCompleteDetail', { name: target.name }),
+        undoAction,
+      });
+      showUndoAction(undoAction);
     } catch (error) {
       setActionStatus('pending');
       setActionError(getSubscriptionValidationMessage(error));
@@ -436,7 +548,7 @@ export function AiCaptureModal({
       }
       setBatchSnapshots(snapshots);
       setActionStatus('done');
-      onShowUndo({
+      const undoAction = createUndoAction({
         id: crypto.randomUUID(),
         message: t('aiCapture:undo.batchUpdated', { count: snapshots.length }),
         undoLabel: t('aiCapture:undo.action'),
@@ -447,6 +559,12 @@ export function AiCaptureModal({
         },
         onRestored: () => restoreBatchReview(snapshots),
       });
+      setCompletion({
+        title: t('aiCapture:completeTitle'),
+        detail: t('aiCapture:batchUpdateCompleteDetail', { count: snapshots.length }),
+        undoAction,
+      });
+      showUndoAction(undoAction);
     } catch (error) {
       setActionStatus('pending');
       setActionError(getSubscriptionValidationMessage(error));
@@ -466,20 +584,118 @@ export function AiCaptureModal({
     const customDateValue = update.patch.customDate ?? targetSubscription?.customDate ?? '';
     const hasMissingFields = (update.missingFields ?? []).length > 0;
     const patchEntries = Object.entries(update.patch).filter(([field]) => !(showCustomDateInput && field === 'customDate'));
+    const editorClass = 'min-w-0 flex-1 px-3 py-2 rounded-xl border border-transparent bg-gray-100/90 dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-medium text-right focus:text-left focus:ring-2 focus:ring-emerald-500 focus:border-transparent';
+
+    const renderPatchEditor = (field: string, value: unknown) => {
+      const label = t(`aiCapture:fields.${field}`);
+      const rowClass = 'flex items-center gap-3 rounded-xl bg-white/80 dark:bg-gray-800/60 px-3 py-2 text-sm';
+      const labelClass = 'w-24 shrink-0 text-gray-500 dark:text-gray-400';
+
+      if (field === 'amount') {
+        return (
+          <div key={`${keyPrefix}-${field}`} className={rowClass}>
+            <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
+            <input
+              id={`${keyPrefix}-${field}`}
+              type="number"
+              step="0.01"
+              min="0"
+              value={Number(value)}
+              onChange={(e) => onPatchChange({ amount: Number(e.target.value) })}
+              className={editorClass}
+            />
+          </div>
+        );
+      }
+
+      if (field === 'currency') {
+        return (
+          <div key={`${keyPrefix}-${field}`} className={rowClass}>
+            <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
+            <select
+              id={`${keyPrefix}-${field}`}
+              value={String(value)}
+              onChange={(e) => onPatchChange({ currency: e.target.value as Currency })}
+              className={editorClass}
+            >
+              {SUBSCRIPTION_CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+            </select>
+          </div>
+        );
+      }
+
+      if (field === 'period') {
+        return (
+          <div key={`${keyPrefix}-${field}`} className={rowClass}>
+            <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
+            <select
+              id={`${keyPrefix}-${field}`}
+              value={String(value)}
+              onChange={(e) => {
+                const period = e.target.value as Period;
+                onPatchChange({ period, customDate: period === 'custom' ? update.patch.customDate : undefined });
+              }}
+              className={editorClass}
+            >
+              {SUBSCRIPTION_PERIODS.map((period) => (
+                <option key={period} value={period}>
+                  {t(`addSubscription:period${period.charAt(0).toUpperCase()}${period.slice(1)}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      }
+
+      if (field === 'lastPaymentDate') {
+        return (
+          <div key={`${keyPrefix}-${field}`} className={rowClass}>
+            <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
+            <input
+              id={`${keyPrefix}-${field}`}
+              type="date"
+              value={String(value)}
+              onChange={(e) => onPatchChange({ lastPaymentDate: e.target.value })}
+              className={editorClass}
+            />
+          </div>
+        );
+      }
+
+      if (field === 'notificationEnabled') {
+        return (
+          <div key={`${keyPrefix}-${field}`} className={rowClass}>
+            <span className={labelClass}>{label}</span>
+            <label className="ml-auto inline-flex items-center gap-2 text-gray-900 dark:text-white">
+              <input
+                type="checkbox"
+                checked={Boolean(value)}
+                onChange={(e) => onPatchChange({ notificationEnabled: e.target.checked })}
+                className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span className="text-sm font-medium">{Boolean(value) ? t('aiCapture:enabled') : t('aiCapture:disabled')}</span>
+            </label>
+          </div>
+        );
+      }
+
+      return (
+        <div key={`${keyPrefix}-${field}`} className={rowClass}>
+          <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
+          <input
+            id={`${keyPrefix}-${field}`}
+            value={String(value)}
+            onChange={(e) => onPatchChange({ [field]: e.target.value } as AiUpdateOperation['patch'])}
+            className={editorClass}
+          />
+        </div>
+      );
+    };
 
     return (
       <>
         <div className="space-y-2">
-          {patchEntries.map(([field, value]) => (
-            <div key={`${keyPrefix}-${field}`} className="flex items-center justify-between gap-3 rounded-xl bg-white/80 dark:bg-gray-800/60 px-3 py-2 text-sm">
-              <span className="text-gray-500 dark:text-gray-400">{t(`aiCapture:fields.${field}`)}</span>
-              <span className="font-medium text-gray-900 dark:text-white text-right">
-                {field === 'amount' && targetSubscription
-                  ? formatCurrency(Number(value), (update.patch.currency ?? targetSubscription.currency) as Currency)
-                  : String(value)}
-              </span>
-            </div>
-          ))}
+          {patchEntries.map(([field, value]) => renderPatchEditor(field, value))}
         </div>
         {showCustomDateInput && (
           <div className="rounded-xl bg-white/80 dark:bg-gray-800/60 px-3 py-3 space-y-2">
@@ -504,7 +720,35 @@ export function AiCaptureModal({
     );
   };
 
+  const renderCompletion = () => (
+    <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/25 p-5 text-center space-y-4">
+      <div className="mx-auto w-12 h-12 rounded-2xl bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center shadow-sm">
+        <CheckCircle2 className="w-6 h-6" />
+      </div>
+      <div className="space-y-1">
+        <p className="text-lg font-semibold text-gray-900 dark:text-white">{completion?.title ?? t('aiCapture:completeTitle')}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-300">{completion?.detail ?? t('aiCapture:completeDetail')}</p>
+      </div>
+      {completion?.undoAction && (
+        <button
+          type="button"
+          onClick={handleInlineUndo}
+          disabled={inlineUndoStatus === 'running' || inlineUndoStatus === 'done'}
+          className="w-full flex items-center justify-center gap-2 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 bg-white/70 dark:bg-emerald-950/20 py-2.5 rounded-2xl font-medium hover:bg-white dark:hover:bg-emerald-900/30 disabled:opacity-50"
+        >
+          {inlineUndoStatus === 'running' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+          {inlineUndoStatus === 'running' ? t('aiCapture:undoing') : t('aiCapture:undo.action')}
+        </button>
+      )}
+      {actionError && <p className="text-xs text-red-600 dark:text-red-300">{actionError}</p>}
+    </div>
+  );
+
   const renderCommandReview = () => {
+    if (completion && (command?.type === 'create' ? remaining.length === 0 : actionStatus === 'done')) {
+      return renderCompletion();
+    }
+
     if (!command || command.type === 'none') {
       return (
         <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40 p-5 text-center">
