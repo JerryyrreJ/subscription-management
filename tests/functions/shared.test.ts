@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { User } from '@supabase/supabase-js';
 import { authenticateRequest, extractBearerToken } from '../../netlify/functions/_shared/auth.ts';
-import { HttpError } from '../../netlify/functions/_shared/http.ts';
+import { HttpError, isNetworkFetchError } from '../../netlify/functions/_shared/http.ts';
 import { sanitizeLogDetails } from '../../netlify/functions/_shared/logging.ts';
 
 test('extractBearerToken accepts case-insensitive authorization headers', () => {
@@ -69,6 +69,18 @@ test('authenticateRequest reports Supabase auth network failures as 503', async 
       error instanceof HttpError &&
       error.statusCode === 503 &&
       error.code === 'auth_service_unavailable'
+  );
+});
+
+test('isNetworkFetchError recognizes Supabase plain-object fetch failures', () => {
+  assert.equal(
+    isNetworkFetchError({
+      message: 'TypeError: fetch failed',
+      code: '',
+      details: 'TypeError: fetch failed\n    at runDatabaseRequest',
+      hint: '',
+    }),
+    true
   );
 });
 

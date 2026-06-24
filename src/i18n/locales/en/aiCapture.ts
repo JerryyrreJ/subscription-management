@@ -30,6 +30,7 @@ export const aiCapture = {
   updateTitle: 'Update {{name}}?',
   updateDone: 'Updated {{name}}.',
   updateHint: 'Review the fields AI wants to change before applying them.',
+  missingFieldsHint: 'Fill the missing details before applying this update.',
   confirmUpdate: 'Apply update',
   targetMissing: 'The target subscription is no longer available.',
   unknownTarget: 'this subscription',
@@ -61,6 +62,7 @@ export const aiCapture = {
     lastPaymentDate_guessed: 'Date was missing — set the last payment date',
     lastPaymentDate_future: 'Date was in the future — please check',
     customDate_missing: 'Set the custom interval (days)',
+    notificationEnabled_invalid: 'Notification setting was unclear',
   },
   errors: {
     ai_unavailable: 'AI capture is not available right now. You can add subscriptions manually.',

@@ -36,9 +36,11 @@ interface QuotaResult {
   reset_at: string;
 }
 
-interface CostRow {
-  input_tokens: number | string | null;
-  output_tokens: number | string | null;
+interface BudgetReservation {
+  allowed: boolean;
+  input_tokens: number | string;
+  output_tokens: number | string;
+  request_count: number;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -71,6 +73,7 @@ const CORS_HEADERS = {
 
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 const MAX_CONTEXT_SUBSCRIPTIONS = 200;
+const MAX_OUTPUT_TOKENS = 1024;
 
 const createDefaultDependencies = (): AiParseDependencies => {
   const supabaseConfig = getSupabaseAdminConfig(process.env);
@@ -242,6 +245,24 @@ const unwrapQuota = (data: unknown): QuotaResult | null => {
   return (data as QuotaResult | null) ?? null;
 };
 
+const unwrapBudgetReservation = (data: unknown): BudgetReservation | null => {
+  if (Array.isArray(data)) {
+    return (data[0] as BudgetReservation | undefined) ?? null;
+  }
+  return (data as BudgetReservation | null) ?? null;
+};
+
+const estimateTokenReservation = (input: CaptureInput): { inputTokens: number; outputTokens: number } => {
+  const textChars = input.text?.length ?? 0;
+  const contextChars = JSON.stringify(input.subscriptions).length;
+  const imageTokens = input.image ? Math.ceil(base64Bytes(input.image.dataBase64) / 3) : 0;
+
+  return {
+    inputTokens: Math.max(1, Math.ceil((textChars + contextChars) / 4) + imageTokens),
+    outputTokens: MAX_OUTPUT_TOKENS,
+  };
+};
+
 const runDatabaseRequest = async <T>(operation: () => PromiseLike<T> | T): Promise<T> => {
   try {
     return await operation();
@@ -252,6 +273,28 @@ const runDatabaseRequest = async <T>(operation: () => PromiseLike<T> | T): Promi
       });
     }
     throw error;
+  }
+};
+
+const releaseBudgetReservation = async (
+  database: SupabaseClient,
+  month: string,
+  reserved: { inputTokens: number; outputTokens: number },
+  requestId: string
+): Promise<void> => {
+  try {
+    const { error: releaseError } = await runDatabaseRequest(() => database.rpc('adjust_ai_cost', {
+      p_window_start: month,
+      p_input_token_delta: -reserved.inputTokens,
+      p_output_token_delta: -reserved.outputTokens,
+    }));
+    if (releaseError) {
+      throw new Error(releaseError.message);
+    }
+  } catch (releaseError) {
+    logEvent('warn', 'Failed to release AI budget reservation', requestId, {
+      ...describeError(releaseError),
+    });
   }
 };
 
@@ -295,24 +338,6 @@ export const createAiParseHandler = (
 
     const { today, day, month } = dateKeys(now);
 
-    // Global monthly budget circuit breaker.
-    const { data: costRow, error: costError } = await runDatabaseRequest(() => dependencies.database
-      .from('ai_cost_windows')
-      .select('input_tokens, output_tokens')
-      .eq('window_start', month)
-      .maybeSingle<CostRow>());
-    if (costError) {
-      throw costError;
-    }
-    const spentUsd =
-      (Number(costRow?.input_tokens ?? 0) / 1_000_000) * dependencies.aiConfig.inputUsdPerMillion +
-      (Number(costRow?.output_tokens ?? 0) / 1_000_000) * dependencies.aiConfig.outputUsdPerMillion;
-    if (spentUsd >= dependencies.aiConfig.monthlyBudgetUsd) {
-      throw new HttpError(503, 'ai_budget_exceeded', 'AI capture is paused for this month', {}, {
-        suggestedFix: 'Add subscriptions manually. The monthly AI budget resets at the start of next month.',
-      });
-    }
-
     const { data: profile, error: profileError } = await runDatabaseRequest(() => dependencies.database
       .from('user_profiles')
       .select('is_premium')
@@ -326,27 +351,60 @@ export const createAiParseHandler = (
       ? dependencies.aiConfig.premiumDailyParses
       : dependencies.aiConfig.freeDailyParses;
 
-    // Per-user daily quota. Charged before the model call so abuse and model
-    // failures can't run up an unbounded bill.
-    const { data: quotaData, error: quotaError } = await runDatabaseRequest(() => dependencies.database.rpc('consume_ai_quota', {
-      p_user_id: authenticated.userId,
-      p_window_start: day,
-      p_limit: limit,
+    // Reserve the estimated request cost before calling the provider. This closes
+    // the concurrency race where many requests could all observe the same old
+    // monthly spend and then enter the model call together.
+    const reserved = estimateTokenReservation(input);
+    const { data: budgetData, error: budgetError } = await runDatabaseRequest(() => dependencies.database.rpc('reserve_ai_budget', {
+      p_window_start: month,
+      p_estimated_input_tokens: reserved.inputTokens,
+      p_estimated_output_tokens: reserved.outputTokens,
+      p_monthly_budget_usd: dependencies.aiConfig.monthlyBudgetUsd,
+      p_input_usd_per_million: dependencies.aiConfig.inputUsdPerMillion,
+      p_output_usd_per_million: dependencies.aiConfig.outputUsdPerMillion,
     }));
-    if (quotaError) {
-      throw quotaError;
+    if (budgetError) {
+      throw budgetError;
     }
-    const quota = unwrapQuota(quotaData);
-    if (!quota) {
-      throw new Error('AI quota RPC did not return a result');
+    const budgetReservation = unwrapBudgetReservation(budgetData);
+    if (!budgetReservation) {
+      throw new Error('AI budget reservation RPC did not return a result');
     }
-    if (!quota.allowed) {
-      const retryAfter = Math.max(0, Math.ceil((new Date(quota.reset_at).getTime() - now.getTime()) / 1000));
-      throw new HttpError(429, 'ai_quota_exceeded', `Daily AI capture limit reached (${limit})`, {
-        'Retry-After': String(retryAfter),
-      }, {
-        suggestedFix: 'Add subscriptions manually, or upgrade for a higher daily limit. The limit resets at the listed time.',
+    if (!budgetReservation.allowed) {
+      throw new HttpError(503, 'ai_budget_exceeded', 'AI capture is paused for this month', {}, {
+        suggestedFix: 'Add subscriptions manually. The monthly AI budget resets at the start of next month.',
       });
+    }
+
+    // Per-user daily quota. Charged before the model call so abuse and model
+    // failures can't run up an unbounded bill. If this step fails after budget
+    // reservation, release the reservation because no provider call will happen.
+    let quota: QuotaResult;
+    try {
+      const { data: quotaData, error: quotaError } = await runDatabaseRequest(() => dependencies.database.rpc('consume_ai_quota', {
+        p_user_id: authenticated.userId,
+        p_window_start: day,
+        p_limit: limit,
+      }));
+      if (quotaError) {
+        throw quotaError;
+      }
+      const quotaResult = unwrapQuota(quotaData);
+      if (!quotaResult) {
+        throw new Error('AI quota RPC did not return a result');
+      }
+      if (!quotaResult.allowed) {
+        const retryAfter = Math.max(0, Math.ceil((new Date(quotaResult.reset_at).getTime() - now.getTime()) / 1000));
+        throw new HttpError(429, 'ai_quota_exceeded', `Daily AI capture limit reached (${limit})`, {
+          'Retry-After': String(retryAfter),
+        }, {
+          suggestedFix: 'Add subscriptions manually, or upgrade for a higher daily limit. The limit resets at the listed time.',
+        });
+      }
+      quota = quotaResult;
+    } catch (quotaError) {
+      await releaseBudgetReservation(dependencies.database, month, reserved, requestId);
+      throw quotaError;
     }
 
     // The model call. Failures degrade to a friendly error; details are never
@@ -355,6 +413,7 @@ export const createAiParseHandler = (
     try {
       result = await dependencies.parser.parse(input, today);
     } catch (parseError) {
+      await releaseBudgetReservation(dependencies.database, month, reserved, requestId);
       logEvent('error', 'AI parse failed', requestId, {
         userId: authenticated.userId,
         ...describeError(parseError),
@@ -369,12 +428,13 @@ export const createAiParseHandler = (
       });
     }
 
-    // Record token usage for the budget breaker (best-effort).
+    // Replace the reservation with the provider-reported usage (best-effort).
+    // If this adjustment fails, the reservation stays in place conservatively.
     try {
-      const { error: recordError } = await runDatabaseRequest(() => dependencies.database.rpc('add_ai_cost', {
+      const { error: recordError } = await runDatabaseRequest(() => dependencies.database.rpc('adjust_ai_cost', {
         p_window_start: month,
-        p_input_tokens: result.usage.inputTokens,
-        p_output_tokens: result.usage.outputTokens,
+        p_input_token_delta: result.usage.inputTokens - reserved.inputTokens,
+        p_output_token_delta: result.usage.outputTokens - reserved.outputTokens,
       }));
       if (recordError) {
         throw new Error(recordError.message);

@@ -112,9 +112,14 @@ const normalizeOne = (item: unknown, today: string): DraftSubscription | null =>
     }
   }
 
-  const notificationEnabled = record.notificationEnabled === undefined
-    ? true
-    : Boolean(record.notificationEnabled);
+  let notificationEnabled = true;
+  if (record.notificationEnabled !== undefined) {
+    if (typeof record.notificationEnabled === 'boolean') {
+      notificationEnabled = record.notificationEnabled;
+    } else {
+      warnings.push('notificationEnabled_invalid');
+    }
+  }
 
   return { name, category, amount, currency, period, lastPaymentDate, customDate, notificationEnabled, warnings };
 };

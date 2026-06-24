@@ -46,13 +46,13 @@ interface QuotaRow {
 
 interface BuildOptions {
   parser?: SubscriptionParser | null;
-  costRow?: { input_tokens: number; output_tokens: number } | null;
+  budgetReservation?: { allowed: boolean; input_tokens: number; output_tokens: number; request_count: number };
   quota?: QuotaRow;
   queryResolver?: (state: QueryState) => { data: unknown; error: { message: string } | null };
 }
 
 const buildHandler = (opts: BuildOptions = {}) => {
-  const flags = { parseCalled: false, consumeCalled: false, addCostCalled: false };
+  const flags = { parseCalled: false, consumeCalled: false, reserveCalled: false, adjustCalled: false };
 
   const parser: SubscriptionParser | null = opts.parser !== undefined ? opts.parser : {
     parse: async () => {
@@ -71,14 +71,11 @@ const buildHandler = (opts: BuildOptions = {}) => {
   };
 
   const quota: QuotaRow = opts.quota ?? { allowed: true, request_count: 1, remaining: 19, reset_at: '2026-06-20T00:00:00.000Z' };
-  const costRow = opts.costRow ?? null;
+  const budgetReservation = opts.budgetReservation ?? { allowed: true, input_tokens: 100, output_tokens: 1024, request_count: 1 };
 
   const defaultQueryResolver = (state: QueryState) => {
     if (state.table === 'user_profiles') {
       return { data: { is_premium: false }, error: null };
-    }
-    if (state.table === 'ai_cost_windows') {
-      return { data: costRow, error: null };
     }
     return { data: null, error: { message: `Unexpected query: ${state.table}` } };
   };
@@ -88,8 +85,12 @@ const buildHandler = (opts: BuildOptions = {}) => {
       flags.consumeCalled = true;
       return { data: [quota], error: null };
     }
-    if (name === 'add_ai_cost') {
-      flags.addCostCalled = true;
+    if (name === 'reserve_ai_budget') {
+      flags.reserveCalled = true;
+      return { data: [budgetReservation], error: null };
+    }
+    if (name === 'adjust_ai_cost') {
+      flags.adjustCalled = true;
       return { data: [{ input_tokens: 120, output_tokens: 40, request_count: 1 }], error: null };
     }
     return { data: null, error: null };
@@ -127,7 +128,8 @@ test('parses a capture and returns command + remaining quota', async () => {
   assert.equal(body.quota.remaining, 19);
   assert.equal(body.quota.limit, 20);
   assert.equal(flags.parseCalled, true);
-  assert.equal(flags.addCostCalled, true);
+  assert.equal(flags.reserveCalled, true);
+  assert.equal(flags.adjustCalled, true);
 });
 
 test('passes current subscriptions context into the parser', async () => {
@@ -187,14 +189,16 @@ test('rejects oversized text before consuming quota or calling the model', async
 });
 
 test('pauses when the monthly budget is exceeded', async () => {
-  // 100M input tokens * $1/MTok = $100 >= $50 budget
-  const { handler, flags } = buildHandler({ costRow: { input_tokens: 100_000_000, output_tokens: 0 } });
+  const { handler, flags } = buildHandler({
+    budgetReservation: { allowed: false, input_tokens: 50_000_000, output_tokens: 0, request_count: 200 },
+  });
   const response = expectHandlerResponse(await handler(postEvent({ text: 'Netflix' }), {} as never));
   const body = parseJsonResponse<{ error: { code: string } }>(response);
 
   assert.equal(response.statusCode, 503);
   assert.equal(body.error.code, 'ai_budget_exceeded');
   assert.equal(flags.consumeCalled, false);
+  assert.equal(flags.reserveCalled, true);
   assert.equal(flags.parseCalled, false);
 });
 
@@ -230,7 +234,7 @@ test('returns 429 with Retry-After when the daily quota is exhausted', async () 
 });
 
 test('returns 503 when the configured AI provider cannot connect', async () => {
-  const { handler } = buildHandler({
+  const { handler, flags } = buildHandler({
     parser: {
       parse: async () => {
         throw new TypeError('fetch failed');
@@ -242,6 +246,8 @@ test('returns 503 when the configured AI provider cannot connect', async () => {
 
   assert.equal(response.statusCode, 503);
   assert.equal(body.error.code, 'ai_provider_unavailable');
+  assert.equal(flags.reserveCalled, true);
+  assert.equal(flags.adjustCalled, true);
 });
 
 test('rejects an empty capture', async () => {

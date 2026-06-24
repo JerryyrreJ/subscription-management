@@ -22,6 +22,8 @@ export interface AiCreateCommand {
   message?: string;
 }
 
+export type AiUpdateMissingField = 'customDate';
+
 export interface AiUpdateCommand {
   type: 'update';
   subscriptionId: string;
@@ -29,6 +31,7 @@ export interface AiUpdateCommand {
     Subscription,
     'name' | 'category' | 'amount' | 'currency' | 'period' | 'lastPaymentDate' | 'customDate' | 'notificationEnabled'
   >>;
+  missingFields?: AiUpdateMissingField[];
   message?: string;
 }
 
@@ -137,8 +140,12 @@ const normalizePatch = (rawPatch: unknown, today: string): AiUpdateCommand['patc
     }
   }
 
-  if (record.notificationEnabled !== undefined) {
-    patch.notificationEnabled = Boolean(record.notificationEnabled);
+  if (typeof record.notificationEnabled === 'boolean') {
+    patch.notificationEnabled = record.notificationEnabled;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return null;
   }
 
   const parsed = subscriptionPatchInputSchema.safeParse(patch);
@@ -149,6 +156,16 @@ const normalizePatch = (rawPatch: unknown, today: string): AiUpdateCommand['patc
   return Object.fromEntries(
     Object.keys(patch).map(key => [key, parsed.data[key as keyof typeof parsed.data]])
   ) as AiUpdateCommand['patch'];
+};
+
+const requiredMissingFields = (
+  patch: AiUpdateCommand['patch'],
+  target: AiSubscriptionContextItem
+): AiUpdateMissingField[] => {
+  const mergedPeriod = patch.period ?? target.period;
+  const mergedCustomDate = patch.customDate ?? target.customDate;
+
+  return mergedPeriod === 'custom' && !mergedCustomDate ? ['customDate'] : [];
 };
 
 export const buildAiSubscriptionContext = (
@@ -188,12 +205,25 @@ export const normalizeAiCommand = (
       payload.subscriptionId ?? payload.id ?? payload.targetId,
       subscriptions
     );
+    const target = subscriptionId
+      ? subscriptions.find(subscription => subscription.id === subscriptionId) ?? null
+      : null;
     const patch = normalizePatch(payload.patch ?? payload.updates ?? payload.fields, today);
-    if (!subscriptionId || !patch) {
+    if (!subscriptionId || !target || !patch) {
       return { command: { type: 'none', reason: asString(payload.reason) || 'Could not identify a subscription update.' }, dropped: 0 };
     }
+    const missingFields = requiredMissingFields(patch, target);
 
-    return { command: { type: 'update', subscriptionId, patch, ...(message ? { message } : {}) }, dropped: 0 };
+    return {
+      command: {
+        type: 'update',
+        subscriptionId,
+        patch,
+        ...(missingFields.length > 0 ? { missingFields } : {}),
+        ...(message ? { message } : {}),
+      },
+      dropped: 0,
+    };
   }
 
   if (action === 'delete') {

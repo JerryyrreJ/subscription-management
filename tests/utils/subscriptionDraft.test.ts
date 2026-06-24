@@ -61,6 +61,20 @@ test('keeps a valid custom interval and flags a missing one', () => {
   assert.ok(invalid.drafts[0].warnings.includes('customDate_missing'));
 });
 
+test('only accepts real booleans for notificationEnabled', () => {
+  const { drafts } = normalizeDrafts([{
+    name: 'X',
+    amount: 5,
+    currency: 'USD',
+    period: 'monthly',
+    lastPaymentDate: '2026-06-01',
+    notificationEnabled: 'false',
+  }], TODAY);
+
+  assert.equal(drafts[0].notificationEnabled, true);
+  assert.ok(drafts[0].warnings.includes('notificationEnabled_invalid'));
+});
+
 test('caps the number of drafts', () => {
   const many = Array.from({ length: 80 }, (_, i) => ({ name: `S${i}`, amount: 1, currency: 'USD', period: 'monthly', lastPaymentDate: '2026-06-01' }));
   const { drafts } = normalizeDrafts({ subscriptions: many }, TODAY);

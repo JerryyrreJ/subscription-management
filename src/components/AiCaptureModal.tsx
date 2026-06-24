@@ -93,6 +93,9 @@ const warnedFields = (warnings: string[]): Set<string> => {
   return set;
 };
 
+const isPositiveWholeDays = (value: unknown): boolean =>
+  typeof value === 'string' && /^[1-9]\d*$/.test(value);
+
 let draftCounter = 0;
 
 export function AiCaptureModal({
@@ -193,11 +196,47 @@ export function AiCaptureModal({
     setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, ...patch, error: undefined } : d)));
   };
 
-  const findTarget = (): Subscription | null => {
-    if (!command || (command.type !== 'update' && command.type !== 'delete')) {
+  const findTargetForCommand = (candidate: AiCommand | null): Subscription | null => {
+    if (!candidate || (candidate.type !== 'update' && candidate.type !== 'delete')) {
       return null;
     }
-    return subscriptions.find(subscription => subscription.id === command.subscriptionId) ?? actionSnapshot;
+    return subscriptions.find(subscription => subscription.id === candidate.subscriptionId) ?? actionSnapshot;
+  };
+
+  const updateMissingFields = (
+    nextCommand: Extract<AiCommand, { type: 'update' }>,
+    targetSubscription: Subscription | null
+  ): Extract<AiCommand, { type: 'update' }> => {
+    const period = nextCommand.patch.period ?? targetSubscription?.period;
+    const customDate = nextCommand.patch.customDate ?? targetSubscription?.customDate;
+    const missingFields = period === 'custom' && !isPositiveWholeDays(customDate)
+      ? ['customDate' as const]
+      : [];
+
+    return {
+      ...nextCommand,
+      ...(missingFields.length > 0 ? { missingFields } : { missingFields: undefined }),
+    };
+  };
+
+  const updateCommandPatch = (patch: Extract<AiCommand, { type: 'update' }>['patch']) => {
+    setCommand((prev) => {
+      if (!prev || prev.type !== 'update') {
+        return prev;
+      }
+
+      const nextCommand = {
+        ...prev,
+        patch: { ...prev.patch, ...patch },
+      };
+
+      return updateMissingFields(nextCommand, findTargetForCommand(prev));
+    });
+    setActionError(null);
+  };
+
+  const findTarget = (): Subscription | null => {
+    return findTargetForCommand(command);
   };
 
   const restoreReview = (snapshot?: Subscription | null, draftKey?: string) => {
@@ -287,6 +326,10 @@ export function AiCaptureModal({
       setActionError(t('aiCapture:targetMissing'));
       return;
     }
+    if ((command.missingFields ?? []).length > 0) {
+      setActionError(t('aiCapture:missingFieldsHint'));
+      return;
+    }
 
     const updated = {
       ...target,
@@ -363,7 +406,10 @@ export function AiCaptureModal({
     }
 
     if (command.type === 'update') {
-      const patchEntries = Object.entries(command.patch);
+      const showCustomDateInput = command.patch.period === 'custom' || (command.missingFields ?? []).includes('customDate');
+      const customDateValue = command.patch.customDate ?? target?.customDate ?? '';
+      const hasMissingFields = (command.missingFields ?? []).length > 0;
+      const patchEntries = Object.entries(command.patch).filter(([field]) => !(showCustomDateInput && field === 'customDate'));
       return (
         <div className="rounded-2xl border border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 space-y-4">
           <div className="flex items-start gap-3">
@@ -391,11 +437,30 @@ export function AiCaptureModal({
               </div>
             ))}
           </div>
+          {showCustomDateInput && (
+            <div className="rounded-xl bg-white/80 dark:bg-gray-800/60 px-3 py-3 space-y-2">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400" htmlFor="ai-update-custom-date">
+                {t('aiCapture:fields.customDate')}
+              </label>
+              <input
+                id="ai-update-custom-date"
+                type="number"
+                min="1"
+                value={customDateValue}
+                onChange={(e) => updateCommandPatch({ customDate: e.target.value })}
+                placeholder={t('addSubscription:customPeriodLabel')}
+                className={`${inputBase} ${fieldBorder(hasMissingFields)}`}
+              />
+              {hasMissingFields && (
+                <p className="text-xs text-amber-700 dark:text-amber-300">{t('aiCapture:missingFieldsHint')}</p>
+              )}
+            </div>
+          )}
           {actionError && <p className="text-xs text-red-600 dark:text-red-300">{actionError}</p>}
           {actionStatus !== 'done' && (
             <button
               onClick={confirmUpdate}
-              disabled={actionStatus === 'saving' || !target}
+              disabled={actionStatus === 'saving' || !target || hasMissingFields}
               className="w-full flex items-center justify-center gap-2 bg-emerald-600 dark:bg-emerald-500 text-white py-2.5 rounded-2xl font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50"
             >
               {actionStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}

@@ -30,6 +30,7 @@ export const aiCapture = {
   updateTitle: '更新 {{name}}？',
   updateDone: '已更新 {{name}}。',
   updateHint: '请先核对 AI 想修改的字段，再应用更新。',
+  missingFieldsHint: '请先补全缺少的信息，再应用修改。',
   confirmUpdate: '应用修改',
   targetMissing: '目标订阅已经不可用。',
   unknownTarget: '这个订阅',
@@ -61,6 +62,7 @@ export const aiCapture = {
     lastPaymentDate_guessed: '缺少日期——请填写上次付款日期',
     lastPaymentDate_future: '日期在未来——请核对',
     customDate_missing: '请填写自定义间隔（天）',
+    notificationEnabled_invalid: '通知设置不明确，请核对',
   },
   errors: {
     ai_unavailable: 'AI 录入当前不可用。你可以手动添加订阅。',

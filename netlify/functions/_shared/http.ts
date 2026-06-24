@@ -35,11 +35,20 @@ export const isNetworkFetchError = (error: unknown, seen = new Set<unknown>()): 
   seen.add(error);
 
   const message = error instanceof Error ? error.message.toLowerCase() : '';
-  if (message.includes('fetch failed')) {
+  if (message.includes('fetch failed') || message.includes('network socket disconnected')) {
     return true;
   }
 
   if (isRecord(error)) {
+    const recordText = ['message', 'details', 'hint']
+      .map(key => error[key])
+      .filter((value): value is string => typeof value === 'string')
+      .join('\n')
+      .toLowerCase();
+    if (recordText.includes('fetch failed') || recordText.includes('network socket disconnected')) {
+      return true;
+    }
+
     const code = typeof error.code === 'string' ? error.code : undefined;
     if (code && ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'EAI_AGAIN'].includes(code)) {
       return true;
