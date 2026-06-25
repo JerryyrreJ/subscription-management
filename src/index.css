@@ -603,3 +603,21 @@ body {
 .animate-drawer-down {
   animation: slideDown 0.2s cubic-bezier(0.7, 0, 0.84, 0) forwards;
 }
+
+@keyframes undo-countdown {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 88; }
+}
+
+.animate-undo-countdown {
+  animation: undo-countdown 5s linear forwards;
+}
+
+@keyframes undo-perimeter-countdown {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 100; }
+}
+
+.animate-undo-perimeter {
+  animation: undo-perimeter-countdown 5s linear forwards;
+}

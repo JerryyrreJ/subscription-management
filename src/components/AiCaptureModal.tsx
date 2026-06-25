@@ -673,7 +673,7 @@ export function AiCaptureModal({
                 onChange={(e) => onPatchChange({ notificationEnabled: e.target.checked })}
                 className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
               />
-              <span className="text-sm font-medium">{Boolean(value) ? t('aiCapture:enabled') : t('aiCapture:disabled')}</span>
+              <span className="text-sm font-medium">{value ? t('aiCapture:enabled') : t('aiCapture:disabled')}</span>
             </label>
           </div>
         );

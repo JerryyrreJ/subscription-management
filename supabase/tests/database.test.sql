@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(68);
+SELECT plan(70);
 
 SELECT has_table('public', 'user_profiles', 'user_profiles exists');
 SELECT has_table('public', 'subscriptions', 'subscriptions exists');
