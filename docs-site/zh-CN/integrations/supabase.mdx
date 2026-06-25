@@ -1,6 +1,6 @@
 ---
 title: "Supabase 集成"
-description: "使用 Supabase 提供账号、云同步、API Key、订阅数据和付费状态。"
+description: "使用 Supabase 提供账号、云同步、API Key、订阅数据、付费状态和 AI 录入配额。"
 ---
 
 # Supabase 集成
@@ -15,13 +15,14 @@ Supabase 是 Subscription Manager 的可选云层。未配置 Supabase 时，应
 - 订阅数据表。
 - 付费状态和套餐信息。
 - Bark 提醒配置。
+- AI 录入的每日配额与月度预算计数。
 
 ## 配置步骤
 
 1. 创建 Supabase 项目。
 2. 应用 `supabase/` 目录下的 migrations。
 3. 在前端配置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`。
-4. 在 Netlify Functions 环境中配置 `SUPABASE_SERVICE_ROLE_KEY`。
+4. 在 Netlify Functions 环境中配置 `SUPABASE_SECRET_KEY`，或继续使用兼容别名 `SUPABASE_SERVICE_ROLE_KEY`。
 
 ## SQL migrations
 
@@ -33,7 +34,11 @@ supabase/migrations/20260615000200_harden_existing_schema.sql
 supabase/migrations/20260616000100_public_api.sql
 supabase/migrations/20260617000100_public_api_security_fixes.sql
 supabase/migrations/20260618000100_agent_operations_layer.sql
+supabase/migrations/20260619000100_ai_capture.sql
+supabase/migrations/20260625000100_ai_budget_reservations.sql
 ```
+
+AI 录入相关表只保存每日调用次数和月度聚合 token 计数，不保存用户粘贴的文本、截图或解析内容。
 
 ## 安全边界
 

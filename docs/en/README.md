@@ -13,6 +13,7 @@ These docs cover the public setup and operating surface for Subscription Manager
 ## Optional Services
 
 - [Cloud sync with Supabase](supabase.md)
+- [AI capture](ai-capture.md)
 - [Renewal reminders with Bark](notifications.md)
 - [Payments with Stripe](payments.md)
 - [Public API](api.md)

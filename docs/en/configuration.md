@@ -12,7 +12,7 @@ The core app runs without environment variables. Add environment variables only 
 | `VITE_SUPABASE_ANON_KEY` | Supabase auth and cloud sync | Browser |
 | `SUPABASE_URL` | Supabase URL used by Functions | Server only |
 | `SUPABASE_PUBLISHABLE_KEY` | Access-token verification in Functions | Server only |
-| `SUPABASE_SECRET_KEY` | Notifications and premium activation | Server only |
+| `SUPABASE_SECRET_KEY` | Notifications, premium activation, public API access, and AI capture quotas | Server only |
 | `SUPABASE_SERVICE_ROLE_KEY` | Legacy alias for `SUPABASE_SECRET_KEY` | Server only |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Enables the payment UI; never trusted for checkout authorization | Browser |
 | `STRIPE_SECRET_KEY` | Stripe checkout session creation | Server only |
@@ -26,6 +26,20 @@ The core app runs without environment variables. Add environment variables only 
 | `API_PREMIUM_ACTIVE_KEYS` | Premium user active API key limit; defaults to `5` | Server only |
 | `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR` | Failed API key authentication attempts per client identity per hour; defaults to `300` | Server only |
 | `API_RATE_LIMIT_RETENTION_HOURS` | Rate limit window retention before scheduled cleanup; defaults to `48` | Server only |
+| `OPENROUTER_API_KEY` | Enables AI capture with OpenRouter | Server only |
+| `ANTHROPIC_API_KEY` | Enables AI capture with Anthropic | Server only |
+| `AI_PROVIDER` | Optional provider override: `openrouter` or `anthropic` | Server only |
+| `AI_MODEL` | AI capture model override | Server only |
+| `AI_FALLBACK_MODELS` | Comma-separated OpenRouter fallback models | Server only |
+| `OPENROUTER_SITE_URL` | Optional OpenRouter referer; falls back to `SITE_URL` or `URL` | Server only |
+| `OPENROUTER_APP_TITLE` | Optional OpenRouter app title header | Server only |
+| `AI_FREE_DAILY_PARSES` | Free user AI captures per day; defaults to `20` | Server only |
+| `AI_PREMIUM_DAILY_PARSES` | Premium user AI captures per day; defaults to `200` | Server only |
+| `AI_MAX_INPUT_CHARS` | AI capture text input cap; defaults to `20000` | Server only |
+| `AI_MAX_IMAGE_BYTES` | AI capture image cap; defaults to `4194304` | Server only |
+| `AI_MONTHLY_BUDGET_USD` | Workspace-wide monthly AI capture budget; defaults to `50` | Server only |
+| `AI_INPUT_USD_PER_MTOK` | Input-token cost estimate per million tokens | Server only |
+| `AI_OUTPUT_USD_PER_MTOK` | Output-token cost estimate per million tokens | Server only |
 
 ## Browser Variables
 
@@ -44,6 +58,7 @@ The app checks environment variables at runtime:
 - Supabase variables enable authentication and cloud sync.
 - Stripe variables enable payment flow.
 - Public API keys require Supabase and Netlify Functions; quota variables only override the defaults.
+- AI capture requires Supabase, Netlify Functions, the AI capture migrations, and either `OPENROUTER_API_KEY` or `ANTHROPIC_API_KEY`.
 - Missing optional variables keep the app in local-first mode.
 
 ## Bark Settings

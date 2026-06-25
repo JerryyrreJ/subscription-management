@@ -2,17 +2,17 @@
 
 [English](../en/supabase.md) | [简体中文](supabase.md)
 
-Supabase 是可选服务。配置后，它会启用登录、用户资料、云同步、分类同步、通知设置和支付激活。
+Supabase 是可选服务。配置后，它会启用登录、用户资料、云同步、分类同步、通知设置、支付激活、开放 API Key，以及 AI 录入的配额和预算计数。
 
 ## 必需变量
 
 ```bash
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_SECRET_KEY=
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` 只能用于服务端。它供不在用户会话中的 Netlify Functions 使用。
+`SUPABASE_SECRET_KEY` 只能用于服务端。它供不在用户会话中的 Netlify Functions 使用。旧变量名 `SUPABASE_SERVICE_ROLE_KEY` 仍作为兼容别名支持。
 
 ## SQL 设置
 
@@ -24,6 +24,8 @@ supabase/migrations/20260615000200_harden_existing_schema.sql
 supabase/migrations/20260616000100_public_api.sql
 supabase/migrations/20260617000100_public_api_security_fixes.sql
 supabase/migrations/20260618000100_agent_operations_layer.sql
+supabase/migrations/20260619000100_ai_capture.sql
+supabase/migrations/20260625000100_ai_budget_reservations.sql
 ```
 
 全新环境使用 `supabase start` 和 `npm run db:verify`。现有线上环境必须先生成只读 DDL dump、确认 baseline diff、运行 `supabase/audit/preflight.sql`，再标记 baseline 并执行 hardening migration。完整步骤见 `supabase/README.md`。
@@ -37,6 +39,8 @@ supabase/migrations/20260618000100_agent_operations_layer.sql
 - Delivery locks 防止定时通知重复发送。
 - API keys 只保存哈希后的 Key 信息和权限范围。
 - API audit logs 记录开放 API 写操作。
+- AI usage windows 记录每个用户每日 AI 录入次数。
+- AI cost windows 记录工作区级月度聚合 token 用量和预算预留。它们不保存用户粘贴的文本、截图或解析内容。
 
 ## 安全说明
 

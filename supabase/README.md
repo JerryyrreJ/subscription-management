@@ -23,6 +23,8 @@ The current migration chain is:
 20260616000100_public_api.sql
 20260617000100_public_api_security_fixes.sql
 20260618000100_agent_operations_layer.sql
+20260619000100_ai_capture.sql
+20260625000100_ai_budget_reservations.sql
 ```
 
 ## Existing production environment
@@ -34,7 +36,7 @@ The current migration chain is:
 5. Run `supabase db query --linked --file supabase/audit/preflight.sql`; it must return zero rows.
 6. Capture `supabase/audit/row-counts.sql` output.
 7. In the reviewed rollout window, mark legacy history versions `001` and `002` as reverted, then mark `20260615000100` as applied. These commands change migration history only; they must not execute the baseline SQL.
-8. Run `supabase db push --dry-run` and confirm that the pending list contains only timestamped migrations after the baseline. For a production project that has not received the public API work yet, that usually means `20260615000200_harden_existing_schema.sql`, `20260616000100_public_api.sql`, `20260617000100_public_api_security_fixes.sql`, and `20260618000100_agent_operations_layer.sql`.
+8. Run `supabase db push --dry-run` and confirm that the pending list contains only timestamped migrations after the baseline. For a production project that has not received the public API and AI capture work yet, that usually means `20260615000200_harden_existing_schema.sql`, `20260616000100_public_api.sql`, `20260617000100_public_api_security_fixes.sql`, `20260618000100_agent_operations_layer.sql`, `20260619000100_ai_capture.sql`, and `20260625000100_ai_budget_reservations.sql`.
 9. Apply the pending migrations with `supabase db push`.
 10. Re-run the audit and row counts, then run application checks, cloud sync, payment test mode, and notification smoke tests.
 
@@ -45,5 +47,7 @@ The current migration chain is:
 - `20260616000100_public_api.sql`: creates public API key and rate-limit tables plus RPCs. Pre-check is successful hardening migration; post-check is `npm run db:verify` and API key creation smoke tests. Rollback is to restore the pre-migration schema snapshot and redeploy the previous Functions bundle.
 - `20260617000100_public_api_security_fixes.sql`: adds per-user API rate limits and failed-auth throttling. Pre-check is the public API migration; post-check is `npm run db:verify` plus authentication and rate-limit smoke tests. Rollback is to restore the pre-migration schema snapshot and redeploy the previous Functions bundle.
 - `20260618000100_agent_operations_layer.sql`: adds subscription lifecycle status, API key scopes, and public API audit logs. Pre-check is the security fixes migration; post-check is `npm run db:verify` plus public API read/write, read-only key, status update, analytics, and audit endpoint smoke tests. Rollback is to restore the pre-migration schema snapshot and redeploy the previous Functions bundle.
+- `20260619000100_ai_capture.sql`: adds daily AI capture quota windows and monthly aggregate token accounting. It stores counters only, never pasted text or image content. Pre-check is the agent operations layer; post-check is `npm run db:verify` plus an AI capture smoke test with the provider key configured. Rollback is to restore the pre-migration schema snapshot and redeploy the previous Functions bundle.
+- `20260625000100_ai_budget_reservations.sql`: adds atomic AI budget reservation and adjustment RPCs so concurrent AI requests cannot exceed the configured monthly budget. Pre-check is the AI capture migration; post-check is `npm run db:verify` plus quota, budget-exceeded, and provider-failure smoke tests. Rollback is to restore the pre-migration schema snapshot and redeploy the previous Functions bundle.
 
 Never use `SUPABASE_SERVICE_ROLE_KEY` as a database connection credential.

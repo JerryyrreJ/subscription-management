@@ -2,17 +2,17 @@
 
 [English](supabase.md) | [简体中文](../zh-CN/supabase.md)
 
-Supabase is optional. When configured, it enables authentication, user profiles, cloud sync, category sync, notification settings, and payment activation.
+Supabase is optional. When configured, it enables authentication, user profiles, cloud sync, category sync, notification settings, payment activation, public API keys, and AI capture quota/budget accounting.
 
 ## Required Variables
 
 ```bash
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_SECRET_KEY=
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` is server-only. It is needed by Netlify Functions that run outside a user session.
+`SUPABASE_SECRET_KEY` is server-only. It is needed by Netlify Functions that run outside a user session. The legacy `SUPABASE_SERVICE_ROLE_KEY` name remains supported as an alias.
 
 ## SQL Setup
 
@@ -24,6 +24,8 @@ supabase/migrations/20260615000200_harden_existing_schema.sql
 supabase/migrations/20260616000100_public_api.sql
 supabase/migrations/20260617000100_public_api_security_fixes.sql
 supabase/migrations/20260618000100_agent_operations_layer.sql
+supabase/migrations/20260619000100_ai_capture.sql
+supabase/migrations/20260625000100_ai_budget_reservations.sql
 ```
 
 For a new environment, run `supabase start` and `npm run db:verify`. For an existing production environment, first create a read-only DDL dump, confirm the baseline diff, run `supabase/audit/preflight.sql`, then mark the baseline and apply the hardening migration. See `supabase/README.md` for the complete workflow.
@@ -37,6 +39,8 @@ For a new environment, run `supabase start` and `npm run db:verify`. For an exis
 - Delivery locks prevent duplicate scheduled notification sends.
 - API keys store only hashed key material and permission scopes.
 - API audit logs record public API write operations.
+- AI usage windows track per-user daily AI capture counts.
+- AI cost windows track workspace-wide monthly aggregate token usage and budget reservations. They do not store pasted text, screenshots, or parsed content.
 
 ## Security Notes
 

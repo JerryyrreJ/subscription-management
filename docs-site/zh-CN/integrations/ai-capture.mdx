@@ -1,0 +1,91 @@
+---
+title: "AI 录入"
+description: "配置 AI 辅助录入，支持文本、截图、新增、修改、删除、配额、预算和隐私边界。"
+---
+
+# AI 录入
+
+AI 录入允许已登录用户用自然语言描述订阅变更，或上传账单/截图。模型只返回一个待确认的结构化操作；应用会展示核对界面，只有用户确认后才写入数据。
+
+## 用户可以做什么
+
+- 从一句话、收据、账单片段或截图中添加一个或多个订阅。
+- 通过名称或 id 修改已有订阅。
+- 一次请求批量修改多个订阅。
+- 在核对后删除已有订阅。
+- 在应用内确认、编辑、丢弃或撤销 AI 产生的操作。
+
+AI 不会直接写入订阅数据。它只准备结构化命令，真正的写入由 UI 在用户确认后，通过和手动编辑相同的本地/云端 mutation 路径执行。
+
+## 必需托管服务
+
+- Supabase auth，因为 AI 录入只对已登录用户开放。
+- Supabase migrations 至少执行到 `20260625000100_ai_budget_reservations.sql`，因为每日配额和月度预算 RPC 必不可少。
+- Netlify Functions，因为模型供应商 Key 只能放在服务端。
+- OpenRouter 或 Anthropic 的 AI provider key。
+
+如果没有配置任何 provider key，应用会回退到手动添加表单。
+
+## Provider 变量
+
+设置 `OPENROUTER_API_KEY` 时，默认走 OpenRouter 低成本路径：
+
+```bash
+OPENROUTER_API_KEY=
+AI_PROVIDER=openrouter
+AI_MODEL=google/gemini-2.5-flash-lite
+AI_FALLBACK_MODELS=google/gemini-2.5-flash
+OPENROUTER_SITE_URL=https://your-site.example
+OPENROUTER_APP_TITLE=Subscription Manager
+```
+
+也可以使用 Anthropic：
+
+```bash
+ANTHROPIC_API_KEY=
+AI_PROVIDER=anthropic
+AI_MODEL=claude-haiku-4-5
+```
+
+`AI_PROVIDER` 可省略。不设置时，服务端会在存在 `OPENROUTER_API_KEY` 时推断为 `openrouter`；否则使用 Anthropic 路径。
+
+## 护栏变量
+
+这些变量都只应配置在服务端：
+
+```bash
+AI_FREE_DAILY_PARSES=20
+AI_PREMIUM_DAILY_PARSES=200
+AI_MAX_INPUT_CHARS=20000
+AI_MAX_IMAGE_BYTES=4194304
+AI_MONTHLY_BUDGET_USD=50
+AI_INPUT_USD_PER_MTOK=0.1
+AI_OUTPUT_USD_PER_MTOK=0.4
+```
+
+每日配额按用户计算。月度预算是工作区级别，并且会在调用模型前做原子预算预留，避免并发请求同时看到旧用量后一起进入 provider call。
+
+## 隐私边界
+
+用户粘贴的文本或上传的截图只会为了本次识别发送给配置的模型供应商一次。Subscription Manager 不存储、不记录这些内容。数据库只保留：
+
+- 每个用户每日 AI 录入次数。
+- 工作区级月度聚合 token 计数。
+
+Function 日志可以包含 request id、user id、命令类型和 token 数，但不包含原始输入。
+
+## 错误与回退
+
+`/.netlify/functions/ai-parse-subscriptions` 常见错误码：
+
+| Code | 含义 |
+| --- | --- |
+| `ai_unavailable` | 未配置 provider key |
+| `ai_quota_exceeded` | 当前登录用户今日额度已用完 |
+| `ai_budget_exceeded` | 工作区月度预算已用完 |
+| `input_too_large` | 文本超过 `AI_MAX_INPUT_CHARS` |
+| `image_too_large` | 图片超过 `AI_MAX_IMAGE_BYTES` |
+| `ai_provider_unavailable` | provider 请求因网络或供应商可用性失败 |
+| `ai_parse_failed` | provider 有响应，但没有生成可用命令 |
+
+AI 录入不可用时，用户始终可以手动添加或编辑订阅。

@@ -15,6 +15,7 @@ The app works without an account by storing data in the browser. Supabase, Strip
 - Convert between CNY, USD, EUR, JPY, GBP, AUD, CAD, CHF, HKD, and SGD
 - Sort and filter subscriptions by name, amount, renewal date, category, or creation date
 - Manage built-in and custom categories
+- Use AI capture to propose creates, updates, deletes, and batch updates from text or screenshots
 - Import and export subscription data as JSON
 - Review spending reports, category breakdowns, top subscriptions, and renewal patterns
 - Use optional Supabase authentication and multi-device sync
@@ -82,16 +83,16 @@ The core app runs without environment variables. Optional services use the follo
 
 | Service | Variables | Purpose |
 | --- | --- | --- |
-| Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Authentication, cloud sync, scheduled notification access |
+| Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` | Authentication, cloud sync, scheduled notification access, API keys, and AI capture quotas |
 | Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` | Payment UI, checkout, and webhook handling |
 | Public API | `API_FREE_RATE_LIMIT_PER_HOUR`, `API_PREMIUM_RATE_LIMIT_PER_HOUR`, `API_FREE_ACTIVE_KEYS`, `API_PREMIUM_ACTIVE_KEYS`, `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR`, `API_RATE_LIMIT_RETENTION_HOURS` | Optional API quota overrides |
-| AI capture | `OPENROUTER_API_KEY`, `AI_PROVIDER`, `AI_MODEL`, `AI_FALLBACK_MODELS`, `AI_FREE_DAILY_PARSES`, `AI_PREMIUM_DAILY_PARSES`, `AI_MAX_INPUT_CHARS`, `AI_MAX_IMAGE_BYTES`, `AI_MONTHLY_BUDGET_USD` | Optional AI-assisted capture; leave provider keys unset to disable |
+| AI capture | `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `AI_PROVIDER`, `AI_MODEL`, `AI_FALLBACK_MODELS`, `OPENROUTER_SITE_URL`, `OPENROUTER_APP_TITLE`, `AI_FREE_DAILY_PARSES`, `AI_PREMIUM_DAILY_PARSES`, `AI_MAX_INPUT_CHARS`, `AI_MAX_IMAGE_BYTES`, `AI_MONTHLY_BUDGET_USD`, `AI_INPUT_USD_PER_MTOK`, `AI_OUTPUT_USD_PER_MTOK` | Optional AI-assisted capture; leave provider keys unset to disable |
 | Bark | Configured in the app | Push reminders for upcoming renewals |
 | Netlify | `URL` is provided by Netlify | Function callbacks and scheduled reminders |
 
 ## AI capture & privacy
 
-Adding a subscription can start from a sentence, a pasted bank/credit-card statement, or a screenshot. The **Add with AI** flow asks the model to extract subscriptions, then you confirm or edit each draft before anything is saved — the AI only proposes, it never writes to your data directly.
+AI capture can start from a sentence, a pasted bank/credit-card statement, or a screenshot. It can propose creates, updates, deletes, and batch updates. The app asks you to confirm or edit the proposed action before anything is saved — the AI only proposes, it never writes to your data directly.
 
 - **Optional & swappable.** Set `OPENROUTER_API_KEY` to enable the low-cost OpenRouter path. By default it uses `google/gemini-2.5-flash-lite` with `google/gemini-2.5-flash` as a fallback (`AI_FALLBACK_MODELS`). Anthropic remains available with `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY`; leaving provider keys unset falls back to the manual form. The model and every guardrail are env-configurable (`AI_MODEL`, quotas, input caps, monthly budget — see `.env.example`), and the model call sits behind a small `SubscriptionParser` interface.
 - **Volume & cost control.** Each user has a daily parse quota (free vs premium), every request caps the input size, and a workspace-wide monthly budget breaker pauses the feature once the configured spend ceiling is reached. The key stays server-side only.
@@ -107,6 +108,7 @@ Adding a subscription can start from a sentence, a pasted bank/credit-card state
 - [Cloud sync with Supabase](docs/en/supabase.md)
 - [Renewal reminders with Bark](docs/en/notifications.md)
 - [Payments with Stripe](docs/en/payments.md)
+- [AI capture](docs-site/en/integrations/ai-capture.mdx)
 - [Public API](docs/en/api.md)
 - [Changelog](CHANGELOG.md)
 

@@ -27,17 +27,18 @@ VITE_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
+新部署优先使用 `SUPABASE_SECRET_KEY`。旧变量名 `SUPABASE_SERVICE_ROLE_KEY` 仍作为兼容别名支持。
+
 ## SQL 设置
 
-运行通知相关 SQL 文件：
+通知相关表和约束已经包含在当前 Supabase migrations 中。新部署使用：
 
 ```text
-supabase/01_add_notification_enabled.sql
-supabase/02_create_notification_settings.sql
-supabase/03_create_notification_delivery_locks.sql
-supabase/migrations/002_notification_settings_timezone.sql
-supabase/migrations/003_notification_settings_locale.sql
+supabase/migrations/20260615000100_baseline.sql
+supabase/migrations/20260615000200_harden_existing_schema.sql
 ```
+
+旧安装说明和 legacy migration 文件仅保留在 `supabase/legacy/` 中作为历史参考。
 
 ## 定时函数
 

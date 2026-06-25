@@ -15,6 +15,7 @@ Subscription Manager 是一个本地优先的 Web 应用，用于跟踪周期性
 - 支持 CNY、USD、EUR、JPY、GBP、AUD、CAD、CHF、HKD 和 SGD 之间的换算
 - 按名称、金额、续费日期、分类或创建时间排序和筛选订阅
 - 管理内置分类和自定义分类
+- 使用 AI 录入从文本或截图中提议新增、修改、删除和批量更新
 - 以 JSON 文件导入和导出订阅数据
 - 查看支出报告、分类占比、最高支出订阅和续费分布
 - 可选启用 Supabase 登录和多设备同步
@@ -82,16 +83,16 @@ npm run test:notifications  # 测试定时通知逻辑
 
 | 服务 | 变量 | 用途 |
 | --- | --- | --- |
-| Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | 登录、云同步、定时通知访问 |
+| Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SECRET_KEY` 或 `SUPABASE_SERVICE_ROLE_KEY` | 登录、云同步、定时通知访问、API Key 和 AI 录入配额 |
 | Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` | 支付界面、Checkout 和 webhook 处理 |
 | 开放 API | `API_FREE_RATE_LIMIT_PER_HOUR`, `API_PREMIUM_RATE_LIMIT_PER_HOUR`, `API_FREE_ACTIVE_KEYS`, `API_PREMIUM_ACTIVE_KEYS`, `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR`, `API_RATE_LIMIT_RETENTION_HOURS` | 可选覆盖 API 配额 |
-| AI 录入 | `OPENROUTER_API_KEY`、`AI_PROVIDER`、`AI_MODEL`、`AI_FALLBACK_MODELS`、`AI_FREE_DAILY_PARSES`、`AI_PREMIUM_DAILY_PARSES`、`AI_MAX_INPUT_CHARS`、`AI_MAX_IMAGE_BYTES`、`AI_MONTHLY_BUDGET_USD` | 可选的 AI 辅助录入；不设供应商 Key 即禁用 |
+| AI 录入 | `OPENROUTER_API_KEY`、`ANTHROPIC_API_KEY`、`AI_PROVIDER`、`AI_MODEL`、`AI_FALLBACK_MODELS`、`OPENROUTER_SITE_URL`、`OPENROUTER_APP_TITLE`、`AI_FREE_DAILY_PARSES`、`AI_PREMIUM_DAILY_PARSES`、`AI_MAX_INPUT_CHARS`、`AI_MAX_IMAGE_BYTES`、`AI_MONTHLY_BUDGET_USD`、`AI_INPUT_USD_PER_MTOK`、`AI_OUTPUT_USD_PER_MTOK` | 可选的 AI 辅助录入；不设供应商 Key 即禁用 |
 | Bark | 在应用内配置 | 订阅续费推送提醒 |
 | Netlify | `URL` 由 Netlify 提供 | 函数回调和定时提醒 |
 
 ## AI 录入与隐私
 
-添加订阅可以从一句话、一段粘贴的银行/信用卡账单，或一张截图开始。**AI 录入**会让模型把订阅解析出来，再由你逐条确认或修改后才入账——AI 只负责「提议」，绝不直接写入你的数据。
+AI 录入可以从一句话、一段粘贴的银行/信用卡账单，或一张截图开始。它可以提议新增、修改、删除和批量更新订阅，再由你确认或修改后才执行——AI 只负责「提议」，绝不直接写入你的数据。
 
 - **可选、可替换。** 设置 `OPENROUTER_API_KEY` 即启用低成本 OpenRouter 路径。默认模型是 `google/gemini-2.5-flash-lite`，并用 `google/gemini-2.5-flash` 作为 fallback（`AI_FALLBACK_MODELS`）。Anthropic 仍可通过 `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` 使用；不设置供应商 Key 则「添加」回退到手动表单。模型与所有护栏都由环境变量配置（`AI_MODEL`、配额、输入上限、月度预算——见 `.env.example`），且模型调用封装在一个小的 `SubscriptionParser` 接口后面。
 - **量与成本控制。** 每个用户有每日解析配额（免费 vs 会员），每次请求限制输入大小，并有一个工作区级的月度预算熔断——达到配置的支出上限即暂停该功能。Key 只在服务端。
@@ -106,6 +107,7 @@ npm run test:notifications  # 测试定时通知逻辑
 - [使用 Supabase 云同步](docs/zh-CN/supabase.md)
 - [使用 Bark 续费提醒](docs/zh-CN/notifications.md)
 - [使用 Stripe 支付](docs/zh-CN/payments.md)
+- [AI 录入](docs-site/zh-CN/integrations/ai-capture.mdx)
 - [开放 API](docs/zh-CN/api.md)
 - [更新日志](CHANGELOG.md)
 

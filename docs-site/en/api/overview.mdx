@@ -1,11 +1,11 @@
 ---
 title: "Public API overview"
-description: "Use Developer API keys to automate subscription CRUD through the v1 public API."
+description: "Use Developer API keys to automate subscription lifecycle, analytics, and audit access through the v1 public API."
 ---
 
 # Public API overview
 
-The v1 public API exposes subscription CRUD through Developer API keys. It is designed for scripts, agents, automation tools, and third-party integrations.
+The v1 public API exposes subscription lifecycle management, analytics, and audit access through Developer API keys. It is designed for scripts, agents, automation tools, and third-party integrations.
 
 ## Base path
 
@@ -13,10 +13,12 @@ The v1 public API exposes subscription CRUD through Developer API keys. It is de
 https://your-site.example/api/v1
 ```
 
-Subscription endpoints live under:
+Main endpoint groups live under:
 
 ```text
 /api/v1/subscriptions
+/api/v1/analytics
+/api/v1/audit
 ```
 
 ## Design choices
@@ -27,6 +29,9 @@ Subscription endpoints live under:
 - The API key owner determines the user scope.
 - Every subscription query is filtered by the authenticated API key owner.
 - `nextPaymentDate` is calculated by the server from billing period fields.
+- `status` supports soft lifecycle changes: `active`, `paused`, and `cancelled`.
+- Analytics endpoints report totals per currency and never convert across currencies.
+- Audit endpoints expose write history for public API create, update, and delete operations.
 - Write operations return AI-readable validation errors when a specific field can be corrected.
 
 ## AI-ready artifacts
@@ -66,6 +71,10 @@ API_RATE_LIMIT_RETENTION_HOURS=48
 | `POST` | `/api/v1/subscriptions` | Create a subscription |
 | `PATCH` | `/api/v1/subscriptions/{id}` | Update writable fields |
 | `DELETE` | `/api/v1/subscriptions/{id}` | Delete a subscription |
+| `GET` | `/api/v1/analytics/summary` | Spend summary by currency/category and upcoming renewals |
+| `GET` | `/api/v1/analytics/duplicates` | Duplicate subscription candidates |
+| `GET` | `/api/v1/analytics/optimizations` | Optimization candidates without invented savings |
+| `GET` | `/api/v1/audit` | Public API write audit log |
 
 ## API reference
 

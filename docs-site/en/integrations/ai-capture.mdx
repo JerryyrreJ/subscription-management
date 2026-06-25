@@ -1,0 +1,91 @@
+---
+title: "AI capture"
+description: "Configure AI-assisted subscription capture for text, screenshots, creates, updates, deletes, quotas, and privacy."
+---
+
+# AI capture
+
+AI capture lets signed-in users describe subscription changes in natural language or upload a screenshot. The model returns a proposed command; the app shows a review screen and only writes data after the user confirms.
+
+## What users can do
+
+- Add one or more subscriptions from a sentence, receipt, statement excerpt, or screenshot.
+- Update an existing subscription by name or id.
+- Batch update several subscriptions in one request.
+- Delete an existing subscription after review.
+- Confirm, edit, discard, or undo the resulting action in the app.
+
+AI never writes directly to subscription storage. It prepares a structured command, and the UI executes the confirmed action through the same local/cloud mutation paths as manual edits.
+
+## Required hosted services
+
+- Supabase auth, because AI capture is only available to signed-in users.
+- Supabase migrations through `20260625000100_ai_budget_reservations.sql`, because quota and budget RPCs are required.
+- Netlify Functions, because provider keys stay server-side.
+- An AI provider key for OpenRouter or Anthropic.
+
+If no provider key is configured, the app falls back to the manual add form.
+
+## Provider variables
+
+OpenRouter is the default low-cost path when `OPENROUTER_API_KEY` is present:
+
+```bash
+OPENROUTER_API_KEY=
+AI_PROVIDER=openrouter
+AI_MODEL=google/gemini-2.5-flash-lite
+AI_FALLBACK_MODELS=google/gemini-2.5-flash
+OPENROUTER_SITE_URL=https://your-site.example
+OPENROUTER_APP_TITLE=Subscription Manager
+```
+
+Anthropic remains supported:
+
+```bash
+ANTHROPIC_API_KEY=
+AI_PROVIDER=anthropic
+AI_MODEL=claude-haiku-4-5
+```
+
+`AI_PROVIDER` is optional. Without it, the server infers `openrouter` when `OPENROUTER_API_KEY` is set; otherwise it uses the Anthropic path.
+
+## Guardrail variables
+
+All guardrails are server-only variables:
+
+```bash
+AI_FREE_DAILY_PARSES=20
+AI_PREMIUM_DAILY_PARSES=200
+AI_MAX_INPUT_CHARS=20000
+AI_MAX_IMAGE_BYTES=4194304
+AI_MONTHLY_BUDGET_USD=50
+AI_INPUT_USD_PER_MTOK=0.1
+AI_OUTPUT_USD_PER_MTOK=0.4
+```
+
+Daily quota is per user. Monthly budget is workspace-wide and is enforced with an atomic reservation before the provider call, so concurrent requests cannot all enter the model call after observing the same old spend.
+
+## Privacy model
+
+The pasted text or uploaded screenshot is sent once to the configured model provider for extraction. Subscription Manager does not store or log the content. The database keeps only:
+
+- Per-user daily AI capture counters.
+- Workspace-wide monthly aggregate token counts.
+
+Function logs include request id, user id, command type, and token counts, but not the raw input.
+
+## Errors and fallback
+
+Common error codes returned by `/.netlify/functions/ai-parse-subscriptions`:
+
+| Code | Meaning |
+| --- | --- |
+| `ai_unavailable` | No provider key is configured |
+| `ai_quota_exceeded` | The signed-in user has used today's quota |
+| `ai_budget_exceeded` | The workspace monthly budget is exhausted |
+| `input_too_large` | Text exceeds `AI_MAX_INPUT_CHARS` |
+| `image_too_large` | Image exceeds `AI_MAX_IMAGE_BYTES` |
+| `ai_provider_unavailable` | The provider request failed due to network/provider availability |
+| `ai_parse_failed` | The provider responded, but no usable command was produced |
+
+Users can always add or edit subscriptions manually when AI capture is unavailable.

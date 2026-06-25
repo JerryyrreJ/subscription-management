@@ -1,35 +1,66 @@
 ---
-title: "续费提醒"
-description: "使用 Bark 和 Netlify Scheduled Functions 发送订阅续费提醒。"
+title: "使用 Bark 续费提醒"
+description: "配置 Netlify Scheduled Functions 和 Bark，为即将续费的订阅发送推送。"
 ---
 
-# 续费提醒
+# 使用 Bark 续费提醒
 
-续费提醒是可选功能。启用后，系统可以在订阅即将续费前通过 Bark 发送推送通知。
+Subscription Manager 可以通过 Bark 发送续费提醒。托管提醒流程使用 Netlify Scheduled Function 和保存在 Supabase 中的通知设置。
 
-## 组成部分
+## 用户需要配置什么
 
-- Supabase 保存用户提醒配置和订阅数据。
-- Netlify Scheduled Function 定时扫描即将续费的订阅。
-- Bark 负责向用户设备发送推送。
+用户在应用内配置 Bark 设置：
 
-## 服务端配置
+- Bark server URL。
+- Bark device key。
+- 提醒提前天数。
+- 每个订阅自己的通知开关。
 
-常用变量：
+## 必需托管服务
+
+- Supabase 保存通知设置和订阅数据。
+- Netlify Functions 执行定时检查。
+- Bark 官方服务器或自托管 Bark server。
+
+## 必需环境变量
 
 ```bash
-BARK_DEFAULT_SERVER_URL=https://api.day.app
-SUPABASE_SERVICE_ROLE_KEY=...
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+SUPABASE_SECRET_KEY=
 ```
 
-如果用户配置了自己的 Bark server，优先使用用户配置。
+旧变量名 `SUPABASE_SERVICE_ROLE_KEY` 仍作为兼容别名支持。
 
-## 行为说明
+## SQL 设置
 
-提醒逻辑应该只处理已启用提醒的用户和订阅。对于缺少 Bark key、订阅已取消或续费日期无效的数据，应跳过而不是让整个任务失败。
+通知相关表和约束已经包含在 Supabase migrations 中。当前部署使用：
 
-## 运维建议
+```text
+supabase/migrations/20260615000100_baseline.sql
+supabase/migrations/20260615000200_harden_existing_schema.sql
+```
 
-- 定期查看 scheduled function 日志。
-- 对失败的 Bark 请求记录状态码和错误摘要。
-- 避免在日志中输出完整用户密钥。
+旧安装说明和 legacy migration 文件保留在 `supabase/legacy/`。
+
+## 定时函数
+
+定时函数位于：
+
+```text
+netlify/functions/send-scheduled-notifications.ts
+```
+
+它会检查符合条件的订阅，发送 Bark 消息，记录发送历史，并避免重复发送。
+
+## 本地测试
+
+```bash
+npm run test:notifications
+```
+
+测试完整 Functions runtime 时使用 Netlify Dev：
+
+```bash
+npm run dev:full
+```

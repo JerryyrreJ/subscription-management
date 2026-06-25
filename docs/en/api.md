@@ -1,20 +1,22 @@
 # Public API
 
-The v1 API exposes subscription CRUD through API keys.
+The v1 API exposes subscription lifecycle management, analytics, and audit access through Developer API keys.
 
-AI agents can use `docs-site/api/ai-tools.json` for tool/function definitions,
-risk levels, confirmation prompts, and error recovery guidance. The OpenAPI
-schema is available at `docs-site/api/openapi.yaml`.
+AI agents can use `docs-site/api/ai-tools.json` for tool/function definitions, risk levels, confirmation prompts, and error recovery guidance. The OpenAPI schema is available at `docs-site/api/openapi.yaml`.
 
 ## Access
 
-Create an API key from **Developer API** in the user menu. The full key is shown
-only once. Store it like a password.
+Create an API key from **Developer API** in the user menu. The full key is shown only once. Store it like a password.
 
 Default limits:
 
 - Free users: 1 active key, 60 requests per user per hour
 - Premium users: 5 active keys, 1000 requests per user per hour
+
+API keys have scopes:
+
+- `read`: list and read subscriptions; call analytics and audit endpoints
+- `write`: everything `read` allows, plus create, update, cancel, pause, resume, and delete
 
 ## Authentication
 
@@ -22,23 +24,21 @@ Default limits:
 Authorization: Bearer subm_xxx
 ```
 
-## Subscriptions
-
-Base path:
-
-```text
-/api/v1/subscriptions
-```
-
-Endpoints:
+## Endpoints
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/api/v1/subscriptions` | List the authenticated API key owner's subscriptions |
+| `GET` | `/api/v1/subscriptions` | List subscriptions |
 | `GET` | `/api/v1/subscriptions/:id` | Get one subscription |
 | `POST` | `/api/v1/subscriptions` | Create a subscription |
-| `PATCH` | `/api/v1/subscriptions/:id` | Update writable fields |
-| `DELETE` | `/api/v1/subscriptions/:id` | Delete a subscription |
+| `PATCH` | `/api/v1/subscriptions/:id` | Update writable fields, including `status` |
+| `DELETE` | `/api/v1/subscriptions/:id` | Permanently delete a subscription |
+| `GET` | `/api/v1/analytics/summary` | Spend summary by currency/category and upcoming renewals |
+| `GET` | `/api/v1/analytics/duplicates` | Duplicate subscription candidates |
+| `GET` | `/api/v1/analytics/optimizations` | Optimization candidates without invented savings |
+| `GET` | `/api/v1/audit` | Public API write audit log |
+
+## Subscriptions
 
 Writable fields use camelCase:
 
@@ -51,42 +51,41 @@ Writable fields use camelCase:
   "period": "monthly",
   "lastPaymentDate": "2026-06-01",
   "customDate": null,
-  "notificationEnabled": true
+  "notificationEnabled": true,
+  "status": "active"
 }
 ```
 
-`id`, `nextPaymentDate`, `createdAt`, and `updatedAt` are managed by the
-server. `customDate` is only used with custom billing periods.
+`id`, `nextPaymentDate`, `createdAt`, and `updatedAt` are managed by the server. `customDate` is only used with custom billing periods.
 
-For AI agents, reads are low risk and can run directly. Create and update are
-medium risk and should be confirmed first. Delete is high risk and should only
-run after confirming the exact subscription name and id.
+`status` can be `active`, `paused`, or `cancelled`. Prefer `PATCH {"status":"cancelled"}` or `PATCH {"status":"paused"}` when the user wants to keep history; use `DELETE` only when the record should be removed permanently.
 
-Examples:
+## List filters
 
-```bash
-curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  https://your-site.example/api/v1/subscriptions
-```
+`GET /api/v1/subscriptions` supports pagination, filtering, and sorting:
 
-The list endpoint is paged. Pass `limit` (1-100, default 50) and `offset`
-(default 0) as query parameters; the response includes a `pagination` object
-with `limit`, `offset`, and `hasMore`.
+| Parameter | Rule |
+| --- | --- |
+| `limit` | 1-100, default 50 |
+| `offset` | Default 0 |
+| `status` | `active`, `paused`, or `cancelled` |
+| `category` | Exact category match |
+| `period` | `monthly`, `yearly`, or `custom` |
+| `q` | Case-insensitive name search |
+| `expiringBefore` | `YYYY-MM-DD`; combine with `status=active` for upcoming renewals |
+| `sort` | `createdAt`, `-createdAt`, `nextPaymentDate`, `-nextPaymentDate`, `amount`, `-amount`, `name`, `-name` |
 
-```bash
-curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  "https://your-site.example/api/v1/subscriptions?limit=50&offset=50"
-```
+## Analytics and audit
 
-```bash
-curl -X POST \
-  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Netflix","category":"Streaming","amount":15.99,"currency":"USD","period":"monthly","lastPaymentDate":"2026-06-01"}' \
-  https://your-site.example/api/v1/subscriptions
-```
+Analytics endpoints are read-only and report money per currency without conversion:
 
-## Errors And Limits
+- `/api/v1/analytics/summary?horizonDays=30`
+- `/api/v1/analytics/duplicates`
+- `/api/v1/analytics/optimizations`
+
+Every successful public API create, update, and delete is recorded in `/api/v1/audit`. Use `limit`, `offset`, and optional `subscriptionId` to page or filter audit entries.
+
+## Errors and limits
 
 Errors use:
 
@@ -102,8 +101,7 @@ Errors use:
 }
 ```
 
-`field`, `suggestedFix`, `allowedValues`, and `writableFields` may be included
-when the server can provide a precise recovery hint.
+`field`, `suggestedFix`, `allowedValues`, and `writableFields` may be included when the server can provide a precise recovery hint.
 
 API responses include:
 
@@ -111,6 +109,6 @@ API responses include:
 - `X-RateLimit-Remaining`
 - `X-RateLimit-Reset`
 
-Validation errors (`400`) are rejected before the quota is consumed, so they
-do not count against your limit. `429` responses include a `Retry-After`
-header with the number of seconds to wait before retrying.
+Validation errors (`400`) are rejected before quota is consumed. `429` responses include a `Retry-After` header.
+
+For full examples, see the Mintlify API guide in `docs-site/en/api/`.

@@ -1,52 +1,71 @@
 ---
 title: "配置说明"
-description: "Subscription Manager 的环境变量和可选服务配置。"
+description: "Subscription Manager 的环境变量和功能开关，覆盖本地优先、托管、支付、提醒、AI 录入和开放 API 部署。"
 ---
 
 # 配置说明
 
-基础应用不依赖托管服务。只有启用云同步、API、提醒或支付时，才需要配置环境变量。
+核心应用不需要环境变量。只在需要启用某个可选服务时添加对应变量。
 
-## 前端环境变量
+## 环境变量
 
-这些变量会被 Vite 暴露给浏览器，只能放公开配置，不能放密钥。
+| 变量 | 用于 | 作用域 |
+| --- | --- | --- |
+| `VITE_SUPABASE_URL` | Supabase 登录和云同步 | 浏览器 |
+| `VITE_SUPABASE_ANON_KEY` | Supabase 登录和云同步 | 浏览器 |
+| `SUPABASE_URL` | Functions 使用的 Supabase URL | 仅服务端 |
+| `SUPABASE_PUBLISHABLE_KEY` | Functions 验证用户 access token | 仅服务端 |
+| `SUPABASE_SECRET_KEY` | 定时通知、付费激活、开放 API 和 AI 录入配额 | 仅服务端 |
+| `SUPABASE_SERVICE_ROLE_KEY` | `SUPABASE_SECRET_KEY` 的旧版兼容名 | 仅服务端 |
+| `VITE_STRIPE_PUBLISHABLE_KEY` | 启用支付界面，不作为 checkout 授权依据 | 浏览器 |
+| `STRIPE_SECRET_KEY` | 创建 Stripe checkout session | 仅服务端 |
+| `STRIPE_WEBHOOK_SECRET` | 校验 Stripe webhook | 仅服务端 |
+| `STRIPE_PRICE_ID` | 服务端允许购买的唯一 Stripe Price | 仅服务端 |
+| `SITE_URL` | Checkout 成功和取消回调地址 | 仅服务端 |
+| `URL` | Netlify function 回调 URL | Netlify 提供 |
+| `API_FREE_RATE_LIMIT_PER_HOUR` | 普通用户开放 API 每用户每小时请求数，默认 `60` | 仅服务端 |
+| `API_PREMIUM_RATE_LIMIT_PER_HOUR` | Premium 用户开放 API 每用户每小时请求数，默认 `1000` | 仅服务端 |
+| `API_FREE_ACTIVE_KEYS` | 普通用户可用 API Key 数量，默认 `1` | 仅服务端 |
+| `API_PREMIUM_ACTIVE_KEYS` | Premium 用户可用 API Key 数量，默认 `5` | 仅服务端 |
+| `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR` | 每个客户端身份每小时失败 API Key 鉴权次数，默认 `300` | 仅服务端 |
+| `API_RATE_LIMIT_RETENTION_HOURS` | 限流窗口定时清理前的保留时长，默认 `48` | 仅服务端 |
+| `OPENROUTER_API_KEY` | 通过 OpenRouter 启用 AI 录入 | 仅服务端 |
+| `ANTHROPIC_API_KEY` | 通过 Anthropic 启用 AI 录入 | 仅服务端 |
+| `AI_PROVIDER` | 可选 provider 覆盖：`openrouter` 或 `anthropic` | 仅服务端 |
+| `AI_MODEL` | AI 录入模型覆盖 | 仅服务端 |
+| `AI_FALLBACK_MODELS` | OpenRouter fallback 模型，逗号分隔 | 仅服务端 |
+| `OPENROUTER_SITE_URL` | 可选 OpenRouter referer；默认回退到 `SITE_URL` 或 `URL` | 仅服务端 |
+| `OPENROUTER_APP_TITLE` | 可选 OpenRouter app title header | 仅服务端 |
+| `AI_FREE_DAILY_PARSES` | 普通用户每日 AI 录入次数，默认 `20` | 仅服务端 |
+| `AI_PREMIUM_DAILY_PARSES` | Premium 用户每日 AI 录入次数，默认 `200` | 仅服务端 |
+| `AI_MAX_INPUT_CHARS` | AI 录入文本长度上限，默认 `20000` | 仅服务端 |
+| `AI_MAX_IMAGE_BYTES` | AI 录入图片大小上限，默认 `4194304` | 仅服务端 |
+| `AI_MONTHLY_BUDGET_USD` | 工作区级月度 AI 录入预算，默认 `50` | 仅服务端 |
+| `AI_INPUT_USD_PER_MTOK` | 每百万 input token 的成本估算 | 仅服务端 |
+| `AI_OUTPUT_USD_PER_MTOK` | 每百万 output token 的成本估算 | 仅服务端 |
 
-| 变量 | 用途 |
-| --- | --- |
-| `VITE_SUPABASE_URL` | Supabase 项目 URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
-| `VITE_APP_URL` | 应用线上地址，用于跳转和回调 |
+## 浏览器变量
 
-## 服务端环境变量
+以 `VITE_` 开头的变量会被打包进浏览器代码。不要把密钥放进这些变量。
 
-这些变量只能配置在 Netlify 或安全的服务端环境中。
+浏览器变量只适合公开配置，例如 Supabase URL、Supabase anon key 和 Stripe publishable key。
 
-| 变量 | 用途 |
-| --- | --- |
-| `SUPABASE_SERVICE_ROLE_KEY` | Netlify Functions 访问 Supabase 的 service role key |
-| `STRIPE_SECRET_KEY` | 创建 Stripe Checkout Session |
-| `STRIPE_WEBHOOK_SECRET` | 校验 Stripe webhook |
-| `BARK_DEFAULT_SERVER_URL` | 默认 Bark server 地址 |
+## 服务端变量
 
-## API 限额变量
+仅服务端使用的变量需要配置在托管平台中，例如 Netlify environment variables。不要提交 service role key、Stripe secret key、webhook secret 或 AI provider key。
 
-开放 API 默认按用户和套餐限流。可以通过服务端变量覆盖：
+Functions 优先读取不带 `VITE_` 的服务端变量，并在迁移期兼容现有的 `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY` 和 `VITE_STRIPE_PRICE_ID`。其中 `VITE_STRIPE_PRICE_ID` 只作为旧版服务端回退值，浏览器代码不再读取它。
 
-```bash
-API_FREE_RATE_LIMIT_PER_HOUR=60
-API_PREMIUM_RATE_LIMIT_PER_HOUR=1000
-API_FREE_ACTIVE_KEYS=1
-API_PREMIUM_ACTIVE_KEYS=5
-API_FAILED_AUTH_RATE_LIMIT_PER_HOUR=300
-API_RATE_LIMIT_RETENTION_HOURS=48
-```
+## 功能检测
 
-## 本地优先模式
+应用会在运行时检查环境变量：
 
-如果没有配置 Supabase，应用会使用浏览器 LocalStorage。这个模式适合个人使用、演示和开源自托管起步。
+- Supabase 变量启用登录和云同步。
+- Stripe 变量启用支付流程。
+- 开放 API Key 依赖 Supabase 和 Netlify Functions；API 配额变量只用于覆盖默认值。
+- AI 录入依赖 Supabase、Netlify Functions、AI 录入迁移，以及 `OPENROUTER_API_KEY` 或 `ANTHROPIC_API_KEY`。
+- 缺少可选变量时，应用保持本地优先模式。
 
-## 云同步模式
+## Bark 设置
 
-配置 Supabase 后，用户可以登录并在多设备之间同步订阅。相关数据库表和 RLS 策略在 `supabase/` 目录下维护。
-
-更多数据库说明见 [Supabase 集成](/zh-CN/integrations/supabase)。
+Bark 通知设置在应用界面中配置。用户需要提供 Bark server URL、device key 和提醒时间。

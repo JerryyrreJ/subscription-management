@@ -13,6 +13,7 @@
 ## 可选服务
 
 - [使用 Supabase 云同步](supabase.md)
+- [AI 录入](ai-capture.md)
 - [使用 Bark 续费提醒](notifications.md)
 - [使用 Stripe 支付](payments.md)
 - [开放 API](api.md)

@@ -27,17 +27,18 @@ VITE_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
+Prefer `SUPABASE_SECRET_KEY` for new deployments. The legacy `SUPABASE_SERVICE_ROLE_KEY` name remains supported as an alias.
+
 ## SQL Setup
 
-Run the notification SQL files:
+Notification tables and constraints are included in the Supabase migrations. For current deployments, use:
 
 ```text
-supabase/01_add_notification_enabled.sql
-supabase/02_create_notification_settings.sql
-supabase/03_create_notification_delivery_locks.sql
-supabase/migrations/002_notification_settings_timezone.sql
-supabase/migrations/003_notification_settings_locale.sql
+supabase/migrations/20260615000100_baseline.sql
+supabase/migrations/20260615000200_harden_existing_schema.sql
 ```
+
+Older setup notes and legacy migration files are kept in `supabase/legacy/` for reference only.
 
 ## Scheduled Function
 
