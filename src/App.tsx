@@ -73,6 +73,9 @@ const EditSubscriptionModal = lazy(() =>
 const AuthModal = lazy(() =>
  import('./components/AuthModal').then(module => ({ default: module.AuthModal }))
 );
+const PasswordRecoveryModal = lazy(() =>
+ import('./components/PasswordRecoveryModal').then(module => ({ default: module.PasswordRecoveryModal }))
+);
 const SettingsHubModal = lazy(() =>
  import('./components/SettingsHubModal').then(module => ({ default: module.SettingsHubModal }))
 );
@@ -116,17 +119,20 @@ function LazyModalFallback({
 }
 
 export function App() {
- const { t, i18n } = useTranslation(['app', 'importData', 'settingsHub', 'userMenu', 'aiCapture']);
+ const { t, i18n } = useTranslation(['app', 'auth', 'importData', 'settingsHub', 'userMenu', 'aiCapture']);
  const {
  user,
  userProfile,
  session,
  loading,
+ passwordRecoveryPending,
  signOut,
  refreshUserProfile,
  updateUserNickname,
  updateUserEmail,
- updateUserPassword
+ updateUserPassword,
+ completePasswordReset,
+ dismissPasswordRecovery
  } = useAuth();
  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
@@ -990,6 +996,29 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   <AuthModal
   isOpen={isAuthModalOpen}
   onClose={() => setIsAuthModalOpen(false)}
+ />
+ </Suspense>
+ )}
+
+ {passwordRecoveryPending && (
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('auth:setNewPasswordTitle')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={dismissPasswordRecovery}
+  />
+ )}
+ >
+  <PasswordRecoveryModal
+  isOpen={passwordRecoveryPending}
+  onClose={dismissPasswordRecovery}
+  onUpdatePassword={async (newPassword: string) => {
+   const result = await completePasswordReset(newPassword);
+   if (result.error) {
+    throw new Error(result.error.message);
+   }
+  }}
   />
  </Suspense>
  )}

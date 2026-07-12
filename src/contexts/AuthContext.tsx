@@ -13,6 +13,7 @@ interface AuthContextType {
  userProfile: UserProfile | null
  session: Session | null
  loading: boolean
+ passwordRecoveryPending: boolean
  signUp: (email: string, password: string, nickname?: string) => Promise<{ error: AuthError | null }>
  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: AuthError | null }>
  signInWithOAuth: (provider: OAuthProvider) => Promise<{ error: AuthError | null }>
@@ -21,6 +22,9 @@ interface AuthContextType {
  updateUserNickname: (nickname: string) => Promise<void>
  updateUserEmail: (newEmail: string) => Promise<{ error: AuthError | null }>
  updateUserPassword: (newPassword: string) => Promise<{ error: AuthError | null }>
+ requestPasswordReset: (email: string) => Promise<{ error: AuthError | null }>
+ completePasswordReset: (newPassword: string) => Promise<{ error: AuthError | null }>
+ dismissPasswordRecovery: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -30,7 +34,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
  const [session, setSession] = useState<Session | null>(null)
  const [loading, setLoading] = useState(true)
+ const [passwordRecoveryPending, setPasswordRecoveryPending] = useState(false)
  const hasCleanedAuthUrlRef = useRef(false)
+
+ const getPasswordRecoveryRedirectUrl = useCallback(() => {
+  if (typeof window === 'undefined') {
+   return undefined
+  }
+
+  const url = new URL(window.location.href)
+  url.search = ''
+  url.hash = ''
+  url.searchParams.set('auth', 'recovery')
+  return url.toString()
+ }, [])
+
+ const hasPasswordRecoveryMarkerInUrl = useCallback(() => {
+  if (typeof window === 'undefined') {
+   return false
+  }
+
+  const url = new URL(window.location.href)
+  return url.searchParams.get('auth') === 'recovery' ||
+   url.hash.includes('type=recovery')
+ }, [])
 
  const hasAuthParamsInUrl = useCallback(() => {
   if (typeof window === 'undefined') {
@@ -40,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const url = new URL(window.location.href)
   return url.hash.includes('access_token') ||
    url.hash.includes('refresh_token') ||
+   url.hash.includes('type=recovery') ||
    url.searchParams.has('code')
  }, [])
 
@@ -60,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const authParamsFound = []
   if (url.hash.includes('access_token')) authParamsFound.push('access_token')
   if (url.hash.includes('refresh_token')) authParamsFound.push('refresh_token')
+  if (url.hash.includes('type=recovery')) authParamsFound.push('type=recovery')
   if (url.searchParams.has('code')) authParamsFound.push('code')
 
   console.log(`🔒 Security: Found and cleaning auth params: ${authParamsFound.join(', ')}`)
@@ -77,7 +106,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   console.log('✅ Security: URL cleaned successfully')
  }, [hasAuthParamsInUrl])
 
- const cleanAuthUrlAfterSessionEstablished = useCallback((nextSession: Session | null, source: 'getSession' | 'authStateChange') => {
+ const cleanPasswordRecoveryUrl = useCallback(() => {
+  if (typeof window === 'undefined') {
+   return
+  }
+
+  const url = new URL(window.location.href)
+  url.searchParams.delete('auth')
+  window.history.replaceState({}, document.title, url.pathname + url.search)
+ }, [])
+
+ const cleanAuthUrlAfterSessionEstablished = useCallback((nextSession: Session | null, source: 'getSession' | 'authStateChange' | 'passwordRecovery') => {
   if (!nextSession?.user || hasCleanedAuthUrlRef.current || !hasAuthParamsInUrl()) {
    return
   }
@@ -217,6 +256,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   setSession(session)
   setUser(session?.user ?? null)
 
+  if (session?.user && hasPasswordRecoveryMarkerInUrl()) {
+   setPasswordRecoveryPending(true)
+  }
+
   cleanAuthUrlAfterSessionEstablished(session, 'getSession')
 
   // 如果有用户，异步获取用户资料（不阻塞认证完成）
@@ -246,6 +289,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  console.log('Auth state changed:', event, session?.user?.email)
 
   try {
+  if (event === 'PASSWORD_RECOVERY') {
+  setPasswordRecoveryPending(true)
+  cleanAuthUrlAfterSessionEstablished(session, 'passwordRecovery')
+  }
+
   if (event === 'SIGNED_IN') {
   cleanAuthUrlAfterSessionEstablished(session, 'authStateChange')
   refreshRememberMeTimestamp()
@@ -285,12 +333,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  subscription.unsubscribe()
  clearTimeout(loadingTimeout)
  }
- }, [cleanAuthUrlAfterSessionEstablished, fetchUserProfile])
+ }, [cleanAuthUrlAfterSessionEstablished, fetchUserProfile, hasPasswordRecoveryMarkerInUrl])
 
  const signUp = async (email: string, password: string, nickname?: string) => {
  if (!supabase) {
  throw new Error('Authentication not available')
  }
+ setPasswordRecoveryPending(false)
  const result = await supabase.auth.signUp({
  email,
  password,
@@ -308,6 +357,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  if (!supabase) {
  throw new Error('Authentication not available')
  }
+ setPasswordRecoveryPending(false)
 
  // 设置记住登录状态
  setRememberMe(rememberMe || false)
@@ -320,6 +370,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  if (!supabase) {
  throw new Error('Authentication not available')
  }
+ setPasswordRecoveryPending(false)
 
  const result = await supabase.auth.signInWithOAuth({
  provider,
@@ -334,6 +385,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  if (!supabase) {
  throw new Error('Authentication not available')
  }
+ setPasswordRecoveryPending(false)
+ cleanPasswordRecoveryUrl()
 
  // 检查是否是记住登录状态
  const rememberMeEnabled = isRememberMeEnabled()
@@ -369,7 +422,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  throw new Error('Authentication not available')
  }
 
- if (!user) {
+ const { data: { session: currentSession } } = await supabase.auth.getSession()
+
+ if (!user && !currentSession?.user) {
  throw new Error('User not authenticated')
  }
 
@@ -380,12 +435,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  return result
  }
 
+ const requestPasswordReset = async (email: string) => {
+ if (!supabase) {
+ throw new Error('Authentication not available')
+ }
+
+ const result = await supabase.auth.resetPasswordForEmail(email, {
+ redirectTo: getPasswordRecoveryRedirectUrl()
+ })
+
+ return result
+ }
+
+ const completePasswordReset = async (newPassword: string) => {
+ const result = await updateUserPassword(newPassword)
+
+ if (!result.error) {
+ cleanPasswordRecoveryUrl()
+ }
+
+ return result
+ }
+
+ const dismissPasswordRecovery = () => {
+ setPasswordRecoveryPending(false)
+ cleanPasswordRecoveryUrl()
+ }
+
  return (
  <AuthContext.Provider value={{
  user,
  userProfile,
  session,
  loading,
+ passwordRecoveryPending,
  signUp,
  signIn,
  signInWithOAuth,
@@ -393,7 +476,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  refreshUserProfile,
  updateUserNickname,
  updateUserEmail,
- updateUserPassword
+ updateUserPassword,
+ requestPasswordReset,
+ completePasswordReset,
+ dismissPasswordRecovery
  }}>
  {children}
  </AuthContext.Provider>

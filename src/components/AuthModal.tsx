@@ -11,6 +11,7 @@ interface AuthModalProps {
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  const { t } = useTranslation(['auth'])
  const [isLogin, setIsLogin] = useState(true)
+ const [isPasswordResetMode, setIsPasswordResetMode] = useState(false)
  const [email, setEmail] = useState('')
  const [password, setPassword] = useState('')
  const [nickname, setNickname] = useState('')
@@ -19,7 +20,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  const [error, setError] = useState('')
  const [success, setSuccess] = useState('')
 
- const { signIn, signUp, signInWithOAuth } = useAuth()
+ const { signIn, signUp, signInWithOAuth, requestPasswordReset } = useAuth()
 
  const handleSubmit = async (e: React.FormEvent) => {
  e.preventDefault()
@@ -28,7 +29,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  setSuccess('')
 
  try {
- if (isLogin) {
+ if (isPasswordResetMode) {
+ const { error } = await requestPasswordReset(email.trim())
+ if (error) throw error
+
+ setSuccess(t('auth:resetPasswordEmailSent'))
+ } else if (isLogin) {
  const { error } = await signIn(email, password, rememberMe)
  if (error) throw error
 
@@ -87,6 +93,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  setPassword('')
  setNickname('')
  setRememberMe(false)
+ setIsPasswordResetMode(false)
  setError('')
  setSuccess('')
  }
@@ -98,9 +105,26 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
  const switchMode = () => {
  setIsLogin(!isLogin)
+ setIsPasswordResetMode(false)
  setError('')
  setSuccess('')
  setNickname('')
+ }
+
+ const switchToPasswordReset = () => {
+ setIsPasswordResetMode(true)
+ setIsLogin(true)
+ setPassword('')
+ setRememberMe(false)
+ setError('')
+ setSuccess('')
+ }
+
+ const switchToLogin = () => {
+ setIsPasswordResetMode(false)
+ setIsLogin(true)
+ setError('')
+ setSuccess('')
  }
 
  if (!isOpen) return null
@@ -110,7 +134,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6 modal-content">
  <div className="flex justify-between items-center mb-6">
  <h2 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
- {isLogin ? t('auth:loginTitle') : t('auth:signUpTitle')}
+ {isPasswordResetMode ? t('auth:resetPasswordTitle') : (isLogin ? t('auth:loginTitle') : t('auth:signUpTitle'))}
  </h2>
  <button
  onClick={handleClose}
@@ -121,7 +145,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  </div>
 
  <form onSubmit={handleSubmit} className="space-y-4">
- {!isLogin && (
+ {!isLogin && !isPasswordResetMode && (
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
  {t('auth:nicknameLabel')}
@@ -164,6 +188,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  </div>
  </div>
 
+ {!isPasswordResetMode && (
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
  {t('auth:passwordLabel')}
@@ -186,9 +211,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  {t('auth:passwordHint')}
  </p>
  )}
- </div>
-
  {isLogin && (
+ <div className="mt-2 text-right">
+ <button
+ type="button"
+ onClick={switchToPasswordReset}
+ disabled={loading}
+ className="text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 transition-colors disabled:opacity-50"
+ >
+ {t('auth:forgotPassword')}
+ </button>
+ </div>
+ )}
+ </div>
+ )}
+
+ {isLogin && !isPasswordResetMode && (
  <div className="flex items-center">
  <input
  id="rememberMe"
@@ -229,12 +267,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <span>{t('auth:processing')}</span>
  </div>
  ) : (
- isLogin ? t('auth:login') : t('auth:signUp')
+ isPasswordResetMode ? t('auth:sendResetLink') : (isLogin ? t('auth:login') : t('auth:signUp'))
  )}
  </button>
  </form>
 
- {isLogin && (
+ {isLogin && !isPasswordResetMode && (
  <>
  <div className="relative my-6">
  <div className="absolute inset-0 flex items-center">
@@ -278,11 +316,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
  <div className="mt-6 text-center">
  <button
- onClick={switchMode}
+ onClick={isPasswordResetMode ? switchToLogin : switchMode}
  disabled={loading}
  className="text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:text-emerald-300 dark:hover:text-zinc-700 dark:hover:text-zinc-300 text-sm font-medium transition-colors"
  >
- {isLogin ? t('auth:switchToSignUp') : t('auth:switchToLogin')}
+ {isPasswordResetMode ? t('auth:backToLogin') : (isLogin ? t('auth:switchToSignUp') : t('auth:switchToLogin'))}
  </button>
  </div>
 
