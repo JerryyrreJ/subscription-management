@@ -1,0 +1,47 @@
+---
+title: "Developer API keys"
+description: "Create and revoke API keys for trusted scripts, agents, and automations."
+---
+
+# Developer API keys
+
+Developer API keys let trusted tools operate your Subscription Manager account through the public API.
+
+## When to use an API key
+
+Use an API key when you want a script, assistant, or automation tool to:
+
+- List subscriptions.
+- Analyze spending.
+- Find duplicate subscriptions.
+- Create or update subscriptions after confirmation.
+- Read audit history.
+
+Do not use API keys in public browser code or shared prompts.
+
+## Create a key
+
+1. Sign in.
+2. Open **Settings**.
+3. Go to **Developer API**.
+4. Enter a key name.
+5. Create the key.
+6. Copy the full key immediately.
+
+The full key is shown only once. After that, the app only shows the key prefix.
+
+## Revoke a key
+
+Open **Settings** > **Developer API** and revoke any key you no longer use. Revoking a key stops future API requests that use it.
+
+## Limits
+
+Free accounts can have fewer active keys and lower hourly request limits than premium accounts. The Developer API screen shows your current plan, active key count, and hourly request limit.
+
+## Safety tips
+
+- Use one key per integration.
+- Revoke keys that are no longer needed.
+- Rotate a key if it may have appeared in logs, screenshots, or prompts.
+- Prefer read-only keys for analysis-only agents when your deployment supports scoped key creation.
+

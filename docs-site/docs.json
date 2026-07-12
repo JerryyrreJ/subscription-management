@@ -56,6 +56,26 @@
             ]
           },
           {
+            "tab": "User Guide",
+            "groups": [
+              {
+                "group": "Using the app",
+                "pages": [
+                  "en/user-guide/overview",
+                  "en/user-guide/subscriptions",
+                  "en/user-guide/ai-capture",
+                  "en/user-guide/categories",
+                  "en/user-guide/currencies",
+                  "en/user-guide/reminders",
+                  "en/user-guide/import-export",
+                  "en/user-guide/account-sync",
+                  "en/user-guide/developer-api-keys",
+                  "en/user-guide/faq"
+                ]
+              }
+            ]
+          },
+          {
             "tab": "Public API",
             "groups": [
               {
@@ -111,6 +131,26 @@
                   "zh-CN/integrations/ai-capture",
                   "zh-CN/integrations/notifications",
                   "zh-CN/integrations/payments"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "使用指南",
+            "groups": [
+              {
+                "group": "使用应用",
+                "pages": [
+                  "zh-CN/user-guide/overview",
+                  "zh-CN/user-guide/subscriptions",
+                  "zh-CN/user-guide/ai-capture",
+                  "zh-CN/user-guide/categories",
+                  "zh-CN/user-guide/currencies",
+                  "zh-CN/user-guide/reminders",
+                  "zh-CN/user-guide/import-export",
+                  "zh-CN/user-guide/account-sync",
+                  "zh-CN/user-guide/developer-api-keys",
+                  "zh-CN/user-guide/faq"
                 ]
               }
             ]
