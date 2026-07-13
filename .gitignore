@@ -20,6 +20,9 @@ dist-ssr
 .env.test
 .env*.local
 
+# Local Supabase email template drafts
+email/
+
 # Netlify
 .netlify
 

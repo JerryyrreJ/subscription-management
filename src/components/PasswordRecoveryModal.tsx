@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next';
 
 interface PasswordRecoveryModalProps {
  isOpen: boolean;
- onClose: () => void;
+ onClose: () => void | Promise<void>;
  onUpdatePassword: (newPassword: string) => Promise<void>;
+ standalone?: boolean;
 }
 
-export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword }: PasswordRecoveryModalProps) {
+export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, standalone = false }: PasswordRecoveryModalProps) {
  const { t } = useTranslation(['auth', 'accountModals', 'app']);
  const [newPassword, setNewPassword] = useState('');
  const [confirmPassword, setConfirmPassword] = useState('');
@@ -43,13 +44,13 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword }: Pas
  setSuccess(false);
  };
 
- const handleClose = () => {
+ const handleClose = async () => {
  if (isLoading) {
  return;
  }
 
  resetForm();
- onClose();
+ await onClose();
  };
 
  const handleSubmit = async (event: React.FormEvent) => {
@@ -76,7 +77,7 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword }: Pas
  setConfirmPassword('');
  window.setTimeout(() => {
   resetForm();
-  onClose();
+  void onClose();
  }, 2000);
  } catch (error) {
  setError(error instanceof Error ? error.message : t('accountModals:passwordUpdateFailed'));
@@ -92,9 +93,17 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword }: Pas
  const passwordValidation = validatePassword(newPassword);
  const passwordsMatch = Boolean(newPassword && confirmPassword && newPassword === confirmPassword);
 
+ const wrapperClassName = standalone
+ ? 'min-h-screen flex items-center justify-center p-4'
+ : 'fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay';
+
+ const panelClassName = standalone
+ ? 'bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6'
+ : 'bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6 modal-content';
+
  return (
- <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6 modal-content">
+ <div className={wrapperClassName}>
+ <div className={panelClassName}>
  <div className="flex items-start justify-between gap-4 mb-6">
  <div>
  <h2 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
@@ -214,7 +223,7 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword }: Pas
  disabled={isLoading}
  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
  >
- {t('app:cancel')}
+ {t('auth:cancelPasswordReset')}
  </button>
  <button
  type="submit"

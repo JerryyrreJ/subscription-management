@@ -24,7 +24,7 @@ interface AuthContextType {
  updateUserPassword: (newPassword: string) => Promise<{ error: AuthError | null }>
  requestPasswordReset: (email: string) => Promise<{ error: AuthError | null }>
  completePasswordReset: (newPassword: string) => Promise<{ error: AuthError | null }>
- dismissPasswordRecovery: () => void
+ dismissPasswordRecovery: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -452,14 +452,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
  if (!result.error) {
  cleanPasswordRecoveryUrl()
+ clearRememberMe()
+
+ if (supabase) {
+  const { error: signOutError } = await supabase.auth.signOut()
+  if (signOutError) {
+  console.error('Failed to sign out after password reset:', signOutError)
+  }
+ }
+
+ setSession(null)
+ setUser(null)
+ setUserProfile(null)
  }
 
  return result
  }
 
- const dismissPasswordRecovery = () => {
+ const dismissPasswordRecovery = async () => {
  setPasswordRecoveryPending(false)
  cleanPasswordRecoveryUrl()
+ clearRememberMe()
+
+ if (supabase) {
+ const { error } = await supabase.auth.signOut()
+ if (error) {
+ console.error('Failed to sign out after canceling password recovery:', error)
+ }
+ }
+
+ setSession(null)
+ setUser(null)
+ setUserProfile(null)
  }
 
  return (

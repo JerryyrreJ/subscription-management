@@ -167,15 +167,17 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  const [undoError, setUndoError] = useState<string | null>(null);
  const undoTimerRef = useRef<number | null>(null);
  const appLocale = normalizeLocale(i18n.language);
+ const appUser = passwordRecoveryPending ? null : user;
+ const appSession = passwordRecoveryPending ? null : session;
  const notificationReady = isBarkReady(notificationSettings);
- const notificationScope = user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE;
+ const notificationScope = appUser ? getUserDataScope(appUser.id) : GUEST_DATA_SCOPE;
 
  useEffect(() => {
  document.title = t('app:documentTitle');
  }, [i18n.language, t]);
 
  useEffect(() => {
-  if (!user || typeof window === 'undefined') {
+  if (!appUser || typeof window === 'undefined') {
    return;
   }
 
@@ -201,7 +203,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
    timeoutIds.forEach(timeoutId => window.clearTimeout(timeoutId));
    window.clearTimeout(cleanupTimeout);
   };
- }, [refreshUserProfile, user]);
+ }, [appUser, refreshUserProfile]);
 
  useEffect(() => {
   if (loading) {
@@ -220,15 +222,15 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   setNotificationSettings(nextSettings);
   saveNotificationSettings(nextSettings, notificationScope);
 
-  if (user && config.hasSupabaseConfig && isBarkReady(nextSettings)) {
+  if (appUser && config.hasSupabaseConfig && isBarkReady(nextSettings)) {
    void NotificationSettingsService.saveSettings(nextSettings).catch(error => {
     console.error('Failed to sync notification locale to cloud:', error);
    });
   }
- }, [appLocale, loading, notificationScope, notificationSettings, user]);
+ }, [appLocale, appUser, loading, notificationScope, notificationSettings]);
 
  useEffect(() => {
-  if (loading || !user || !config.hasSupabaseConfig) {
+  if (loading || !appUser || !config.hasSupabaseConfig) {
    return;
   }
 
@@ -248,7 +250,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   void NotificationSettingsService.saveSettings(nextSettings).catch(error => {
    console.error('Failed to sync notification time zone to cloud:', error);
   });
- }, [loading, notificationScope, notificationSettings, user]);
+ }, [appUser, loading, notificationScope, notificationSettings]);
 
  // 使用数据同步Hook
  const {
@@ -260,7 +262,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  updateSubscription,
  updateSubscriptionsBatch,
  deleteSubscription
- } = useSubscriptionSync(user, setSubscriptions);
+ } = useSubscriptionSync(appUser, setSubscriptions);
 
  // 使用类别同步Hook
  const {
@@ -270,7 +272,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  updateCategory,
  deleteCategory: deleteCategorySync,
  updateCategoriesOrder
- } = useCategorySync(user, () => {
+ } = useCategorySync(appUser, () => {
  // 类别变更时触发UI更新
  setSubscriptions([...subscriptions]);
  });
@@ -387,23 +389,23 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   return;
  }
 
- if (user && isOwnedGuestDataForUser(user.id)) {
-  migrateOwnedGuestDataToUserScope(user.id);
+ if (appUser && isOwnedGuestDataForUser(appUser.id)) {
+  migrateOwnedGuestDataToUserScope(appUser.id);
  }
 
- if (user) {
-  migrateUnownedGuestDataToUserScope(user.id);
+ if (appUser) {
+  migrateUnownedGuestDataToUserScope(appUser.id);
  }
 
- const nextScope = user ? getUserDataScope(user.id) : GUEST_DATA_SCOPE;
+ const nextScope = appUser ? getUserDataScope(appUser.id) : GUEST_DATA_SCOPE;
  setActiveDataScope(nextScope);
  setSubscriptions(loadSubscriptions(nextScope));
  setNotificationSettings(loadNotificationSettings(nextScope));
 
- if (user) {
-  refreshLocalDataOwnership(user.id, nextScope);
+ if (appUser) {
+  refreshLocalDataOwnership(appUser.id, nextScope);
  }
- }, [user, loading]);
+ }, [appUser, loading]);
 
  // 主题切换效果
  useEffect(() => {
@@ -417,11 +419,11 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  // 用户登录后的数据同步 - 只执行一次
  useEffect(() => {
- if (loading || !user || !session?.access_token || hasInitialSync) return; // 如果认证未完成、用户未登录、会话未就绪或已经同步过，直接返回
+ if (loading || !appUser || !appSession?.access_token || hasInitialSync) return; // 如果认证未完成、用户未登录、会话未就绪或已经同步过，直接返回
 
  // 标记开始同步，防止重复
  setHasInitialSync(true);
- const syncScope = getUserDataScope(user.id);
+ const syncScope = getUserDataScope(appUser.id);
  const taskToken = initialSyncTaskGate.claim(syncScope);
  let cancelled = false;
 
@@ -431,7 +433,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  const performInitialSync = async () => {
  try {
  console.log('User logged in, checking cloud data...');
- claimLocalDataOwnership(user.id, getUserDataScope(user.id));
+ claimLocalDataOwnership(appUser.id, getUserDataScope(appUser.id));
 
  // 1. 同步订阅数据
  const cloudSubscriptions = await syncSubscriptions();
@@ -512,20 +514,20 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  }, [
  hasInitialSync,
  loading,
- session,
+ appSession,
+ appUser,
  syncCategories,
  syncSubscriptions,
  uploadLocalCategories,
- uploadLocalData,
- user
+ uploadLocalData
  ]); // 依赖认证状态，确保作用域切换后再同步
 
  // 重置同步状态当用户登出时
  useEffect(() => {
- if (!user) {
+ if (!appUser) {
  setHasInitialSync(false);
  }
- }, [user]);
+ }, [appUser]);
 
  const handleAddSubscription = async (subscription: Subscription) => {
  try {
@@ -640,7 +642,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setNotificationSettings(nextSettings);
  saveNotificationSettings(nextSettings, notificationScope);
 
- if (user && config.hasSupabaseConfig) {
+ if (appUser && config.hasSupabaseConfig) {
  try {
  await NotificationSettingsService.saveSettings(nextSettings);
  } catch (error) {
@@ -670,6 +672,13 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   undoTimerRef.current = null;
  }, 5000);
  }, [clearUndoTimer]);
+
+ const closePasswordRecoveryToLogin = useCallback(async () => {
+ await dismissPasswordRecovery();
+ if (config.features.authentication) {
+  setIsAuthModalOpen(true);
+ }
+ }, [dismissPasswordRecovery]);
 
  const handleUndoAction = useCallback(async () => {
  if (!undoAction) {
@@ -782,6 +791,48 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  );
  }
 
+ if (passwordRecoveryPending) {
+ return (
+ <div className="min-h-screen relative overflow-hidden transition-colors duration-300">
+ <div className="fixed inset-0 -z-10 dark:opacity-0 animated-gradient-bg"></div>
+ <div className="fixed inset-0 -z-10 bg-gray-900 dark:opacity-100 opacity-0 transition-opacity duration-300 app-dark-canvas"></div>
+ <div className="min-h-screen px-4 py-8 flex flex-col">
+ <div className="max-w-7xl w-full mx-auto">
+ <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white app-dark-text-primary">
+ {t('app:title')}
+ </h1>
+ <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+ {t('auth:passwordRecoveryPageSubtitle')}
+ </p>
+ </div>
+ <div className="flex-1 flex items-center justify-center">
+ <Suspense
+ fallback={(
+  <LazyModalFallback
+   title={t('auth:setNewPasswordTitle')}
+   description={t('app:loadingNotificationSettingsDescription')}
+   onClose={closePasswordRecoveryToLogin}
+  />
+ )}
+ >
+  <PasswordRecoveryModal
+  isOpen={passwordRecoveryPending}
+  standalone
+  onClose={closePasswordRecoveryToLogin}
+  onUpdatePassword={async (newPassword: string) => {
+   const result = await completePasswordReset(newPassword);
+   if (result.error) {
+    throw new Error(result.error.message);
+   }
+  }}
+  />
+ </Suspense>
+ </div>
+ </div>
+ </div>
+ );
+ }
+
  return (
  <>
  <div className="min-h-screen pb-20 relative overflow-hidden transition-colors duration-300">
@@ -813,8 +864,8 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  {/* 始终显示用户菜单，无论是否登录 */}
  {config.features.authentication ? (
  <UserMenu
- user={user}
- userProfile={userProfile}
+ user={appUser}
+ userProfile={appUser ? userProfile : null}
  syncStatus={syncStatus}
  lastSyncTime={lastSyncTime}
  onOpenSettings={() => openSettingsHub()}
@@ -872,7 +923,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  <button
  onClick={() => {
- if (user && session?.access_token && config.hasSupabaseConfig) {
+ if (appUser && appSession?.access_token && config.hasSupabaseConfig) {
  setIsAiCaptureOpen(true);
  } else {
  setIsAddModalOpen(true);
@@ -929,7 +980,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   <AiCaptureModal
   isOpen={isAiCaptureOpen}
   onClose={() => setIsAiCaptureOpen(false)}
-  accessToken={session?.access_token ?? ''}
+  accessToken={appSession?.access_token ?? ''}
   subscriptions={subscriptions}
   onCreate={createSubscription}
   onUpdate={updateSubscription}
@@ -1000,29 +1051,6 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  </Suspense>
  )}
 
- {passwordRecoveryPending && (
- <Suspense
- fallback={(
-  <LazyModalFallback
-   title={t('auth:setNewPasswordTitle')}
-   description={t('app:loadingNotificationSettingsDescription')}
-   onClose={dismissPasswordRecovery}
-  />
- )}
- >
-  <PasswordRecoveryModal
-  isOpen={passwordRecoveryPending}
-  onClose={dismissPasswordRecovery}
-  onUpdatePassword={async (newPassword: string) => {
-   const result = await completePasswordReset(newPassword);
-   if (result.error) {
-    throw new Error(result.error.message);
-   }
-  }}
-  />
- </Suspense>
- )}
-
  {isSettingsHubOpen && (
  <Suspense
  fallback={(
@@ -1037,9 +1065,9 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   isOpen={isSettingsHubOpen}
   onClose={() => setIsSettingsHubOpen(false)}
   activeTab={settingsHubTab}
-  user={user}
-  userProfile={userProfile}
-  accessToken={session?.access_token}
+  user={appUser}
+  userProfile={appUser ? userProfile : null}
+  accessToken={appSession?.access_token}
   onOpenAuth={() => {
    setIsSettingsHubOpen(false);
    setIsAuthModalOpen(true);
@@ -1152,7 +1180,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   onClose={() => setIsPricingModalOpen(false)}
   onUpgrade={() => {
   setIsPricingModalOpen(false);
-  if (!user) {
+  if (!appUser) {
   setIsAuthModalOpen(true);
   }
   }}
