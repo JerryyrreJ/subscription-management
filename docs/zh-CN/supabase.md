@@ -26,6 +26,7 @@ supabase/migrations/20260617000100_public_api_security_fixes.sql
 supabase/migrations/20260618000100_agent_operations_layer.sql
 supabase/migrations/20260619000100_ai_capture.sql
 supabase/migrations/20260625000100_ai_budget_reservations.sql
+supabase/migrations/20260714000100_preserve_payments_on_account_deletion.sql
 ```
 
 全新环境使用 `supabase start` 和 `npm run db:verify`。现有线上环境必须先生成只读 DDL dump、确认 baseline diff、运行 `supabase/audit/preflight.sql`，再标记 baseline 并执行 hardening migration。完整步骤见 `supabase/README.md`。
@@ -41,9 +42,11 @@ supabase/migrations/20260625000100_ai_budget_reservations.sql
 - API audit logs 记录开放 API 写操作。
 - AI usage windows 记录每个用户每日 AI 录入次数。
 - AI cost windows 记录工作区级月度聚合 token 用量和预算预留。它们不保存用户粘贴的文本、截图或解析内容。
+- 账号注销会删除 Auth 用户及其业务数据。付款记录的 `user_id` 会被置空，付款邮箱和必要交易字段继续保留，用于财务核对、退款、支付争议和适用的记录保存义务。
 
 ## 安全说明
 
 - 用户拥有的数据表应保持 Row Level Security 开启。
 - 不要把 service role key 放进浏览器可见变量。
 - service role key 只应保存在 Netlify 或其他服务端环境中。
+- `delete-account` Function 必须使用服务端 Secret Key 调用 Supabase Admin API；客户端只能提交当前会话的 access token。

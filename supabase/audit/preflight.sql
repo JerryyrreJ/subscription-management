@@ -160,7 +160,8 @@ UNION ALL
 SELECT 'orphan_payment', payment.id::text, payment.user_id::text
 FROM public.payments AS payment
 LEFT JOIN auth.users AS account ON account.id = payment.user_id
-WHERE account.id IS NULL
+WHERE payment.user_id IS NOT NULL
+  AND account.id IS NULL
 
 UNION ALL
 

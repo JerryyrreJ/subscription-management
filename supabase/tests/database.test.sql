@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(70);
+SELECT plan(76);
 
 SELECT has_table('public', 'user_profiles', 'user_profiles exists');
 SELECT has_table('public', 'subscriptions', 'subscriptions exists');
@@ -17,6 +17,21 @@ SELECT has_table('public', 'ai_usage_windows', 'AI usage windows exist');
 SELECT has_table('public', 'ai_cost_windows', 'AI cost windows exist');
 
 SELECT has_column('public', 'payments', 'stripe_price_id', 'payments stores the trusted Stripe price');
+SELECT is(
+  (SELECT is_nullable FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payments' AND column_name = 'user_id'),
+  'YES',
+  'payment owner becomes nullable after account deletion'
+);
+SELECT is(
+  (
+    SELECT confdeltype::text
+    FROM pg_constraint
+    WHERE conrelid = 'public.payments'::regclass
+      AND conname = 'payments_user_id_fkey'
+  ),
+  'n',
+  'deleting an Auth user sets the payment owner to NULL'
+);
 SELECT has_column('public', 'user_notification_settings', 'locale', 'notification settings store locale');
 SELECT has_column('public', 'subscriptions', 'status', 'subscriptions store lifecycle status');
 SELECT has_column('public', 'api_keys', 'scopes', 'API keys store permission scopes');
@@ -238,7 +253,8 @@ SELECT is(
 INSERT INTO auth.users (id, raw_user_meta_data)
 VALUES
   ('10000000-0000-0000-0000-000000000001', '{"nickname":"Tenant A"}'::jsonb),
-  ('20000000-0000-0000-0000-000000000002', '{"nickname":"Tenant B"}'::jsonb);
+  ('20000000-0000-0000-0000-000000000002', '{"nickname":"Tenant B"}'::jsonb),
+  ('30000000-0000-0000-0000-000000000003', '{"nickname":"Delete Me"}'::jsonb);
 
 INSERT INTO public.subscriptions (
   id, user_id, name, category, amount, currency, period,
@@ -255,6 +271,12 @@ VALUES
     '20000000-0000-0000-0000-000000000022',
     '20000000-0000-0000-0000-000000000002',
     'Tenant B subscription', 'Software', 20, 'USD', 'monthly',
+    '2026-06-01', '2026-07-01'
+  ),
+  (
+    '30000000-0000-0000-0000-000000000033',
+    '30000000-0000-0000-0000-000000000003',
+    'Deleted account subscription', 'Software', 30, 'USD', 'monthly',
     '2026-06-01', '2026-07-01'
   );
 
@@ -280,7 +302,46 @@ VALUES
   (
     '20000000-0000-0000-0000-000000000002', 'cs_tenant_b', 'price_test',
     2000, 'usd', 'completed', 'premium_lifetime'
+  ),
+  (
+    '30000000-0000-0000-0000-000000000003', 'cs_deleted_user', 'price_test',
+    3000, 'usd', 'completed', 'premium_lifetime'
   );
+
+UPDATE public.payments
+SET customer_email = 'deleted-buyer@example.test'
+WHERE stripe_session_id = 'cs_deleted_user';
+
+DELETE FROM auth.users
+WHERE id = '30000000-0000-0000-0000-000000000003';
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.payments WHERE stripe_session_id = 'cs_deleted_user'),
+  1,
+  'account deletion preserves the payment row'
+);
+
+SELECT is(
+  (SELECT user_id::text FROM public.payments WHERE stripe_session_id = 'cs_deleted_user'),
+  NULL::text,
+  'preserved payment no longer references the deleted Auth user'
+);
+
+SELECT is(
+  (SELECT customer_email FROM public.payments WHERE stripe_session_id = 'cs_deleted_user'),
+  'deleted-buyer@example.test',
+  'preserved payment retains its payment email'
+);
+
+SELECT is(
+  (
+    SELECT
+      (SELECT count(*) FROM public.user_profiles WHERE user_id = '30000000-0000-0000-0000-000000000003') +
+      (SELECT count(*) FROM public.subscriptions WHERE user_id = '30000000-0000-0000-0000-000000000003')
+  )::integer,
+  0,
+  'account deletion cascades to profile and subscription data'
+);
 
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', TRUE);
 SET LOCAL ROLE authenticated;

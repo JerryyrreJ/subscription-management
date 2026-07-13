@@ -5,6 +5,7 @@ import { UserProfile, UserProfileService } from '../services/userProfileService'
 import { config } from '../lib/config'
 import { setRememberMe, isRememberMeEnabled, clearRememberMe, shouldAttemptAutoRestore, refreshRememberMeTimestamp } from '../utils/rememberMe'
 import { resolveUserProfileNickname } from '../utils/userProfile'
+import { deleteAccount as requestAccountDeletion } from '../services/accountService'
 
 type OAuthProvider = 'github' | 'google'
 
@@ -18,6 +19,7 @@ interface AuthContextType {
  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: AuthError | null }>
  signInWithOAuth: (provider: OAuthProvider) => Promise<{ error: AuthError | null }>
  signOut: () => Promise<void>
+ deleteAccount: () => Promise<string>
  refreshUserProfile: () => Promise<void>
  updateUserNickname: (nickname: string) => Promise<void>
  updateUserEmail: (newEmail: string) => Promise<{ error: AuthError | null }>
@@ -401,6 +403,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  }
  }
 
+ const deleteAccount = async (): Promise<string> => {
+ if (!supabase) {
+ throw new Error('Authentication not available')
+ }
+
+ if (!user || !session?.access_token) {
+ throw new Error('User not authenticated')
+ }
+
+ const deletedUserId = user.id
+ await requestAccountDeletion(session.access_token)
+
+ try {
+ const { error } = await supabase.auth.signOut({ scope: 'local' })
+ if (error) {
+ console.warn('Account was deleted, but local Supabase sign-out reported an error:', error.message)
+ }
+ } catch (error) {
+ console.warn('Account was deleted, but local Supabase sign-out failed:', error)
+ } finally {
+ clearRememberMe()
+ setPasswordRecoveryPending(false)
+ setSession(null)
+ setUser(null)
+ setUserProfile(null)
+ cleanPasswordRecoveryUrl()
+ }
+
+ return deletedUserId
+ }
+
  const updateUserEmail = async (newEmail: string) => {
  if (!supabase) {
  throw new Error('Authentication not available')
@@ -497,6 +530,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  signIn,
  signInWithOAuth,
  signOut,
+ deleteAccount,
  refreshUserProfile,
  updateUserNickname,
  updateUserEmail,

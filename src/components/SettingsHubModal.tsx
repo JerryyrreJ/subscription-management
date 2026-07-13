@@ -33,6 +33,7 @@ interface SettingsHubModalProps {
   onUpdateNickname: (newNickname: string) => Promise<void>;
   onUpdateEmail: (newEmail: string) => Promise<void>;
   onUpdatePassword: (newPassword: string) => Promise<void>;
+  onDeleteAccount: () => Promise<void>;
   
   // General Callbacks
   onExportData: () => void;
@@ -60,6 +61,7 @@ export function SettingsHubModal({
   onUpdateNickname,
   onUpdateEmail,
   onUpdatePassword,
+  onDeleteAccount,
   onExportData,
   onImportData,
   subscriptions,
@@ -172,6 +174,7 @@ export function SettingsHubModal({
                 onUpdateNickname={onUpdateNickname}
                 onUpdateEmail={onUpdateEmail}
                 onUpdatePassword={onUpdatePassword}
+                onDeleteAccount={onDeleteAccount}
               />
             )}
             

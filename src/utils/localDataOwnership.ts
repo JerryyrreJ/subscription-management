@@ -14,6 +14,7 @@ import {
 } from './notificationChecker';
 import {
  clearLocalDataOwner,
+ clearLastLocalDataOwnerUserId,
  clearPendingSyncOperations,
  clearSubscriptions,
  loadLocalDataOwner,
@@ -55,6 +56,30 @@ export const refreshLocalDataOwnership = (userId: string, scope: DataScope = GUE
 };
 
 export const getLastLocalDataOwnerUserId = (): string | null => loadLastLocalDataOwnerUserId();
+
+export const clearDeletedUserLocalData = (userId: string): void => {
+ const userScope = getUserDataScope(userId);
+
+ clearSubscriptions(userScope);
+ clearPendingSyncOperations(userScope);
+ clearCategories(userScope);
+ clearPendingCategorySync(userScope);
+ clearNotificationSettings(userScope);
+ clearLocalDataOwner(userScope);
+
+ if (loadLocalDataOwner(GUEST_DATA_SCOPE)?.userId === userId) {
+  clearSubscriptions(GUEST_DATA_SCOPE);
+  clearPendingSyncOperations(GUEST_DATA_SCOPE);
+  clearCategories(GUEST_DATA_SCOPE);
+  clearPendingCategorySync(GUEST_DATA_SCOPE);
+  clearNotificationSettings(GUEST_DATA_SCOPE);
+  clearLocalDataOwner(GUEST_DATA_SCOPE);
+ }
+
+ if (loadLastLocalDataOwnerUserId() === userId) {
+  clearLastLocalDataOwnerUserId();
+ }
+};
 
 export const isOwnedGuestDataForUser = (userId: string): boolean =>
  loadLocalDataOwner(GUEST_DATA_SCOPE)?.userId === userId;

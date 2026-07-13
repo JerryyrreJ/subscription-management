@@ -20,6 +20,7 @@ import { loadNotificationSettings, saveNotificationSettings } from '../../src/ut
 import {
  migrateOwnedGuestDataToUserScope,
  migrateUnownedGuestDataToUserScope,
+ clearDeletedUserLocalData,
  resolveCurrentLocalDataScope,
  resolveLocalDataScope,
 } from '../../src/utils/localDataOwnership.ts';
@@ -186,6 +187,36 @@ test('last local owner user id is persisted outside data scopes', () => {
   setActiveDataScope(getUserDataScope('user-456'));
 
   assert.equal(loadLastLocalDataOwnerUserId(), 'user-123');
+ });
+});
+
+test('account deletion clears only the deleted user local data and ownership markers', () => {
+ withMockedLocalStorage(() => {
+  const deletedScope = getUserDataScope('deleted-user');
+  const otherScope = getUserDataScope('other-user');
+
+  saveSubscriptions([createSubscription('deleted-sub', 'Deleted')], deletedScope);
+  savePendingSyncOperations([createPendingOperation('deleted-sub')], deletedScope);
+  saveCategories([createCategory('deleted-cat', 'Deleted')], deletedScope);
+  saveNotificationSettings(createSettings('deleted-device'), deletedScope);
+  saveLocalDataOwner({
+   userId: 'deleted-user',
+   claimedAt: '2026-07-01T00:00:00.000Z',
+   lastSeenAt: '2026-07-02T00:00:00.000Z',
+  }, deletedScope);
+  saveLastLocalDataOwnerUserId('deleted-user');
+
+  saveSubscriptions([createSubscription('other-sub', 'Other')], otherScope);
+
+  clearDeletedUserLocalData('deleted-user');
+
+  assert.deepEqual(loadSubscriptions(deletedScope), []);
+  assert.deepEqual(loadPendingSyncOperations(deletedScope), []);
+  assert.equal(loadCategories(deletedScope).some(category => category.id === 'deleted-cat'), false);
+  assert.equal(loadNotificationSettings(deletedScope).barkPush.deviceKey, '');
+  assert.equal(loadLocalDataOwner(deletedScope), null);
+  assert.equal(loadLastLocalDataOwnerUserId(), null);
+  assert.deepEqual(loadSubscriptions(otherScope).map(subscription => subscription.id), ['other-sub']);
  });
 });
 

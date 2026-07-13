@@ -144,3 +144,11 @@ export const saveLastLocalDataOwnerUserId = (userId: string): void => {
   console.error('Error saving last local data owner user id:', error);
  }
 };
+
+export const clearLastLocalDataOwnerUserId = (): void => {
+ try {
+  localStorage.removeItem(LAST_LOCAL_DATA_OWNER_KEY);
+ } catch (error) {
+  console.error('Error clearing last local data owner user id:', error);
+ }
+};

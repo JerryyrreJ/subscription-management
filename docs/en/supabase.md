@@ -26,6 +26,7 @@ supabase/migrations/20260617000100_public_api_security_fixes.sql
 supabase/migrations/20260618000100_agent_operations_layer.sql
 supabase/migrations/20260619000100_ai_capture.sql
 supabase/migrations/20260625000100_ai_budget_reservations.sql
+supabase/migrations/20260714000100_preserve_payments_on_account_deletion.sql
 ```
 
 For a new environment, run `supabase start` and `npm run db:verify`. For an existing production environment, first create a read-only DDL dump, confirm the baseline diff, run `supabase/audit/preflight.sql`, then mark the baseline and apply the hardening migration. See `supabase/README.md` for the complete workflow.
@@ -41,9 +42,11 @@ For a new environment, run `supabase start` and `npm run db:verify`. For an exis
 - API audit logs record public API write operations.
 - AI usage windows track per-user daily AI capture counts.
 - AI cost windows track workspace-wide monthly aggregate token usage and budget reservations. They do not store pasted text, screenshots, or parsed content.
+- Account deletion removes the Auth user and user-owned application data. The payment `user_id` is set to null while the payment email and necessary transaction fields are retained for financial reconciliation, refunds, payment disputes, and applicable record-keeping obligations.
 
 ## Security Notes
 
 - Keep Row Level Security enabled for user-owned tables.
 - Keep the service role key out of browser-exposed variables.
 - Store the service role key only in Netlify or another server environment.
+- The `delete-account` Function must use the server-side Secret Key for the Supabase Admin API; the browser submits only the current session access token.

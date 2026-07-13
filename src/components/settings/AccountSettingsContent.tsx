@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { User, Mail, Lock, AlertCircle, Check } from 'lucide-react';
+import { User, Mail, Lock, AlertCircle, Check, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { DeleteAccountDialog } from '../DeleteAccountDialog';
 
 interface AccountSettingsContentProps {
   userEmail: string;
@@ -8,6 +9,7 @@ interface AccountSettingsContentProps {
   onUpdateNickname: (newNickname: string) => Promise<void>;
   onUpdateEmail: (newEmail: string) => Promise<void>;
   onUpdatePassword: (newPassword: string) => Promise<void>;
+  onDeleteAccount: () => Promise<void>;
 }
 
 export function AccountSettingsContent({
@@ -15,7 +17,8 @@ export function AccountSettingsContent({
   userNickname,
   onUpdateNickname,
   onUpdateEmail,
-  onUpdatePassword
+  onUpdatePassword,
+  onDeleteAccount
 }: AccountSettingsContentProps) {
   const { t } = useTranslation(['accountModals', 'settingsHub']);
   
@@ -23,6 +26,7 @@ export function AccountSettingsContent({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const [loadingState, setLoadingState] = useState<{ type: string, loading: boolean }>({ type: '', loading: false });
   const [errorState, setErrorState] = useState<{ type: string, error: string }>({ type: '', error: '' });
@@ -296,7 +300,39 @@ export function AccountSettingsContent({
             </div>
           </form>
         </section>
+
+        {/* Danger Zone */}
+        <section className="overflow-hidden rounded-2xl border border-red-200/80 bg-gradient-to-br from-red-50/80 to-white dark:border-red-900/50 dark:from-red-950/20 dark:to-white/[0.025]">
+          <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-gray-950 dark:text-white">
+                  {t('accountModals:dangerZoneTitle')}
+                </h3>
+                <p className="mt-1 max-w-lg text-sm leading-6 text-gray-600 dark:text-gray-400">
+                  {t('accountModals:dangerZoneDescription')}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsDeleteDialogOpen(true)}
+              className="shrink-0 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:border-red-400 hover:bg-red-700 hover:text-white dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-800"
+            >
+              {t('accountModals:deleteAccountButton')}
+            </button>
+          </div>
+        </section>
       </div>
+
+      <DeleteAccountDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={onDeleteAccount}
+      />
     </div>
   );
 }

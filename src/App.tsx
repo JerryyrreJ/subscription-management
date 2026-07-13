@@ -52,7 +52,8 @@ import {
  isOwnedGuestDataForUser,
  migrateOwnedGuestDataToUserScope,
  migrateUnownedGuestDataToUserScope,
- refreshLocalDataOwnership
+ refreshLocalDataOwnership,
+ clearDeletedUserLocalData
 } from './utils/localDataOwnership';
 
 const AdvancedReport = lazy(() =>
@@ -127,6 +128,7 @@ export function App() {
  loading,
  passwordRecoveryPending,
  signOut,
+ deleteAccount,
  refreshUserProfile,
  updateUserNickname,
  updateUserEmail,
@@ -610,6 +612,21 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  // setSubscriptions([]);
  };
 
+ const handleDeleteAccount = async () => {
+ const deletedUserId = await deleteAccount();
+
+ clearDeletedUserLocalData(deletedUserId);
+ setActiveDataScope(GUEST_DATA_SCOPE);
+ setSubscriptions(loadSubscriptions(GUEST_DATA_SCOPE));
+ setNotificationSettings(loadNotificationSettings(GUEST_DATA_SCOPE));
+ setHasInitialSync(false);
+ setSelectedSubscription(null);
+ setSelectedCategory(null);
+ setUndoAction(null);
+ setUndoError(null);
+ setIsSettingsHubOpen(false);
+ };
+
  // 导出数据
  const handleExportData = () => {
  try {
@@ -1085,6 +1102,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
     throw new Error(result.error.message);
    }
   }}
+  onDeleteAccount={handleDeleteAccount}
   onExportData={handleExportData}
   onImportData={() => {
    setIsSettingsHubOpen(false);
