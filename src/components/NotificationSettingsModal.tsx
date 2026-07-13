@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Bell, Send, ChevronDown, ChevronUp, Download, Copy, ExternalLink, Lock, LogIn } from 'lucide-react';
+import { X, Bell, Send, BookOpen, ExternalLink, Lock, LogIn } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ReminderSettings } from '../types';
 import { testBarkPush, validateBarkConfig } from '../utils/barkPush';
@@ -32,8 +32,11 @@ export function NotificationSettingsModal({
  const [localSettings, setLocalSettings] = useState<ReminderSettings>(settings);
  const [isTesting, setIsTesting] = useState(false);
  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
- const [isGuideExpanded, setIsGuideExpanded] = useState(true);
  const [barkUrl, setBarkUrl] = useState('');
+
+ const reminderGuideUrl = language === 'zh-CN'
+  ? 'https://github.com/JerryyrreJ/subscription-management/blob/main/docs/zh-CN/notifications.md'
+  : 'https://github.com/JerryyrreJ/subscription-management/blob/main/docs/en/notifications.md';
 
  // Handle Bark URL input change
  const handleBarkUrlChange = (url: string) => {
@@ -248,120 +251,26 @@ export function NotificationSettingsModal({
  {t('notificationSettings:barkSectionDescription')}
  </p>
 
- {/* Setup Guide - Collapsible */}
- <div className="mb-4 border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700 dark:border-zinc-700 rounded-2xl overflow-hidden bg-zinc-50 dark: dark:">
- <button
- onClick={() => setIsGuideExpanded(!isGuideExpanded)}
- className="w-full flex items-center justify-between p-4 hover:bg-[#e5e7eb] dark:bg-[#2a2d31]/50 dark:hover:bg-zinc-700/50 transition-colors"
- >
- <div className="flex items-center gap-2">
- <Bell className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400"/>
- <span className="font-medium text-gray-900 dark:text-white">
- 📖 {t('notificationSettings:setupGuide')}
- </span>
- </div>
- {isGuideExpanded ? (
- <ChevronUp className="w-5 h-5 text-gray-500 dark:text-gray-400"/>
- ) : (
- <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400"/>
- )}
- </button>
-
- {isGuideExpanded && (
- <div className="px-4 pb-4 space-y-4">
- {/* What is Bark */}
- <div className="bg-white dark:bg-[#1a1c1e] rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800">
- <h4 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
- <span className="text-lg">🔔</span>
- {t('notificationSettings:whatIsBarkTitle')}
- </h4>
- <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
- {t('notificationSettings:whatIsBarkBody')}
- </p>
- </div>
-
- {/* Download */}
- <div className="bg-white dark:bg-[#1a1c1e] rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800">
- <h4 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
- <Download className="w-4 h-4"/>
- {t('notificationSettings:downloadTitle')}
- </h4>
- <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
- 📱 <strong>{t('notificationSettings:downloadImportant')}</strong> {t('notificationSettings:downloadImportantBody')}
- </p>
+ {/* Documentation link */}
  <a
- href="https://apps.apple.com/app/bark-customed-notifications/id1403753865"
+ href={reminderGuideUrl}
  target="_blank"
  rel="noopener noreferrer"
- className="inline-flex items-center gap-2 px-4 py-2 bg-black hover:bg-gray-800 text-white rounded-2xl transition-colors text-sm font-medium"
+ className="group mb-4 flex items-center gap-3 rounded-2xl border border-gray-200 bg-white/70 px-4 py-3.5 transition-all hover:border-emerald-300 hover:bg-emerald-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-white/10 dark:bg-white/[0.035] dark:hover:border-emerald-500/40 dark:hover:bg-emerald-500/[0.07]"
  >
- <svg className="w-5 h-5"viewBox="0 0 24 24"fill="currentColor">
- <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
- </svg>
- {t('notificationSettings:getOnAppStore')}
- <ExternalLink className="w-3 h-3"/>
+ <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+ <BookOpen className="h-[18px] w-[18px]" />
+ </span>
+ <span className="min-w-0 flex-1">
+ <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+ {t('notificationSettings:setupGuide')}
+ </span>
+ <span className="mt-0.5 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+ {t('notificationSettings:setupGuideDescription')}
+ </span>
+ </span>
+ <ExternalLink className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400" />
  </a>
- </div>
-
- {/* How to get Bark URL */}
- <div className="bg-white dark:bg-[#1a1c1e] rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800">
- <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
- <Copy className="w-4 h-4"/>
- {t('notificationSettings:howToGetUrlTitle')}
- </h4>
- <div className="space-y-3">
- <div className="flex gap-3">
- <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">
- 1
- </div>
- <div className="flex-1">
- <p className="text-sm text-gray-700 dark:text-gray-300">
- {t('notificationSettings:step1')}
- </p>
- </div>
- </div>
- <div className="flex gap-3">
- <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">
- 2
- </div>
- <div className="flex-1">
- <p className="text-sm text-gray-700 dark:text-gray-300">
- {t('notificationSettings:step2')}
- </p>
- </div>
- </div>
- <div className="flex gap-3">
- <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">
- 3
- </div>
- <div className="flex-1">
- <p className="text-sm text-gray-700 dark:text-gray-300">
- {t('notificationSettings:step3')}
- </p>
- </div>
- </div>
- <div className="flex gap-3">
- <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">
- 4
- </div>
- <div className="flex-1">
- <p className="text-sm text-gray-700 dark:text-gray-300">
- {t('notificationSettings:step4')}
- </p>
- </div>
- </div>
- </div>
- </div>
-
- {/* Tip */}
- <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3">
- <p className="text-xs text-amber-800 dark:text-amber-200">
- 💡 <strong>{t('notificationSettings:tipTitle')}</strong> {t('notificationSettings:tipBody')}
- </p>
- </div>
- </div>
- )}
- </div>
 
  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-4 space-y-4">
  <label className={`flex items-center gap-3 ${requiresLogin ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
@@ -469,7 +378,11 @@ export function NotificationSettingsModal({
  </div>
  </div>
 
-  <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 sticky bottom-0 bg-white dark:bg-[#1a1c1e] dark:bg-transparent mt-auto">
+  <div className={`flex gap-3 border-t border-gray-200 dark:border-white/10 mt-auto ${
+  isStandalone
+  ? 'sticky bottom-0 z-10 bg-white p-6 dark:bg-[#1a1c1e]'
+  : 'mx-6 mt-8 bg-transparent px-0 pb-2 pt-6'
+  }`}>
   {isStandalone && (
   <button
   onClick={onClose}

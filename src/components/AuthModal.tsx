@@ -1,11 +1,22 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { X, Mail, Lock, User, AlertCircle, CheckCircle, Github } from 'lucide-react'
+import { X, Mail, Lock, User, UserPlus, AlertCircle, CheckCircle, Github } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 interface AuthModalProps {
  isOpen: boolean
  onClose: () => void
+}
+
+const isRetryableAuthRequestError = (error: unknown) => {
+ if (!(error instanceof Error)) return false
+
+ const message = error.message.toLowerCase()
+ return error.name === 'AuthRetryableFetchError'
+ || message.includes('failed to fetch')
+ || message.includes('networkerror')
+ || message.includes('network request failed')
+ || message.includes('load failed')
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
@@ -57,7 +68,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  console.error('Auth error:', error)
  const errorMessage = error instanceof Error ? error.message : String(error)
 
- if (errorMessage.includes('Invalid login credentials')) {
+ if (isPasswordResetMode && isRetryableAuthRequestError(error)) {
+ setError(t('auth:passwordResetUnavailable'))
+ } else if (errorMessage.includes('Invalid login credentials')) {
  setError(t('auth:invalidCredentials'))
  } else if (errorMessage.includes('User already registered')) {
  setError(t('auth:userAlreadyRegistered'))
@@ -123,6 +136,16 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  const switchToLogin = () => {
  setIsPasswordResetMode(false)
  setIsLogin(true)
+ setError('')
+ setSuccess('')
+ }
+
+ const switchToSignUpWithEmail = () => {
+ setEmail(email.trim())
+ setIsPasswordResetMode(false)
+ setIsLogin(false)
+ setPassword('')
+ setRememberMe(false)
  setError('')
  setSuccess('')
  }
@@ -243,16 +266,33 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  )}
 
  {error && (
- <div className="flex items-center space-x-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-2xl">
+ <div role="alert" className="flex items-center space-x-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-2xl">
  <AlertCircle className="w-4 h-4 flex-shrink-0"/>
  <span>{error}</span>
  </div>
  )}
 
  {success && (
- <div className="flex items-center space-x-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-3 rounded-2xl">
+ <div role="status" className="flex items-center space-x-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-3 rounded-2xl">
  <CheckCircle className="w-4 h-4 flex-shrink-0"/>
  <span>{success}</span>
+ </div>
+ )}
+
+ {isPasswordResetMode && (success || error) && (
+ <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
+ <span className="text-sm text-gray-600 dark:text-gray-400">
+ {t('auth:passwordResetSignUpHint')}
+ </span>
+ <button
+ type="button"
+ onClick={switchToSignUpWithEmail}
+ disabled={loading}
+ className="inline-flex items-center justify-center gap-1.5 self-start text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 transition-colors disabled:opacity-50 sm:self-auto"
+ >
+ <UserPlus className="h-4 w-4"/>
+ {t('auth:signUpWithEmail')}
+ </button>
  </div>
  )}
 
@@ -267,7 +307,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <span>{t('auth:processing')}</span>
  </div>
  ) : (
- isPasswordResetMode ? t('auth:sendResetLink') : (isLogin ? t('auth:login') : t('auth:signUp'))
+ isPasswordResetMode
+ ? t(error ? 'auth:retryPasswordReset' : (success ? 'auth:resendResetLink' : 'auth:sendResetLink'))
+ : (isLogin ? t('auth:login') : t('auth:signUp'))
  )}
  </button>
  </form>
