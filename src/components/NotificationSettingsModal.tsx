@@ -35,8 +35,8 @@ export function NotificationSettingsModal({
  const [barkUrl, setBarkUrl] = useState('');
 
  const reminderGuideUrl = language === 'zh-CN'
-  ? 'https://github.com/JerryyrreJ/subscription-management/blob/main/docs/zh-CN/notifications.md'
-  : 'https://github.com/JerryyrreJ/subscription-management/blob/main/docs/en/notifications.md';
+  ? 'https://docs.sub.jerrylu.app/zh-CN/user-guide/reminders'
+  : 'https://docs.sub.jerrylu.app/en/user-guide/reminders';
 
  // Handle Bark URL input change
  const handleBarkUrlChange = (url: string) => {
@@ -137,7 +137,7 @@ export function NotificationSettingsModal({
  if (!isOpen) return null;
 
   const content = (
-  <div className="flex flex-col h-full">
+  <div className="flex min-h-full flex-col">
   {isStandalone && (
   <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-[#1a1c1e] z-10">
   <div className="flex items-center gap-3">
