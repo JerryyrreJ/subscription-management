@@ -1177,6 +1177,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   subscriptions={subscriptions}
   baseCurrency={baseCurrency}
   exchangeRates={exchangeRates}
+  exchangeRatesUpdatedAt={exchangeRatesUpdatedAt}
   onClose={() => setIsAdvancedReportOpen(false)}
   />
  </Suspense>

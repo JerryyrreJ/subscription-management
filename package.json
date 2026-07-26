@@ -25,12 +25,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
     "@netlify/functions": "^5.1.2",
-    "@sparticuz/chromium": "^141.0.0",
     "@supabase/supabase-js": "^2.57.4",
-    "chromium-bidi": "^11.0.1",
     "i18next": "^26.0.3",
     "lucide-react": "^0.344.0",
-    "playwright-core": "^1.57.0",
     "react": "^18.3.1",
     "react-countup": "^6.5.3",
     "react-dom": "^18.3.1",

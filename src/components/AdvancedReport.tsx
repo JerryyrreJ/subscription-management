@@ -1,6 +1,9 @@
 import { Subscription, Currency, ExchangeRates } from '../types';
 import { generateReportData, ReportData } from '../utils/reportAnalytics';
+import { buildPdfReportData } from '../utils/pdfReportData';
+import { PdfReportDocument, type PdfReportVariant } from './pdf/PdfReportDocument';
 import { formatCurrency, formatCurrencyOptionLabel } from '../utils/currency';
+import '../styles/print-report.css';
 import { SpendingTrendChart } from './SpendingTrendChart';
 import { CategoryPieChart } from './CategoryPieChart';
 import { TopSubscriptionsChart } from './TopSubscriptionsChart';
@@ -8,6 +11,7 @@ import { RenewalHeatmap } from './RenewalHeatmap';
 import { InsightsSection } from './InsightsSection';
 import { X, TrendingUp, Calendar, DollarSign, Package, HelpCircle, Download } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useAppLanguage } from '../hooks/useAppLanguage';
 
@@ -15,6 +19,7 @@ interface AdvancedReportProps {
  subscriptions: Subscription[];
  baseCurrency: Currency;
  exchangeRates: ExchangeRates;
+ exchangeRatesUpdatedAt?: number | null;
  onClose: () => void;
 }
 
@@ -22,16 +27,35 @@ export function AdvancedReport({
  subscriptions,
  baseCurrency,
  exchangeRates,
+ exchangeRatesUpdatedAt,
  onClose,
 }: AdvancedReportProps) {
  const { t } = useTranslation(['analytics', 'currency', 'categoryLabels']);
  const { language } = useAppLanguage();
  const [isVisible, setIsVisible] = useState(false);
+ const [printVariant, setPrintVariant] = useState<PdfReportVariant | null>(null);
 
  // 生成报表数据
  const reportData: ReportData = useMemo(
  () => generateReportData(subscriptions, baseCurrency, exchangeRates, t, language),
  [subscriptions, baseCurrency, exchangeRates, t, language]
+ );
+
+ // 打印文档的数据。只在真正要打印时才构建。
+ const pdfData = useMemo(
+ () =>
+  printVariant
+   ? buildPdfReportData({
+      subscriptions,
+      reportData,
+      baseCurrency,
+      exchangeRates,
+      exchangeRatesUpdatedAt,
+      t,
+      locale: language,
+     })
+   : null,
+ [printVariant, subscriptions, reportData, baseCurrency, exchangeRates, exchangeRatesUpdatedAt, t, language]
  );
 
  // 入场动画
@@ -51,11 +75,35 @@ export function AdvancedReport({
  }, 300); // 匹配 CSS transition 时间
  };
 
- // 处理 PDF 导出 - 预留接口，功能待实现
- const handleExportPDF = async () => {
- // TODO: 实现新的PDF导出功能
- alert(t('analytics:pdfExportInProgress'));
+ // PDF 导出：把打印态文档挂进 DOM，等字体和一次绘制完成后交给浏览器打印。
+ // 不走无头 Chromium —— 报表是纯 HTML/CSS，且订阅数据不必离开本机。
+ useEffect(() => {
+ if (!printVariant) {
+  return;
+ }
+
+ let cancelled = false;
+
+ const frame = requestAnimationFrame(async () => {
+  try {
+   await document.fonts?.ready;
+  } catch {
+   // 字体接口不可用时直接打印，回落到系统字体
+  }
+
+  if (cancelled) {
+   return;
+  }
+
+  window.print();
+  setPrintVariant(null);
+ });
+
+ return () => {
+  cancelled = true;
+  cancelAnimationFrame(frame);
  };
+ }, [printVariant]);
 
  return (
  <div
@@ -198,16 +246,33 @@ export function AdvancedReport({
             {t('analytics:closeReport')}
           </button>
           <button
-            onClick={handleExportPDF}
-            className="px-6 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-all text-sm font-medium shadow-sm flex items-center justify-center gap-2"
+            onClick={() => setPrintVariant('snapshot')}
+            disabled={printVariant !== null}
+            className="px-6 py-2.5 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-white/10 rounded-xl hover:bg-gray-50 dark:hover:bg-white/10 transition-all text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <Download className="w-4 h-4"/>
-            <span>{t('analytics:exportPdfReport')}</span>
+            <span>{t('analytics:pdfExportSnapshot')}</span>
+          </button>
+          <button
+            onClick={() => setPrintVariant('annual')}
+            disabled={printVariant !== null}
+            className="px-6 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-all text-sm font-medium shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <Download className="w-4 h-4"/>
+            <span>{t('analytics:pdfExportAnnual')}</span>
           </button>
         </div>
       </div>
     </div>
  </div>
+
+ {/* 打印文档挂在 body 下：@media print 会隐藏 body 的其他直接子节点 */}
+ {pdfData && printVariant
+  ? createPortal(
+     <PdfReportDocument data={pdfData} variant={printVariant} />,
+     document.body
+    )
+  : null}
  </div>
  );
 }
