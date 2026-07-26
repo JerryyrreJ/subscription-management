@@ -7,6 +7,24 @@ description: "在本地运行 Subscription Manager，并了解哪些服务是可
 
 Subscription Manager 可以先作为纯前端应用运行。只有当你需要云同步、支付、提醒或开放 API 时，才需要配置后端服务。
 
+## 架构
+
+```text
+React + Vite 前端
+  |
+  | 可选的浏览器认证和同步
+  v
+Supabase
+  |
+  | 可信服务端访问
+  v
+Netlify Functions
+  |-- Developer API Key CRUD
+  |-- Subscription API v1
+  |-- Stripe checkout 和 webhook
+  |-- 定时 Bark 提醒
+```
+
 ## 前置条件
 
 - Node.js 20 或更高版本。

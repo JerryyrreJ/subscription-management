@@ -7,6 +7,24 @@ description: "Run Subscription Manager locally and understand the default local-
 
 Subscription Manager is a Vite app built with React and TypeScript. The default local setup stores data in the browser and does not require a database account.
 
+## Architecture
+
+```text
+React + Vite frontend
+  |
+  | optional browser auth and sync
+  v
+Supabase
+  |
+  | trusted server access
+  v
+Netlify Functions
+  |-- public API key CRUD
+  |-- subscription API v1
+  |-- Stripe checkout and webhook
+  |-- scheduled Bark reminders
+```
+
 ## Requirements
 
 - Node.js 22.12 or newer

@@ -1,13 +1,13 @@
 ---
 title: "Introduction"
-description: "Subscription Manager is a local-first app for tracking recurring subscriptions, optional cloud sync, payments, reminders, and API automation."
+description: "Subscription Manager helps you track recurring subscriptions, renewal dates, and spending, with multi-currency analytics, AI capture, reminders, and multi-device sync."
 ---
 
 # Subscription Manager
 
-Subscription Manager helps users track recurring subscriptions, renewal dates, spending trends, and category-level analytics.
+Subscription Manager helps you keep track of recurring subscriptions: what you pay for, how often it renews, when the next payment is due, and how much it all costs in your chosen currency.
 
-The app is local-first by default. Without any hosted services, data stays in the browser. When you need accounts, cloud sync, payment activation, server-side reminders, or automation, you can enable Supabase, Stripe, Netlify Functions, Bark, and the public API.
+Your data stays in your browser by default, and the app works fully without an account. When you want to use it across devices, sign in to enable cloud sync.
 
 <Frame caption="Dashboard overview with demo subscription data.">
   <img
@@ -23,38 +23,30 @@ The app is local-first by default. Without any hosted services, data stays in th
 - Convert between CNY, USD, EUR, JPY, GBP, AUD, CAD, CHF, HKD, and SGD.
 - Sort and filter subscriptions by name, amount, renewal date, category, or creation date.
 - Manage built-in and custom categories.
-- Use AI capture to propose creates, updates, deletes, and batch updates from text or screenshots.
-- Import and export subscription data as JSON.
-- Use optional Supabase authentication and multi-device sync.
-- Send optional Bark push reminders for upcoming renewals.
-- Create Developer API keys for subscription CRUD automation.
+- Use AI capture to add or update subscriptions from a piece of text or a screenshot.
+- Import and export subscription data as JSON for backups and migration.
+- Sign in to sync your data across devices.
+- Receive push reminders for upcoming renewals through Bark.
+- Create Developer API keys for automation through the public API.
 
-## Architecture
+## Start here
 
-```text
-React + Vite frontend
-  |
-  | optional browser auth and sync
-  v
-Supabase
-  |
-  | trusted server access
-  v
-Netlify Functions
-  |-- public API key CRUD
-  |-- subscription API v1
-  |-- Stripe checkout and webhook
-  |-- scheduled Bark reminders
-```
+<CardGroup cols={2}>
+  <Card title="Use the app" icon="rocket" href="/en/user-guide/overview">
+    Learn how to manage subscriptions, use AI capture, reminders, backups, and sync.
+  </Card>
+  <Card title="FAQ" icon="circle-question" href="/en/user-guide/faq">
+    Common questions about where data lives, backups, sync, and privacy.
+  </Card>
+</CardGroup>
 
-## Documentation map
+## For developers
 
-- Start with [Getting started](/en/getting-started) for local development.
-- Use [Configuration](/en/configuration) to decide which environment variables you need.
-- Use [Deployment](/en/deployment) before publishing the app.
-- Use [Public API overview](/en/api/overview) when integrating with scripts, agents, or third-party tools.
-- Use [API Reference](/api-reference) for generated endpoint details from the OpenAPI specification.
-
-<Tip>
-  Mintlify exposes every page as Markdown and provides Copy page actions. Agents should prefer the Markdown version of these docs over scraping HTML.
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Self-hosting" icon="server" href="/en/getting-started">
+    Run the app locally or deploy your own instance, enabling hosted features as needed.
+  </Card>
+  <Card title="Public API" icon="code" href="/en/api/overview">
+    Integrate subscription data with scripts, agents, or third-party tools. Endpoint details live in the [API Reference](/api-reference).
+  </Card>
+</CardGroup>

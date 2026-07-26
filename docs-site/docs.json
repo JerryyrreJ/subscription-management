@@ -33,31 +33,14 @@
         "default": true,
         "tabs": [
           {
-            "tab": "Guides",
+            "tab": "User Guide",
             "groups": [
               {
                 "group": "Start",
                 "pages": [
-                  "en/index",
-                  "en/getting-started",
-                  "en/configuration",
-                  "en/deployment"
+                  "en/index"
                 ]
               },
-              {
-                "group": "Integrations",
-                "pages": [
-                  "en/integrations/supabase",
-                  "en/integrations/ai-capture",
-                  "en/integrations/notifications",
-                  "en/integrations/payments"
-                ]
-              }
-            ]
-          },
-          {
-            "tab": "User Guide",
-            "groups": [
               {
                 "group": "Using the app",
                 "pages": [
@@ -71,6 +54,28 @@
                   "en/user-guide/account-sync",
                   "en/user-guide/developer-api-keys",
                   "en/user-guide/faq"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Self-hosting",
+            "groups": [
+              {
+                "group": "Setup",
+                "pages": [
+                  "en/getting-started",
+                  "en/configuration",
+                  "en/deployment"
+                ]
+              },
+              {
+                "group": "Integrations",
+                "pages": [
+                  "en/integrations/supabase",
+                  "en/integrations/ai-capture",
+                  "en/integrations/notifications",
+                  "en/integrations/payments"
                 ]
               }
             ]
@@ -95,17 +100,6 @@
           {
             "tab": "API Reference",
             "openapi": "api/openapi.yaml"
-          },
-          {
-            "tab": "Operations",
-            "groups": [
-              {
-                "group": "Documentation",
-                "pages": [
-                  "en/advanced/mintlify-deployment"
-                ]
-              }
-            ]
           }
         ]
       },
@@ -113,31 +107,14 @@
         "language": "zh-Hans",
         "tabs": [
           {
-            "tab": "指南",
+            "tab": "使用指南",
             "groups": [
               {
                 "group": "开始",
                 "pages": [
-                  "zh-CN/index",
-                  "zh-CN/getting-started",
-                  "zh-CN/configuration",
-                  "zh-CN/deployment"
+                  "zh-CN/index"
                 ]
               },
-              {
-                "group": "集成",
-                "pages": [
-                  "zh-CN/integrations/supabase",
-                  "zh-CN/integrations/ai-capture",
-                  "zh-CN/integrations/notifications",
-                  "zh-CN/integrations/payments"
-                ]
-              }
-            ]
-          },
-          {
-            "tab": "使用指南",
-            "groups": [
               {
                 "group": "使用应用",
                 "pages": [
@@ -151,6 +128,28 @@
                   "zh-CN/user-guide/account-sync",
                   "zh-CN/user-guide/developer-api-keys",
                   "zh-CN/user-guide/faq"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "自托管部署",
+            "groups": [
+              {
+                "group": "部署",
+                "pages": [
+                  "zh-CN/getting-started",
+                  "zh-CN/configuration",
+                  "zh-CN/deployment"
+                ]
+              },
+              {
+                "group": "集成",
+                "pages": [
+                  "zh-CN/integrations/supabase",
+                  "zh-CN/integrations/ai-capture",
+                  "zh-CN/integrations/notifications",
+                  "zh-CN/integrations/payments"
                 ]
               }
             ]
@@ -175,17 +174,6 @@
           {
             "tab": "API 参考",
             "openapi": "api/openapi.yaml"
-          },
-          {
-            "tab": "运维",
-            "groups": [
-              {
-                "group": "文档站",
-                "pages": [
-                  "zh-CN/advanced/mintlify-deployment"
-                ]
-              }
-            ]
           }
         ]
       }
