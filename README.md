@@ -14,6 +14,13 @@ The app works without an account by storing data in the browser. Supabase, Strip
 
 <p align="center"><em>Dashboard overview with demo subscription data.</em></p>
 
+<p align="center">
+  <img src="docs-site/images/product/pdf-report-snapshot.png" alt="Exported snapshot PDF report with totals, category bars, and a subscription table" width="49%" />
+  <img src="docs-site/images/product/pdf-report-annual.png" alt="Exported annual PDF report with a monthly spend trend chart and category totals" width="49%" />
+</p>
+
+<p align="center"><em>Print-ready A4 PDF reports: current snapshot and annual spend.</em></p>
+
 ## Features
 
 - Track subscriptions with category, amount, currency, billing period, and renewal date
@@ -24,6 +31,7 @@ The app works without an account by storing data in the browser. Supabase, Strip
 - Use AI capture to propose creates, updates, deletes, and batch updates from text or screenshots
 - Import and export subscription data as JSON
 - Review spending reports, category breakdowns, top subscriptions, and renewal patterns
+- Export print-ready A4 PDF reports (current snapshot and annual spend)
 - Use optional Supabase authentication and multi-device sync
 - Send optional Bark push reminders for upcoming renewals
 - Create optional Developer API keys for subscription CRUD automation

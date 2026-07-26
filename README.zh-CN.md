@@ -14,6 +14,13 @@ Subscription Manager 是一个本地优先的 Web 应用，用于跟踪周期性
 
 <p align="center"><em>使用演示订阅数据的仪表盘概览。</em></p>
 
+<p align="center">
+  <img src="docs-site/images/product/pdf-report-snapshot.png" alt="导出的快照 PDF 报表，包含总额、分类条形图和订阅表格" width="49%" />
+  <img src="docs-site/images/product/pdf-report-annual.png" alt="导出的年度 PDF 报表，包含逐月支出趋势图和分类合计" width="49%" />
+</p>
+
+<p align="center"><em>可直接打印的 A4 PDF 报表：当前快照与年度支出。</em></p>
+
 ## 功能
 
 - 记录订阅名称、分类、金额、币种、计费周期和续费日期
@@ -24,6 +31,7 @@ Subscription Manager 是一个本地优先的 Web 应用，用于跟踪周期性
 - 使用 AI 录入从文本或截图中提议新增、修改、删除和批量更新
 - 以 JSON 文件导入和导出订阅数据
 - 查看支出报告、分类占比、最高支出订阅和续费分布
+- 导出可直接打印的 A4 PDF 报表（当前快照与年度报告）
 - 可选启用 Supabase 登录和多设备同步
 - 可选通过 Bark 推送发送续费提醒
 - 可选创建开发者 API Key，用于自动化增删查改订阅

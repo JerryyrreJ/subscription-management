@@ -110,7 +110,7 @@ export async function sendSubscriptionReminder(
  {
   sound: 'bell',
   group,
-  icon: 'https://i.ibb.co/Z6f84xFY/icon.png'
+  icon: 'https://i.ibb.co/bjqnj7Hx/icon.png'
  }
  );
 }
