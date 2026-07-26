@@ -41,8 +41,11 @@ function PageHead({
 }
 
 function KpiRow({ items, large }: { items: PdfKpi[]; large?: boolean }) {
+ // 任一金额过长就整行降级字号：单格降级会造成同行字号不一致
+ const compact = items.some(item => /\d/.test(item.value) && item.value.length >= 11);
+
  return (
-  <div className={`pdf-kpis${large ? ' pdf-kpis-lg' : ''}`}>
+  <div className={`pdf-kpis${large ? ' pdf-kpis-lg' : ''}${compact ? ' pdf-kpis-compact' : ''}`}>
    {items.map(item => {
     const isText = !/\d/.test(item.value);
 

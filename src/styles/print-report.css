@@ -150,7 +150,8 @@
 
 .pdf-kpis {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* minmax(0, 1fr)：禁止列被长金额撑大，否则最后一列会被挤扁 */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 18px 0 20px;
 }
 
@@ -176,6 +177,7 @@
   font-weight: 800;
   letter-spacing: 0.14em;
   color: var(--pdf-faint);
+  white-space: nowrap;
 }
 
 .pdf-kpi-value {
@@ -192,6 +194,15 @@
 .pdf-kpi-value-text {
   font-size: 22px;
   overflow-wrap: anywhere;
+}
+
+/* 行内出现长金额（≥11 字符，如 CN¥16,695.37）时整行降级字号，保证四列等分 */
+.pdf-kpis-compact .pdf-kpi-value {
+  font-size: 20px;
+}
+
+.pdf-kpis-lg.pdf-kpis-compact .pdf-kpi-value {
+  font-size: 23px;
 }
 
 .pdf-kpi-value-accent {
