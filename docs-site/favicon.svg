@@ -1,5 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Subscription Manager">
-  <rect width="64" height="64" rx="14" fill="#2563eb"/>
-  <path d="M18 20h28v6H18zM18 30h22v6H18zM18 40h16v6H18z" fill="#fff"/>
-  <circle cx="46" cy="43" r="6" fill="#93c5fd"/>
+  <rect width="64" height="64" rx="14" fill="#f3f2f2"/>
+  <g transform="translate(4.8 5.65) scale(0.85)">
+    <rect x="15" y="7" width="34" height="20" rx="6" fill="#bab6b6"/>
+    <rect x="11.5" y="15" width="41" height="24" rx="7" fill="#605d5d"/>
+    <rect x="8" y="25" width="48" height="30" rx="8" fill="#201e1d"/>
+    <circle cx="18.5" cy="40" r="4.5" fill="#ec3013"/>
+    <rect x="27" y="37.5" width="21" height="5" rx="2.5" fill="#f3f2f2"/>
+  </g>
 </svg>

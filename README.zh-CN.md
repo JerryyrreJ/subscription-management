@@ -8,6 +8,12 @@ Subscription Manager 是一个本地优先的 Web 应用，用于跟踪周期性
 
 应用不需要账号也能使用，数据默认保存在浏览器中。如果需要托管同步、支付或服务端提醒，可以配置 Supabase、Stripe、Netlify Functions 和 Bark 通知。
 
+<p align="center">
+  <img src="docs-site/images/product/dashboard-overview.png" alt="使用演示订阅数据的 Subscription Manager 仪表盘" width="100%" />
+</p>
+
+<p align="center"><em>使用演示订阅数据的仪表盘概览。</em></p>
+
 ## 功能
 
 - 记录订阅名称、分类、金额、币种、计费周期和续费日期

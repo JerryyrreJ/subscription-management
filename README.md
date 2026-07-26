@@ -8,6 +8,12 @@ Subscription Manager is a local-first web app for tracking recurring subscriptio
 
 The app works without an account by storing data in the browser. Supabase, Stripe, Netlify Functions, and Bark notifications can be configured when you want hosted sync, payment, or server-side reminders.
 
+<p align="center">
+  <img src="docs-site/images/product/dashboard-overview.png" alt="Subscription Manager dashboard with demo subscription data" width="100%" />
+</p>
+
+<p align="center"><em>Dashboard overview with demo subscription data.</em></p>
+
 ## Features
 
 - Track subscriptions with category, amount, currency, billing period, and renewal date
