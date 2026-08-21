@@ -2,7 +2,7 @@ import type { Currency, Period } from '../types';
 import { SUBSCRIPTION_CURRENCIES, SUBSCRIPTION_PERIODS } from './subscriptionDomain';
 import { DEFAULT_CURRENCY } from './currency';
 import { MAX_SUBSCRIPTION_AMOUNT } from './subscriptionValidation';
-import { formatDateOnly, parseDateOnly } from './dates';
+import { calculateNextPaymentDate, formatDateOnly, getDateOnlyDay, parseDateOnly } from './dates';
 
 // A subscription the AI proposed from messy input. It is never written directly:
 // the user confirms/edits it first. `warnings` are machine-readable codes for
@@ -14,7 +14,7 @@ export interface DraftSubscription {
   amount: number;
   currency: Currency;
   period: Period;
-  lastPaymentDate: string;
+  nextPaymentDate: string;
   customDate?: string;
   notificationEnabled: boolean;
   warnings: string[];
@@ -92,16 +92,6 @@ const normalizeOne = (item: unknown, today: string): DraftSubscription | null =>
     warnings.push('period_defaulted');
   }
 
-  let lastPaymentDate = asString(record.lastPaymentDate);
-  if (!isValidDateOnly(lastPaymentDate)) {
-    lastPaymentDate = today;
-    warnings.push('lastPaymentDate_guessed');
-  } else if (lastPaymentDate > today) {
-    // "Last payment" can't be in the future — clamp and flag for review.
-    lastPaymentDate = today;
-    warnings.push('lastPaymentDate_future');
-  }
-
   let customDate: string | undefined;
   if (period === 'custom') {
     const raw = asString(record.customDate);
@@ -109,6 +99,26 @@ const normalizeOne = (item: unknown, today: string): DraftSubscription | null =>
       customDate = raw;
     } else {
       warnings.push('customDate_missing');
+    }
+  }
+
+  let nextPaymentDate = asString(record.nextPaymentDate);
+  if (!isValidDateOnly(nextPaymentDate)) {
+    const legacyLastPaymentDate = asString(record.lastPaymentDate);
+    const canMigrateLegacyDate = isValidDateOnly(legacyLastPaymentDate) &&
+      legacyLastPaymentDate <= today &&
+      (period !== 'custom' || Boolean(customDate));
+
+    if (canMigrateLegacyDate) {
+      nextPaymentDate = calculateNextPaymentDate(
+        legacyLastPaymentDate,
+        period,
+        customDate,
+        period === 'monthly' ? getDateOnlyDay(legacyLastPaymentDate) : undefined
+      );
+    } else {
+      nextPaymentDate = today;
+      warnings.push('nextPaymentDate_guessed');
     }
   }
 
@@ -121,7 +131,7 @@ const normalizeOne = (item: unknown, today: string): DraftSubscription | null =>
     }
   }
 
-  return { name, category, amount, currency, period, lastPaymentDate, customDate, notificationEnabled, warnings };
+  return { name, category, amount, currency, period, nextPaymentDate, customDate, notificationEnabled, warnings };
 };
 
 /**

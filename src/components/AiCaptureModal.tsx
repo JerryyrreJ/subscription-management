@@ -22,6 +22,7 @@ import {
 } from '../utils/subscriptionDomain';
 import { buildAiSubscriptionContext, type AiCommand, type AiUpdateOperation } from '../utils/aiCommand';
 import { parseCapture, AiParseError, type DraftSubscription, type ParseQuota } from '../services/aiParseService';
+import { getDateOnlyDay } from '../utils/dates';
 
 export interface UndoableAiAction {
   id: string;
@@ -98,7 +99,7 @@ const warnedFields = (warnings: string[]): Set<string> => {
     if (w.startsWith('amount')) set.add('amount');
     else if (w.startsWith('currency')) set.add('currency');
     else if (w.startsWith('period')) set.add('period');
-    else if (w.startsWith('lastPaymentDate')) set.add('lastPaymentDate');
+    else if (w.startsWith('nextPaymentDate')) set.add('nextPaymentDate');
     else if (w.startsWith('category')) set.add('category');
     else if (w.startsWith('customDate')) set.add('customDate');
   }
@@ -394,7 +395,8 @@ export function AiCaptureModal({
         amount: draft.amount,
         currency: draft.currency,
         period: draft.period,
-        lastPaymentDate: draft.lastPaymentDate,
+        nextPaymentDate: draft.nextPaymentDate,
+        billingAnchorDay: draft.period === 'monthly' ? getDateOnlyDay(draft.nextPaymentDate) : undefined,
         customDate: draft.period === 'custom' ? draft.customDate : undefined,
         notificationEnabled: draft.notificationEnabled,
       });
@@ -479,9 +481,14 @@ export function AiCaptureModal({
       return;
     }
 
+    const updatedPeriod = command.patch.period ?? target.period;
+    const updatedNextPaymentDate = command.patch.nextPaymentDate ?? target.nextPaymentDate;
     const updated = {
       ...target,
       ...command.patch,
+      billingAnchorDay: updatedPeriod === 'monthly'
+        ? getDateOnlyDay(updatedNextPaymentDate)
+        : undefined,
       customDate: command.patch.period && command.patch.period !== 'custom'
         ? undefined
         : command.patch.customDate ?? target.customDate,
@@ -538,9 +545,14 @@ export function AiCaptureModal({
     try {
       for (const plan of updatePlans) {
         const targetSubscription = plan.target as Subscription;
+        const updatedPeriod = plan.update.patch.period ?? targetSubscription.period;
+        const updatedNextPaymentDate = plan.update.patch.nextPaymentDate ?? targetSubscription.nextPaymentDate;
         await onUpdate({
           ...targetSubscription,
           ...plan.update.patch,
+          billingAnchorDay: updatedPeriod === 'monthly'
+            ? getDateOnlyDay(updatedNextPaymentDate)
+            : undefined,
           customDate: plan.update.patch.period && plan.update.patch.period !== 'custom'
             ? undefined
             : plan.update.patch.customDate ?? targetSubscription.customDate,
@@ -647,7 +659,7 @@ export function AiCaptureModal({
         );
       }
 
-      if (field === 'lastPaymentDate') {
+      if (field === 'nextPaymentDate') {
         return (
           <div key={`${keyPrefix}-${field}`} className={rowClass}>
             <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
@@ -655,7 +667,7 @@ export function AiCaptureModal({
               id={`${keyPrefix}-${field}`}
               type="date"
               value={String(value)}
-              onChange={(e) => onPatchChange({ lastPaymentDate: e.target.value })}
+              onChange={(e) => onPatchChange({ nextPaymentDate: e.target.value })}
               className={editorClass}
             />
           </div>
@@ -922,9 +934,10 @@ export function AiCaptureModal({
                   />
                   <input
                     type="date"
-                    value={draft.lastPaymentDate}
-                    onChange={(e) => updateDraft(draft.key, { lastPaymentDate: e.target.value })}
-                    className={`${inputBase} ${fieldBorder(warned.has('lastPaymentDate'))} flex-1`}
+                    value={draft.nextPaymentDate}
+                    onChange={(e) => updateDraft(draft.key, { nextPaymentDate: e.target.value })}
+                    aria-label={t('addSubscription:nextPaymentDateLabel')}
+                    className={`${inputBase} ${fieldBorder(warned.has('nextPaymentDate'))} flex-1`}
                   />
                 </div>
                 {draft.period === 'custom' && (

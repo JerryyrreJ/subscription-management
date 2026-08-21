@@ -26,7 +26,6 @@ export const importData = {
   subscriptionCategoryRequired: '第 {{index}} 个订阅数据无效：缺少分类。',
   subscriptionAmountInvalid: '第 {{index}} 个订阅数据无效：金额必须是数字。',
   subscriptionPeriodInvalid: '第 {{index}} 个订阅数据无效：周期无效。',
-  subscriptionLastPaymentRequired: '第 {{index}} 个订阅数据无效：缺少上次付款日期。',
   subscriptionNextPaymentRequired: '第 {{index}} 个订阅数据无效：缺少下次付款日期。',
   subscriptionCurrencyInvalid: '第 {{index}} 个订阅数据无效：货币无效。',
   subscriptionValidationFailed: '第 {{index}} 个订阅数据无效：{{message}}',

@@ -39,6 +39,7 @@ const withMockedNow = (isoDateTime: string, run: () => void) => {
 test('monthly billing clamps January 31 to February month end', () => {
   assert.equal(calculateNextPaymentDate('2024-01-31', 'monthly'), '2024-02-29');
   assert.equal(calculateNextPaymentDate('2025-01-31', 'monthly'), '2025-02-28');
+  assert.equal(addBillingPeriodToDate('2025-02-28', 'monthly', undefined, 31), '2025-03-31');
 });
 
 test('yearly billing clamps leap day to February 28 in non-leap year', () => {
@@ -47,17 +48,19 @@ test('yearly billing clamps leap day to February 28 in non-leap year', () => {
 
 test('auto renew keeps month-end cadence for overdue monthly subscriptions', () => {
   withMockedNow('2026-03-24T12:00:00.000Z', () => {
-    const renewedDates = getAutoRenewedDates('2024-01-31', '2024-02-29', 'monthly');
+    const renewedDates = getAutoRenewedDates('2024-02-29', 'monthly', undefined, 31);
 
     assert.deepEqual(renewedDates, {
       lastPaymentDate: '2026-02-28',
-      nextPaymentDate: '2026-03-28',
+      nextPaymentDate: '2026-03-31',
     });
   });
 });
 
 test('custom billing still advances by the requested number of days', () => {
   assert.equal(addBillingPeriodToDate('2026-03-24', 'custom', '10'), '2026-04-03');
+  assert.equal(addBillingPeriodToDate('2026-01-01', 'custom', '30'), '2026-01-31');
+  assert.equal(addBillingPeriodToDate('2026-01-31', 'custom', '30'), '2026-03-02');
 });
 
 test('billing periods can be subtracted from a requested renewal date', () => {

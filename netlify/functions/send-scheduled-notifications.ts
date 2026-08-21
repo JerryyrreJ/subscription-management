@@ -21,6 +21,7 @@ interface Subscription {
   period: string
   last_payment_date: string
   next_payment_date: string
+  billing_anchor_day?: number | null
   notification_enabled: boolean
   custom_date?: string
 }
@@ -248,10 +249,10 @@ export default async (req: Request): Promise<Response> => {
       // 4. 检查每个订阅
       for (const subscription of subscriptions as Subscription[]) {
         const renewal = resolveSubscriptionRenewal({
-          lastPaymentDate: subscription.last_payment_date,
           nextPaymentDate: subscription.next_payment_date,
           period: subscription.period as Period,
-          customDate: subscription.custom_date
+          customDate: subscription.custom_date,
+          billingAnchorDay: subscription.billing_anchor_day ?? undefined
         }, userTimeZone)
         const renewedDate = renewal.effectiveNextPaymentDate
         const daysUntil = renewal.daysUntilEffectiveNextPayment
@@ -286,8 +287,9 @@ export default async (req: Request): Promise<Response> => {
               amount: subscription.amount,
               currency: subscription.currency as Currency,
               period: subscription.period as Period,
-              lastPaymentDate: renewedDate,
+              lastPaymentDate: renewal.effectiveLastPaymentDate,
               nextPaymentDate: renewedDate,
+              billingAnchorDay: subscription.billing_anchor_day ?? undefined,
               customDate: subscription.custom_date
             },
             daysUntil,

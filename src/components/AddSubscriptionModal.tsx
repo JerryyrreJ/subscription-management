@@ -30,7 +30,7 @@ function buildInitialFormData(isNotificationReady: boolean) {
  amount: '',
  currency: DEFAULT_CURRENCY as Currency,
  period: 'monthly' as Period,
- lastPaymentDate: '',
+ nextPaymentDate: '',
  customDate: '',
  notificationEnabled: isNotificationReady,
  };
@@ -152,7 +152,7 @@ export function AddSubscriptionModal({
 
  const validateForm = () => {
  const formIsValid = formRef.current?.reportValidity() ?? true;
- const hasDateError = !formData.lastPaymentDate;
+ const hasDateError = !formData.nextPaymentDate;
 
  setDateValidationError(hasDateError);
 
@@ -230,15 +230,6 @@ export function AddSubscriptionModal({
  onClose();
  }
  };
-
- // 获取今天的日期格式化为 YYYY-MM-DD (使用本地时区)
- const today = (() => {
- const date = new Date();
- const year = date.getFullYear();
- const month = String(date.getMonth() + 1).padStart(2, '0');
- const day = String(date.getDate()).padStart(2, '0');
- return `${year}-${month}-${day}`;
- })();
 
  if (!isOpen) return null;
 
@@ -373,6 +364,16 @@ options={CURRENCIES.map(currency => ({
  ]}
  required={true}
  />
+ {formData.period === 'monthly' && (
+  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+   {t('addSubscription:monthlyPeriodHint')}
+  </p>
+ )}
+ {formData.period === 'custom' && (
+  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+   {t('addSubscription:customPeriodHint')}
+  </p>
+ )}
  </div>
 
  {formData.period === 'custom' && (
@@ -394,22 +395,21 @@ options={CURRENCIES.map(currency => ({
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- {t('addSubscription:lastPaymentDateLabel')}
+ {t('addSubscription:nextPaymentDateLabel')}
  </label>
  <CustomDatePicker
- value={formData.lastPaymentDate}
+ value={formData.nextPaymentDate}
  onChange={(value) => {
- setFormData({ ...formData, lastPaymentDate: value });
+ setFormData({ ...formData, nextPaymentDate: value });
  if (dateValidationError) {
   setDateValidationError(false);
  }
  }}
- maxDate={today}
  required={true}
  />
  {dateValidationError && (
  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
- {t('addSubscription:lastPaymentDateRequired')}
+ {t('addSubscription:nextPaymentDateRequired')}
  </p>
  )}
  </div>

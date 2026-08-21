@@ -56,15 +56,17 @@ Example non-writable field error:
 {
   "error": {
     "code": "invalid_subscription_field",
-    "message": "Field is not writable: nextPaymentDate",
-    "field": "nextPaymentDate",
-    "suggestedFix": "Remove server-managed fields such as id, nextPaymentDate, createdAt, and updatedAt before retrying.",
+    "message": "Field is not writable: id",
+    "field": "id",
+    "suggestedFix": "Remove server-managed fields such as id, createdAt, and updatedAt before retrying.",
     "writableFields": [
       "amount",
       "category",
       "currency",
       "customDate",
+      "billingAnchorDay",
       "lastPaymentDate",
+      "nextPaymentDate",
       "name",
       "notificationEnabled",
       "period",

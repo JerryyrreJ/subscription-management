@@ -33,6 +33,7 @@ const subscriptionRow = {
   period: 'monthly',
   last_payment_date: '2026-06-01',
   next_payment_date: '2026-07-01',
+  billing_anchor_day: 1,
   custom_date: null,
   notification_enabled: true,
   status: 'active',
@@ -172,6 +173,7 @@ test('creates subscriptions for the API key owner and derives server-managed fie
     period: 'yearly',
     last_payment_date: '2026-06-17',
     next_payment_date: '2027-06-17',
+    billing_anchor_day: null,
     notification_enabled: false,
   };
   const database = createDatabase((state: QueryState) => {
@@ -202,7 +204,7 @@ test('creates subscriptions for the API key owner and derives server-managed fie
       amount: 12.5,
       currency: 'USD',
       period: 'yearly',
-      lastPaymentDate: '2026-06-17',
+      nextPaymentDate: '2027-06-17',
       notificationEnabled: false,
     })
   ), {} as never));
@@ -219,6 +221,7 @@ test('creates subscriptions for the API key owner and derives server-managed fie
     period: 'yearly',
     last_payment_date: '2026-06-17',
     next_payment_date: '2027-06-17',
+    billing_anchor_day: null,
     custom_date: null,
     notification_enabled: false,
     status: 'active',
@@ -228,7 +231,7 @@ test('creates subscriptions for the API key owner and derives server-managed fie
   assert.equal(body.data.nextPaymentDate, '2027-06-17');
 });
 
-test('patches subscriptions only within the API key owner scope and recalculates billing dates', async () => {
+test('patches subscriptions only within the API key owner scope and keeps the next renewal authoritative', async () => {
   let readFilters: Record<string, unknown> | null = null;
   let updateFilters: Record<string, unknown> | null = null;
   let updatePayload: unknown;
@@ -248,7 +251,9 @@ test('patches subscriptions only within the API key owner scope and recalculates
       data: {
         ...subscriptionRow,
         period: 'yearly',
-        next_payment_date: '2027-06-01',
+        last_payment_date: '2025-07-01',
+        next_payment_date: '2026-07-01',
+        billing_anchor_day: null,
       },
       error: null,
     };
@@ -286,14 +291,55 @@ test('patches subscriptions only within the API key owner scope and recalculates
     amount: 15.99,
     currency: 'USD',
     period: 'yearly',
-    last_payment_date: '2026-06-01',
-    next_payment_date: '2027-06-01',
+    last_payment_date: '2025-07-01',
+    next_payment_date: '2026-07-01',
+    billing_anchor_day: null,
     custom_date: null,
     notification_enabled: true,
     status: 'active',
   });
   assert.equal(body.data.period, 'yearly');
-  assert.equal(body.data.nextPaymentDate, '2027-06-01');
+  assert.equal(body.data.nextPaymentDate, '2026-07-01');
+});
+
+test('legacy last-payment patches preserve a month-end anchor', async () => {
+  let updatePayload: Record<string, unknown> | undefined;
+  const database = createDatabase((state: QueryState) => {
+    if (state.operation === 'select') {
+      return { data: subscriptionRow, error: null };
+    }
+
+    updatePayload = state.payload as Record<string, unknown>;
+    return {
+      data: {
+        ...subscriptionRow,
+        last_payment_date: '2026-01-31',
+        next_payment_date: '2026-02-28',
+        billing_anchor_day: 31,
+      },
+      error: null,
+    };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-legacy-month-end',
+    now: () => new Date('2026-01-31T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'PATCH',
+    `/api/v1/subscriptions/${subscriptionRow.id}`,
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({ lastPaymentDate: '2026-01-31' })
+  ), {} as never));
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(updatePayload?.next_payment_date, '2026-02-28');
+  assert.equal(updatePayload?.billing_anchor_day, 31);
 });
 
 test('clears stale custom billing data when patching back to a standard period', async () => {
@@ -303,6 +349,7 @@ test('clears stale custom billing data when patching back to a standard period',
     period: 'custom',
     custom_date: '45',
     next_payment_date: '2026-07-16',
+    billing_anchor_day: null,
   };
   const database = createDatabase((state: QueryState) => {
     if (state.operation === 'select') {
@@ -318,7 +365,9 @@ test('clears stale custom billing data when patching back to a standard period',
         ...subscriptionRow,
         period: 'monthly',
         custom_date: null,
-        next_payment_date: '2026-07-01',
+        last_payment_date: '2026-06-16',
+        next_payment_date: '2026-07-16',
+        billing_anchor_day: 16,
       },
       error: null,
     };
@@ -347,8 +396,9 @@ test('clears stale custom billing data when patching back to a standard period',
     amount: 15.99,
     currency: 'USD',
     period: 'monthly',
-    last_payment_date: '2026-06-01',
-    next_payment_date: '2026-07-01',
+    last_payment_date: '2026-06-16',
+    next_payment_date: '2026-07-16',
+    billing_anchor_day: 16,
     custom_date: null,
     notification_enabled: true,
     status: 'active',
@@ -445,8 +495,7 @@ test('rejects client-managed subscription fields', async () => {
       amount: 15.99,
       currency: 'USD',
       period: 'monthly',
-      lastPaymentDate: '2026-06-01',
-      nextPaymentDate: '2026-07-01',
+      id: subscriptionRow.id,
     })
   ), {} as never));
   const body = parseJsonResponse<{
@@ -460,7 +509,7 @@ test('rejects client-managed subscription fields', async () => {
 
   assert.equal(response.statusCode, 400);
   assert.equal(body.error.code, 'invalid_subscription_field');
-  assert.equal(body.error.field, 'nextPaymentDate');
+  assert.equal(body.error.field, 'id');
   assert.match(body.error.suggestedFix ?? '', /server-managed fields/);
   assert.ok(body.error.writableFields?.includes('period'));
   // Validation failures are rejected before the hourly quota is consumed, so

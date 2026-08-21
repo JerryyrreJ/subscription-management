@@ -28,7 +28,7 @@ Main endpoint groups live under:
 - Database-managed fields are read-only.
 - The API key owner determines the user scope.
 - Every subscription query is filtered by the authenticated API key owner.
-- `nextPaymentDate` is calculated by the server from billing period fields.
+- `nextPaymentDate` is the authoritative renewal date; monthly schedules preserve their original calendar-day anchor.
 - `status` supports soft lifecycle changes: `active`, `paused`, and `cancelled`.
 - Analytics endpoints report totals per currency and never convert across currencies.
 - Audit endpoints expose write history for public API create, update, and delete operations.

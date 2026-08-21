@@ -1,5 +1,10 @@
 import type { Subscription } from '../types';
-import { getAutoRenewedDates, getDaysUntil, getCurrentTimeZone } from './dates';
+import {
+ calculatePreviousPaymentDate,
+ getAutoRenewedDates,
+ getDaysUntil,
+ getCurrentTimeZone,
+} from './dates';
 
 export interface ResolvedSubscriptionRenewal {
  storedLastPaymentDate: string;
@@ -11,19 +16,24 @@ export interface ResolvedSubscriptionRenewal {
 }
 
 export const resolveSubscriptionRenewal = (
- subscription: Pick<Subscription, 'lastPaymentDate' | 'nextPaymentDate' | 'period' | 'customDate'>,
+ subscription: Pick<Subscription, 'nextPaymentDate' | 'period' | 'customDate' | 'billingAnchorDay'>,
  timeZone: string = getCurrentTimeZone()
 ): ResolvedSubscriptionRenewal => {
  const renewedDates = getAutoRenewedDates(
-  subscription.lastPaymentDate,
   subscription.nextPaymentDate,
   subscription.period,
   subscription.customDate,
+  subscription.billingAnchorDay,
   timeZone
  );
 
  return {
-  storedLastPaymentDate: subscription.lastPaymentDate,
+  storedLastPaymentDate: calculatePreviousPaymentDate(
+   subscription.nextPaymentDate,
+   subscription.period,
+   subscription.customDate,
+   subscription.billingAnchorDay
+  ),
   storedNextPaymentDate: subscription.nextPaymentDate,
   effectiveLastPaymentDate: renewedDates.lastPaymentDate,
   effectiveNextPaymentDate: renewedDates.nextPaymentDate,

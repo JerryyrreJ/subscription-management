@@ -130,10 +130,9 @@ export const formatDateOnly = (date: Date): string => {
 export const getTodayDateOnly = (timeZone: string = getCurrentTimeZone()): Date =>
  parseDateOnly(formatInstantToDateOnly(new Date(), timeZone));
 
-const addMonthsClamped = (date: Date, months: number): Date => {
- const day = date.getUTCDate();
+const addMonthsClamped = (date: Date, months: number, anchorDay: number = date.getUTCDate()): Date => {
  const targetMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
- return clampUtcDate(targetMonth.getUTCFullYear(), targetMonth.getUTCMonth(), day);
+ return clampUtcDate(targetMonth.getUTCFullYear(), targetMonth.getUTCMonth(), anchorDay);
 };
 
 const addYearsClamped = (date: Date, years: number): Date =>
@@ -148,13 +147,14 @@ const addDaysUtc = (date: Date, days: number): Date => {
 export const addBillingPeriodToDate = (
  dateString: string,
  period: string,
- customDate?: string
+ customDate?: string,
+ billingAnchorDay?: number
 ): string => {
  const date = parseDateOnly(dateString);
 
  switch (period) {
  case 'monthly':
- return formatDateOnly(addMonthsClamped(date, 1));
+ return formatDateOnly(addMonthsClamped(date, 1, billingAnchorDay));
  case 'yearly':
  return formatDateOnly(addYearsClamped(date, 1));
  case 'custom': {
@@ -169,13 +169,14 @@ export const addBillingPeriodToDate = (
 export const subtractBillingPeriodFromDate = (
  dateString: string,
  period: string,
- customDate?: string
+ customDate?: string,
+ billingAnchorDay?: number
 ): string => {
  const date = parseDateOnly(dateString);
 
  switch (period) {
  case 'monthly':
- return formatDateOnly(addMonthsClamped(date, -1));
+ return formatDateOnly(addMonthsClamped(date, -1, billingAnchorDay));
  case 'yearly':
  return formatDateOnly(addYearsClamped(date, -1));
  case 'custom': {
@@ -233,8 +234,16 @@ export const formatWeekdayLabels = (
 export const calculateNextPaymentDate = (
  lastPaymentDate: string,
  period: string,
- customDate?: string
-): string => addBillingPeriodToDate(lastPaymentDate, period, customDate);
+ customDate?: string,
+ billingAnchorDay?: number
+): string => addBillingPeriodToDate(lastPaymentDate, period, customDate, billingAnchorDay);
+
+export const calculatePreviousPaymentDate = (
+ nextPaymentDate: string,
+ period: string,
+ customDate?: string,
+ billingAnchorDay?: number
+): string => subtractBillingPeriodFromDate(nextPaymentDate, period, customDate, billingAnchorDay);
 
 export const getDaysUntil = (
  dateString: string,
@@ -247,35 +256,36 @@ export const getDaysUntil = (
 };
 
 export const getAutoRenewedDates = (
- lastPaymentDate: string,
  nextPaymentDate: string,
  period: string,
  customDate?: string,
+ billingAnchorDay?: number,
  timeZone: string = getCurrentTimeZone()
 ): { lastPaymentDate: string; nextPaymentDate: string } => {
  const today = formatDateOnly(getTodayDateOnly(timeZone));
 
  // 如果还没到期，返回原始日期
  if (compareDateOnly(nextPaymentDate, today) >= 0) {
- return { lastPaymentDate, nextPaymentDate };
+ return {
+  lastPaymentDate: calculatePreviousPaymentDate(nextPaymentDate, period, customDate, billingAnchorDay),
+  nextPaymentDate,
+ };
  }
 
- let newLastPaymentDate = lastPaymentDate;
  let newNextPaymentDate = nextPaymentDate;
 
  while (compareDateOnly(newNextPaymentDate, today) < 0) {
- const advancedDate = addBillingPeriodToDate(newNextPaymentDate, period, customDate);
+ const advancedDate = addBillingPeriodToDate(newNextPaymentDate, period, customDate, billingAnchorDay);
 
  if (advancedDate === newNextPaymentDate) {
  break;
  }
 
- newLastPaymentDate = newNextPaymentDate;
  newNextPaymentDate = advancedDate;
  }
 
  return {
- lastPaymentDate: newLastPaymentDate,
+ lastPaymentDate: calculatePreviousPaymentDate(newNextPaymentDate, period, customDate, billingAnchorDay),
  nextPaymentDate: newNextPaymentDate,
  };
 };

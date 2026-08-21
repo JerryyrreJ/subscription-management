@@ -88,6 +88,7 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   "period": "monthly",
   "lastPaymentDate": "2026-06-01",
   "nextPaymentDate": "2026-07-01",
+  "billingAnchorDay": 1,
   "notificationEnabled": true,
   "status": "active",
   "createdAt": "2026-06-16T00:00:00.000Z",
@@ -104,7 +105,8 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   "amount": 15.99,
   "currency": "USD",
   "period": "monthly",
-  "lastPaymentDate": "2026-06-01",
+  "nextPaymentDate": "2026-07-01",
+  "billingAnchorDay": 1,
   "customDate": null,
   "notificationEnabled": true,
   "status": "active"
@@ -114,7 +116,6 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
 服务端管理这些字段：
 
 - `id`
-- `nextPaymentDate`
 - `createdAt`
 - `updatedAt`
 
@@ -129,12 +130,14 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
 | `amount` | 必填数字，范围 0 到 999999.99，最多 2 位小数 |
 | `currency` | 必填，可选 `CNY`、`USD`、`EUR`、`JPY`、`GBP`、`AUD`、`CAD`、`CHF`、`HKD`、`SGD` |
 | `period` | 必填，可选 `monthly`、`yearly`、`custom` |
-| `lastPaymentDate` | 必填，格式为 `YYYY-MM-DD` |
+| `nextPaymentDate` | 必填，下次续费日期，格式为 `YYYY-MM-DD` |
+| `billingAnchorDay` | 月付订阅可选，范围 1-31；通常根据 `nextPaymentDate` 自动推断 |
+| `lastPaymentDate` | 已弃用的兼容输入；未提供 `nextPaymentDate` 时会转换为下次续费日期 |
 | `customDate` | 仅当 `period` 为 `custom` 时必填；表示间隔天数，需为正整数字符串 |
 | `notificationEnabled` | 可选布尔值，默认 `true` |
 | `status` | 可选，`active`、`paused`、`cancelled` 之一，默认 `active` |
 
-`nextPaymentDate` 由服务端根据 `lastPaymentDate`、`period` 和 `customDate` 计算。`PATCH` 时，只有这三个字段之一发生变化才会重新计算；修改其它字段不会改动已存的 `nextPaymentDate`。`PATCH` 只校验你实际传入的字段，因此更新某个字段不会因为其它历史数据不合规而失败。
+`nextPaymentDate` 是权威的订阅计划日期。月付订阅通过 `billingAnchorDay` 保留原始日历日期，短月份只会临时落到月末，例如：1 月 31 日 → 2 月 28/29 日 → 3 月 31 日。如果服务是固定每 30 天扣费，而不是每月固定日期，请使用 `period: "custom"` 和 `customDate: "30"`。响应中的 `lastPaymentDate` 只是反推得到的兼容字段，新集成不应再依赖它。
 
 ## 生命周期：取消、暂停、恢复 vs 删除
 
@@ -164,7 +167,7 @@ curl -X PATCH ... -d '{"status":"active"}'  .../{id}
 用户意图：
 
 ```text
-帮我记录 ChatGPT Plus，每月 20 美元，上次付款是 2026-06-17。
+帮我记录 ChatGPT Plus，每月 20 美元，下次续费是 2026-07-17。
 ```
 
 API 调用：
@@ -173,7 +176,7 @@ API 调用：
 curl -X POST \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name":"ChatGPT Plus","category":"AI","amount":20,"currency":"USD","period":"monthly","lastPaymentDate":"2026-06-17","notificationEnabled":true}' \
+  -d '{"name":"ChatGPT Plus","category":"AI","amount":20,"currency":"USD","period":"monthly","nextPaymentDate":"2026-07-17","notificationEnabled":true}' \
   https://your-site.example/api/v1/subscriptions
 ```
 
@@ -230,10 +233,12 @@ curl -X DELETE \
   "amount": 12,
   "currency": "USD",
   "period": "custom",
-  "lastPaymentDate": "2026-06-01",
+  "nextPaymentDate": "2026-07-16",
   "customDate": "45"
 }
 ```
+
+固定每 30 天续费时，把 `customDate` 设为 `"30"`；不要选择 `monthly`。
 
 从 `custom` 改回 `monthly` 或 `yearly` 时，省略 `customDate`。服务端会清理旧的自定义计费数据。
 

@@ -7,7 +7,7 @@ import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { recordAudit } from './_shared/audit';
 import { createSupabaseAdminClient } from './_shared/supabase';
-import { calculateNextPaymentDate } from '../../src/utils/dates';
+import { calculateNextPaymentDate, calculatePreviousPaymentDate, getDateOnlyDay } from '../../src/utils/dates';
 import {
   SUBSCRIPTION_CURRENCIES,
   SUBSCRIPTION_PERIODS,
@@ -26,6 +26,7 @@ interface SubscriptionRow {
   period: string;
   last_payment_date: string;
   next_payment_date: string;
+  billing_anchor_day: number | null;
   custom_date: string | null;
   notification_enabled: boolean;
   status: string;
@@ -50,6 +51,7 @@ const SUBSCRIPTION_COLUMNS = [
   'period',
   'last_payment_date',
   'next_payment_date',
+  'billing_anchor_day',
   'custom_date',
   'notification_enabled',
   'status',
@@ -64,6 +66,8 @@ const allowedSubscriptionFields = new Set([
   'currency',
   'period',
   'lastPaymentDate',
+  'nextPaymentDate',
+  'billingAnchorDay',
   'customDate',
   'notificationEnabled',
   'status',
@@ -77,7 +81,9 @@ const subscriptionFieldGuidance: Record<string, string> = {
   amount: 'Use a number in major currency units with at most 2 decimal places, for example 15.99.',
   currency: `Use one of the supported currency codes: ${SUBSCRIPTION_CURRENCIES.join(', ')}.`,
   period: `Use one of the supported billing periods: ${SUBSCRIPTION_PERIODS.join(', ')}.`,
-  lastPaymentDate: 'Use the most recent payment date in YYYY-MM-DD format.',
+  lastPaymentDate: 'Use the most recent payment date in YYYY-MM-DD format. This legacy field is converted to nextPaymentDate.',
+  nextPaymentDate: 'Use the upcoming renewal date in YYYY-MM-DD format.',
+  billingAnchorDay: 'For monthly billing, use the original calendar day from 1 to 31. Short months temporarily use month end.',
   customDate: 'Use a positive whole-number string when period is custom; omit customDate for monthly or yearly subscriptions.',
   notificationEnabled: 'Use true or false. Omit the field to use the default value true.',
   status: `Use one of the supported lifecycle states: ${SUBSCRIPTION_STATUSES.join(', ')}. Set cancelled to stop tracking without deleting history.`,
@@ -215,7 +221,7 @@ const parseJsonObject = (body: string | null): Record<string, unknown> => {
     const parsed = JSON.parse(body) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw new HttpError(400, 'invalid_json', 'Request body must be a JSON object', {}, {
-        suggestedFix: 'Send an object such as {"name":"Netflix","category":"Streaming","amount":15.99,"currency":"USD","period":"monthly","lastPaymentDate":"2026-06-01"}.',
+        suggestedFix: 'Send an object such as {"name":"Netflix","category":"Streaming","amount":15.99,"currency":"USD","period":"monthly","nextPaymentDate":"2026-07-01"}.',
       });
     }
     return parsed as Record<string, unknown>;
@@ -235,7 +241,7 @@ const assertAllowedFields = (body: Record<string, unknown>): void => {
     throw new HttpError(400, 'invalid_subscription_field', `Field is not writable: ${unknownField}`, {}, {
       field: unknownField,
       writableFields: writableSubscriptionFields,
-      suggestedFix: 'Remove server-managed fields such as id, nextPaymentDate, createdAt, and updatedAt before retrying.',
+      suggestedFix: 'Remove server-managed fields such as id, createdAt, and updatedAt before retrying.',
     });
   }
 };
@@ -286,6 +292,7 @@ const toApiSubscription = (row: SubscriptionRow) => ({
   period: row.period,
   lastPaymentDate: row.last_payment_date,
   nextPaymentDate: row.next_payment_date,
+  billingAnchorDay: row.billing_anchor_day ?? undefined,
   customDate: row.custom_date ?? undefined,
   notificationEnabled: row.notification_enabled,
   status: row.status,
@@ -295,22 +302,37 @@ const toApiSubscription = (row: SubscriptionRow) => ({
 
 const toDatabasePayload = (
   parsed: z.infer<typeof subscriptionCreateInputSchema>
-) => ({
-  name: parsed.name,
-  category: parsed.category,
-  amount: parsed.amount,
-  currency: parsed.currency,
-  period: parsed.period,
-  last_payment_date: parsed.lastPaymentDate,
-  next_payment_date: calculateNextPaymentDate(
-    parsed.lastPaymentDate,
+) => {
+  const billingAnchorDay = parsed.period === 'monthly'
+    ? parsed.billingAnchorDay ?? getDateOnlyDay(parsed.lastPaymentDate ?? parsed.nextPaymentDate as string)
+    : undefined;
+  const nextPaymentDate = parsed.nextPaymentDate ?? calculateNextPaymentDate(
+    parsed.lastPaymentDate as string,
     parsed.period,
-    parsed.customDate
-  ),
-  custom_date: parsed.customDate || null,
-  notification_enabled: parsed.notificationEnabled,
-  status: parsed.status,
-});
+    parsed.customDate,
+    billingAnchorDay
+  );
+  const lastPaymentDate = calculatePreviousPaymentDate(
+    nextPaymentDate,
+    parsed.period,
+    parsed.customDate,
+    billingAnchorDay
+  );
+
+  return {
+    name: parsed.name,
+    category: parsed.category,
+    amount: parsed.amount,
+    currency: parsed.currency,
+    period: parsed.period,
+    last_payment_date: lastPaymentDate,
+    next_payment_date: nextPaymentDate,
+    billing_anchor_day: billingAnchorDay ?? null,
+    custom_date: parsed.customDate || null,
+    notification_enabled: parsed.notificationEnabled,
+    status: parsed.status,
+  };
+};
 
 const getSubscription = async (
   database: SupabaseClient,
@@ -388,6 +410,8 @@ const parsePatchInput = (
     currency: existing.currency,
     period: existing.period,
     lastPaymentDate: existing.lastPaymentDate,
+    nextPaymentDate: existing.nextPaymentDate,
+    billingAnchorDay: existing.billingAnchorDay,
     customDate: existing.customDate,
     notificationEnabled: existing.notificationEnabled,
     status: existing.status,
@@ -395,6 +419,29 @@ const parsePatchInput = (
 
   for (const key of Object.keys(body)) {
     merged[key] = patch[key];
+  }
+
+  if (Object.hasOwn(body, 'lastPaymentDate') && !Object.hasOwn(body, 'nextPaymentDate')) {
+    merged.nextPaymentDate = calculateNextPaymentDate(
+      merged.lastPaymentDate as string,
+      merged.period as string,
+      merged.customDate as string | undefined,
+      merged.period === 'monthly'
+        ? getDateOnlyDay(merged.lastPaymentDate as string)
+        : undefined
+    );
+  }
+
+  if (merged.period === 'monthly') {
+    if (Object.hasOwn(body, 'nextPaymentDate') || Object.hasOwn(body, 'lastPaymentDate') || Object.hasOwn(body, 'period')) {
+      merged.billingAnchorDay = Object.hasOwn(body, 'billingAnchorDay')
+        ? merged.billingAnchorDay
+        : Object.hasOwn(body, 'lastPaymentDate') && !Object.hasOwn(body, 'nextPaymentDate')
+          ? getDateOnlyDay(merged.lastPaymentDate as string)
+          : getDateOnlyDay(merged.nextPaymentDate as string);
+    }
+  } else {
+    merged.billingAnchorDay = undefined;
   }
 
   if (Object.hasOwn(body, 'period') && merged.period !== 'custom' && !Object.hasOwn(body, 'customDate')) {
@@ -611,14 +658,7 @@ export const createSubscriptionsApiHandler = (
       const parsed = parsePatchInput(body, existing);
       const context = await consume();
 
-      // Recalculate the next payment date only when a field that affects it
-      // changes; otherwise keep the stored value so unrelated edits don't move it.
-      const billingChanged = ['lastPaymentDate', 'period', 'customDate']
-        .some(field => Object.hasOwn(body, field));
       const payload = toDatabasePayload(parsed);
-      if (!billingChanged) {
-        payload.next_payment_date = existing.nextPaymentDate;
-      }
 
       const { data, error } = await dependencies.database
         .from('subscriptions')

@@ -15,7 +15,7 @@ description: "把开放 API 作为 AI Agent 的工具使用，包括操作语义
 你可以直接查询订阅。
 创建、更新或删除订阅前，必须总结即将执行的变更并询问用户确认。
 删除前，必须重复订阅名称和 id。
-不要发送服务端管理字段：id、nextPaymentDate、createdAt、updatedAt。
+不要发送服务端管理字段：id、createdAt、updatedAt。下次续费日期使用 nextPaymentDate。
 如果 API 返回 field、suggestedFix、allowedValues 或 writableFields，使用这些提示修正 payload。
 ```
 
@@ -55,7 +55,7 @@ description: "把开放 API 作为 AI Agent 的工具使用，包括操作语义
 3. 询问确认：
 
 ```text
-我找到了 Netflix（33333333-3333-4333-8333-333333333333），当前为 monthly。我将把 period 改为 yearly，服务端会重新计算 nextPaymentDate。确认执行吗？
+我找到了 Netflix（33333333-3333-4333-8333-333333333333），当前为 monthly。我将把 period 改为 yearly，并保留当前的下次续费日期。确认执行吗？
 ```
 
 4. 用户确认后，调用 `update_subscription`：

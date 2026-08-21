@@ -8,8 +8,7 @@ import {
  sortPendingOperations
 } from '../utils/subscriptionSync'
 import { scopeSubscriptionQueryToUser, scopeSubscriptionQueryToUserAndId } from '../utils/subscriptionTenantScope'
-import { normalizeSubscriptionRecord, subscriptionCreateInputSchema } from '../utils/subscriptionDomain'
-import { calculateNextPaymentDate } from '../utils/dates'
+import { normalizeSubscriptionRecord } from '../utils/subscriptionDomain'
 
 export interface SupabaseSubscription {
  id: string
@@ -21,6 +20,7 @@ export interface SupabaseSubscription {
  period: string
  last_payment_date: string
  next_payment_date: string
+ billing_anchor_day?: number | null
  custom_date?: string | null
  notification_enabled: boolean
  created_at: string
@@ -280,6 +280,7 @@ export class SubscriptionService {
  period: data.period,
  lastPaymentDate: data.last_payment_date,
  nextPaymentDate: data.next_payment_date,
+ billingAnchorDay: data.billing_anchor_day ?? undefined,
  customDate: data.custom_date,
  updatedAt: data.updated_at,
  notificationEnabled: data.notification_enabled ?? true, // 默认 true
@@ -289,18 +290,22 @@ export class SubscriptionService {
 
  // 数据格式转换：App -> Supabase
  private static transformToSupabase(subscription: Subscription | Omit<Subscription, 'id'>): Omit<SupabaseSubscription, 'id' | 'user_id' | 'created_at' | 'updated_at'> {
- const parsed = subscriptionCreateInputSchema.parse(subscription)
+ const normalized = normalizeSubscriptionRecord({
+  ...subscription,
+  id: 'id' in subscription ? subscription.id : crypto.randomUUID(),
+ })
 
  return {
- name: parsed.name,
- category: parsed.category,
- amount: parsed.amount,
- currency: parsed.currency,
- period: parsed.period,
- last_payment_date: parsed.lastPaymentDate,
- next_payment_date: calculateNextPaymentDate(parsed.lastPaymentDate, parsed.period, parsed.customDate),
- custom_date: parsed.customDate || null,
- notification_enabled: parsed.notificationEnabled
+ name: normalized.name,
+ category: normalized.category,
+ amount: normalized.amount,
+ currency: normalized.currency,
+ period: normalized.period,
+ last_payment_date: normalized.lastPaymentDate,
+ next_payment_date: normalized.nextPaymentDate,
+ billing_anchor_day: normalized.billingAnchorDay ?? null,
+ custom_date: normalized.customDate || null,
+ notification_enabled: normalized.notificationEnabled ?? true
  }
  }
 

@@ -88,6 +88,7 @@ The response echoes the applied query so an agent can confirm what produced the 
   "period": "monthly",
   "lastPaymentDate": "2026-06-01",
   "nextPaymentDate": "2026-07-01",
+  "billingAnchorDay": 1,
   "notificationEnabled": true,
   "status": "active",
   "createdAt": "2026-06-16T00:00:00.000Z",
@@ -104,7 +105,8 @@ The response echoes the applied query so an agent can confirm what produced the 
   "amount": 15.99,
   "currency": "USD",
   "period": "monthly",
-  "lastPaymentDate": "2026-06-01",
+  "nextPaymentDate": "2026-07-01",
+  "billingAnchorDay": 1,
   "customDate": null,
   "notificationEnabled": true,
   "status": "active"
@@ -114,7 +116,6 @@ The response echoes the applied query so an agent can confirm what produced the 
 The server manages:
 
 - `id`
-- `nextPaymentDate`
 - `createdAt`
 - `updatedAt`
 
@@ -129,12 +130,14 @@ Do not send server-managed fields in `POST` or `PATCH` requests.
 | `amount` | Required number, 0 to 999999.99, max 2 decimals |
 | `currency` | Required. One of `CNY`, `USD`, `EUR`, `JPY`, `GBP`, `AUD`, `CAD`, `CHF`, `HKD`, `SGD` |
 | `period` | Required. One of `monthly`, `yearly`, `custom` |
-| `lastPaymentDate` | Required date in `YYYY-MM-DD` format |
+| `nextPaymentDate` | Required upcoming renewal date in `YYYY-MM-DD` format |
+| `billingAnchorDay` | Optional monthly calendar anchor from 1-31; normally inferred from `nextPaymentDate` |
+| `lastPaymentDate` | Deprecated compatibility input; converted into `nextPaymentDate` when the latter is omitted |
 | `customDate` | Required only when `period` is `custom`; positive whole-number string of days |
 | `notificationEnabled` | Optional boolean, defaults to `true` |
 | `status` | Optional. One of `active`, `paused`, `cancelled`; defaults to `active` |
 
-`nextPaymentDate` is calculated by the server from `lastPaymentDate`, `period`, and `customDate`. On `PATCH`, it is recalculated only when one of those three fields changes; updating any other field leaves the stored `nextPaymentDate` untouched. Only the fields you send in a `PATCH` are validated, so updating one field never fails because of unrelated stored data.
+`nextPaymentDate` is the authoritative schedule date. For monthly billing, `billingAnchorDay` preserves the original calendar day across short months: January 31 → February 28/29 → March 31. If a charge repeats every 30 days rather than on a fixed day of each month, use `period: "custom"` with `customDate: "30"`. `lastPaymentDate` remains in responses as a derived compatibility field and should not be used for new integrations.
 
 ## Lifecycle: cancel, pause, resume vs delete
 
@@ -164,7 +167,7 @@ Only `active` subscriptions count toward active spend in the [analytics](/en/api
 User intent:
 
 ```text
-Add ChatGPT Plus, 20 USD per month, last paid on 2026-06-17.
+Add ChatGPT Plus, 20 USD per month, next renewal on 2026-07-17.
 ```
 
 API call:
@@ -173,7 +176,7 @@ API call:
 curl -X POST \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name":"ChatGPT Plus","category":"AI","amount":20,"currency":"USD","period":"monthly","lastPaymentDate":"2026-06-17","notificationEnabled":true}' \
+  -d '{"name":"ChatGPT Plus","category":"AI","amount":20,"currency":"USD","period":"monthly","nextPaymentDate":"2026-07-17","notificationEnabled":true}' \
   https://your-site.example/api/v1/subscriptions
 ```
 
@@ -230,10 +233,12 @@ For non-monthly/non-yearly intervals, set `period` to `custom` and send `customD
   "amount": 12,
   "currency": "USD",
   "period": "custom",
-  "lastPaymentDate": "2026-06-01",
+  "nextPaymentDate": "2026-07-16",
   "customDate": "45"
 }
 ```
+
+For a fixed 30-day interval, set `customDate` to `"30"`; do not use `monthly`.
 
 When patching from `custom` back to `monthly` or `yearly`, omit `customDate`. The server clears stale custom billing data.
 

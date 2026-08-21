@@ -32,6 +32,22 @@ const createOperation = (overrides: Partial<PendingSyncOperation> = {}): Pending
  queuedAt: overrides.queuedAt || '2026-03-02T00:00:00.000Z',
 });
 
+test('normalizeSubscription migrates a legacy monthly record to an anchored next-renewal schedule', () => {
+ const migrated = normalizeSubscription({
+  id: 'legacy-31',
+  name: 'Legacy monthly',
+  category: 'Software',
+  amount: 10,
+  currency: 'USD',
+  period: 'monthly',
+  lastPaymentDate: '2026-01-31',
+  notificationEnabled: true,
+ });
+
+ assert.equal(migrated.nextPaymentDate, '2026-02-28');
+ assert.equal(migrated.billingAnchorDay, 31);
+});
+
 test('mergePendingOperation folds update into an existing create', () => {
  const createdSubscription = createSubscription();
  const updatedSubscription = createSubscription({
