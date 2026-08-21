@@ -49,14 +49,16 @@ Authorization: Bearer subm_xxx
   "amount": 15.99,
   "currency": "USD",
   "period": "monthly",
-  "lastPaymentDate": "2026-06-01",
+  "nextPaymentDate": "2026-07-01",
   "customDate": null,
   "notificationEnabled": true,
   "status": "active"
 }
 ```
 
-`id`、`nextPaymentDate`、`createdAt` 和 `updatedAt` 由服务端管理。`customDate` 只用于自定义扣费周期。
+`nextPaymentDate` 是权威的下次续费日期；`id`、`createdAt` 和 `updatedAt` 由服务端管理。`customDate` 只用于自定义扣费周期。
+
+月付订阅按照每月固定的日历日期续费，因此单个周期可能是 28、29、30 或 31 天。例如以 1 月 31 日为锚点时，2 月会临时落到月末，3 月恢复为 31 日。如果服务是固定每 30 天扣费，请使用 `period: "custom"` 和 `customDate: "30"`。`lastPaymentDate` 仅作为旧客户端兼容字段，由计划反推得到。
 
 `status` 可以是 `active`、`paused` 或 `cancelled`。当用户希望保留历史时，优先使用 `PATCH {"status":"cancelled"}` 或 `PATCH {"status":"paused"}`；只有需要永久移除记录时才使用 `DELETE`。
 

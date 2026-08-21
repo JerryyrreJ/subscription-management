@@ -41,7 +41,7 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
               amount: 15.99,
               currency: 'USD',
               period: 'monthly',
-              lastPaymentDate: '2026-06-01',
+              nextPaymentDate: '2026-07-01',
             }],
           }),
         },

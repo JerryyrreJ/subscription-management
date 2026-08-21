@@ -12,6 +12,7 @@ const createSubscription = (overrides: Partial<Subscription> = {}): Subscription
  period: overrides.period || 'monthly',
  lastPaymentDate: overrides.lastPaymentDate || '2026-03-01',
  nextPaymentDate: overrides.nextPaymentDate || '2026-04-01',
+ billingAnchorDay: overrides.billingAnchorDay,
  customDate: overrides.customDate,
  createdAt: overrides.createdAt || '2026-03-01T00:00:00.000Z',
  updatedAt: overrides.updatedAt || '2026-03-01T00:00:00.000Z',
@@ -99,5 +100,19 @@ test('resolveSubscriptionRenewal uses the provided time zone when deciding wheth
   assert.equal(renewal.effectiveNextPaymentDate, '2026-03-31');
   assert.equal(renewal.daysUntilEffectiveNextPayment, 0);
   assert.equal(renewal.isAutoRenewed, false);
+ });
+});
+
+test('resolveSubscriptionRenewal restores the original day after a short month', () => {
+ withMockedNow('2026-03-01T12:00:00.000Z', () => {
+  const renewal = resolveSubscriptionRenewal(createSubscription({
+   lastPaymentDate: '2026-01-31',
+   nextPaymentDate: '2026-02-28',
+   billingAnchorDay: 31,
+  }), 'UTC');
+
+  assert.equal(renewal.effectiveLastPaymentDate, '2026-02-28');
+  assert.equal(renewal.effectiveNextPaymentDate, '2026-03-31');
+  assert.equal(renewal.isAutoRenewed, true);
  });
 });

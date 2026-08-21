@@ -102,7 +102,7 @@ test('keeps incomplete custom period updates for user completion', () => {
   assert.deepEqual(command.type === 'update' ? command.missingFields : [], ['customDate']);
 });
 
-test('converts requested renewal dates into last payment date updates', () => {
+test('keeps requested renewal dates authoritative', () => {
   const { command } = normalizeAiCommand({
     action: 'update',
     subscriptionId: 'sub-tello',
@@ -111,7 +111,7 @@ test('converts requested renewal dates into last payment date updates', () => {
 
   assert.equal(command.type, 'update');
   assert.deepEqual(command.type === 'update' ? command.patch : {}, {
-    lastPaymentDate: '2026-05-23',
+    nextPaymentDate: '2026-06-23',
   });
 });
 
@@ -124,7 +124,7 @@ test('accepts common renewal date aliases from AI providers', () => {
 
   assert.equal(command.type, 'update');
   assert.deepEqual(command.type === 'update' ? command.patch : {}, {
-    lastPaymentDate: '2026-05-23',
+    nextPaymentDate: '2026-06-23',
   });
 });
 
@@ -146,12 +146,12 @@ test('normalizes multiple update operations in one command', () => {
     'sub-fish-cloud',
   ]);
   assert.deepEqual(command.type === 'batchUpdate' ? command.updates[0].patch : {}, {
-    lastPaymentDate: '2026-05-23',
+    nextPaymentDate: '2026-06-23',
   });
   assert.deepEqual(command.type === 'batchUpdate' ? command.updates[1].patch : {}, {
     amount: 10.22,
     currency: 'CNY',
-    lastPaymentDate: '2026-06-21',
+    nextPaymentDate: '2026-07-21',
   });
 });
 

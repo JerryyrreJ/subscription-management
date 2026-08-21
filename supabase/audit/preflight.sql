@@ -97,6 +97,13 @@ WHERE (period <> 'custom' AND custom_date IS NOT NULL)
 
 UNION ALL
 
+SELECT 'invalid_subscription_billing_anchor', id::text, concat_ws(':', period, billing_anchor_day)
+FROM public.subscriptions
+WHERE (period = 'monthly' AND billing_anchor_day NOT BETWEEN 1 AND 31)
+  OR (period <> 'monthly' AND billing_anchor_day IS NOT NULL)
+
+UNION ALL
+
 SELECT 'invalid_category_timestamps', id::text, user_id::text
 FROM public.user_categories
 WHERE created_at IS NULL OR updated_at IS NULL

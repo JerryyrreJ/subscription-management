@@ -36,7 +36,6 @@ export type ImportDataErrorCode =
  | 'subscriptionCategoryRequired'
  | 'subscriptionAmountInvalid'
  | 'subscriptionPeriodInvalid'
- | 'subscriptionLastPaymentRequired'
  | 'subscriptionNextPaymentRequired'
  | 'subscriptionCurrencyInvalid'
  | 'subscriptionValidationFailed'
@@ -116,11 +115,10 @@ const normalizeImportSubscription = (
   throw new ImportDataError('subscriptionPeriodInvalid', { index });
  }
 
- if (!sub.lastPaymentDate || typeof sub.lastPaymentDate !== 'string') {
-  throw new ImportDataError('subscriptionLastPaymentRequired', { index });
- }
-
- if (!sub.nextPaymentDate || typeof sub.nextPaymentDate !== 'string') {
+ if (
+  (!sub.nextPaymentDate || typeof sub.nextPaymentDate !== 'string') &&
+  (!sub.lastPaymentDate || typeof sub.lastPaymentDate !== 'string')
+ ) {
   throw new ImportDataError('subscriptionNextPaymentRequired', { index });
  }
 
@@ -171,8 +169,8 @@ const hasSameSubscriptionContent = (left: Subscription, right: Subscription): bo
   left.amount === right.amount &&
   left.currency === right.currency &&
   left.period === right.period &&
-  left.lastPaymentDate === right.lastPaymentDate &&
   left.nextPaymentDate === right.nextPaymentDate &&
+  (left.billingAnchorDay ?? null) === (right.billingAnchorDay ?? null) &&
   (left.customDate || '') === (right.customDate || '') &&
   (left.notificationEnabled ?? true) === (right.notificationEnabled ?? true);
 };

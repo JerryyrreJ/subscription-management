@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import type { Subscription } from '../types';
-import { calculateNextPaymentDate, formatDateOnly, parseDateOnly } from './dates';
+import {
+ calculateNextPaymentDate,
+ calculatePreviousPaymentDate,
+ formatDateOnly,
+ getDateOnlyDay,
+ parseDateOnly,
+} from './dates';
 import { DEFAULT_CURRENCY } from './currency';
 import { MAX_SUBSCRIPTION_AMOUNT } from './subscriptionValidation';
 
@@ -28,6 +34,8 @@ const customDateSchema = z.preprocess(
  z.string().regex(/^[1-9]\d*$/, 'Custom period must be a positive whole number').optional()
 );
 
+const billingAnchorDaySchema = z.number().int().min(1).max(31).optional();
+
 const amountSchema = z.number()
  .finite('Amount must be finite')
  .min(0, 'Amount cannot be negative')
@@ -42,14 +50,16 @@ const subscriptionInputObject = z.object({
  amount: amountSchema,
  currency: z.enum(SUBSCRIPTION_CURRENCIES).default(DEFAULT_CURRENCY),
  period: z.enum(SUBSCRIPTION_PERIODS),
- lastPaymentDate: dateOnlySchema,
+ lastPaymentDate: dateOnlySchema.optional(),
+ nextPaymentDate: dateOnlySchema.optional(),
+ billingAnchorDay: billingAnchorDaySchema,
  customDate: customDateSchema,
  notificationEnabled: z.boolean().default(true),
  status: z.enum(SUBSCRIPTION_STATUSES).default('active'),
 });
 
 const validateCustomPeriod = (
- value: { period: string; customDate?: string },
+ value: { period: string; customDate?: string; lastPaymentDate?: string; nextPaymentDate?: string },
  context: z.RefinementCtx
 ): void => {
  if (value.period === 'custom' && !value.customDate) {
@@ -67,6 +77,14 @@ const validateCustomPeriod = (
    message: 'Custom period is only allowed for custom billing',
   });
  }
+
+ if (!value.nextPaymentDate && !value.lastPaymentDate) {
+  context.addIssue({
+   code: 'custom',
+   path: ['nextPaymentDate'],
+   message: 'Next payment date is required',
+  });
+ }
 };
 
 export const subscriptionCreateInputSchema = subscriptionInputObject.superRefine(validateCustomPeriod);
@@ -75,7 +93,6 @@ export const subscriptionPatchInputSchema = subscriptionInputObject.partial();
 
 export const subscriptionRecordSchema = subscriptionInputObject.extend({
  id: z.string().trim().min(1, 'Subscription id is required'),
- nextPaymentDate: dateOnlySchema,
  createdAt: z.string().datetime({ offset: true }).optional(),
  updatedAt: z.string().datetime({ offset: true }).optional(),
 }).superRefine(validateCustomPeriod);
@@ -94,16 +111,29 @@ export const createSubscriptionRecord = (
 ): Subscription => {
  const parsed = subscriptionCreateInputSchema.parse(input);
  const now = options.now || new Date().toISOString();
+ const billingAnchorDay = parsed.period === 'monthly'
+  ? parsed.billingAnchorDay ?? getDateOnlyDay(parsed.lastPaymentDate ?? parsed.nextPaymentDate as string)
+  : undefined;
+ const nextPaymentDate = parsed.nextPaymentDate ?? calculateNextPaymentDate(
+  parsed.lastPaymentDate as string,
+  parsed.period,
+  parsed.customDate,
+  billingAnchorDay
+ );
+ const lastPaymentDate = calculatePreviousPaymentDate(
+  nextPaymentDate,
+  parsed.period,
+  parsed.customDate,
+  billingAnchorDay
+ );
 
  return {
   ...parsed,
   id: options.id || crypto.randomUUID(),
+  lastPaymentDate,
+  nextPaymentDate,
+  billingAnchorDay,
   customDate: parsed.period === 'custom' ? parsed.customDate : undefined,
-  nextPaymentDate: calculateNextPaymentDate(
-   parsed.lastPaymentDate,
-   parsed.period,
-   parsed.customDate
-  ),
   createdAt: options.createdAt || now,
   updatedAt: now,
  };

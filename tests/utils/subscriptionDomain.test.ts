@@ -24,8 +24,22 @@ test('createSubscriptionRecord normalizes text and derives renewal timestamps', 
 
  assert.equal(subscription.name, 'ChatGPT Plus');
  assert.equal(subscription.nextPaymentDate, '2026-02-28');
+ assert.equal(subscription.billingAnchorDay, 31);
  assert.equal(subscription.createdAt, '2026-01-31T10:00:00.000Z');
  assert.equal(subscription.updatedAt, '2026-01-31T10:00:00.000Z');
+});
+
+test('next payment date is authoritative and last payment is derived', () => {
+ const subscription = createSubscriptionRecord({
+  ...validInput,
+  lastPaymentDate: undefined,
+  nextPaymentDate: '2026-02-28',
+  billingAnchorDay: 31,
+ });
+
+ assert.equal(subscription.lastPaymentDate, '2026-01-31');
+ assert.equal(subscription.nextPaymentDate, '2026-02-28');
+ assert.equal(subscription.billingAnchorDay, 31);
 });
 
 test('subscription schema rejects invalid calendar dates and excessive precision', () => {

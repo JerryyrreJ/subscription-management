@@ -62,7 +62,7 @@ const buildHandler = (opts: BuildOptions = {}) => {
           type: 'create',
           drafts: [{
             name: 'Netflix', category: 'Streaming', amount: 15.99, currency: 'USD',
-            period: 'monthly', lastPaymentDate: '2026-06-01', notificationEnabled: true, warnings: [],
+            period: 'monthly', nextPaymentDate: '2026-07-01', notificationEnabled: true, warnings: [],
           }],
         },
         usage: { inputTokens: 120, outputTokens: 40 },

@@ -26,7 +26,6 @@ export const importData = {
   subscriptionCategoryRequired: 'Invalid subscription data at index {{index}}: category is required.',
   subscriptionAmountInvalid: 'Invalid subscription data at index {{index}}: amount must be a number.',
   subscriptionPeriodInvalid: 'Invalid subscription data at index {{index}}: period is invalid.',
-  subscriptionLastPaymentRequired: 'Invalid subscription data at index {{index}}: lastPaymentDate is required.',
   subscriptionNextPaymentRequired: 'Invalid subscription data at index {{index}}: nextPaymentDate is required.',
   subscriptionCurrencyInvalid: 'Invalid subscription data at index {{index}}: currency is invalid.',
   subscriptionValidationFailed: 'Invalid subscription data at index {{index}}: {{message}}',

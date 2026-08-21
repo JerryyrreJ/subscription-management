@@ -15,7 +15,7 @@ Give the assistant this policy before allowing write access:
 You can read subscriptions without confirmation.
 Before creating, updating, or deleting subscriptions, summarize the exact planned change and ask for confirmation.
 Before deleting, repeat the subscription name and id.
-Never send server-managed fields: id, nextPaymentDate, createdAt, updatedAt.
+Never send server-managed fields: id, createdAt, updatedAt. Use nextPaymentDate for the upcoming renewal.
 If the API returns field, suggestedFix, allowedValues, or writableFields, revise the payload using those hints.
 ```
 
@@ -55,7 +55,7 @@ Assistant:
 3. Asks:
 
 ```text
-I found Netflix (33333333-3333-4333-8333-333333333333), currently monthly. I will change period to yearly and the server will recalculate nextPaymentDate. Confirm?
+I found Netflix (33333333-3333-4333-8333-333333333333), currently monthly. I will change period to yearly while keeping the upcoming renewal date. Confirm?
 ```
 
 4. Calls `update_subscription` only after confirmation:

@@ -1,6 +1,6 @@
 import type { Currency, Period, Subscription } from '../types';
 import { DEFAULT_CURRENCY } from './currency';
-import { formatDateOnly, parseDateOnly, subtractBillingPeriodFromDate } from './dates';
+import { calculateNextPaymentDate, formatDateOnly, getDateOnlyDay, parseDateOnly } from './dates';
 import { normalizeDrafts, type DraftSubscription } from './subscriptionDraft';
 import { SUBSCRIPTION_CURRENCIES, SUBSCRIPTION_PERIODS, subscriptionPatchInputSchema } from './subscriptionDomain';
 
@@ -13,6 +13,7 @@ export interface AiSubscriptionContextItem {
   period: Period;
   lastPaymentDate: string;
   nextPaymentDate: string;
+  billingAnchorDay?: number;
   customDate?: string;
   notificationEnabled: boolean;
 }
@@ -29,7 +30,7 @@ export interface AiUpdateOperation {
   subscriptionId: string;
   patch: Partial<Pick<
     Subscription,
-    'name' | 'category' | 'amount' | 'currency' | 'period' | 'lastPaymentDate' | 'customDate' | 'notificationEnabled'
+    'name' | 'category' | 'amount' | 'currency' | 'period' | 'nextPaymentDate' | 'customDate' | 'notificationEnabled'
   >>;
   missingFields?: AiUpdateMissingField[];
   message?: string;
@@ -193,11 +194,6 @@ const normalizePatch = (
     patch.period = period;
   }
 
-  const lastPaymentDate = asString(record.lastPaymentDate);
-  if (isValidDateOnly(lastPaymentDate) && lastPaymentDate <= today) {
-    patch.lastPaymentDate = lastPaymentDate;
-  }
-
   if (record.customDate !== undefined) {
     const customDate = asString(record.customDate);
     if (/^[1-9]\d*$/.test(customDate)) {
@@ -213,14 +209,17 @@ const normalizePatch = (
   ]);
   const targetPeriod = (patch.period as Period | undefined) ?? target?.period;
   const targetCustomDate = (patch.customDate as string | undefined) ?? target?.customDate;
-  if (
-    !patch.lastPaymentDate &&
-    targetPeriod &&
-    isValidDateOnly(nextPaymentDate)
-  ) {
-    const derivedLastPaymentDate = subtractBillingPeriodFromDate(nextPaymentDate, targetPeriod, targetCustomDate);
-    if (isValidDateOnly(derivedLastPaymentDate) && derivedLastPaymentDate <= today) {
-      patch.lastPaymentDate = derivedLastPaymentDate;
+  if (isValidDateOnly(nextPaymentDate)) {
+    patch.nextPaymentDate = nextPaymentDate;
+  } else {
+    const lastPaymentDate = asString(record.lastPaymentDate);
+    if (targetPeriod && isValidDateOnly(lastPaymentDate) && lastPaymentDate <= today) {
+      patch.nextPaymentDate = calculateNextPaymentDate(
+        lastPaymentDate,
+        targetPeriod,
+        targetCustomDate,
+        targetPeriod === 'monthly' ? getDateOnlyDay(lastPaymentDate) : undefined
+      );
     }
   }
 
@@ -292,6 +291,7 @@ export const buildAiSubscriptionContext = (
     period: subscription.period,
     lastPaymentDate: subscription.lastPaymentDate,
     nextPaymentDate: subscription.nextPaymentDate,
+    billingAnchorDay: subscription.billingAnchorDay,
     customDate: subscription.period === 'custom' ? subscription.customDate : undefined,
     notificationEnabled: subscription.notificationEnabled ?? true,
   }));

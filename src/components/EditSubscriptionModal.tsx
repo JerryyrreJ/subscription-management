@@ -9,6 +9,7 @@ import { CustomSelect } from './CustomSelect';
 import { CustomDatePicker } from './CustomDatePicker';
 import type { Category } from '../utils/categories';
 import { getSubscriptionValidationMessage, updateSubscriptionRecord } from '../utils/subscriptionDomain';
+import { getDateOnlyDay } from '../utils/dates';
 
 interface CategorySyncMethods {
  createCategory: (category: Category) => Promise<CloudMutationResult<Category>>
@@ -38,7 +39,8 @@ export function EditSubscriptionModal({
  amount: subscription.amount.toString(),
  currency: subscription.currency || 'CNY',
  period: subscription.period,
- lastPaymentDate: subscription.lastPaymentDate,
+ nextPaymentDate: subscription.nextPaymentDate,
+ billingAnchorDay: subscription.billingAnchorDay,
  customDate: subscription.customDate || '',
  notificationEnabled: subscription.notificationEnabled ?? true, // 默认启用
  });
@@ -86,7 +88,8 @@ export function EditSubscriptionModal({
  amount: subscription.amount.toString(),
  currency: subscription.currency || 'CNY',
  period: subscription.period,
- lastPaymentDate: subscription.lastPaymentDate,
+ nextPaymentDate: subscription.nextPaymentDate,
+ billingAnchorDay: subscription.billingAnchorDay,
  customDate: subscription.customDate || '',
  notificationEnabled: subscription.notificationEnabled ?? true, // 默认启用
  });
@@ -167,15 +170,6 @@ export function EditSubscriptionModal({
 
  onClose();
  };
-
- // 获取今天的日期，格式化为 YYYY-MM-DD (使用本地时区)
- const today = (() => {
- const date = new Date();
- const year = date.getFullYear();
- const month = String(date.getMonth() + 1).padStart(2, '0');
- const day = String(date.getDate()).padStart(2, '0');
- return `${year}-${month}-${day}`;
- })();
 
  if (!isOpen) return null;
 
@@ -306,6 +300,16 @@ options={CURRENCIES.map(currency => ({
  ]}
  required={true}
  />
+ {formData.period === 'monthly' && (
+  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+   {t('editSubscription:monthlyPeriodHint')}
+  </p>
+ )}
+ {formData.period === 'custom' && (
+  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+   {t('editSubscription:customPeriodHint')}
+  </p>
+ )}
  </div>
 
  {formData.period === 'custom' && (
@@ -326,12 +330,15 @@ options={CURRENCIES.map(currency => ({
 
  <div>
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
- {t('editSubscription:lastPaymentDateLabel')}
+ {t('editSubscription:nextPaymentDateLabel')}
  </label>
  <CustomDatePicker
- value={formData.lastPaymentDate}
- onChange={(value) => setFormData({ ...formData, lastPaymentDate: value })}
- maxDate={today}
+ value={formData.nextPaymentDate}
+ onChange={(value) => setFormData({
+  ...formData,
+  nextPaymentDate: value,
+  billingAnchorDay: formData.period === 'monthly' ? getDateOnlyDay(value) : undefined,
+ })}
  required={true}
  />
  </div>

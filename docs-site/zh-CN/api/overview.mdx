@@ -28,7 +28,7 @@ https://your-site.example/api/v1
 - 数据库管理字段为只读。
 - API Key 所属用户决定访问范围。
 - 所有订阅查询都会按 API Key owner 过滤。
-- `nextPaymentDate` 由服务端根据计费周期字段计算。
+- `nextPaymentDate` 是权威续费日期；月付计划会保留原始的每月固定日期。
 - `status` 支持软生命周期状态：`active`、`paused`、`cancelled`。
 - 分析端点按币种分别报告金额，不跨币种换算。
 - 审计端点暴露开放 API create、update 和 delete 的写操作历史。

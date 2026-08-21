@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(76);
+SELECT plan(78);
 
 SELECT has_table('public', 'user_profiles', 'user_profiles exists');
 SELECT has_table('public', 'subscriptions', 'subscriptions exists');
@@ -34,6 +34,7 @@ SELECT is(
 );
 SELECT has_column('public', 'user_notification_settings', 'locale', 'notification settings store locale');
 SELECT has_column('public', 'subscriptions', 'status', 'subscriptions store lifecycle status');
+SELECT has_column('public', 'subscriptions', 'billing_anchor_day', 'subscriptions preserve a monthly calendar anchor');
 SELECT has_column('public', 'api_keys', 'scopes', 'API keys store permission scopes');
 SELECT has_function(
   'public',
@@ -279,6 +280,12 @@ VALUES
     'Deleted account subscription', 'Software', 30, 'USD', 'monthly',
     '2026-06-01', '2026-07-01'
   );
+
+SELECT is(
+  (SELECT min(billing_anchor_day)::integer FROM public.subscriptions),
+  1,
+  'monthly subscription inserts derive the calendar anchor'
+);
 
 INSERT INTO public.user_categories (user_id, category_id, name)
 VALUES

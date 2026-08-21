@@ -1,5 +1,6 @@
 import { PendingSyncOperation, Subscription } from '../types';
 import { DEFAULT_CURRENCY } from './currency';
+import { normalizeSubscriptionRecord } from './subscriptionDomain';
 
 const toTimestamp = (value?: string): number => {
  if (!value) {
@@ -14,13 +15,23 @@ export const normalizeSubscription = (subscription: Partial<Subscription>): Subs
  const createdAt = subscription.createdAt || new Date().toISOString();
  const updatedAt = subscription.updatedAt || createdAt;
 
- return {
-  ...subscription,
-  currency: subscription.currency || DEFAULT_CURRENCY,
-  createdAt,
-  updatedAt,
-  notificationEnabled: subscription.notificationEnabled ?? true,
- } as Subscription;
+ try {
+  return normalizeSubscriptionRecord({
+   ...subscription,
+   currency: subscription.currency || DEFAULT_CURRENCY,
+   createdAt,
+   updatedAt,
+   notificationEnabled: subscription.notificationEnabled ?? true,
+  });
+ } catch {
+  return {
+   ...subscription,
+   currency: subscription.currency || DEFAULT_CURRENCY,
+   createdAt,
+   updatedAt,
+   notificationEnabled: subscription.notificationEnabled ?? true,
+  } as Subscription;
+ }
 };
 
 export const sortSubscriptionsByRecency = (subscriptions: Subscription[]): Subscription[] => {

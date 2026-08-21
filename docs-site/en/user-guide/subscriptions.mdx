@@ -14,27 +14,39 @@ Use subscription records for recurring charges such as streaming services, softw
 3. Choose a category or add a new category.
 4. Enter the amount and currency.
 5. Choose the billing period: monthly, yearly, or custom.
-6. Enter the last payment date.
+6. Enter the next renewal date.
 7. Choose whether renewal notifications are enabled for this subscription.
 8. Save the subscription.
 
-The app calculates the next payment date from the last payment date and billing period.
+The next renewal date is the schedule's authoritative date. The app advances it automatically while preserving the billing rule.
 
 ## Billing periods
 
 | Period | Use it for |
 | --- | --- |
-| Monthly | Charges that renew every month |
+| Monthly | Charges that renew on the same calendar day each month |
 | Yearly | Charges that renew once a year |
 | Custom | Charges that renew every fixed number of days |
 
-For custom periods, enter the interval in days. For example, use `45` for a charge that repeats every 45 days.
+### Monthly is a calendar schedule
+
+Monthly billing does not mean a fixed 30-day interval. It renews on the same calendar day each month, so a cycle can contain 28, 29, 30, or 31 days. A subscription anchored to the 21st continues on the 21st of every month.
+
+For dates that do not exist in a short month, the app temporarily uses that month's final day and then returns to the original date. For example:
+
+```text
+January 31 → February 28 (or 29) → March 31
+```
+
+If a service charges every 30 days instead of on a fixed calendar date, choose **Custom** and enter `30`. Its renewal date can move between months.
+
+For other custom periods, enter the interval in days. For example, use `45` for a charge that repeats every 45 days.
 
 ## Edit a subscription
 
-Open a subscription from the list, then choose edit. You can change the name, category, amount, currency, billing period, last payment date, custom interval, and notification setting.
+Open a subscription from the list, then choose edit. You can change the name, category, amount, currency, billing period, next renewal date, custom interval, and notification setting.
 
-Changing the last payment date or billing period updates the next payment date.
+Changing the next renewal date also updates the monthly calendar anchor used for future renewals.
 
 ## Filter and sort
 
@@ -51,4 +63,3 @@ Use the dashboard controls to:
 Open a subscription and choose delete when you no longer want to track it. Deleting removes the record from your list.
 
 If you are using the public API, cancellation and pause can preserve history. In the app UI, delete is the visible removal action.
-

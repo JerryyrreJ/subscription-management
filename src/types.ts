@@ -13,8 +13,11 @@ export interface Subscription {
  amount: number;
  currency: Currency;
  period: Period;
+ /** Derived compatibility field. nextPaymentDate is the authoritative renewal date. */
  lastPaymentDate: string;
  nextPaymentDate: string;
+ /** Original day-of-month for monthly billing, preserved across short months. */
+ billingAnchorDay?: number;
  customDate?: string;
  createdAt?: string;
  updatedAt?: string;

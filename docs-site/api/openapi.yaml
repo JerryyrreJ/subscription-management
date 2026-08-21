@@ -129,6 +129,7 @@ paths:
                         period: monthly
                         lastPaymentDate: "2026-06-01"
                         nextPaymentDate: "2026-07-01"
+                        billingAnchorDay: 1
                         notificationEnabled: true
                         status: active
                         createdAt: "2026-06-16T00:00:00.000Z"
@@ -179,7 +180,7 @@ paths:
                   amount: 15.99
                   currency: USD
                   period: monthly
-                  lastPaymentDate: "2026-06-01"
+                  nextPaymentDate: "2026-07-01"
                   notificationEnabled: true
               custom:
                 value:
@@ -188,7 +189,7 @@ paths:
                   amount: 12
                   currency: USD
                   period: custom
-                  lastPaymentDate: "2026-06-01"
+                  nextPaymentDate: "2026-07-16"
                   customDate: "45"
                   notificationEnabled: true
       responses:
@@ -295,10 +296,10 @@ paths:
       tags:
         - Subscriptions
       summary: Update a subscription
-      description: Updates a non-empty subset of writable fields. Only the supplied fields are validated. nextPaymentDate is recalculated only when lastPaymentDate, period, or customDate changes; otherwise the stored value is kept.
+      description: Updates a non-empty subset of writable fields. nextPaymentDate is authoritative. Monthly schedules preserve billingAnchorDay across short months.
       operationId: updateSubscription
       x-ai:
-        purpose: Change writable fields on an existing subscription, such as amount, category, period, last payment date, custom interval, or notifications.
+        purpose: Change writable fields on an existing subscription, such as amount, category, period, next renewal date, custom interval, or notifications.
         naturalLanguageTriggers:
           - Change Netflix to yearly billing.
           - Update ChatGPT Plus to 20 USD.
@@ -655,15 +656,17 @@ components:
               value:
                 error:
                   code: invalid_subscription_field
-                  message: "Field is not writable: nextPaymentDate"
-                  field: nextPaymentDate
-                  suggestedFix: Remove server-managed fields such as id, nextPaymentDate, createdAt, and updatedAt before retrying.
+                  message: "Field is not writable: id"
+                  field: id
+                  suggestedFix: Remove server-managed fields such as id, createdAt, and updatedAt before retrying.
                   writableFields:
                     - amount
+                    - billingAnchorDay
                     - category
                     - currency
                     - customDate
                     - lastPaymentDate
+                    - nextPaymentDate
                     - name
                     - notificationEnabled
                     - period
@@ -780,7 +783,7 @@ components:
   schemas:
     SubscriptionPeriod:
       type: string
-      description: Billing cadence used to calculate nextPaymentDate.
+      description: Billing cadence. Monthly means the same calendar day each month; fixed-day intervals use custom.
       enum:
         - monthly
         - yearly
@@ -854,8 +857,13 @@ components:
         lastPaymentDate:
           $ref: "#/components/schemas/DateOnly"
         nextPaymentDate:
-          description: Server-calculated next payment date.
+          description: Authoritative upcoming renewal date.
           $ref: "#/components/schemas/DateOnly"
+        billingAnchorDay:
+          description: Original day-of-month for monthly billing, preserved across short months.
+          type: integer
+          minimum: 1
+          maximum: 31
         customDate:
           type: string
           pattern: "^[1-9]\\d*$"
@@ -879,7 +887,7 @@ components:
         - amount
         - currency
         - period
-        - lastPaymentDate
+        - nextPaymentDate
       properties:
         name:
           type: string
@@ -901,8 +909,16 @@ components:
           $ref: "#/components/schemas/Currency"
         period:
           $ref: "#/components/schemas/SubscriptionPeriod"
+        nextPaymentDate:
+          description: Authoritative upcoming renewal date.
+          $ref: "#/components/schemas/DateOnly"
+        billingAnchorDay:
+          description: Optional monthly calendar anchor from 1 to 31. Inferred from nextPaymentDate when omitted.
+          type: integer
+          minimum: 1
+          maximum: 31
         lastPaymentDate:
-          description: Most recent payment date. The server calculates nextPaymentDate from this value and period.
+          description: Deprecated compatibility input. Use nextPaymentDate for new integrations.
           $ref: "#/components/schemas/DateOnly"
         customDate:
           type: string
@@ -937,6 +953,12 @@ components:
           $ref: "#/components/schemas/SubscriptionPeriod"
         lastPaymentDate:
           $ref: "#/components/schemas/DateOnly"
+        nextPaymentDate:
+          $ref: "#/components/schemas/DateOnly"
+        billingAnchorDay:
+          type: integer
+          minimum: 1
+          maximum: 31
         customDate:
           type: string
           pattern: "^[1-9]\\d*$"
