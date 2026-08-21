@@ -77,6 +77,9 @@ const buildHandler = (opts: BuildOptions = {}) => {
     if (state.table === 'user_profiles') {
       return { data: { is_premium: false }, error: null };
     }
+    if (state.table === 'user_categories') {
+      return { data: [{ name: 'Streaming' }, { name: 'Productivity' }], error: null };
+    }
     return { data: null, error: { message: `Unexpected query: ${state.table}` } };
   };
 
@@ -135,11 +138,13 @@ test('parses a capture and returns command + remaining quota', async () => {
 test('passes current subscriptions context into the parser', async () => {
   let receivedCount = 0;
   let receivedNextPaymentDate = '';
+  let receivedCategories: string[] = [];
   const { handler } = buildHandler({
     parser: {
       parse: async (input) => {
         receivedCount = input.subscriptions.length;
         receivedNextPaymentDate = input.subscriptions[0]?.nextPaymentDate ?? '';
+        receivedCategories = input.categories;
         return {
           command: { type: 'delete', subscriptionId: input.subscriptions[0]?.id ?? '' },
           usage: { inputTokens: 20, outputTokens: 10 },
@@ -166,6 +171,7 @@ test('passes current subscriptions context into the parser', async () => {
   assert.equal(response.statusCode, 200);
   assert.equal(receivedCount, 1);
   assert.equal(receivedNextPaymentDate, '2026-09-11');
+  assert.deepEqual(receivedCategories, ['Streaming', 'Productivity']);
   assert.equal(body.command.type, 'delete');
   assert.equal(body.command.subscriptionId, 'sub-warmcar');
 });
@@ -208,6 +214,9 @@ test('pauses when the monthly budget is exceeded', async () => {
 test('returns 503 when Supabase database queries cannot connect', async () => {
   const { handler, flags } = buildHandler({
     queryResolver: (state) => {
+      if (state.table === 'user_categories') {
+        return { data: [{ name: 'Streaming' }], error: null };
+      }
       if (state.table === 'user_profiles') {
         throw new TypeError('fetch failed');
       }

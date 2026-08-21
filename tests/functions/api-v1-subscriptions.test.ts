@@ -49,6 +49,7 @@ const createDatabase = (
     lookupLimited?: boolean;
     lookupScopes?: string[];
     touchError?: { message: string } | null;
+    categoryNames?: string[];
   } = {}
 ) => createFakeSupabaseClient((state: QueryState) => {
   if (state.table === 'api_keys' && state.operation === 'update') {
@@ -61,6 +62,13 @@ const createDatabase = (
 
   if (state.table === 'api_audit_log') {
     return { data: null, error: null };
+  }
+
+  if (state.table === 'user_categories') {
+    return {
+      data: (options.categoryNames ?? ['Streaming', 'Developer Tools']).map(name => ({ name })),
+      error: null,
+    };
   }
 
   if (state.table === 'subscriptions') {
@@ -231,6 +239,46 @@ test('creates subscriptions for the API key owner and derives server-managed fie
   assert.equal(body.data.nextPaymentDate, '2027-06-17');
 });
 
+test('rejects a new category name before creating a subscription', async () => {
+  let subscriptionTouched = false;
+  const database = createDatabase(() => {
+    subscriptionTouched = true;
+    return { data: null, error: null };
+  }, { categoryNames: ['Streaming', 'Productivity'] });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-category-boundary',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'POST',
+    '/api/v1/subscriptions',
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({
+      name: 'New service',
+      category: 'Invented by agent',
+      amount: 10,
+      currency: 'USD',
+      period: 'monthly',
+      nextPaymentDate: '2026-07-16',
+    })
+  ), {} as never));
+  const body = parseJsonResponse<{
+    error: { code: string; field?: string; allowedValues?: string[] };
+  }>(response);
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(body.error.code, 'invalid_subscription_category');
+  assert.equal(body.error.field, 'category');
+  assert.deepEqual(body.error.allowedValues, ['Streaming', 'Productivity']);
+  assert.equal(subscriptionTouched, false);
+});
+
 test('patches subscriptions only within the API key owner scope and keeps the next renewal authoritative', async () => {
   let readFilters: Record<string, unknown> | null = null;
   let updateFilters: Record<string, unknown> | null = null;
@@ -300,6 +348,38 @@ test('patches subscriptions only within the API key owner scope and keeps the ne
   });
   assert.equal(body.data.period, 'yearly');
   assert.equal(body.data.nextPaymentDate, '2026-07-01');
+});
+
+test('rejects moving a subscription to a category that does not exist', async () => {
+  let updateTouched = false;
+  const database = createDatabase((state: QueryState) => {
+    if (state.operation === 'select') {
+      return { data: subscriptionRow, error: null };
+    }
+    updateTouched = true;
+    return { data: subscriptionRow, error: null };
+  }, { categoryNames: ['Streaming', 'Productivity'] });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-category-update-boundary',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'PATCH',
+    `/api/v1/subscriptions/${subscriptionRow.id}`,
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({ category: 'Invented by agent' })
+  ), {} as never));
+  const body = parseJsonResponse<{ error: { code: string } }>(response);
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(body.error.code, 'invalid_subscription_category');
+  assert.equal(updateTouched, false);
 });
 
 test('legacy last-payment patches preserve a month-end anchor', async () => {
@@ -1116,6 +1196,9 @@ test('records an audit entry when a subscription is created', async () => {
     if (state.table === 'api_audit_log' && state.operation === 'insert') {
       auditInsert = state.payload as Record<string, unknown>;
       return { data: null, error: null };
+    }
+    if (state.table === 'user_categories') {
+      return { data: [{ name: 'Developer Tools' }], error: null };
     }
     if (state.table === 'subscriptions') {
       return { data: createdRow, error: null };

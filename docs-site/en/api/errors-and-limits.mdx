@@ -28,6 +28,7 @@ Errors use a stable JSON shape:
 | ---: | --- | --- |
 | `400` | `invalid_json` | Request body is not a JSON object |
 | `400` | `invalid_subscription` | Subscription fields failed validation |
+| `400` | `invalid_subscription_category` | Category is not one of the user's existing visible categories |
 | `400` | `invalid_subscription_field` | The request tried to write a server-managed field |
 | `400` | `invalid_subscription_id` | Subscription ID is not a valid UUID |
 | `400` | `invalid_pagination` | `limit` or `offset` query parameter is out of range |
@@ -47,7 +48,7 @@ Errors use a stable JSON shape:
 | --- | --- |
 | `field` | The request field that caused the error |
 | `suggestedFix` | Human- and AI-readable correction guidance |
-| `allowedValues` | Valid enum values for fields such as `currency` or `period` |
+| `allowedValues` | Valid values for fields such as `category`, `currency`, or `period` |
 | `writableFields` | Fields accepted by `POST` and `PATCH` subscription requests |
 
 Example non-writable field error:
@@ -76,6 +77,8 @@ Example non-writable field error:
   "requestId": "request-..."
 }
 ```
+
+When `invalid_subscription_category` is returned, choose an exact value from `allowedValues`. API and AI tools cannot create or rename categories; if none fits, the user must use the app category manager.
 
 ## Scopes
 

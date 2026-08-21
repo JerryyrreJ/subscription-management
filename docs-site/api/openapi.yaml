@@ -896,7 +896,7 @@ components:
           maxLength: 120
         category:
           type: string
-          description: User-visible category label used for grouping and analytics.
+          description: Exact name of an existing user category. This API cannot create or rename categories.
           minLength: 1
           maxLength: 80
         amount:
@@ -940,6 +940,7 @@ components:
           maxLength: 120
         category:
           type: string
+          description: Exact name of an existing user category. This API cannot create or rename categories.
           minLength: 1
           maxLength: 80
         amount:

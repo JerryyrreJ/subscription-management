@@ -70,6 +70,7 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
         customDate: '90',
         notificationEnabled: true,
       }],
+      categories: ['Entertainment', 'Streaming'],
     }, '2026-06-19');
 
     assert.equal(capturedUrl, 'https://openrouter.ai/api/v1/chat/completions');
@@ -86,6 +87,7 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
     const messages = capturedBody.messages as Array<{ role: string; content: unknown }>;
     assert.equal(messages[0].role, 'system');
     assert.match(String(messages[0].content), /续费日期/);
+    assert.match(String(messages[0].content), /Never invent, rename, or create a category/);
     assert.equal(messages[1].role, 'user');
     const content = messages[1].content as Array<Record<string, unknown>>;
     assert.equal(content[0].type, 'image_url');
@@ -94,6 +96,7 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
     assert.match(String(content[1].text), /Current date: 2026-06-19/);
     assert.match(String(content[1].text), /sub-warmcar/);
     assert.match(String(content[1].text), /nextPaymentDate/);
+    assert.match(String(content[1].text), /Available categories: \["Entertainment","Streaming"\]/);
     const responseFormat = capturedBody.response_format as {
       json_schema: { schema: { properties: { patch: { properties: Record<string, unknown> } } } };
     };
@@ -121,7 +124,7 @@ test('OpenRouter parser throws provider errors without exposing input content', 
   try {
     const parser = createOpenRouterParser(config);
     await assert.rejects(
-      parser.parse({ text: 'private statement text', subscriptions: [] }, '2026-06-19'),
+      parser.parse({ text: 'private statement text', subscriptions: [], categories: [] }, '2026-06-19'),
       /No available provider found/
     );
   } finally {

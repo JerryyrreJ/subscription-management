@@ -58,6 +58,8 @@ Writable fields use camelCase:
 
 `nextPaymentDate` is the authoritative upcoming renewal date. `id`, `createdAt`, and `updatedAt` are managed by the server. `customDate` is only used with custom billing periods.
 
+`category` must exactly match one of the user's existing visible categories. The API and AI/MCP tools can assign an existing category, but they cannot create, rename, or invent one. When no existing category fits, the user must manage categories in the app first.
+
 Monthly subscriptions renew on the same calendar day each month, so a cycle may contain 28, 29, 30, or 31 days. A January 31 anchor temporarily renews at the end of February and returns to March 31. For a fixed 30-day cycle, use `period: "custom"` with `customDate: "30"`. `lastPaymentDate` is retained only as a derived compatibility field for older clients.
 
 `status` can be `active`, `paused`, or `cancelled`. Prefer `PATCH {"status":"cancelled"}` or `PATCH {"status":"paused"}` when the user wants to keep history; use `DELETE` only when the record should be removed permanently.

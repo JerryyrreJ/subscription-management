@@ -28,6 +28,7 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
 | ---: | --- | --- |
 | `400` | `invalid_json` | 请求体不是合法 JSON 对象 |
 | `400` | `invalid_subscription` | 订阅字段未通过校验 |
+| `400` | `invalid_subscription_category` | 分类不是用户已有的可见分类 |
 | `400` | `invalid_subscription_field` | 请求尝试写入服务端管理字段 |
 | `400` | `invalid_subscription_id` | 订阅 ID 不是合法 UUID |
 | `400` | `invalid_pagination` | `limit` 或 `offset` 查询参数超出范围 |
@@ -47,7 +48,7 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
 | --- | --- |
 | `field` | 导致错误的请求字段 |
 | `suggestedFix` | 人和 AI 都能读懂的修正建议 |
-| `allowedValues` | `currency` 或 `period` 等枚举字段的合法值 |
+| `allowedValues` | `category`、`currency` 或 `period` 等字段的合法值 |
 | `writableFields` | 订阅 `POST` 和 `PATCH` 请求接受的可写字段 |
 
 不可写字段示例：
@@ -76,6 +77,8 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
   "requestId": "request-..."
 }
 ```
+
+收到 `invalid_subscription_category` 时，只能从 `allowedValues` 中选择完全一致的分类名称。API 和 AI 工具不能创建或重命名分类；如果都不合适，需要用户在应用内的分类管理器中处理。
 
 ## 权限范围（Scopes）
 

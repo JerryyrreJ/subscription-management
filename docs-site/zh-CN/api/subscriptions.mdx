@@ -126,7 +126,7 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
 | 字段 | 规则 |
 | --- | --- |
 | `name` | 必填，1-120 个字符 |
-| `category` | 必填，1-80 个字符 |
+| `category` | 必填；必须与用户已有分类的名称完全一致 |
 | `amount` | 必填数字，范围 0 到 999999.99，最多 2 位小数 |
 | `currency` | 必填，可选 `CNY`、`USD`、`EUR`、`JPY`、`GBP`、`AUD`、`CAD`、`CHF`、`HKD`、`SGD` |
 | `period` | 必填，可选 `monthly`、`yearly`、`custom` |
@@ -138,6 +138,8 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
 | `status` | 可选，`active`、`paused`、`cancelled` 之一，默认 `active` |
 
 `nextPaymentDate` 是权威的订阅计划日期。月付订阅通过 `billingAnchorDay` 保留原始日历日期，短月份只会临时落到月末，例如：1 月 31 日 → 2 月 28/29 日 → 3 月 31 日。如果服务是固定每 30 天扣费，而不是每月固定日期，请使用 `period: "custom"` 和 `customDate: "30"`。响应中的 `lastPaymentDate` 只是反推得到的兼容字段，新集成不应再依赖它。
+
+开放 API 和 MCP 只能把订阅分配到已有分类，不能创建、重命名或自行发明分类。如果没有合适的已有分类，必须由用户先在应用的分类管理中创建，再重试订阅写入。
 
 ## 生命周期：取消、暂停、恢复 vs 删除
 
@@ -176,7 +178,7 @@ API 调用：
 curl -X POST \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name":"ChatGPT Plus","category":"AI","amount":20,"currency":"USD","period":"monthly","nextPaymentDate":"2026-07-17","notificationEnabled":true}' \
+  -d '{"name":"ChatGPT Plus","category":"Productivity","amount":20,"currency":"USD","period":"monthly","nextPaymentDate":"2026-07-17","notificationEnabled":true}' \
   https://your-site.example/api/v1/subscriptions
 ```
 
@@ -229,7 +231,7 @@ curl -X DELETE \
 ```json
 {
   "name": "Domain renewal",
-  "category": "Infrastructure",
+  "category": "Software",
   "amount": 12,
   "currency": "USD",
   "period": "custom",

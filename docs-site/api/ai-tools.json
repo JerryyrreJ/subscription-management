@@ -54,6 +54,7 @@
       "SGD"
     ],
     "fieldSemantics": {
+      "category": "Must exactly match an existing category owned by the user. Tools cannot create, rename, or invent categories; category management remains a user action in the app.",
       "period": "The billing cycle. Monthly means the same calendar day each month, not a fixed 30 days. Send monthly, yearly, or custom.",
       "customDate": "The fixed interval in days when period is custom. Use customDate 30 for every 30 days.",
       "nextPaymentDate": "The authoritative upcoming renewal date in YYYY-MM-DD format.",
@@ -186,7 +187,8 @@
       ],
       "doNotUseWhen": [
         "The target subscription already exists. Use update_subscription instead.",
-        "The user is only asking for analysis or a recommendation."
+        "The user is only asking for analysis or a recommendation.",
+        "The requested category does not already exist. Ask the user to create it in the app category manager first."
       ],
       "naturalLanguageExamples": [
         "Add ChatGPT Plus, 20 USD monthly, renewing 2026-07-17.",
@@ -211,7 +213,8 @@
       ],
       "doNotUseWhen": [
         "The user wants to permanently remove the record. Use delete_subscription after explicit confirmation.",
-        "The user only wants to stop billing but keep history. Use cancel_subscription or pause_subscription."
+        "The user only wants to stop billing but keep history. Use cancel_subscription or pause_subscription.",
+        "The requested category does not already exist. Category creation and renaming are not available to tools."
       ],
       "naturalLanguageExamples": [
         "Change Netflix to yearly billing.",
@@ -523,6 +526,7 @@
       "If the failed operation is create, update, cancel, pause, resume, or delete, ask for confirmation again before retrying when the effective write changes.",
       "On 403 insufficient_scope, do not retry: the API key is read-only. Tell the user a write-scoped key is required for this action.",
       "On 400 invalid_query, correct the filter or sort parameter named in field and retry.",
+      "On 400 invalid_subscription_category, use one of allowedValues. Never create or invent a category; ask the user to manage categories in the app when none fits.",
       "Validation errors (400) are rejected before the hourly quota is consumed, so fixing the payload and retrying does not cost rate-limit budget.",
       "On 429, wait the number of seconds in the Retry-After header before retrying.",
       "Use requestId when reporting unresolved API errors."
@@ -539,7 +543,7 @@
       "required": ["name", "category", "amount", "currency", "period", "nextPaymentDate"],
       "properties": {
         "name": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Exact name of an existing user category. Tools cannot create categories." },
         "amount": { "type": "number", "minimum": 0, "maximum": 999999.99, "multipleOf": 0.01 },
         "currency": {
           "type": "string",
@@ -568,7 +572,7 @@
       "minProperties": 1,
       "properties": {
         "name": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Exact name of an existing user category. Tools cannot create categories." },
         "amount": { "type": "number", "minimum": 0, "maximum": 999999.99, "multipleOf": 0.01 },
         "currency": {
           "type": "string",

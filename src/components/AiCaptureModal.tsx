@@ -15,7 +15,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { Subscription, Currency, Period } from '../types';
 import {
-  SUBSCRIPTION_CURRENCIES,
   SUBSCRIPTION_PERIODS,
   createSubscriptionRecord,
   getSubscriptionValidationMessage,
@@ -23,6 +22,10 @@ import {
 import { buildAiSubscriptionContext, type AiCommand, type AiUpdateOperation } from '../utils/aiCommand';
 import { parseCapture, AiParseError, type DraftSubscription, type ParseQuota } from '../services/aiParseService';
 import { getDateOnlyDay } from '../utils/dates';
+import { CustomDatePicker } from './CustomDatePicker';
+import { CustomSelect } from './CustomSelect';
+import { CURRENCIES, formatCurrencyOptionLabel } from '../utils/currency';
+import { getAllCategories, getCategoryDisplayName } from '../utils/categories';
 
 export interface UndoableAiAction {
   id: string;
@@ -122,7 +125,7 @@ export function AiCaptureModal({
   onShowUndo,
   onManualFallback,
 }: AiCaptureModalProps) {
-  const { t } = useTranslation(['aiCapture', 'addSubscription', 'app']);
+  const { t } = useTranslation(['aiCapture', 'addSubscription', 'app', 'currency', 'categoryLabels']);
   const [phase, setPhase] = useState<Phase>('capture');
   const [text, setText] = useState('');
   const [image, setImage] = useState<{ mediaType: string; dataBase64: string } | null>(null);
@@ -138,6 +141,7 @@ export function AiCaptureModal({
   const [createdRecords, setCreatedRecords] = useState<CreatedRecord[]>([]);
   const [completion, setCompletion] = useState<CompletionState | null>(null);
   const [inlineUndoStatus, setInlineUndoStatus] = useState<'idle' | 'running' | 'done'>('idle');
+  const [categories, setCategories] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(false);
 
@@ -165,6 +169,7 @@ export function AiCaptureModal({
       setCreatedRecords([]);
       setCompletion(null);
       setInlineUndoStatus('idle');
+      setCategories(getAllCategories());
     }
   }, [isOpen]);
 
@@ -624,14 +629,18 @@ export function AiCaptureModal({
         return (
           <div key={`${keyPrefix}-${field}`} className={rowClass}>
             <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
-            <select
+            <div className="min-w-0 flex-1">
+             <CustomSelect
               id={`${keyPrefix}-${field}`}
               value={String(value)}
-              onChange={(e) => onPatchChange({ currency: e.target.value as Currency })}
-              className={editorClass}
-            >
-              {SUBSCRIPTION_CURRENCIES.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-            </select>
+              onChange={(currency) => onPatchChange({ currency: currency as Currency })}
+              options={CURRENCIES.map(currency => ({
+               value: currency.code,
+               label: formatCurrencyOptionLabel(currency.code, t),
+              }))}
+              ariaLabel={label}
+             />
+            </div>
           </div>
         );
       }
@@ -640,21 +649,42 @@ export function AiCaptureModal({
         return (
           <div key={`${keyPrefix}-${field}`} className={rowClass}>
             <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
-            <select
+            <div className="min-w-0 flex-1">
+             <CustomSelect
               id={`${keyPrefix}-${field}`}
               value={String(value)}
-              onChange={(e) => {
-                const period = e.target.value as Period;
+              onChange={(value) => {
+                const period = value as Period;
                 onPatchChange({ period, customDate: period === 'custom' ? update.patch.customDate : undefined });
               }}
-              className={editorClass}
-            >
-              {SUBSCRIPTION_PERIODS.map((period) => (
-                <option key={period} value={period}>
-                  {t(`addSubscription:period${period.charAt(0).toUpperCase()}${period.slice(1)}`)}
-                </option>
-              ))}
-            </select>
+              options={SUBSCRIPTION_PERIODS.map(period => ({
+               value: period,
+               label: t(`addSubscription:period${period.charAt(0).toUpperCase()}${period.slice(1)}`),
+              }))}
+              ariaLabel={label}
+             />
+            </div>
+          </div>
+        );
+      }
+
+      if (field === 'category') {
+        return (
+          <div key={`${keyPrefix}-${field}`} className={rowClass}>
+            <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
+            <div className="min-w-0 flex-1">
+             <CustomSelect
+              id={`${keyPrefix}-${field}`}
+              value={String(value)}
+              onChange={(category) => onPatchChange({ category })}
+              options={categories.map(category => ({
+               value: category,
+               label: getCategoryDisplayName(category, t),
+              }))}
+              placeholder={t('addSubscription:selectCategory')}
+              ariaLabel={label}
+             />
+            </div>
           </div>
         );
       }
@@ -663,13 +693,14 @@ export function AiCaptureModal({
         return (
           <div key={`${keyPrefix}-${field}`} className={rowClass}>
             <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
-            <input
+            <div className="min-w-0 flex-1">
+             <CustomDatePicker
               id={`${keyPrefix}-${field}`}
-              type="date"
               value={String(value)}
-              onChange={(e) => onPatchChange({ nextPaymentDate: e.target.value })}
-              className={editorClass}
-            />
+              onChange={(nextPaymentDate) => onPatchChange({ nextPaymentDate })}
+              ariaLabel={label}
+             />
+            </div>
           </div>
         );
       }
@@ -910,35 +941,54 @@ export function AiCaptureModal({
                     onChange={(e) => updateDraft(draft.key, { amount: Number(e.target.value) })}
                     className={`${inputBase} ${fieldBorder(warned.has('amount'))} w-[40%]`}
                   />
-                  <select
-                    value={draft.currency}
-                    onChange={(e) => updateDraft(draft.key, { currency: e.target.value as Currency })}
-                    className={`${inputBase} ${fieldBorder(warned.has('currency'))} w-[30%]`}
-                  >
-                    {SUBSCRIPTION_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <select
-                    value={draft.period}
-                    onChange={(e) => updateDraft(draft.key, { period: e.target.value as Period })}
-                    className={`${inputBase} ${fieldBorder(warned.has('period'))} w-[30%]`}
-                  >
-                    {SUBSCRIPTION_PERIODS.map((p) => <option key={p} value={p}>{t(`addSubscription:period${p.charAt(0).toUpperCase()}${p.slice(1)}`)}</option>)}
-                  </select>
+                  <div className="min-w-0 w-[30%]">
+                    <CustomSelect
+                      value={draft.currency}
+                      onChange={(currency) => updateDraft(draft.key, { currency: currency as Currency })}
+                      options={CURRENCIES.map(currency => ({
+                        value: currency.code,
+                        label: formatCurrencyOptionLabel(currency.code, t),
+                      }))}
+                      className={fieldBorder(warned.has('currency'))}
+                      ariaLabel={t('aiCapture:fields.currency')}
+                    />
+                  </div>
+                  <div className="min-w-0 w-[30%]">
+                    <CustomSelect
+                      value={draft.period}
+                      onChange={(period) => updateDraft(draft.key, { period: period as Period })}
+                      options={SUBSCRIPTION_PERIODS.map(period => ({
+                        value: period,
+                        label: t(`addSubscription:period${period.charAt(0).toUpperCase()}${period.slice(1)}`),
+                      }))}
+                      className={fieldBorder(warned.has('period'))}
+                      ariaLabel={t('aiCapture:fields.period')}
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-2">
-                  <input
+                  <div className="min-w-0 flex-1">
+                   <CustomSelect
                     value={draft.category}
-                    onChange={(e) => updateDraft(draft.key, { category: e.target.value })}
+                    onChange={(category) => updateDraft(draft.key, { category })}
+                    options={categories.map(category => ({
+                      value: category,
+                      label: getCategoryDisplayName(category, t),
+                    }))}
                     placeholder={t('addSubscription:categoryLabel')}
-                    className={`${inputBase} ${fieldBorder(warned.has('category'))} flex-1`}
-                  />
-                  <input
-                    type="date"
-                    value={draft.nextPaymentDate}
-                    onChange={(e) => updateDraft(draft.key, { nextPaymentDate: e.target.value })}
-                    aria-label={t('addSubscription:nextPaymentDateLabel')}
-                    className={`${inputBase} ${fieldBorder(warned.has('nextPaymentDate'))} flex-1`}
-                  />
+                    className={fieldBorder(warned.has('category'))}
+                    ariaLabel={t('aiCapture:fields.category')}
+                   />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <CustomDatePicker
+                      value={draft.nextPaymentDate}
+                      onChange={(nextPaymentDate) => updateDraft(draft.key, { nextPaymentDate })}
+                      ariaLabel={t('addSubscription:nextPaymentDateLabel')}
+                      dropdownAlign="right"
+                      required
+                    />
+                  </div>
                 </div>
                 {draft.period === 'custom' && (
                   <input

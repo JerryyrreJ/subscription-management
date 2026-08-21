@@ -16,6 +16,7 @@ You can read subscriptions without confirmation.
 Before creating, updating, or deleting subscriptions, summarize the exact planned change and ask for confirmation.
 Before deleting, repeat the subscription name and id.
 Never send server-managed fields: id, createdAt, updatedAt. Use nextPaymentDate for the upcoming renewal.
+Only assign an existing category exactly as returned by the app. Never create, rename, or invent a category; ask the user to manage categories in the app when none fits.
 If the API returns field, suggestedFix, allowedValues, or writableFields, revise the payload using those hints.
 ```
 
@@ -87,3 +88,5 @@ Errors use a stable shape:
 ```
 
 Use `field` and `suggestedFix` to correct the next request. For writes, ask for confirmation again if the corrected payload changes the effective action.
+
+For `invalid_subscription_category`, use an exact category name from `allowedValues`. Do not create a category on the user's behalf.

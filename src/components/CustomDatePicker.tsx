@@ -9,9 +9,20 @@ interface CustomDatePickerProps {
  onChange: (value: string) => void;
  maxDate?: string; // YYYY-MM-DD format
  required?: boolean;
+ id?: string;
+ ariaLabel?: string;
+ dropdownAlign?: 'left' | 'right';
 }
 
-export function CustomDatePicker({ value, onChange, maxDate, required }: CustomDatePickerProps) {
+export function CustomDatePicker({
+ value,
+ onChange,
+ maxDate,
+ required,
+ id,
+ ariaLabel,
+ dropdownAlign = 'left',
+}: CustomDatePickerProps) {
  const { t } = useTranslation(['common']);
  const { language } = useAppLanguage();
 
@@ -203,8 +214,10 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  <div ref={dropdownRef} className="relative">
  {/* Input Display */}
  <button
+ id={id}
  type="button"
  aria-required={required}
+ aria-label={ariaLabel}
  onClick={() => setIsOpen(!isOpen)}
  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/80"
  >
@@ -218,7 +231,7 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  {isOpen && (
  <div
  ref={calendarRef}
- className="absolute z-[60] mt-2 w-full min-w-[280px] bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-apple-lg p-4"
+ className={`absolute z-[60] mt-2 w-full min-w-[280px] bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-apple-lg p-4 ${dropdownAlign === 'right' ? 'right-0' : 'left-0'}`}
  >
  {/* Month/Year Header */}
  <div className="flex items-center justify-between mb-4">

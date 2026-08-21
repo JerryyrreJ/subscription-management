@@ -70,6 +70,7 @@ export const aiCapture = {
   },
   warnings: {
     category_missing: '请选择分类',
+    category_not_allowed: '建议的分类不在你的列表中——请选择已有分类',
     amount_missing: '请确认金额',
     amount_capped: '金额偏大，请核对',
     currency_defaulted: '请确认币种',

@@ -16,6 +16,7 @@ description: "把开放 API 作为 AI Agent 的工具使用，包括操作语义
 创建、更新或删除订阅前，必须总结即将执行的变更并询问用户确认。
 删除前，必须重复订阅名称和 id。
 不要发送服务端管理字段：id、createdAt、updatedAt。下次续费日期使用 nextPaymentDate。
+分类只能使用应用已返回的现有分类名称，并且必须完全一致。不能创建、重命名或虚构分类；没有合适分类时，让用户在应用内自行管理。
 如果 API 返回 field、suggestedFix、allowedValues 或 writableFields，使用这些提示修正 payload。
 ```
 
@@ -87,3 +88,5 @@ description: "把开放 API 作为 AI Agent 的工具使用，包括操作语义
 ```
 
 使用 `field` 和 `suggestedFix` 修正下一次请求。如果是写操作，并且修正后的 payload 改变了实际写入内容，需要重新向用户确认。
+
+对于 `invalid_subscription_category`，只能使用 `allowedValues` 中完全一致的分类名称，不能代替用户创建分类。

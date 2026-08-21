@@ -53,7 +53,32 @@ const extractItems = (raw: unknown): unknown[] => {
   return [];
 };
 
-const normalizeOne = (item: unknown, today: string): DraftSubscription | null => {
+const normalizeCategory = (
+  value: unknown,
+  allowedCategories?: readonly string[]
+): { category: string; warning?: string } => {
+  const proposed = asString(value).slice(0, 80);
+  if (!proposed) {
+    return { category: '', warning: 'category_missing' };
+  }
+  if (!allowedCategories) {
+    return { category: proposed };
+  }
+
+  const normalized = proposed.normalize('NFKC').toLocaleLowerCase();
+  const category = allowedCategories.find(candidate =>
+    candidate.normalize('NFKC').toLocaleLowerCase() === normalized
+  );
+  return category
+    ? { category }
+    : { category: '', warning: 'category_not_allowed' };
+};
+
+const normalizeOne = (
+  item: unknown,
+  today: string,
+  allowedCategories?: readonly string[]
+): DraftSubscription | null => {
   if (!item || typeof item !== 'object') {
     return null;
   }
@@ -65,10 +90,8 @@ const normalizeOne = (item: unknown, today: string): DraftSubscription | null =>
     return null; // not a subscription without a name
   }
 
-  const category = asString(record.category).slice(0, 80);
-  if (!category) {
-    warnings.push('category_missing');
-  }
+  const { category, warning: categoryWarning } = normalizeCategory(record.category, allowedCategories);
+  if (categoryWarning) warnings.push(categoryWarning);
 
   let amount = Number(record.amount);
   if (!Number.isFinite(amount) || amount < 0) {
@@ -138,13 +161,17 @@ const normalizeOne = (item: unknown, today: string): DraftSubscription | null =>
  * Validate and coerce raw model output into reviewable drafts. Pure — the caller
  * supplies `today` (YYYY-MM-DD) so the function never reads the clock itself.
  */
-export const normalizeDrafts = (raw: unknown, today: string): NormalizeDraftsResult => {
+export const normalizeDrafts = (
+  raw: unknown,
+  today: string,
+  allowedCategories?: readonly string[]
+): NormalizeDraftsResult => {
   const items = extractItems(raw);
   const drafts: DraftSubscription[] = [];
   let dropped = 0;
 
   for (const item of items.slice(0, MAX_DRAFTS)) {
-    const draft = normalizeOne(item, today);
+    const draft = normalizeOne(item, today, allowedCategories);
     if (draft) {
       drafts.push(draft);
     } else {

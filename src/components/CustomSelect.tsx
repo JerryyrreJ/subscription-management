@@ -15,6 +15,8 @@ interface CustomSelectProps {
  className?: string;
  required?: boolean;
  disabled?: boolean;
+ id?: string;
+ ariaLabel?: string;
 }
 
 export function CustomSelect({
@@ -24,7 +26,9 @@ export function CustomSelect({
  placeholder,
  className = '',
  required = false,
- disabled = false
+ disabled = false,
+ id,
+ ariaLabel,
 }: CustomSelectProps) {
  const { t } = useTranslation(['common']);
  const [isOpen, setIsOpen] = useState(false);
@@ -104,6 +108,7 @@ export function CustomSelect({
 
  {/* 自定义下拉按钮 */}
  <button
+ id={id}
  type="button"
  onClick={() => !disabled && setIsOpen(!isOpen)}
  onKeyDown={handleKeyDown}
@@ -121,7 +126,7 @@ export function CustomSelect({
  `}
  aria-haspopup="listbox"
  aria-expanded={isOpen}
- aria-label={selectedOption ? selectedOption.label : resolvedPlaceholder}
+ aria-label={ariaLabel ?? (selectedOption ? selectedOption.label : resolvedPlaceholder)}
  >
  <span
  className={`min-w-0 flex-1 truncate whitespace-nowrap pr-3 ${

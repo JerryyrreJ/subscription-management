@@ -45,6 +45,7 @@ const context: AiSubscriptionContextItem[] = [{
   nextPaymentDate: '2026-06-28',
   notificationEnabled: true,
 }];
+const allowedCategories = ['Entertainment', 'Productivity', 'USCard', 'Streaming'];
 
 test('normalizes create command drafts', () => {
   const { command } = normalizeAiCommand({
@@ -57,18 +58,66 @@ test('normalizes create command drafts', () => {
       period: 'monthly',
       lastPaymentDate: '2026-06-01',
     }],
-  }, TODAY, context);
+  }, TODAY, context, allowedCategories);
 
   assert.equal(command.type, 'create');
   assert.equal(command.type === 'create' ? command.drafts[0].name : '', 'Netflix');
 });
 
+test('AI create can only use an existing category', () => {
+  const canonical = normalizeAiCommand({
+    action: 'create',
+    subscriptions: [{
+      name: 'Service A',
+      category: 'productivity',
+      amount: 10,
+      currency: 'USD',
+      period: 'monthly',
+      nextPaymentDate: '2026-07-01',
+    }],
+  }, TODAY, context, allowedCategories);
+  assert.equal(
+    canonical.command.type === 'create' ? canonical.command.drafts[0].category : '',
+    'Productivity'
+  );
+
+  const invented = normalizeAiCommand({
+    action: 'create',
+    subscriptions: [{
+      name: 'Service B',
+      category: 'Invented by AI',
+      amount: 10,
+      currency: 'USD',
+      period: 'monthly',
+      nextPaymentDate: '2026-07-01',
+    }],
+  }, TODAY, context, allowedCategories);
+  assert.equal(invented.command.type === 'create' ? invented.command.drafts[0].category : 'missing', '');
+  assert.equal(
+    invented.command.type === 'create'
+      ? invented.command.drafts[0].warnings.includes('category_not_allowed')
+      : false,
+    true
+  );
+});
+
+test('AI update ignores category names outside the existing list', () => {
+  const { command } = normalizeAiCommand({
+    action: 'update',
+    subscriptionId: 'sub-tencent',
+    patch: { category: 'Invented by AI', amount: 74 },
+  }, TODAY, context, allowedCategories);
+
+  assert.equal(command.type, 'update');
+  assert.deepEqual(command.type === 'update' ? command.patch : {}, { amount: 74 });
+});
+
 test('normalizes delete command only for known subscription ids', () => {
-  const valid = normalizeAiCommand({ action: 'delete', subscriptionId: 'sub-warmcar' }, TODAY, context);
+  const valid = normalizeAiCommand({ action: 'delete', subscriptionId: 'sub-warmcar' }, TODAY, context, allowedCategories);
   assert.equal(valid.command.type, 'delete');
   assert.equal(valid.command.type === 'delete' ? valid.command.subscriptionId : '', 'sub-warmcar');
 
-  const invalid = normalizeAiCommand({ action: 'delete', subscriptionId: 'missing' }, TODAY, context);
+  const invalid = normalizeAiCommand({ action: 'delete', subscriptionId: 'missing' }, TODAY, context, allowedCategories);
   assert.equal(invalid.command.type, 'none');
 });
 
@@ -77,7 +126,7 @@ test('normalizes update command with a validated patch', () => {
     action: 'update',
     subscriptionId: 'sub-tencent',
     patch: { amount: 74, currency: 'CNY', period: 'yearly' },
-  }, TODAY, context);
+  }, TODAY, context, allowedCategories);
 
   assert.equal(command.type, 'update');
   assert.equal(command.type === 'update' ? command.subscriptionId : '', 'sub-tencent');
@@ -93,7 +142,7 @@ test('keeps incomplete custom period updates for user completion', () => {
     action: 'update',
     subscriptionId: 'sub-tencent',
     patch: { period: 'custom' },
-  }, TODAY, context);
+  }, TODAY, context, allowedCategories);
 
   assert.equal(command.type, 'update');
   assert.deepEqual(command.type === 'update' ? command.patch : {}, {
@@ -107,7 +156,7 @@ test('keeps requested renewal dates authoritative', () => {
     action: 'update',
     subscriptionId: 'sub-tello',
     patch: { nextPaymentDate: '2026-06-23' },
-  }, '2026-06-25', context);
+  }, '2026-06-25', context, allowedCategories);
 
   assert.equal(command.type, 'update');
   assert.deepEqual(command.type === 'update' ? command.patch : {}, {
@@ -120,7 +169,7 @@ test('accepts common renewal date aliases from AI providers', () => {
     action: 'update',
     subscriptionId: 'sub-tello',
     patch: { dueDate: '2026-06-23' },
-  }, '2026-06-25', context);
+  }, '2026-06-25', context, allowedCategories);
 
   assert.equal(command.type, 'update');
   assert.deepEqual(command.type === 'update' ? command.patch : {}, {
@@ -138,7 +187,7 @@ test('normalizes multiple update operations in one command', () => {
       targetName: '鱼云',
       patch: { nextPaymentDate: '2026-07-21', amount: 10.22, currency: 'CNY' },
     }],
-  }, '2026-06-25', context);
+  }, '2026-06-25', context, allowedCategories);
 
   assert.equal(command.type, 'batchUpdate');
   assert.deepEqual(command.type === 'batchUpdate' ? command.updates.map(update => update.subscriptionId) : [], [
@@ -160,7 +209,7 @@ test('does not require custom interval when the target already has one', () => {
     action: 'update',
     subscriptionId: 'sub-warmcar',
     patch: { amount: 79 },
-  }, TODAY, context);
+  }, TODAY, context, allowedCategories);
 
   assert.equal(command.type, 'update');
   assert.equal(command.type === 'update' ? command.missingFields : undefined, undefined);
@@ -171,14 +220,14 @@ test('drops non-boolean notificationEnabled updates', () => {
     action: 'update',
     subscriptionId: 'sub-tencent',
     patch: { notificationEnabled: 'false' },
-  }, TODAY, context);
+  }, TODAY, context, allowedCategories);
   assert.equal(invalid.command.type, 'none');
 
   const valid = normalizeAiCommand({
     action: 'update',
     subscriptionId: 'sub-tencent',
     patch: { notificationEnabled: false },
-  }, TODAY, context);
+  }, TODAY, context, allowedCategories);
   assert.equal(valid.command.type, 'update');
   assert.deepEqual(valid.command.type === 'update' ? valid.command.patch : {}, {
     notificationEnabled: false,
@@ -186,7 +235,7 @@ test('drops non-boolean notificationEnabled updates', () => {
 });
 
 test('falls back to none for unsupported or empty actions', () => {
-  const { command } = normalizeAiCommand({ action: 'chat', reason: 'Not a write operation.' }, TODAY, context);
+  const { command } = normalizeAiCommand({ action: 'chat', reason: 'Not a write operation.' }, TODAY, context, allowedCategories);
   assert.equal(command.type, 'none');
   assert.equal(command.type === 'none' ? command.reason : '', 'Not a write operation.');
 });

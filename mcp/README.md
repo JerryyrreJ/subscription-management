@@ -20,6 +20,8 @@ All twelve tools from the API tool schema are exposed, including:
 - `get_spend_summary`, `find_duplicate_subscriptions`, `get_optimization_suggestions`
 - `list_audit_log`
 
+Category management is intentionally outside the MCP surface. Subscription writes may only use an existing visible category name exactly; the API rejects unknown categories and returns `allowedValues`. Users create, rename, hide, or delete categories in the app.
+
 Write tools require a key with the `write` scope; read and analytics tools work
 with a read-only key.
 

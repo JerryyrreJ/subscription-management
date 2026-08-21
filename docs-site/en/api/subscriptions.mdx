@@ -126,7 +126,7 @@ Do not send server-managed fields in `POST` or `PATCH` requests.
 | Field | Rule |
 | --- | --- |
 | `name` | Required, 1-120 characters |
-| `category` | Required, 1-80 characters |
+| `category` | Required; exact name of one of the user's existing categories |
 | `amount` | Required number, 0 to 999999.99, max 2 decimals |
 | `currency` | Required. One of `CNY`, `USD`, `EUR`, `JPY`, `GBP`, `AUD`, `CAD`, `CHF`, `HKD`, `SGD` |
 | `period` | Required. One of `monthly`, `yearly`, `custom` |
@@ -138,6 +138,8 @@ Do not send server-managed fields in `POST` or `PATCH` requests.
 | `status` | Optional. One of `active`, `paused`, `cancelled`; defaults to `active` |
 
 `nextPaymentDate` is the authoritative schedule date. For monthly billing, `billingAnchorDay` preserves the original calendar day across short months: January 31 → February 28/29 → March 31. If a charge repeats every 30 days rather than on a fixed day of each month, use `period: "custom"` with `customDate: "30"`. `lastPaymentDate` remains in responses as a derived compatibility field and should not be used for new integrations.
+
+The API and MCP can assign an existing category to a subscription, but they cannot create, rename, or invent categories. If no existing category fits, the user must create one in the app category manager before the subscription write is retried.
 
 ## Lifecycle: cancel, pause, resume vs delete
 
@@ -176,7 +178,7 @@ API call:
 curl -X POST \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name":"ChatGPT Plus","category":"AI","amount":20,"currency":"USD","period":"monthly","nextPaymentDate":"2026-07-17","notificationEnabled":true}' \
+  -d '{"name":"ChatGPT Plus","category":"Productivity","amount":20,"currency":"USD","period":"monthly","nextPaymentDate":"2026-07-17","notificationEnabled":true}' \
   https://your-site.example/api/v1/subscriptions
 ```
 
@@ -229,7 +231,7 @@ For non-monthly/non-yearly intervals, set `period` to `custom` and send `customD
 ```json
 {
   "name": "Domain renewal",
-  "category": "Infrastructure",
+  "category": "Software",
   "amount": 12,
   "currency": "USD",
   "period": "custom",

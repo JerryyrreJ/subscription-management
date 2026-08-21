@@ -34,6 +34,10 @@ interface SubscriptionRow {
   updated_at: string;
 }
 
+interface CategoryRow {
+  name: string;
+}
+
 interface SubscriptionsApiDependencies {
   database: SupabaseClient;
   limits: ApiLimitsConfig;
@@ -77,7 +81,7 @@ const writableSubscriptionFields = Array.from(allowedSubscriptionFields).sort();
 
 const subscriptionFieldGuidance: Record<string, string> = {
   name: 'Provide a non-empty subscription name, for example "Netflix" or "ChatGPT Plus".',
-  category: 'Provide a short category label such as "Streaming", "Productivity", or "Developer Tools".',
+  category: 'Use the exact name of an existing category. Category creation is only available in the app category manager.',
   amount: 'Use a number in major currency units with at most 2 decimal places, for example 15.99.',
   currency: `Use one of the supported currency codes: ${SUBSCRIPTION_CURRENCIES.join(', ')}.`,
   period: `Use one of the supported billing periods: ${SUBSCRIPTION_PERIODS.join(', ')}.`,
@@ -299,6 +303,41 @@ const toApiSubscription = (row: SubscriptionRow) => ({
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
+
+const getAllowedCategories = async (
+  database: SupabaseClient,
+  userId: string
+): Promise<string[]> => {
+  const { data, error } = await database
+    .from('user_categories')
+    .select('name')
+    .eq('user_id', userId)
+    .eq('is_hidden', false)
+    .order('order', { ascending: true });
+  if (error) throw error;
+  return [...new Set(
+    ((data ?? []) as unknown as CategoryRow[])
+      .map(category => category.name.trim())
+      .filter(Boolean)
+  )];
+};
+
+const assertExistingCategory = async (
+  database: SupabaseClient,
+  userId: string,
+  category: string
+): Promise<void> => {
+  const allowedCategories = await getAllowedCategories(database, userId);
+  if (allowedCategories.includes(category)) return;
+
+  throw new HttpError(400, 'invalid_subscription_category', 'Category does not exist', {}, {
+    field: 'category',
+    allowedValues: allowedCategories,
+    suggestedFix: allowedCategories.length > 0
+      ? 'Choose one of the existing category names exactly as listed. To create a category, use the app category manager first.'
+      : 'Create a category in the app category manager before creating or moving a subscription.',
+  });
+};
 
 const toDatabasePayload = (
   parsed: z.infer<typeof subscriptionCreateInputSchema>
@@ -608,6 +647,11 @@ export const createSubscriptionsApiHandler = (
       }
 
       const parsed = parseCreateInput(parseJsonObject(event.body));
+      await assertExistingCategory(
+        dependencies.database,
+        identity.userId,
+        parsed.category
+      );
       const context = await consume();
       const { data, error } = await dependencies.database
         .from('subscriptions')
@@ -656,6 +700,13 @@ export const createSubscriptionsApiHandler = (
       );
       const body = parseJsonObject(event.body);
       const parsed = parsePatchInput(body, existing);
+      if (Object.hasOwn(body, 'category')) {
+        await assertExistingCategory(
+          dependencies.database,
+          identity.userId,
+          parsed.category
+        );
+      }
       const context = await consume();
 
       const payload = toDatabasePayload(parsed);

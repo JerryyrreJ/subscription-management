@@ -23,6 +23,7 @@ const SYSTEM_PROMPT = [
   '- If the target is absent from currentSubscriptions, return none with a short reason.',
   '- For create, one subscription object per distinct recurring subscription. Do not invent subscriptions that are not present.',
   '- For create, ignore one-off purchases, refunds, transfers, and non-recurring charges.',
+  '- category: choose exactly one value from the provided Available categories list. Never invent, rename, or create a category. If no category fits, omit it so the user can choose.',
   '- amount: recurring charge as a number in major currency units (e.g. 15.99). No currency symbol.',
   `- currency: one of ${SUBSCRIPTION_CURRENCIES.join(', ')}. Infer from symbols (¥=CNY, $=USD, €=EUR, £=GBP, etc.). If unsure, use USD.`,
   `- period: one of ${SUBSCRIPTION_PERIODS.join(', ')}. Monthly means the same calendar day each month, so the actual cycle can be 28, 29, 30, or 31 days. A fixed interval such as every 30 days must use custom with customDate set to 30.`,
@@ -140,6 +141,7 @@ export const createAnthropicParser = (config: AiConfig): SubscriptionParser => {
         text: [
           `Current date: ${today}`,
           `Current subscriptions: ${JSON.stringify(input.subscriptions)}`,
+          `Available categories: ${JSON.stringify(input.categories)}`,
           '',
           instruction,
         ].join('\n'),
@@ -166,7 +168,7 @@ export const createAnthropicParser = (config: AiConfig): SubscriptionParser => {
         raw = {};
       }
 
-      const { command } = normalizeAiCommand(raw, today, input.subscriptions);
+      const { command } = normalizeAiCommand(raw, today, input.subscriptions, input.categories);
 
       return {
         command,

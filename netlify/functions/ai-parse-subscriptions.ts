@@ -30,6 +30,10 @@ interface ProfileRow {
   is_premium: boolean | null;
 }
 
+interface CategoryRow {
+  name: string;
+}
+
 interface QuotaResult {
   allowed: boolean;
   request_count: number;
@@ -138,7 +142,7 @@ const parseCaptureInput = (
   }
 
   const record = parsed as Record<string, unknown>;
-  const input: CaptureInput = { subscriptions: [] };
+  const input: CaptureInput = { subscriptions: [], categories: [] };
 
   if (record.text !== undefined && record.text !== null) {
     if (typeof record.text !== 'string') {
@@ -342,6 +346,21 @@ export const createAiParseHandler = (
     // Validate + cap input BEFORE consuming any quota, so malformed or oversized
     // requests never cost a parse.
     const input = parseCaptureInput(event.body, dependencies.aiConfig);
+
+    const { data: categoryRows, error: categoryError } = await runDatabaseRequest(() => dependencies.database
+      .from('user_categories')
+      .select('name')
+      .eq('user_id', authenticated.userId)
+      .eq('is_hidden', false)
+      .order('order', { ascending: true }));
+    if (categoryError) {
+      throw categoryError;
+    }
+    input.categories = [...new Set(
+      ((categoryRows ?? []) as unknown as CategoryRow[])
+        .map(category => category.name.trim())
+        .filter(Boolean)
+    )];
 
     const { today, day, month } = dateKeys(now);
 

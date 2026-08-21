@@ -160,9 +160,22 @@ const firstDateString = (record: Record<string, unknown>, keys: readonly string[
   return '';
 };
 
+const resolveAllowedCategory = (
+  value: unknown,
+  allowedCategories: readonly string[]
+): string | null => {
+  const proposed = asString(value);
+  if (!proposed) return null;
+  const normalized = proposed.normalize('NFKC').toLocaleLowerCase();
+  return allowedCategories.find(category =>
+    category.normalize('NFKC').toLocaleLowerCase() === normalized
+  ) ?? null;
+};
+
 const normalizePatch = (
   rawPatch: unknown,
   today: string,
+  allowedCategories: readonly string[],
   target?: AiSubscriptionContextItem | null
 ): AiUpdateCommand['patch'] | null => {
   const record = asRecord(rawPatch);
@@ -174,7 +187,7 @@ const normalizePatch = (
   const name = asString(record.name).slice(0, 120);
   if (name) patch.name = name;
 
-  const category = asString(record.category).slice(0, 80);
+  const category = resolveAllowedCategory(record.category, allowedCategories);
   if (category) patch.category = category;
 
   if (record.amount !== undefined) {
@@ -254,10 +267,16 @@ const requiredMissingFields = (
 const normalizeUpdateOperation = (
   payload: Record<string, unknown>,
   today: string,
-  subscriptions: readonly AiSubscriptionContextItem[]
+  subscriptions: readonly AiSubscriptionContextItem[],
+  allowedCategories: readonly string[]
 ): AiUpdateOperation | null => {
   const target = findSubscriptionTarget(payload, subscriptions);
-  const patch = normalizePatch(payload.patch ?? payload.updates ?? payload.fields, today, target);
+  const patch = normalizePatch(
+    payload.patch ?? payload.updates ?? payload.fields,
+    today,
+    allowedCategories,
+    target
+  );
   if (!target || !patch) {
     return null;
   }
@@ -299,7 +318,8 @@ export const buildAiSubscriptionContext = (
 export const normalizeAiCommand = (
   raw: unknown,
   today: string,
-  subscriptions: readonly AiSubscriptionContextItem[]
+  subscriptions: readonly AiSubscriptionContextItem[],
+  allowedCategories: readonly string[]
 ): NormalizeAiCommandResult => {
   const payload = extractPayload(raw);
   const action = normalizeAction(payload.type ?? payload.action);
@@ -307,7 +327,11 @@ export const normalizeAiCommand = (
 
   if (action === 'create') {
     const rawSubscriptions = payload.subscriptions ?? payload.drafts ?? [];
-    const { drafts, dropped } = normalizeDrafts({ subscriptions: rawSubscriptions }, today);
+    const { drafts, dropped } = normalizeDrafts(
+      { subscriptions: rawSubscriptions },
+      today,
+      allowedCategories
+    );
     return drafts.length > 0
       ? { command: { type: 'create', drafts, ...(message ? { message } : {}) }, dropped }
       : { command: { type: 'none', reason: asString(payload.reason) || 'No subscriptions found to create.' }, dropped };
@@ -319,7 +343,7 @@ export const normalizeAiCommand = (
       const updates = rawOperations
         .map(item => asRecord(item))
         .filter((item): item is Record<string, unknown> => Boolean(item))
-        .map(item => normalizeUpdateOperation(item, today, subscriptions))
+        .map(item => normalizeUpdateOperation(item, today, subscriptions, allowedCategories))
         .filter((item): item is AiUpdateOperation => Boolean(item));
 
       if (updates.length === 0) {
@@ -331,7 +355,7 @@ export const normalizeAiCommand = (
         : { command: { type: 'batchUpdate', updates, ...(message ? { message } : {}) }, dropped: rawOperations.length - updates.length };
     }
 
-    const update = normalizeUpdateOperation(payload, today, subscriptions);
+    const update = normalizeUpdateOperation(payload, today, subscriptions, allowedCategories);
     if (!update) {
       return { command: { type: 'none', reason: asString(payload.reason) || 'Could not identify a subscription update.' }, dropped: 0 };
     }
