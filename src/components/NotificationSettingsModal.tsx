@@ -35,8 +35,8 @@ export function NotificationSettingsModal({
  const [barkUrl, setBarkUrl] = useState('');
 
  const reminderGuideUrl = language === 'zh-CN'
-  ? 'https://docs.sub.jerrylu.app/zh-CN/user-guide/reminders'
-  : 'https://docs.sub.jerrylu.app/en/user-guide/reminders';
+  ? 'https://docs.sub.jerrylu.xyz/zh-CN/user-guide/reminders'
+  : 'https://docs.sub.jerrylu.xyz/en/user-guide/reminders';
 
  // Handle Bark URL input change
  const handleBarkUrlChange = (url: string) => {

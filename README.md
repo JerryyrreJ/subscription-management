@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Use online: [sub.jerrylu.app](https://sub.jerrylu.app)
+Use online: [sub.jerrylu.xyz](https://sub.jerrylu.xyz)
 
 Subscription Manager is a local-first web app for tracking recurring subscriptions. It supports multiple currencies, renewal reminders, analytics, import/export, and optional cloud sync.
 

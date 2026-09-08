@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-在线使用：[sub.jerrylu.app](https://sub.jerrylu.app)
+在线使用：[sub.jerrylu.xyz](https://sub.jerrylu.xyz)
 
 Subscription Manager 是一个本地优先的 Web 应用，用于跟踪周期性订阅。它支持多币种、续费提醒、数据分析、导入导出，以及可选的云同步。
 
