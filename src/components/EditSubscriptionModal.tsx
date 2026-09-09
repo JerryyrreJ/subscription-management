@@ -255,21 +255,23 @@ export function EditSubscriptionModal({
  </div>
 
  <div className="flex gap-3">
- <div className="w-[30%]">
+ <div className="w-28 flex-shrink-0">
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
  {t('editSubscription:currencyLabel')}
  </label>
  <CustomSelect
+ compact
  value={formData.currency}
  onChange={(value) => setFormData({ ...formData, currency: value as Currency })}
 options={CURRENCIES.map(currency => ({
  value: currency.code,
+ selectedLabel: currency.code,
  label: formatCurrencyOptionLabel(currency.code, t)
 }))}
  required={true}
  />
  </div>
- <div className="w-[70%]">
+ <div className="min-w-0 flex-1">
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
  {t('editSubscription:amountLabel')}
  </label>

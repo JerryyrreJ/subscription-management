@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Period, Subscription, Currency, CloudMutationResult } from '../types';
-import { CURRENCIES, DEFAULT_CURRENCY, formatCurrencyOptionLabel } from '../utils/currency';
+import { CURRENCIES, formatCurrencyOptionLabel } from '../utils/currency';
 import { getAllCategories, getAllCategoriesWithDetails, addCustomCategory, getCategoryDisplayName } from '../utils/categories';
 import { MAX_SUBSCRIPTION_AMOUNT, validateSubscriptionAmount } from '../utils/subscriptionValidation';
+import { getNewSubscriptionCurrency, rememberSubscriptionCurrency } from '../utils/subscriptionCurrencyPreference';
 import { CustomSelect } from './CustomSelect';
 import { CustomDatePicker } from './CustomDatePicker';
 import type { Category } from '../utils/categories';
@@ -28,7 +29,7 @@ function buildInitialFormData(isNotificationReady: boolean) {
  name: '',
  category: '',
  amount: '',
- currency: DEFAULT_CURRENCY as Currency,
+ currency: getNewSubscriptionCurrency(),
  period: 'monthly' as Period,
  nextPaymentDate: '',
  customDate: '',
@@ -318,21 +319,26 @@ export function AddSubscriptionModal({
  </div>
 
  <div className="flex gap-3">
- <div className="w-[30%]">
+ <div className="w-28 flex-shrink-0">
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
  {t('addSubscription:currencyLabel')}
  </label>
  <CustomSelect
+ compact
  value={formData.currency}
- onChange={(value) => setFormData({ ...formData, currency: value as Currency })}
+ onChange={(value) => {
+ rememberSubscriptionCurrency(value as Currency);
+ setFormData({ ...formData, currency: value as Currency });
+ }}
 options={CURRENCIES.map(currency => ({
  value: currency.code,
+ selectedLabel: currency.code,
  label: formatCurrencyOptionLabel(currency.code, t)
 }))}
  required={true}
  />
  </div>
- <div className="w-[70%]">
+ <div className="min-w-0 flex-1">
  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
  {t('addSubscription:amountLabel')}
  </label>

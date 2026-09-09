@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 interface Option {
  value: string;
  label: string;
+ selectedLabel?: string;
 }
 
 interface CustomSelectProps {
@@ -15,6 +16,7 @@ interface CustomSelectProps {
  className?: string;
  required?: boolean;
  disabled?: boolean;
+ compact?: boolean;
 }
 
 export function CustomSelect({
@@ -24,6 +26,7 @@ export function CustomSelect({
  placeholder,
  className = '',
  required = false,
+ compact = false,
  disabled = false
 }: CustomSelectProps) {
  const { t } = useTranslation(['common']);
@@ -117,6 +120,7 @@ export function CustomSelect({
  disabled:opacity-50 disabled:cursor-not-allowed
  transition-colors duration-200
  ${isOpen ? 'ring-2 ring-zinc-900 dark:ring-zinc-100 border-transparent' : ''}
+ ${compact ? '!px-3' : ''}
  ${className}
  `}
  aria-haspopup="listbox"
@@ -124,11 +128,11 @@ export function CustomSelect({
  aria-label={selectedOption ? selectedOption.label : resolvedPlaceholder}
  >
  <span
- className={`min-w-0 flex-1 truncate whitespace-nowrap pr-3 ${
+ className={`min-w-0 flex-1 whitespace-nowrap ${compact ? 'pr-1' : 'truncate pr-3'} ${
  selectedOption ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'
  }`}
  >
- {selectedOption ? selectedOption.label : resolvedPlaceholder}
+ {selectedOption ? (selectedOption.selectedLabel ?? selectedOption.label) : resolvedPlaceholder}
  </span>
  <ChevronDown
  className={`w-5 h-5 flex-shrink-0 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${
@@ -139,8 +143,8 @@ export function CustomSelect({
 
  {/* 下拉选项列表 */}
  {isOpen && (
- <div className="absolute left-0 z-50 mt-1 min-w-full w-max max-w-[min(18rem,calc(100vw-2rem))] bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-apple-lg max-h-60 overflow-y-auto">
- <div className="p-1.5 flex flex-col gap-0.5">
+ <div className={`absolute left-0 z-50 mt-1 min-w-full w-max ${compact ? 'max-w-[min(18rem,calc(100vw-6rem))]' : 'max-w-[min(18rem,calc(100vw-2rem))]'} bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-apple-lg max-h-60 overflow-y-auto`}>
+ <div role="listbox" className="p-1.5 flex flex-col gap-0.5">
  {options.length === 0 ? (
  <div className="px-3 py-2 text-gray-500 dark:text-gray-400 text-sm">
  No options available
@@ -161,7 +165,7 @@ export function CustomSelect({
  role="option"
  aria-selected={value === option.value}
  >
- <span className="min-w-0 flex-1 whitespace-nowrap">{option.label}</span>
+ <span className={`min-w-0 flex-1 ${compact ? 'whitespace-normal break-words' : 'whitespace-nowrap'}`}>{option.label}</span>
  {value === option.value && (
  <Check className="w-4 h-4 flex-shrink-0 text-emerald-700 dark:text-emerald-400"/>
  )}
