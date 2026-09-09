@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { AlertCircle, CheckCircle, Eye, EyeOff, X } from 'lucide-react';
+import { AlertCircle, CheckCircle, Eye, EyeOff, X, LockKeyhole, ArrowLeft, Check } from 'lucide-react';
+import './PasswordRecoveryModal.css';
 import { useTranslation } from 'react-i18next';
 
 interface PasswordRecoveryModalProps {
@@ -94,37 +95,40 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, stand
  const passwordsMatch = Boolean(newPassword && confirmPassword && newPassword === confirmPassword);
 
  const wrapperClassName = standalone
- ? 'min-h-screen flex items-center justify-center p-4'
+ ? 'recovery-stack'
  : 'fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay';
 
  const panelClassName = standalone
- ? 'bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6'
+ ? 'recovery-card'
  : 'bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6 modal-content';
 
  return (
  <div className={wrapperClassName}>
+ {standalone && <div className="recovery-brand"><img src="/icon.png" alt="" width={28} height={28}/><span>{t('app:title')}</span></div>}
  <div className={panelClassName}>
+ {standalone && <div className="recovery-icon"><LockKeyhole aria-hidden="true" size={23}/></div>}
  <div className="flex items-start justify-between gap-4 mb-6">
  <div>
  <h2 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
  {t('auth:setNewPasswordTitle')}
  </h2>
  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
- {t('auth:setNewPasswordBody')}
+ {t(standalone ? 'auth:passwordRecoveryBody' : 'auth:setNewPasswordBody')}
  </p>
  </div>
- <button
+ {!standalone && <button
  type="button"
+ aria-label={t('auth:cancelPasswordReset')}
  onClick={handleClose}
  disabled={isLoading}
  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
  >
  <X className="w-6 h-6"/>
- </button>
+ </button>}
  </div>
 
  {success ? (
- <div className="text-center py-8">
+ <div role="status" className="text-center py-8">
  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
  <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400"/>
  </div>
@@ -138,11 +142,13 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, stand
  ) : (
  <form onSubmit={handleSubmit} className="space-y-4">
  <div>
- <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+ <label htmlFor="recovery-new-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
  {t('accountModals:newPasswordLabel')}
  </label>
  <div className="relative">
  <input
+ id="recovery-new-password"
+ autoComplete="new-password"
  type={showPassword ? 'text' : 'password'}
  value={newPassword}
  onChange={(event) => setNewPassword(event.target.value)}
@@ -153,6 +159,9 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, stand
  />
  <button
  type="button"
+ aria-label={t(showPassword ? 'auth:hidePassword' : 'auth:showPassword')}
+ aria-pressed={showPassword}
+ disabled={isLoading}
  onClick={() => setShowPassword(!showPassword)}
  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
  >
@@ -162,11 +171,13 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, stand
  </div>
 
  <div>
- <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+ <label htmlFor="recovery-confirm-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
  {t('accountModals:confirmNewPasswordLabel')}
  </label>
  <div className="relative">
  <input
+ id="recovery-confirm-password"
+ autoComplete="new-password"
  type={showConfirmPassword ? 'text' : 'password'}
  value={confirmPassword}
  onChange={(event) => setConfirmPassword(event.target.value)}
@@ -177,6 +188,9 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, stand
  />
  <button
  type="button"
+ aria-label={t(showConfirmPassword ? 'auth:hidePassword' : 'auth:showPassword')}
+ aria-pressed={showConfirmPassword}
+ disabled={isLoading}
  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
  >
@@ -185,24 +199,24 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, stand
  </div>
  </div>
 
- <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-3">
- <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('accountModals:passwordRequirementsTitle')}</p>
+ <div className="recovery-rules bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-3">
+ <p className="recovery-rules-title text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('accountModals:passwordRequirementsTitle')}</p>
  <ul className="space-y-1 text-xs">
  <li className={`flex items-center gap-2 ${newPassword.length >= 8 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
- <div className={`w-1.5 h-1.5 rounded-full ${newPassword.length >= 8 ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+ <span className={`recovery-rule-dot w-1.5 h-1.5 rounded-full ${newPassword.length >= 8 ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}><Check aria-hidden="true" size={11}/></span>
  {t('accountModals:passwordRuleLength')}
  </li>
  <li className={`flex items-center gap-2 ${/(?=.*[a-z])(?=.*[A-Z])/.test(newPassword) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
- <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*[a-z])(?=.*[A-Z])/.test(newPassword) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+ <span className={`recovery-rule-dot w-1.5 h-1.5 rounded-full ${/(?=.*[a-z])(?=.*[A-Z])/.test(newPassword) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}><Check aria-hidden="true" size={11}/></span>
  {t('accountModals:passwordRuleCase')}
  </li>
  <li className={`flex items-center gap-2 ${/(?=.*\d)/.test(newPassword) ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
- <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*\d)/.test(newPassword) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+ <span className={`recovery-rule-dot w-1.5 h-1.5 rounded-full ${/(?=.*\d)/.test(newPassword) ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}><Check aria-hidden="true" size={11}/></span>
  {t('accountModals:passwordRuleNumber')}
  </li>
  {confirmPassword && (
  <li className={`flex items-center gap-2 ${passwordsMatch ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
- <div className={`w-1.5 h-1.5 rounded-full ${passwordsMatch ? 'bg-green-500' : 'bg-red-500'}`} />
+ <span className={`recovery-rule-dot w-1.5 h-1.5 rounded-full ${passwordsMatch ? 'bg-green-500' : 'bg-red-500'}`}><Check aria-hidden="true" size={11}/></span>
  {t('accountModals:passwordRuleMatch')}
  </li>
  )}
@@ -210,19 +224,20 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, stand
  </div>
 
  {error && (
- <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-2xl">
+ <div role="alert" className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-2xl">
  <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0"/>
  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
  </div>
  )}
 
- <div className="flex gap-3 pt-2">
+ <div className="recovery-actions flex gap-3 pt-2">
  <button
  type="button"
  onClick={handleClose}
  disabled={isLoading}
  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
  >
+ {standalone && <ArrowLeft aria-hidden="true" size={14}/>}
  {t('auth:cancelPasswordReset')}
  </button>
  <button

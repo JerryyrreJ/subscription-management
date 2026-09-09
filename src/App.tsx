@@ -810,19 +810,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  if (passwordRecoveryPending) {
  return (
- <div className="min-h-screen relative overflow-hidden transition-colors duration-300">
- <div className="fixed inset-0 -z-10 dark:opacity-0 animated-gradient-bg"></div>
- <div className="fixed inset-0 -z-10 bg-gray-900 dark:opacity-100 opacity-0 transition-opacity duration-300 app-dark-canvas"></div>
- <div className="min-h-screen px-4 py-8 flex flex-col">
- <div className="max-w-7xl w-full mx-auto">
- <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white app-dark-text-primary">
- {t('app:title')}
- </h1>
- <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
- {t('auth:passwordRecoveryPageSubtitle')}
- </p>
- </div>
- <div className="flex-1 flex items-center justify-center">
+ <main className="recovery-page">
  <Suspense
  fallback={(
   <LazyModalFallback
@@ -844,9 +832,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   }}
   />
  </Suspense>
- </div>
- </div>
- </div>
+ </main>
  );
  }
 
