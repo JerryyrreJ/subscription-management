@@ -48,7 +48,6 @@ export const auth = {
  providerGoogle: 'Google',
  passkeySignIn: '使用 Passkey 登录',
  passkeySignInHint: '可用面容、指纹、Windows Hello 或安全密钥，无需先填写邮箱。',
- passkeyOrEmail: '或使用邮箱',
  passkeySigningIn: '正在等待 Passkey…',
  passkeySignInSuccess: '已使用 Passkey 登录！',
  passkeySignInFailed: 'Passkey 登录失败，请重试。',

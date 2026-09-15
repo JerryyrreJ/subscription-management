@@ -48,7 +48,6 @@ export const auth = {
  providerGoogle: 'Google',
  passkeySignIn: 'Sign in with Passkey',
  passkeySignInHint: 'Use Face ID, Touch ID, Windows Hello, or a security key — no email needed.',
- passkeyOrEmail: 'Or use email',
  passkeySigningIn: 'Waiting for Passkey…',
  passkeySignInSuccess: 'Signed in with Passkey!',
  passkeySignInFailed: 'Passkey sign-in failed. Please try again.',

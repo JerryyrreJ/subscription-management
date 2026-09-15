@@ -226,46 +226,6 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  </button>
  </div>
 
- {isLogin && !isPasswordResetMode && passkeySupported && (
-  <div className="mb-5">
-   <button
-    type="button"
-    onClick={handlePasskeyLogin}
-    disabled={busy}
-    className="group relative w-full overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 px-4 py-3.5 text-left transition-all hover:border-emerald-300 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-[#1a1c1e] dark:to-teal-500/5 dark:hover:border-emerald-400/40"
-   >
-    <div className="flex items-center gap-3">
-     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm transition-transform group-hover:scale-[1.03] dark:bg-emerald-500">
-      {passkeyLoading ? (
-       <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-      ) : (
-       <Fingerprint className="h-5 w-5" />
-      )}
-     </div>
-     <div className="min-w-0 flex-1">
-      <div className="text-sm font-semibold text-gray-900 dark:text-white">
-       {passkeyLoading ? t('auth:passkeySigningIn') : t('auth:passkeySignIn')}
-      </div>
-      <p className="mt-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
-       {t('auth:passkeySignInHint')}
-      </p>
-     </div>
-    </div>
-   </button>
-
-   <div className="relative my-5">
-    <div className="absolute inset-0 flex items-center">
-     <div className="w-full border-t border-gray-200 dark:border-gray-700" />
-    </div>
-    <div className="relative flex justify-center text-sm">
-     <span className="bg-white px-2 text-gray-500 dark:bg-[#1a1c1e] dark:text-gray-400">
-      {t('auth:passkeyOrEmail')}
-     </span>
-    </div>
-   </div>
-  </div>
- )}
-
  <form onSubmit={handleSubmit} className="space-y-4">
  {!isLogin && !isPasswordResetMode && (
  <div>
@@ -412,6 +372,33 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  )}
  </button>
  </form>
+
+ {isLogin && !isPasswordResetMode && passkeySupported && (
+  <div className="mt-4">
+   <button
+    type="button"
+    onClick={handlePasskeyLogin}
+    disabled={busy}
+    className="group flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/60 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700/40 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-500/10"
+   >
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+     {passkeyLoading ? (
+      <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent dark:border-emerald-300" />
+     ) : (
+      <Fingerprint className="h-5 w-5" />
+     )}
+    </div>
+    <div className="min-w-0 flex-1">
+     <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
+      {passkeyLoading ? t('auth:passkeySigningIn') : t('auth:passkeySignIn')}
+     </div>
+     <p className="mt-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
+      {t('auth:passkeySignInHint')}
+     </p>
+    </div>
+   </button>
+  </div>
+ )}
 
  {isLogin && !isPasswordResetMode && (
  <>
