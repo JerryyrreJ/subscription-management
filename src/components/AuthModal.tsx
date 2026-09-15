@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { X, Mail, Lock, User, UserPlus, AlertCircle, CheckCircle, Github, Fingerprint } from 'lucide-react'
+import { X, Mail, Lock, User, UserPlus, AlertCircle, CheckCircle, Github } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { isWebAuthnAvailable, resolvePasskeyErrorCode } from '../utils/passkey'
 
@@ -374,30 +374,21 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  </form>
 
  {isLogin && !isPasswordResetMode && passkeySupported && (
-  <div className="mt-4">
-   <button
-    type="button"
-    onClick={handlePasskeyLogin}
-    disabled={busy}
-    className="group flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/60 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700/40 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-500/10"
-   >
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
-     {passkeyLoading ? (
-      <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent dark:border-emerald-300" />
-     ) : (
-      <Fingerprint className="h-5 w-5" />
-     )}
+  <button
+   type="button"
+   onClick={handlePasskeyLogin}
+   disabled={busy}
+   className="mt-3 w-full rounded-2xl border border-gray-300 bg-white py-3 px-4 font-medium text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-transparent dark:text-gray-100 dark:hover:bg-gray-700/50"
+  >
+   {passkeyLoading ? (
+    <div className="flex items-center justify-center space-x-2">
+     <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent dark:border-gray-300" />
+     <span>{t('auth:passkeySigningIn')}</span>
     </div>
-    <div className="min-w-0 flex-1">
-     <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
-      {passkeyLoading ? t('auth:passkeySigningIn') : t('auth:passkeySignIn')}
-     </div>
-     <p className="mt-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
-      {t('auth:passkeySignInHint')}
-     </p>
-    </div>
-   </button>
-  </div>
+   ) : (
+    t('auth:passkeySignIn')
+   )}
+  </button>
  )}
 
  {isLogin && !isPasswordResetMode && (
