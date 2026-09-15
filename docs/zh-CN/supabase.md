@@ -44,6 +44,38 @@ supabase/migrations/20260714000100_preserve_payments_on_account_deletion.sql
 - AI cost windows 记录工作区级月度聚合 token 用量和预算预留。它们不保存用户粘贴的文本、截图或解析内容。
 - 账号注销会删除 Auth 用户及其业务数据。付款记录的 `user_id` 会被置空，付款邮箱和必要交易字段继续保留，用于财务核对、退款、支付争议和适用的记录保存义务。
 
+## Passkey（实验特性）
+
+Passkey 登录基于 Supabase Auth 的 WebAuthn。客户端需开启 `auth.experimental.passkey: true`，并使用 `@supabase/supabase-js` ≥ 2.105.0。
+
+### 本地 CLI
+
+`supabase/config.toml` 已配置：
+
+```toml
+[auth.passkey]
+enabled = true
+
+[auth.webauthn]
+rp_display_name = "Subscription Management"
+rp_id = "127.0.0.1"
+rp_origins = ["http://127.0.0.1:5173"]
+```
+
+请用 `http://127.0.0.1:5173` 打开本地应用，使浏览器 origin 与 `rp_id` / `rp_origins` 一致。配合本配置时，本地测试优先使用 `127.0.0.1` 而不是 `localhost`。
+
+### 生产 Dashboard（需人工操作）
+
+在 Supabase Dashboard 打开 **Authentication → Passkeys**：
+
+1. 开启 Passkey authentication。
+2. 填写 **Relying Party Display Name**（例如 `Subscription Management`）。
+3. 设置稳定的 **Relying Party ID**（裸域名，不要带 scheme / port / path）。生产环境通常为 `sub.jerrylu.xyz` 或 `jerrylu.xyz`——选定后不要轻易更改，改 RP ID 会使已注册 Passkey 全部失效。
+4. 填写 **Relying Party Origins**（最多 5 个），必须包含用户实际访问的 HTTPS 源，例如 `https://sub.jerrylu.xyz`。仅 loopback 允许使用 HTTP。
+5. 确认 Site URL / Redirect URLs 仍覆盖 OAuth 与密码重置；Passkey 本身不依赖 redirect，但浏览器 origin 必须在 RP Origins 中。
+
+非 loopback 环境必须使用 HTTPS。Netlify Deploy Preview 主机名通常无法全部写入 RP Origins（上限 5），Preview 上 Passkey 可能不可用。
+
 ## 安全说明
 
 - 用户拥有的数据表应保持 Row Level Security 开启。

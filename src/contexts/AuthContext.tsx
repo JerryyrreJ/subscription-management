@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { User, Session, AuthError } from '@supabase/supabase-js'
+import { User, Session, AuthError, PasskeyListItem, PasskeyMetadata } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { UserProfile, UserProfileService } from '../services/userProfileService'
 import { config } from '../lib/config'
@@ -18,6 +18,11 @@ interface AuthContextType {
  signUp: (email: string, password: string, nickname?: string) => Promise<{ error: AuthError | null }>
  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: AuthError | null }>
  signInWithOAuth: (provider: OAuthProvider) => Promise<{ error: AuthError | null }>
+ signInWithPasskey: (rememberMe?: boolean) => Promise<{ error: Error | null }>
+ registerPasskey: () => Promise<{ data: PasskeyMetadata | null; error: Error | null }>
+ listPasskeys: () => Promise<{ data: PasskeyListItem[]; error: Error | null }>
+ updatePasskey: (passkeyId: string, friendlyName: string) => Promise<{ data: PasskeyListItem | null; error: Error | null }>
+ deletePasskey: (passkeyId: string) => Promise<{ error: Error | null }>
  signOut: () => Promise<void>
  deleteAccount: () => Promise<string>
  refreshUserProfile: () => Promise<void>
@@ -383,6 +388,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  return result
  }
 
+ const signInWithPasskey = async (rememberMe?: boolean) => {
+ if (!supabase) {
+ throw new Error('Authentication not available')
+ }
+ setPasswordRecoveryPending(false)
+
+ // Passkeys are device-bound credentials; default to trusting this device.
+ setRememberMe(rememberMe ?? true)
+
+ const { error } = await supabase.auth.signInWithPasskey()
+ return { error }
+ }
+
+ const registerPasskey = async () => {
+ if (!supabase) {
+ throw new Error('Authentication not available')
+ }
+
+ const { data, error } = await supabase.auth.registerPasskey()
+ return { data: data ?? null, error }
+ }
+
+ const listPasskeys = async () => {
+ if (!supabase) {
+ throw new Error('Authentication not available')
+ }
+
+ const { data, error } = await supabase.auth.passkey.list()
+ return { data: data ?? [], error }
+ }
+
+ const updatePasskey = async (passkeyId: string, friendlyName: string) => {
+ if (!supabase) {
+ throw new Error('Authentication not available')
+ }
+
+ const { data, error } = await supabase.auth.passkey.update({
+ passkeyId,
+ friendlyName,
+ })
+ return { data: data ?? null, error }
+ }
+
+ const deletePasskey = async (passkeyId: string) => {
+ if (!supabase) {
+ throw new Error('Authentication not available')
+ }
+
+ const { error } = await supabase.auth.passkey.delete({ passkeyId })
+ return { error }
+ }
+
  const signOut = async () => {
  if (!supabase) {
  throw new Error('Authentication not available')
@@ -529,6 +586,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  signUp,
  signIn,
  signInWithOAuth,
+ signInWithPasskey,
+ registerPasskey,
+ listPasskeys,
+ updatePasskey,
+ deletePasskey,
  signOut,
  deleteAccount,
  refreshUserProfile,

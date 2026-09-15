@@ -60,6 +60,7 @@ Functions 优先读取不带 `VITE_` 的服务端变量，并在迁移期兼容�
 - 开放 API Key 依赖 Supabase 和 Netlify Functions；API 配额变量只用于覆盖默认值。
 - AI 录入依赖 Supabase、Netlify Functions、AI 录入迁移，以及 `OPENROUTER_API_KEY` 或 `ANTHROPIC_API_KEY`。
 - 缺少可选变量时，应用保持本地优先模式。
+- Passkey 不需要额外的 `VITE_*` 变量。在 Supabase Dashboard（或本地 `supabase/config.toml`）启用即可，并保持 `@supabase/supabase-js` ≥ 2.105.0。详见 `docs/zh-CN/supabase.md`。
 
 ## Bark 设置
 

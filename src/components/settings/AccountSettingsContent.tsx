@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { User, Mail, Lock, AlertCircle, Check, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DeleteAccountDialog } from '../DeleteAccountDialog';
+import { PasskeySettingsSection } from './PasskeySettingsSection';
 
 interface AccountSettingsContentProps {
   userEmail: string;
@@ -224,6 +225,8 @@ export function AccountSettingsContent({
             </div>
           </form>
         </section>
+
+        <PasskeySettingsSection />
 
         {/* Password Section */}
         <section className="bg-white dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-2xl p-6">

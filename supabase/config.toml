@@ -29,3 +29,14 @@ enable_anonymous_sign_ins = false
 [auth.email]
 enable_signup = true
 enable_confirmations = false
+
+# Local Passkey / WebAuthn (requires matching loopback origin in the browser).
+# Production projects must enable Passkeys in the Supabase Dashboard and set a
+# stable RP ID / Origins there — see docs/en/supabase.md.
+[auth.passkey]
+enabled = true
+
+[auth.webauthn]
+rp_display_name = "Subscription Management"
+rp_id = "127.0.0.1"
+rp_origins = ["http://127.0.0.1:5173"]

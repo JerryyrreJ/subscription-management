@@ -60,6 +60,7 @@ The app checks environment variables at runtime:
 - Public API keys require Supabase and Netlify Functions; quota variables only override the defaults.
 - AI capture requires Supabase, Netlify Functions, the AI capture migrations, and either `OPENROUTER_API_KEY` or `ANTHROPIC_API_KEY`.
 - Missing optional variables keep the app in local-first mode.
+- Passkeys do not need extra `VITE_*` variables. Enable them in the Supabase Dashboard (or local `supabase/config.toml`) and keep the client on `@supabase/supabase-js` ≥ 2.105.0. See `docs/en/supabase.md`.
 
 ## Bark Settings
 

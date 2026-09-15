@@ -51,8 +51,12 @@ export const supabase = config.hasSupabaseConfig
  detectSessionInUrl: true,
  // 启用session持久化
  persistSession: true,
+ // Experimental Passkey / WebAuthn support (requires @supabase/supabase-js >= 2.105.0)
+ experimental: {
+  passkey: true,
+ },
  }
 })
  : null // 没有配置时返回null
 
-export type { User, Session } from '@supabase/supabase-js'
+export type { User, Session, PasskeyListItem } from '@supabase/supabase-js'

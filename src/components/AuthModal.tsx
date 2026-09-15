@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { X, Mail, Lock, User, UserPlus, AlertCircle, CheckCircle, Github } from 'lucide-react'
+import { X, Mail, Lock, User, UserPlus, AlertCircle, CheckCircle, Github, Fingerprint } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { isWebAuthnAvailable, resolvePasskeyErrorCode } from '../utils/passkey'
 
 interface AuthModalProps {
  isOpen: boolean
@@ -28,10 +29,39 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  const [nickname, setNickname] = useState('')
  const [rememberMe, setRememberMe] = useState(false)
  const [loading, setLoading] = useState(false)
+ const [passkeyLoading, setPasskeyLoading] = useState(false)
  const [error, setError] = useState('')
  const [success, setSuccess] = useState('')
 
- const { signIn, signUp, signInWithOAuth, requestPasswordReset } = useAuth()
+ const { signIn, signUp, signInWithOAuth, signInWithPasskey, requestPasswordReset } = useAuth()
+ const passkeySupported = useMemo(() => isWebAuthnAvailable(), [])
+
+ const mapPasskeyError = (err: unknown) => {
+  const code = resolvePasskeyErrorCode(err)
+  switch (code) {
+   case 'passkey_disabled':
+    return t('auth:passkeyDisabled')
+   case 'webauthn_credential_not_found':
+    return t('auth:passkeyNotFound')
+   case 'webauthn_challenge_expired':
+   case 'webauthn_challenge_not_found':
+    return t('auth:passkeyChallengeExpired')
+   case 'webauthn_verification_failed':
+    return t('auth:passkeyVerificationFailed')
+   case 'email_not_confirmed':
+    return t('auth:passkeyEmailNotConfirmed')
+   case 'user_banned':
+    return t('auth:passkeyUserBanned')
+   case 'cancelled':
+    return t('auth:passkeyCancelled')
+   case 'unsupported':
+    return t('auth:passkeyUnsupported')
+   default:
+    return err instanceof Error && err.message
+     ? err.message
+     : t('auth:passkeySignInFailed')
+  }
+ }
 
  const handleSubmit = async (e: React.FormEvent) => {
  e.preventDefault()
@@ -101,6 +131,33 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  }
  }
 
+ const handlePasskeyLogin = async () => {
+  if (!passkeySupported) {
+   setError(t('auth:passkeyUnsupported'))
+   return
+  }
+
+  setPasskeyLoading(true)
+  setError('')
+  setSuccess('')
+
+  try {
+   const { error } = await signInWithPasskey(true)
+   if (error) throw error
+
+   setSuccess(t('auth:passkeySignInSuccess'))
+   setTimeout(() => {
+    onClose()
+    resetForm()
+   }, 800)
+  } catch (err: unknown) {
+   console.error('Passkey login error:', err)
+   setError(mapPasskeyError(err))
+  } finally {
+   setPasskeyLoading(false)
+  }
+ }
+
  const resetForm = () => {
  setEmail('')
  setPassword('')
@@ -150,6 +207,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  setSuccess('')
  }
 
+ const busy = loading || passkeyLoading
+
  if (!isOpen) return null
 
  return (
@@ -167,6 +226,46 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  </button>
  </div>
 
+ {isLogin && !isPasswordResetMode && passkeySupported && (
+  <div className="mb-5">
+   <button
+    type="button"
+    onClick={handlePasskeyLogin}
+    disabled={busy}
+    className="group relative w-full overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50 px-4 py-3.5 text-left transition-all hover:border-emerald-300 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-500/25 dark:from-emerald-500/10 dark:via-[#1a1c1e] dark:to-teal-500/5 dark:hover:border-emerald-400/40"
+   >
+    <div className="flex items-center gap-3">
+     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm transition-transform group-hover:scale-[1.03] dark:bg-emerald-500">
+      {passkeyLoading ? (
+       <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+      ) : (
+       <Fingerprint className="h-5 w-5" />
+      )}
+     </div>
+     <div className="min-w-0 flex-1">
+      <div className="text-sm font-semibold text-gray-900 dark:text-white">
+       {passkeyLoading ? t('auth:passkeySigningIn') : t('auth:passkeySignIn')}
+      </div>
+      <p className="mt-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
+       {t('auth:passkeySignInHint')}
+      </p>
+     </div>
+    </div>
+   </button>
+
+   <div className="relative my-5">
+    <div className="absolute inset-0 flex items-center">
+     <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+    </div>
+    <div className="relative flex justify-center text-sm">
+     <span className="bg-white px-2 text-gray-500 dark:bg-[#1a1c1e] dark:text-gray-400">
+      {t('auth:passkeyOrEmail')}
+     </span>
+    </div>
+   </div>
+  </div>
+ )}
+
  <form onSubmit={handleSubmit} className="space-y-4">
  {!isLogin && !isPasswordResetMode && (
  <div>
@@ -182,7 +281,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  onChange={(e) => setNickname(e.target.value)}
  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
  placeholder={t('auth:nicknamePlaceholder')}
- disabled={loading}
+ disabled={busy}
  minLength={2}
  maxLength={30}
  />
@@ -206,7 +305,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  onChange={(e) => setEmail(e.target.value)}
  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
  placeholder={t('auth:emailPlaceholder')}
- disabled={loading}
+ disabled={busy}
  />
  </div>
  </div>
@@ -226,7 +325,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
  placeholder={t('auth:passwordPlaceholder')}
  minLength={6}
- disabled={loading}
+ disabled={busy}
  />
  </div>
  {!isLogin && (
@@ -239,7 +338,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <button
  type="button"
  onClick={switchToPasswordReset}
- disabled={loading}
+ disabled={busy}
  className="text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 transition-colors disabled:opacity-50"
  >
  {t('auth:forgotPassword')}
@@ -257,9 +356,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  checked={rememberMe}
  onChange={(e) => setRememberMe(e.target.checked)}
  className="h-4 w-4 text-emerald-700 dark:text-emerald-400 focus:ring-emerald-500 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
- disabled={loading}
+ disabled={busy}
  />
- <label htmlFor="rememberMe"className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+ <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
  {t('auth:rememberMe')}
  </label>
  </div>
@@ -287,7 +386,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <button
  type="button"
  onClick={switchToSignUpWithEmail}
- disabled={loading}
+ disabled={busy}
  className="inline-flex items-center justify-center gap-1.5 self-start text-sm font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 transition-colors disabled:opacity-50 sm:self-auto"
  >
  <UserPlus className="h-4 w-4"/>
@@ -298,10 +397,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
  <button
  type="submit"
- disabled={loading}
+ disabled={busy}
  className="w-full bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 px-4 rounded-2xl transition-colors font-medium"
  >
- {loading ? (
+ {busy && !passkeyLoading ? (
  <div className="flex items-center justify-center space-x-2">
  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
  <span>{t('auth:processing')}</span>
@@ -331,7 +430,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <button
  type="button"
  onClick={() => handleOAuthLogin('github')}
- disabled={loading}
+ disabled={busy}
  className="flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
  >
  <Github className="w-5 h-5 mr-2"/>
@@ -341,14 +440,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <button
  type="button"
  onClick={() => handleOAuthLogin('google')}
- disabled={loading}
+ disabled={busy}
  className="flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
  >
- <svg className="w-5 h-5 mr-2"viewBox="0 0 24 24">
- <path fill="#4285F4"d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
- <path fill="#34A853"d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
- <path fill="#FBBC05"d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
- <path fill="#EA4335"d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+ <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+ <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+ <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+ <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+ <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
  </svg>
  <span className="text-sm font-medium">{t('auth:providerGoogle')}</span>
  </button>
@@ -359,7 +458,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <div className="mt-6 text-center">
  <button
  onClick={isPasswordResetMode ? switchToLogin : switchMode}
- disabled={loading}
+ disabled={busy}
  className="text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:text-emerald-300 dark:hover:text-zinc-700 dark:hover:text-zinc-300 text-sm font-medium transition-colors"
  >
  {isPasswordResetMode ? t('auth:backToLogin') : (isLogin ? t('auth:switchToSignUp') : t('auth:switchToLogin'))}

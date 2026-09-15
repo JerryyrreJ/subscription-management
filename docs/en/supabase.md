@@ -44,6 +44,38 @@ For a new environment, run `supabase start` and `npm run db:verify`. For an exis
 - AI cost windows track workspace-wide monthly aggregate token usage and budget reservations. They do not store pasted text, screenshots, or parsed content.
 - Account deletion removes the Auth user and user-owned application data. The payment `user_id` is set to null while the payment email and necessary transaction fields are retained for financial reconciliation, refunds, payment disputes, and applicable record-keeping obligations.
 
+## Passkeys (experimental)
+
+Passkey sign-in uses Supabase Auth WebAuthn. The app client opts in with `auth.experimental.passkey: true` and requires `@supabase/supabase-js` ≥ 2.105.0.
+
+### Local CLI
+
+`supabase/config.toml` enables:
+
+```toml
+[auth.passkey]
+enabled = true
+
+[auth.webauthn]
+rp_display_name = "Subscription Management"
+rp_id = "127.0.0.1"
+rp_origins = ["http://127.0.0.1:5173"]
+```
+
+Open the app at `http://127.0.0.1:5173` so the browser origin matches `rp_id` / `rp_origins`. Prefer `127.0.0.1` over `localhost` for local Passkey testing with this config.
+
+### Production Dashboard (manual)
+
+In the Supabase Dashboard go to **Authentication → Passkeys**:
+
+1. Enable Passkey authentication.
+2. Set **Relying Party Display Name** (for example, `Subscription Management`).
+3. Set a stable **Relying Party ID** to the bare domain that serves the app (for production this is typically `sub.jerrylu.xyz` or `jerrylu.xyz` — pick one and keep it stable; changing RP ID invalidates every enrolled Passkey).
+4. Set **Relying Party Origins** to the exact HTTPS origins users will use (up to 5). Include `https://sub.jerrylu.xyz` for production. Loopback HTTP is allowed only for local development.
+5. Confirm Site URL / Redirect URLs still cover OAuth and password reset; Passkeys themselves do not use redirects, but the browser origin must be listed in RP Origins.
+
+HTTPS is required outside loopback. Deploy Preview hostnames usually cannot share the same RP Origins list (limit 5), so Passkeys may be unavailable there.
+
 ## Security Notes
 
 - Keep Row Level Security enabled for user-owned tables.
