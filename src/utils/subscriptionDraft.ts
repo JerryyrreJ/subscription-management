@@ -3,6 +3,7 @@ import { SUBSCRIPTION_CURRENCIES, SUBSCRIPTION_PERIODS } from './subscriptionDom
 import { DEFAULT_CURRENCY } from './currency';
 import { MAX_SUBSCRIPTION_AMOUNT } from './subscriptionValidation';
 import { calculateNextPaymentDate, formatDateOnly, getDateOnlyDay, parseDateOnly } from './dates';
+import { coerceToExistingCategory } from './categories';
 
 // A subscription the AI proposed from messy input. It is never written directly:
 // the user confirms/edits it first. `warnings` are machine-readable codes for
@@ -53,7 +54,11 @@ const extractItems = (raw: unknown): unknown[] => {
   return [];
 };
 
-const normalizeOne = (item: unknown, today: string): DraftSubscription | null => {
+const normalizeOne = (
+  item: unknown,
+  today: string,
+  allowedCategories?: readonly string[],
+): DraftSubscription | null => {
   if (!item || typeof item !== 'object') {
     return null;
   }
@@ -65,8 +70,14 @@ const normalizeOne = (item: unknown, today: string): DraftSubscription | null =>
     return null; // not a subscription without a name
   }
 
-  const category = asString(record.category).slice(0, 80);
-  if (!category) {
+  let category = asString(record.category).slice(0, 80);
+  if (allowedCategories && allowedCategories.length > 0) {
+    const resolved = coerceToExistingCategory(category, allowedCategories);
+    category = resolved.category;
+    if (!resolved.matched) {
+      warnings.push('category_defaulted');
+    }
+  } else if (!category) {
     warnings.push('category_missing');
   }
 
@@ -137,14 +148,20 @@ const normalizeOne = (item: unknown, today: string): DraftSubscription | null =>
 /**
  * Validate and coerce raw model output into reviewable drafts. Pure — the caller
  * supplies `today` (YYYY-MM-DD) so the function never reads the clock itself.
+ * When `allowedCategories` is provided, category is forced onto that list
+ * (never left blank or free-text).
  */
-export const normalizeDrafts = (raw: unknown, today: string): NormalizeDraftsResult => {
+export const normalizeDrafts = (
+  raw: unknown,
+  today: string,
+  allowedCategories?: readonly string[],
+): NormalizeDraftsResult => {
   const items = extractItems(raw);
   const drafts: DraftSubscription[] = [];
   let dropped = 0;
 
   for (const item of items.slice(0, MAX_DRAFTS)) {
-    const draft = normalizeOne(item, today);
+    const draft = normalizeOne(item, today, allowedCategories);
     if (draft) {
       drafts.push(draft);
     } else {
@@ -153,4 +170,28 @@ export const normalizeDrafts = (raw: unknown, today: string): NormalizeDraftsRes
   }
 
   return { drafts, dropped };
+};
+
+/**
+ * Re-bind draft categories to the user's existing category list after AI parse.
+ * Keeps a review warning when the model value had to be remapped.
+ */
+export const constrainDraftCategories = (
+  drafts: readonly DraftSubscription[],
+  allowedCategories: readonly string[],
+): DraftSubscription[] => {
+  if (allowedCategories.length === 0) {
+    return drafts.map(draft => ({ ...draft }));
+  }
+
+  return drafts.map(draft => {
+    const resolved = coerceToExistingCategory(draft.category, allowedCategories);
+    const warnings = draft.warnings.filter(
+      warning => warning !== 'category_missing' && warning !== 'category_defaulted'
+    );
+    if (!resolved.matched) {
+      warnings.push('category_defaulted');
+    }
+    return { ...draft, category: resolved.category, warnings };
+  });
 };

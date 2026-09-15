@@ -23,6 +23,8 @@ import {
 import { buildAiSubscriptionContext, type AiCommand, type AiUpdateOperation } from '../utils/aiCommand';
 import { parseCapture, AiParseError, type DraftSubscription, type ParseQuota } from '../services/aiParseService';
 import { getDateOnlyDay } from '../utils/dates';
+import { coerceToExistingCategory, getAllCategories, getCategoryDisplayName } from '../utils/categories';
+import { constrainDraftCategories } from '../utils/subscriptionDraft';
 
 export interface UndoableAiAction {
   id: string;
@@ -122,12 +124,13 @@ export function AiCaptureModal({
   onShowUndo,
   onManualFallback,
 }: AiCaptureModalProps) {
-  const { t } = useTranslation(['aiCapture', 'addSubscription', 'app']);
+  const { t } = useTranslation(['aiCapture', 'addSubscription', 'app', 'categoryLabels']);
   const [phase, setPhase] = useState<Phase>('capture');
   const [text, setText] = useState('');
   const [image, setImage] = useState<{ mediaType: string; dataBase64: string } | null>(null);
   const [command, setCommand] = useState<AiCommand | null>(null);
   const [drafts, setDrafts] = useState<DraftState[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [quota, setQuota] = useState<ParseQuota | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
@@ -155,6 +158,7 @@ export function AiCaptureModal({
       setImage(null);
       setCommand(null);
       setDrafts([]);
+      setCategories(getAllCategories());
       setQuota(null);
       setErrorCode(null);
       setSavedCount(0);
@@ -250,9 +254,43 @@ export function AiCaptureModal({
         subscriptions: buildAiSubscriptionContext(subscriptions),
       });
       setQuota(result.quota);
-      setCommand(result.command);
-      setDrafts(result.command.type === 'create'
-        ? result.command.drafts.map((d) => ({ ...d, key: `d${draftCounter++}`, status: 'pending' as const }))
+      const allowedCategories = getAllCategories();
+      setCategories(allowedCategories);
+
+      let nextCommand = result.command;
+      if (nextCommand.type === 'update' && nextCommand.patch.category) {
+        nextCommand = {
+          ...nextCommand,
+          patch: {
+            ...nextCommand.patch,
+            category: coerceToExistingCategory(nextCommand.patch.category, allowedCategories).category,
+          },
+        };
+      } else if (nextCommand.type === 'batchUpdate') {
+        nextCommand = {
+          ...nextCommand,
+          updates: nextCommand.updates.map((update) => {
+            if (!update.patch.category) {
+              return update;
+            }
+            return {
+              ...update,
+              patch: {
+                ...update.patch,
+                category: coerceToExistingCategory(update.patch.category, allowedCategories).category,
+              },
+            };
+          }),
+        };
+      }
+
+      setCommand(nextCommand);
+      setDrafts(nextCommand.type === 'create'
+        ? constrainDraftCategories(nextCommand.drafts, allowedCategories).map((d) => ({
+            ...d,
+            key: `d${draftCounter++}`,
+            status: 'pending' as const,
+          }))
         : []);
       setActionStatus('pending');
       setActionSnapshot(null);
@@ -691,6 +729,28 @@ export function AiCaptureModal({
         );
       }
 
+      if (field === 'category') {
+        const categoryOptions = categories.length > 0 ? categories : [String(value)];
+        const selected = coerceToExistingCategory(String(value), categoryOptions).category;
+        return (
+          <div key={`${keyPrefix}-${field}`} className={rowClass}>
+            <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
+            <select
+              id={`${keyPrefix}-${field}`}
+              value={selected}
+              onChange={(e) => onPatchChange({ category: e.target.value })}
+              className={editorClass}
+            >
+              {categoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  {getCategoryDisplayName(category, t)}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      }
+
       return (
         <div key={`${keyPrefix}-${field}`} className={rowClass}>
           <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
@@ -926,12 +986,18 @@ export function AiCaptureModal({
                   </select>
                 </div>
                 <div className="flex gap-2">
-                  <input
+                  <select
                     value={draft.category}
                     onChange={(e) => updateDraft(draft.key, { category: e.target.value })}
-                    placeholder={t('addSubscription:categoryLabel')}
+                    aria-label={t('addSubscription:categoryLabel')}
                     className={`${inputBase} ${fieldBorder(warned.has('category'))} flex-1`}
-                  />
+                  >
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {getCategoryDisplayName(category, t)}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="date"
                     value={draft.nextPaymentDate}

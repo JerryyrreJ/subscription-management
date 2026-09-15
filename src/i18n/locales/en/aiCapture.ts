@@ -70,6 +70,7 @@ export const aiCapture = {
   },
   warnings: {
     category_missing: 'Pick a category',
+    category_defaulted: 'Mapped to an existing category — please confirm',
     amount_missing: 'Confirm the amount',
     amount_capped: 'Amount looked too large — please check',
     currency_defaulted: 'Confirm the currency',

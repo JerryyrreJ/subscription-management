@@ -44,6 +44,71 @@ export function getCategoryDisplayName(categoryName: string, t: TFunction): stri
  return labelKey ? t(`categoryLabels:${labelKey}`) : categoryName
 }
 
+/** Common localized aliases for built-in category names (AI may return these). */
+const BUILT_IN_CATEGORY_ALIASES: Record<string, string> = {
+ 娱乐: 'Entertainment',
+ 软件: 'Software',
+ 音乐: 'Music',
+ 效率工具: 'Productivity',
+ 其他: 'Other',
+ 未分类: 'Uncategorized',
+}
+
+/**
+ * Match a raw AI/user category string to one of the allowed existing category names.
+ * Returns null when there is no match (caller should coerce to a fallback).
+ */
+export function matchExistingCategory(
+  raw: string,
+  allowedCategories: readonly string[],
+): string | null {
+  const trimmed = typeof raw === 'string' ? raw.trim() : ''
+  if (!trimmed || allowedCategories.length === 0) {
+    return null
+  }
+
+  const exact = allowedCategories.find(category => category === trimmed)
+  if (exact) {
+    return exact
+  }
+
+  const caseInsensitive = allowedCategories.find(
+    category => category.toLowerCase() === trimmed.toLowerCase()
+  )
+  if (caseInsensitive) {
+    return caseInsensitive
+  }
+
+  const alias = BUILT_IN_CATEGORY_ALIASES[trimmed]
+  if (alias && allowedCategories.includes(alias)) {
+    return alias
+  }
+
+  return null
+}
+
+/**
+ * Force a category onto the user's existing list. Unknown / blank values map to
+ * Other, then Uncategorized, then the first visible category.
+ */
+export function coerceToExistingCategory(
+  raw: string,
+  allowedCategories: readonly string[],
+): { category: string; matched: boolean } {
+  const matched = matchExistingCategory(raw, allowedCategories)
+  if (matched) {
+    return { category: matched, matched: true }
+  }
+
+  const fallback =
+    allowedCategories.find(category => category === 'Other') ??
+    allowedCategories.find(category => category === FALLBACK_CATEGORY) ??
+    allowedCategories[0] ??
+    FALLBACK_CATEGORY
+
+  return { category: fallback, matched: false }
+}
+
 /**
  * 从 localStorage 加载所有类型数据
  * 包含数据迁移逻辑：从旧版本 v1 迁移到 v2
