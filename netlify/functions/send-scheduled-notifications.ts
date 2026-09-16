@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { sendBarkNotification } from '../../src/utils/barkPush'
+import { BARK_NOTIFICATION_ICON_URL, sendBarkNotification } from '../../src/utils/barkPush'
 import { formatDateOnly, getTodayDateOnly, normalizeTimeZone } from '../../src/utils/dates'
 import { cleanupNotificationHistoryEntries, mergeNotificationHistoryEntries, wasNotifiedToday } from '../../src/utils/notificationHistory'
 import { buildSubscriptionReminderContent } from '../../src/utils/notificationContent'
@@ -317,7 +317,7 @@ export default async (req: Request): Promise<Response> => {
                 {
                   sound: 'bell',
                   group,
-                  icon: 'https://i.ibb.co/Z6f84xFY/icon.png'
+                  icon: BARK_NOTIFICATION_ICON_URL
                 }
               )
 

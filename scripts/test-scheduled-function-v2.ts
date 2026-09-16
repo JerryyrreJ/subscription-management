@@ -2,7 +2,7 @@
 // Usage: npx tsx scripts/test-scheduled-function-v2.ts
 
 import { createClient } from '@supabase/supabase-js'
-import { sendBarkNotification } from '../src/utils/barkPush'
+import { BARK_NOTIFICATION_ICON_URL, sendBarkNotification } from '../src/utils/barkPush'
 import { addBillingPeriodToDate, compareDateOnly, formatDateOnly, getDaysUntil, getTodayDateOnly } from '../src/utils/dates'
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
@@ -129,7 +129,7 @@ async function testNotificationLogic() {
           userSettings.bark_device_key,
           'Subscription Manager',
           `${sub.name} expires in ${daysUntil} day${daysUntil > 1 ? 's' : ''}\n${amount}/${periodText}`,
-          { sound: 'bell', group: 'Subscription Manager', icon: 'https://i.ibb.co/Z6f84xFY/icon.png' }
+          { sound: 'bell', group: 'Subscription Manager', icon: BARK_NOTIFICATION_ICON_URL }
         )
 
         if (success) {

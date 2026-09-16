@@ -2,6 +2,9 @@ import { Subscription } from '../types';
 import { buildSubscriptionReminderContent, buildTestNotificationContent } from './notificationContent';
 import { DEFAULT_BARK_REQUEST_TIMEOUT_MS } from './barkSettings';
 
+/** Public PNG used for Bark push icons (must be an absolute URL). */
+export const BARK_NOTIFICATION_ICON_URL = 'https://i.ibb.co/bjqnj7Hx/icon.png';
+
 export interface BarkPushOptions {
  sound?: string; // 推送铃声
  icon?: string; // 推送图标 URL
@@ -110,7 +113,7 @@ export async function sendSubscriptionReminder(
  {
   sound: 'bell',
   group,
-  icon: 'https://i.ibb.co/bjqnj7Hx/icon.png'
+  icon: BARK_NOTIFICATION_ICON_URL
  }
  );
 }
@@ -132,7 +135,8 @@ export async function testBarkPush(
  body,
  {
   sound: 'bell',
-  group
+  group,
+  icon: BARK_NOTIFICATION_ICON_URL
  }
  );
 }
