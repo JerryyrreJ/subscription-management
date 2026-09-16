@@ -7,7 +7,7 @@ import {
  getAllCategories,
  getAllCategoriesWithDetails,
 } from '../../utils/categories';
-import { getDateOnlyDay } from '../../utils/dates';
+import { compareDateOnly, formatDateOnly, getDateOnlyDay, getTodayDateOnly } from '../../utils/dates';
 import { createSubscriptionRecord, getSubscriptionValidationMessage, updateSubscriptionRecord } from '../../utils/subscriptionDomain';
 import { rememberSubscriptionCurrency } from '../../utils/subscriptionCurrencyPreference';
 import { validateSubscriptionAmount } from '../../utils/subscriptionValidation';
@@ -112,6 +112,8 @@ export function SubscriptionFormFields({
 
   if (!formData.nextPaymentDate) {
    errors.nextPaymentDate = t('addSubscription:nextPaymentDateRequired');
+  } else if (compareDateOnly(formData.nextPaymentDate, formatDateOnly(getTodayDateOnly())) < 0) {
+   errors.nextPaymentDate = t('addSubscription:nextPaymentDateInPast');
   }
 
   if (formData.period === 'custom') {
@@ -290,6 +292,7 @@ export function SubscriptionFormFields({
     </label>
     <CustomDatePicker
      value={formData.nextPaymentDate}
+     minDate={formatDateOnly(getTodayDateOnly())}
      invalid={Boolean(fieldErrors.nextPaymentDate)}
      onChange={(value) => {
       updateForm({

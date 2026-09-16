@@ -2,18 +2,27 @@ import { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppLanguage } from '../hooks/useAppLanguage';
-import { formatDateByLocale, formatWeekdayLabels, parseDateOnly } from '../utils/dates';
+import { formatDateByLocale, formatDateOnly, formatWeekdayLabels, getTodayDateOnly, parseDateOnly } from '../utils/dates';
 
 interface CustomDatePickerProps {
  value: string; // YYYY-MM-DD format
  onChange: (value: string) => void;
+ minDate?: string; // YYYY-MM-DD format
  maxDate?: string; // YYYY-MM-DD format
  required?: boolean;
  className?: string;
  invalid?: boolean;
 }
 
-export function CustomDatePicker({ value, onChange, maxDate, required, className = '', invalid = false }: CustomDatePickerProps) {
+export function CustomDatePicker({
+ value,
+ onChange,
+ minDate,
+ maxDate,
+ required,
+ className = '',
+ invalid = false,
+}: CustomDatePickerProps) {
  const { t } = useTranslation(['common']);
  const { language } = useAppLanguage();
 
@@ -39,17 +48,10 @@ export function CustomDatePicker({ value, onChange, maxDate, required, className
  // Parse the value to get selected date
  const selectedDate = value ? parseLocalDate(value) : null;
 
- // Parse maxDate
- const maxDateObj = maxDate ? parseLocalDate(maxDate) : new Date();
+ const minDateObj = minDate ? parseLocalDate(minDate) : null;
+ const maxDateObj = maxDate ? parseLocalDate(maxDate) : null;
 
- // Get today's date string for comparison (YYYY-MM-DD format)
- const todayStr = (() => {
- const date = new Date();
- const year = date.getFullYear();
- const month = String(date.getMonth() + 1).padStart(2, '0');
- const day = String(date.getDate()).padStart(2, '0');
- return `${year}-${month}-${day}`;
- })();
+ const todayStr = formatDateOnly(getTodayDateOnly());
 
  // Close dropdown when clicking outside
  useEffect(() => {
@@ -108,43 +110,52 @@ export function CustomDatePicker({ value, onChange, maxDate, required, className
 
  // Navigate month
  const previousMonth = () => {
+ if (isPreviousMonthDisabled()) {
+ return;
+ }
+
  setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
  };
 
  const nextMonth = () => {
- const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
- // Don't allow navigating to future months if maxDate is set
- if (maxDate) {
- if (next <= maxDateObj) {
- setCurrentMonth(next);
+ if (isNextMonthDisabled()) {
+ return;
  }
- } else {
- setCurrentMonth(next);
- }
+
+ setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
  };
 
  // Select a date
  const selectDate = (day: number) => {
- const year = currentMonth.getFullYear();
- const month = currentMonth.getMonth();
- const selectedDate = new Date(year, month, day);
-
- // Check if date is in the future
- if (maxDate && selectedDate > maxDateObj) {
+ if (isDateDisabled(day)) {
  return;
  }
 
- const formattedDate = formatLocalDateValue(selectedDate);
+ const year = currentMonth.getFullYear();
+ const month = currentMonth.getMonth();
+ const selectedDateValue = new Date(year, month, day);
+ const formattedDate = formatLocalDateValue(selectedDateValue);
  onChange(formattedDate);
  setIsOpen(false);
  };
+
+ const toDateOnlyString = (date: Date) => formatLocalDate(date);
 
  // Check if a date is disabled
  const isDateDisabled = (day: number) => {
  const year = currentMonth.getFullYear();
  const month = currentMonth.getMonth();
- const date = new Date(year, month, day);
- return maxDate ? date > maxDateObj : false;
+ const dateStr = toDateOnlyString(new Date(year, month, day));
+
+ if (minDate && dateStr < minDate) {
+ return true;
+ }
+
+ if (maxDate && dateStr > maxDate) {
+ return true;
+ }
+
+ return false;
  };
 
  // Check if a date is selected
@@ -161,14 +172,9 @@ export function CustomDatePicker({ value, onChange, maxDate, required, className
 
  // Check if a date is today
  const isToday = (day: number) => {
- const today = new Date();
  const year = currentMonth.getFullYear();
  const month = currentMonth.getMonth();
- return (
- today.getDate() === day &&
- today.getMonth() === month &&
- today.getFullYear() === year
- );
+ return toDateOnlyString(new Date(year, month, day)) === todayStr;
  };
 
  // Generate calendar grid
@@ -194,12 +200,19 @@ export function CustomDatePicker({ value, onChange, maxDate, required, className
  const monthYear = formatDateByLocale(currentMonth, language, { month: 'long', year: 'numeric' });
  const weekdayLabels = formatWeekdayLabels(language);
 
- // Check if next month button should be disabled
+ const isPreviousMonthDisabled = () => {
+ if (!minDateObj) return false;
+ const previousMonthLastDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 0);
+ return previousMonthLastDay < minDateObj;
+ };
+
  const isNextMonthDisabled = () => {
- if (!maxDate) return false;
+ if (!maxDateObj) return false;
  const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
  return next > maxDateObj;
  };
+
+ const isTodayDisabled = minDate ? todayStr < minDate : false;
 
  return (
  <div ref={dropdownRef} className="relative">
@@ -231,7 +244,8 @@ export function CustomDatePicker({ value, onChange, maxDate, required, className
  <button
  type="button"
  onClick={previousMonth}
- className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+ disabled={isPreviousMonthDisabled()}
+ className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
  >
  <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400"/>
  </button>
@@ -293,10 +307,13 @@ export function CustomDatePicker({ value, onChange, maxDate, required, className
  <button
  type="button"
  onClick={() => {
+ if (isTodayDisabled || (maxDate && todayStr > maxDate)) {
+ return;
+ }
  onChange(todayStr);
  setIsOpen(false);
  }}
- disabled={maxDate ? todayStr > maxDate : false}
+ disabled={isTodayDisabled || (maxDate ? todayStr > maxDate : false)}
  className="w-full py-2 px-4 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
  >
  {t('common:today')}

@@ -42,5 +42,9 @@ export function translateSubscriptionFormError(message: string, t: TFunction): s
   return t('addSubscription:nextPaymentDateRequired');
  }
 
+ if (message === 'Next payment date cannot be in the past') {
+  return t('addSubscription:nextPaymentDateInPast');
+ }
+
  return message;
 }

@@ -1,6 +1,10 @@
 export const MAX_SUBSCRIPTION_AMOUNT = 999999.99;
 
 const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
+const AMOUNT_INPUT_PATTERN = /^(?:\d+(?:\.\d{0,2})?)?$/;
+
+export const isAllowedSubscriptionAmountInput = (value: string): boolean =>
+ AMOUNT_INPUT_PATTERN.test(value);
 
 export const validateSubscriptionAmount = (amountValue: string): string | null => {
  const trimmedAmount = amountValue.trim();

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { Currency } from '../../types';
 import { CURRENCIES, formatCurrencyOptionLabel } from '../../utils/currency';
+import { isAllowedSubscriptionAmountInput } from '../../utils/subscriptionValidation';
 import { CustomSelect } from '../CustomSelect';
 
 interface AmountHeroProps {
@@ -49,7 +50,22 @@ export function AmountHero({
      inputMode="decimal"
      autoComplete="off"
      value={amount}
-     onChange={(e) => onAmountChange(e.target.value)}
+     onChange={(e) => {
+      const nextValue = e.target.value;
+      if (isAllowedSubscriptionAmountInput(nextValue)) {
+       onAmountChange(nextValue);
+      }
+     }}
+     onPaste={(e) => {
+      const input = e.currentTarget;
+      const pasted = e.clipboardData.getData('text');
+      const selectionStart = input.selectionStart ?? input.value.length;
+      const selectionEnd = input.selectionEnd ?? input.value.length;
+      const nextValue = `${input.value.slice(0, selectionStart)}${pasted}${input.value.slice(selectionEnd)}`;
+      if (!isAllowedSubscriptionAmountInput(nextValue)) {
+       e.preventDefault();
+      }
+     }}
      placeholder={t('addSubscription:amountPlaceholder')}
      aria-invalid={Boolean(error)}
      className="min-w-0 flex-1 bg-transparent py-1 text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums text-gray-900 dark:text-white outline-none placeholder:text-gray-300 dark:placeholder:text-gray-600"

@@ -29,6 +29,7 @@ export const addSubscription = {
  customPeriodInvalid: '自定义周期必须是正整数。',
  nextPaymentDateLabel: '下次续费日期',
  nextPaymentDateRequired: '必须填写下次续费日期。',
+ nextPaymentDateInPast: '下次续费日期不能早于今天。',
  notificationsLabel: '启用通知',
  notificationsEnabledHint: '你将收到这个订阅的提醒',
  notificationsDisabledHint: '这个订阅不会发送提醒',

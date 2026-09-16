@@ -29,6 +29,7 @@ export const addSubscription = {
  customPeriodInvalid: 'Custom period must be a positive whole number.',
  nextPaymentDateLabel: 'Next Renewal Date',
  nextPaymentDateRequired: 'Next renewal date is required.',
+ nextPaymentDateInPast: 'Next renewal date cannot be in the past.',
  notificationsLabel: 'Enable notifications',
  notificationsEnabledHint: 'You will receive reminders for this subscription',
  notificationsDisabledHint: 'No reminders will be sent for this subscription',

@@ -28,5 +28,6 @@ test('maps domain amount and field errors onto addSubscription copy', () => {
  );
  assert.equal(translateSubscriptionFormError('Name is required', t), 'Name is required.');
  assert.equal(translateSubscriptionFormError('Custom period is required', t), 'Custom period is required.');
+ assert.equal(translateSubscriptionFormError('Next payment date cannot be in the past', t), 'Next renewal date cannot be in the past.');
  assert.equal(translateSubscriptionFormError('Unknown boom', t), 'Unknown boom');
 });
