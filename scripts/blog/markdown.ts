@@ -109,11 +109,12 @@ function renderInline(text: string): string {
 }
 
 function headingId(title: string): string {
-  return title
+  const slug = title
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
     .trim()
     .replace(/\s+/g, '-');
+  return slug || 'section';
 }
 
 function isTableSeparator(line: string): boolean {

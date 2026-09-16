@@ -134,7 +134,7 @@ src/components/      UI 组件
 src/hooks/           React hooks
 src/services/        云服务、支付和同步服务
 src/utils/           存储、货币、通知和校验工具
-content/blog/        公开 SEO 指南（静态 HTML，路径 `/blog`）
+content/blog/        公开 SEO 指南（静态 HTML，路径 `/blog` 与 `/zh/blog`）
 scripts/blog/        构建时生成博客 HTML、sitemap、robots
 netlify/functions/   Serverless functions
 supabase/            SQL 设置和迁移
@@ -145,7 +145,7 @@ dev-docs/            开发笔记和归档实现草稿
 
 ## 公开指南
 
-`/blog` 是与应用同域的静态内容中心（`https://sub.jerrylu.xyz/blog`）。在 `content/blog/` 新增 Markdown 即可，见[公开指南](docs/zh-CN/blog.md)。
+`/blog` 是与应用同域的静态内容中心（`https://sub.jerrylu.xyz/blog`）。中文指南在 `/zh/blog`。在 `content/blog/` 新增 Markdown 即可，见[公开指南](docs/zh-CN/blog.md)。
 
 ## 许可证
 

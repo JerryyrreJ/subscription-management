@@ -4,6 +4,7 @@ import type { Connect, Plugin, PreviewServer, ViteDevServer } from 'vite';
 import { buildPublicFiles, writePublicFiles } from './generate.ts';
 import { loadPosts } from './posts.ts';
 import { renderBlogIndex, renderBlogPost, renderRobotsTxt, renderSitemap } from './render.ts';
+import { isZhLang } from './site.ts';
 
 function send(res: ServerResponse, body: string, contentType: string, status = 200): void {
   res.statusCode = status;
@@ -32,16 +33,34 @@ function blogMiddleware(rootDir: string): Connect.NextHandleFunction {
         return;
       }
 
-      if (url === '/blog' || url === '/blog/' || url === '/blog/index.html') {
+      if (url === '/zh/blog' || url === '/zh/blog/' || url === '/zh/blog/index.html') {
+        const posts = loadPosts(rootDir).filter(post => isZhLang(post.lang));
+        send(res, renderBlogIndex(posts, 'zh'), 'text/html; charset=utf-8');
+        return;
+      }
+
+      const zhPostMatch = url.match(/^\/zh\/blog\/([a-z0-9-]+)\/?(?:index\.html)?$/);
+      if (zhPostMatch) {
         const posts = loadPosts(rootDir);
-        send(res, renderBlogIndex(posts), 'text/html; charset=utf-8');
+        const post = posts.find(item => item.slug === zhPostMatch[1] && isZhLang(item.lang));
+        if (!post) {
+          send(res, 'Not found', 'text/plain; charset=utf-8', 404);
+          return;
+        }
+        send(res, renderBlogPost(post), 'text/html; charset=utf-8');
+        return;
+      }
+
+      if (url === '/blog' || url === '/blog/' || url === '/blog/index.html') {
+        const posts = loadPosts(rootDir).filter(post => !isZhLang(post.lang));
+        send(res, renderBlogIndex(posts, 'en'), 'text/html; charset=utf-8');
         return;
       }
 
       const postMatch = url.match(/^\/blog\/([a-z0-9-]+)\/?(?:index\.html)?$/);
       if (postMatch) {
         const posts = loadPosts(rootDir);
-        const post = posts.find(item => item.slug === postMatch[1]);
+        const post = posts.find(item => item.slug === postMatch[1] && !isZhLang(item.lang));
         if (!post) {
           send(res, 'Not found', 'text/plain; charset=utf-8', 404);
           return;

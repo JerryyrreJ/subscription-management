@@ -135,7 +135,7 @@ src/components/      UI components
 src/hooks/           React hooks
 src/services/        Cloud, payment, and sync services
 src/utils/           Storage, currency, notification, and validation utilities
-content/blog/        Public SEO guides (static HTML at `/blog`)
+content/blog/        Public SEO guides (static HTML at `/blog` and `/zh/blog`)
 scripts/blog/        Build-time blog HTML, sitemap, and robots generator
 netlify/functions/   Serverless functions
 supabase/            SQL setup and migrations
@@ -147,7 +147,7 @@ dev-docs/            Development notes and archived implementation drafts
 
 ## Public guides
 
-`/blog` is a static content hub on the same domain as the app (`https://sub.jerrylu.xyz/blog`). Add a Markdown file to `content/blog/` — see [Public guides](docs/en/blog.md).
+`/blog` is a static content hub on the same domain as the app (`https://sub.jerrylu.xyz/blog`). Chinese guides use `/zh/blog`. Add a Markdown file to `content/blog/` — see [Public guides](docs/en/blog.md).
 
 ## License
 

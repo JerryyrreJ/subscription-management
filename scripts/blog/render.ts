@@ -6,18 +6,78 @@ import {
   BLOG_PATH,
   CANONICAL_ORIGIN,
   SITE_NAME,
+  ZH_BLOG_INDEX_DESCRIPTION,
+  ZH_BLOG_INDEX_TITLE,
+  ZH_BLOG_PATH,
+  blogPath,
   canonicalUrl,
+  isZhLang,
   postCanonicalUrl,
   postPath,
 } from './site.ts';
+
+type BlogUiLang = 'en' | 'zh';
+
+type BlogUiCopy = {
+  skip: string;
+  guides: string;
+  openApp: string;
+  openAppFooter: string;
+  footerNote: string;
+  indexEyebrow: string;
+  indexTitle: string;
+  indexDescription: string;
+  otherLangLabel: string;
+  otherLangHref: string;
+  draftBanner: string;
+};
+
+function uiLang(lang?: string | null): BlogUiLang {
+  return isZhLang(lang) ? 'zh' : 'en';
+}
+
+function uiCopy(lang?: string | null): BlogUiCopy {
+  const host = CANONICAL_ORIGIN.replace('https://', '');
+  if (uiLang(lang) === 'zh') {
+    return {
+      skip: '跳到正文',
+      guides: '指南',
+      openApp: '打开应用',
+      openAppFooter: `打开 ${SITE_NAME}`,
+      footerNote: `个人订阅追踪——取消订阅仍由你在各平台操作。站点：${host}`,
+      indexEyebrow: '指南',
+      indexTitle: '该留的留，该关的关，不用绑银行卡',
+      indexDescription: ZH_BLOG_INDEX_DESCRIPTION,
+      otherLangLabel: 'English guides',
+      otherLangHref: BLOG_PATH,
+      draftBanner:
+        '<p class="draft-banner" role="note"><strong>草稿提纲。</strong> 此 URL 已公开可抓取，方便指南中心上线。下面的清单按「盘点 → 保留 / 取消 / 提醒」可独立使用。完稿后替换本文件，slug 保持不变。</p>',
+    };
+  }
+
+  return {
+    skip: 'Skip to content',
+    guides: 'Guides',
+    openApp: 'Open app',
+    openAppFooter: `Open ${SITE_NAME}`,
+    footerNote: `Personal subscription tracker — you stay in control of cancels. Canonical site: ${host}`,
+    indexEyebrow: 'Guides',
+    indexTitle: 'Keep / cancel / remind, without linking a bank',
+    indexDescription: BLOG_INDEX_DESCRIPTION,
+    otherLangLabel: '中文指南',
+    otherLangHref: ZH_BLOG_PATH,
+    draftBanner:
+      '<p class="draft-banner" role="note"><strong>Draft outline.</strong> This URL is public and crawlable so the guide hub can ship. The checklist below follows the writer brief (inventory → keep / cancel / remind) and is usable on its own. Replace this file when the finished draft is ready; the slug stays the same.</p>',
+  };
+}
 
 function jsonLd(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
-function formatDate(isoDate: string): string {
+function formatDate(isoDate: string, lang?: string | null): string {
   const date = new Date(`${isoDate}T00:00:00Z`);
-  return new Intl.DateTimeFormat('en', {
+  return new Intl.DateTimeFormat(uiLang(lang) === 'zh' ? 'zh-CN' : 'en', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -37,6 +97,8 @@ function layout(options: {
 }): string {
   const lang = options.lang ?? 'en';
   const type = options.type ?? 'website';
+  const copy = uiCopy(lang);
+  const guidesHref = blogPath(lang);
   const jsonLdBlocks = (options.jsonLd ?? [])
     .map(block => `<script type="application/ld+json">${jsonLd(block)}</script>`)
     .join('\n    ');
@@ -64,40 +126,43 @@ function layout(options: {
     ${jsonLdBlocks}
   </head>
   <body class="${options.bodyClass ?? 'blog-body'}">
-    <a class="skip-link" href="#content">Skip to content</a>
+    <a class="skip-link" href="#content">${escapeHtml(copy.skip)}</a>
     <header class="site-header">
       <a class="brand" href="/">
         <img src="/icon.png" alt="" width="32" height="32" />
         <span>${escapeHtml(SITE_NAME)}</span>
       </a>
-      <nav aria-label="Site">
-        <a href="${BLOG_PATH}"${options.canonical === canonicalUrl(BLOG_PATH) ? ' aria-current="page"' : ''}>Guides</a>
-        <a class="button" href="/">Open app</a>
+      <nav aria-label="${escapeHtml(copy.guides)}">
+        <a href="${guidesHref}"${options.canonical === canonicalUrl(guidesHref) ? ' aria-current="page"' : ''}>${escapeHtml(copy.guides)}</a>
+        <a class="button" href="/">${escapeHtml(copy.openApp)}</a>
       </nav>
     </header>
     <main id="content">
       ${options.content}
     </main>
     <footer class="site-footer">
-      <p><a href="${BLOG_PATH}">Guides</a> · <a href="/">Open ${escapeHtml(SITE_NAME)}</a></p>
-      <p class="muted">Personal subscription tracker — you stay in control of cancels. Canonical site: ${escapeHtml(CANONICAL_ORIGIN.replace('https://', ''))}</p>
+      <p><a href="${guidesHref}">${escapeHtml(copy.guides)}</a> · <a href="/">${escapeHtml(copy.openAppFooter)}</a></p>
+      <p class="muted">${escapeHtml(copy.footerNote)}</p>
     </footer>
   </body>
 </html>
 `;
 }
 
-export function renderBlogIndex(posts: BlogPost[]): string {
-  const canonical = canonicalUrl(BLOG_PATH);
+export function renderBlogIndex(posts: BlogPost[], lang: string = 'en'): string {
+  const copy = uiCopy(lang);
+  const indexPath = blogPath(lang);
+  const canonical = canonicalUrl(indexPath);
+  const pageTitle = uiLang(lang) === 'zh' ? ZH_BLOG_INDEX_TITLE : BLOG_INDEX_TITLE;
   const items = posts
     .map(post => {
-      const href = postPath(post.slug);
+      const href = postPath(post.slug, post.lang);
       const badge = post.status === 'draft'
-        ? '<span class="badge">Draft outline</span>'
+        ? `<span class="badge">${uiLang(lang) === 'zh' ? '草稿提纲' : 'Draft outline'}</span>`
         : '';
       return `<li>
         <article class="post-card">
-          <p class="meta">${escapeHtml(formatDate(post.date))}${badge}</p>
+          <p class="meta">${escapeHtml(formatDate(post.date, lang))}${badge}</p>
           <h2><a href="${href}">${escapeHtml(post.title)}</a></h2>
           <p>${escapeHtml(post.description)}</p>
         </article>
@@ -106,15 +171,17 @@ export function renderBlogIndex(posts: BlogPost[]): string {
     .join('\n');
 
   return layout({
-    title: `${BLOG_INDEX_TITLE} · ${SITE_NAME}`,
-    description: BLOG_INDEX_DESCRIPTION,
+    title: `${pageTitle} · ${SITE_NAME}`,
+    description: copy.indexDescription,
     canonical,
+    lang: uiLang(lang),
     jsonLd: [
       {
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
-        name: `${BLOG_INDEX_TITLE} · ${SITE_NAME}`,
-        description: BLOG_INDEX_DESCRIPTION,
+        name: `${pageTitle} · ${SITE_NAME}`,
+        description: copy.indexDescription,
+        inLanguage: uiLang(lang),
         url: canonical,
         isPartOf: {
           '@type': 'WebSite',
@@ -125,9 +192,10 @@ export function renderBlogIndex(posts: BlogPost[]): string {
     ],
     content: `
       <header class="page-header">
-        <p class="eyebrow">Guides</p>
-        <h1>Keep / cancel / remind, without linking a bank</h1>
-        <p class="lede">${escapeHtml(BLOG_INDEX_DESCRIPTION)}</p>
+        <p class="eyebrow">${escapeHtml(copy.indexEyebrow)}</p>
+        <h1>${escapeHtml(copy.indexTitle)}</h1>
+        <p class="lede">${escapeHtml(copy.indexDescription)}</p>
+        <p class="muted"><a href="${copy.otherLangHref}">${escapeHtml(copy.otherLangLabel)}</a></p>
       </header>
       <ol class="post-list">
         ${items}
@@ -157,10 +225,10 @@ function faqJsonLd(canonical: string, faqs: FaqItem[]): Record<string, unknown> 
 }
 
 export function renderBlogPost(post: BlogPost): string {
-  const canonical = postCanonicalUrl(post.slug);
-  const draftNotice = post.status === 'draft'
-    ? `<p class="draft-banner" role="note"><strong>Draft outline.</strong> This URL is public and crawlable so the guide hub can ship. The checklist below follows the writer brief (inventory → keep / cancel / remind) and is usable on its own. Replace this file when the finished draft is ready; the slug stays the same.</p>`
-    : '';
+  const canonical = postCanonicalUrl(post.slug, post.lang);
+  const copy = uiCopy(post.lang);
+  const indexPath = blogPath(post.lang);
+  const draftNotice = post.status === 'draft' ? copy.draftBanner : '';
 
   const jsonLd = [
     {
@@ -197,7 +265,7 @@ export function renderBlogPost(post: BlogPost): string {
     content: `
       <article class="article">
         <header class="page-header">
-          <p class="eyebrow"><a href="${BLOG_PATH}">Guides</a> · ${escapeHtml(formatDate(post.date))}</p>
+          <p class="eyebrow"><a href="${indexPath}">${escapeHtml(copy.guides)}</a> · ${escapeHtml(formatDate(post.date, post.lang))}</p>
           <h1>${escapeHtml(post.title)}</h1>
           <p class="lede">${escapeHtml(post.description)}</p>
           ${draftNotice}
@@ -222,8 +290,9 @@ export function renderSitemap(posts: BlogPost[], generatedAt: string = new Date(
   const urls = [
     { loc: canonicalUrl('/'), lastmod: generatedAt },
     { loc: canonicalUrl(BLOG_PATH), lastmod: generatedAt },
+    { loc: canonicalUrl(ZH_BLOG_PATH), lastmod: generatedAt },
     ...posts.map(post => ({
-      loc: postCanonicalUrl(post.slug),
+      loc: postCanonicalUrl(post.slug, post.lang),
       lastmod: post.updated ?? post.date,
     })),
   ];

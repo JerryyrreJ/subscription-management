@@ -11,7 +11,7 @@
   --draft: #b45309;
   --draft-bg: #fff7ed;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
-  --font: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font: Inter, system-ui, "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", Avenir, Helvetica, Arial, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {

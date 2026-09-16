@@ -21,11 +21,11 @@ The production output is written to `dist/`.
 - `npm run build` as the build command
 - `dist` as the publish directory
 - `netlify/functions` as the functions directory
-- static `/blog` rewrites (so unknown guide slugs 404 instead of the SPA shell)
+- static `/blog` and `/zh/blog` rewrites (so unknown guide slugs 404 instead of the SPA shell)
 - SPA redirects to `index.html`
 - basic security headers
 
-Public guides are Markdown in `content/blog/`, compiled to `dist/blog/` during `vite build`. Canonical URLs, `robots.txt`, and `sitemap.xml` use `https://sub.jerrylu.xyz`. See [Public guides](blog.md).
+Public guides are Markdown in `content/blog/`, compiled to `dist/blog/` and `dist/zh/blog/` during `vite build`. Canonical URLs, `robots.txt`, and `sitemap.xml` use `https://sub.jerrylu.xyz`. See [Public guides](blog.md).
 
 ## Functions
 
