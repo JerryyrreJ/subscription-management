@@ -34,6 +34,7 @@ export const addSubscription = {
  trialToggleLabel: '这是免费试用',
  trialEndsOnLabel: '试用结束 / 首次扣费日期',
  trialEndsOnRequired: '必须填写试用结束 / 首次扣费日期。',
+ trialEndsOnInPast: '试用结束 / 首次扣费日期不能早于今天。',
  trialNotificationsEnabledHint: '你将在试用结束前收到提醒',
  notificationsLabel: '启用通知',
  notificationsEnabledHint: '你将收到这个订阅的提醒',
@@ -49,6 +50,7 @@ export const addSubscription = {
  amountExceedsMax: '金额不能超过 {{max}}',
  summaryUntitled: '新订阅',
  summaryNextPayment: '下次 {{date}}',
+ summaryTrialEnd: '试用结束 {{date}}',
  detailsSection: '更多',
  closeForm: '关闭',
 };

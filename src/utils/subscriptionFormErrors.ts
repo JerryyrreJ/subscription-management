@@ -50,5 +50,9 @@ export function translateSubscriptionFormError(message: string, t: TFunction): s
   return t('addSubscription:nextPaymentDateInPast');
  }
 
+ if (message === 'Trial end date is required') {
+  return t('addSubscription:trialEndsOnRequired');
+ }
+
  return message;
 }

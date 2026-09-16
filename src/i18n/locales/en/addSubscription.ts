@@ -34,6 +34,7 @@ export const addSubscription = {
  trialToggleLabel: 'This is a free trial',
  trialEndsOnLabel: 'Trial end / first charge date',
  trialEndsOnRequired: 'Trial end / first charge date is required.',
+ trialEndsOnInPast: 'Trial end / first charge date cannot be in the past.',
  trialNotificationsEnabledHint: 'You will receive reminders before this trial ends',
  notificationsLabel: 'Enable notifications',
  notificationsEnabledHint: 'You will receive reminders for this subscription',
@@ -49,6 +50,7 @@ export const addSubscription = {
  amountExceedsMax: 'Amount cannot exceed {{max}}',
  summaryUntitled: 'New subscription',
  summaryNextPayment: 'Next {{date}}',
+ summaryTrialEnd: 'Trial ends {{date}}',
  detailsSection: 'More',
  closeForm: 'Close',
 };

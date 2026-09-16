@@ -12,6 +12,7 @@ interface LiveSummaryStripProps {
  period: Period;
  customDate: string;
  nextPaymentDate: string;
+ isTrial?: boolean;
 }
 
 export function LiveSummaryStrip({
@@ -21,6 +22,7 @@ export function LiveSummaryStrip({
  period,
  customDate,
  nextPaymentDate,
+ isTrial = false,
 }: LiveSummaryStripProps) {
  const { t } = useTranslation(['addSubscription', 'subscriptionCard']);
  const { language } = useAppLanguage();
@@ -42,7 +44,7 @@ export function LiveSummaryStrip({
     )
     : t('addSubscription:periodCustom');
  const dateLabel = nextPaymentDate
-  ? t('addSubscription:summaryNextPayment', {
+  ? t(isTrial ? 'addSubscription:summaryTrialEnd' : 'addSubscription:summaryNextPayment', {
    date: formatDateByLocale(parseDateOnly(nextPaymentDate), language),
   })
   : '—';
