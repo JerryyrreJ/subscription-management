@@ -149,29 +149,29 @@ const printPdf = (htmlPath: string, pdfPath: string) => {
  );
 };
 
+const README_PREVIEW_WIDTH = 1588;
+const README_PREVIEW_HEIGHT = 2246; // 1588 × 297/210 ≈ A4 portrait, matches the annual page box
+
 const rasterPage1 = (pdfPath: string, pngPath: string) => {
- try {
-  execFileSync('pdftoppm', ['-png', '-r', '192', '-f', '1', '-l', '1', '-singlefile', pdfPath, pngPath.replace(/\.png$/, '')], {
-   stdio: 'inherit',
-  });
-  return;
- } catch {
-  execFileSync(
-   'gs',
-   [
-    '-dSAFER',
-    '-dBATCH',
-    '-dNOPAUSE',
-    '-sDEVICE=png16m',
-    '-r192',
-    '-dFirstPage=1',
-    '-dLastPage=1',
-    `-sOutputFile=${pngPath}`,
-    pdfPath,
-   ],
-   { stdio: 'inherit' }
-  );
- }
+ const stem = pngPath.replace(/\.png$/, '');
+ execFileSync(
+  'pdftoppm',
+  [
+   '-png',
+   '-f',
+   '1',
+   '-l',
+   '1',
+   '-singlefile',
+   '-scale-to-x',
+   String(README_PREVIEW_WIDTH),
+   '-scale-to-y',
+   String(README_PREVIEW_HEIGHT),
+   pdfPath,
+   stem,
+  ],
+  { stdio: 'inherit' }
+ );
 };
 
 for (const variant of ['snapshot', 'annual'] as const) {
