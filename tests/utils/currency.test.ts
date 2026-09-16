@@ -4,6 +4,7 @@ import {
  convertCurrencySafe,
  formatCurrency,
  getCachedExchangeRatesWithStatus,
+ getCurrencyFractionDigits,
  getStoredExchangeRatesSnapshot,
  refreshExchangeRatesWithStatus
 } from '../../src/utils/currency.ts';
@@ -51,6 +52,14 @@ test('convertCurrencySafe returns an explicit error when no live or fallback rat
 test('formatCurrency applies locale-aware separators and symbols', () => {
  assert.equal(formatCurrency(1234.5, 'USD', 'en'), '$1,234.50');
  assert.match(formatCurrency(1234.5, 'USD', 'zh-CN'), /US\$\s?1,234.50/);
+});
+
+test('getCurrencyFractionDigits uses ISO-4217 fraction digits for supported currencies', () => {
+ assert.equal(getCurrencyFractionDigits('JPY'), 0);
+ assert.equal(getCurrencyFractionDigits('CNY'), 2);
+ assert.equal(getCurrencyFractionDigits('USD'), 2);
+ assert.equal(getCurrencyFractionDigits('EUR'), 2);
+ assert.equal(getCurrencyFractionDigits('GBP'), 2);
 });
 
 const createLocalStorageMock = () => {
