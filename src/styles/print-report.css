@@ -8,7 +8,7 @@
  * 所有 token 都锁在 .pdf-report 作用域内，绝不落到 :root：这套设计是零圆角 /
  * 硬分隔线 / 单一强调红，与 App 的柔性玻璃拟态 + dark mode 互斥，泄漏出去会污染全局。
  *
- * 屏幕上这份文档始终 display:none，只在 @media print 下出现。
+ * 屏幕上这份文档绝对定位到屏外（仍参与布局，便于量高），只在 @media print 下进入视口。
  */
 
 .pdf-report {
@@ -22,15 +22,22 @@
   --pdf-rule: rgba(32, 30, 29, 0.28);
   --pdf-hairline: rgba(32, 30, 29, 0.16);
 
-  display: none;
+  position: absolute;
+  left: -200vw;
+  top: 0;
+  width: 210mm;
 }
 
 @page {
-  size: A4;
+  size: A4 portrait;
   margin: 0;
 }
 
 @media print {
+  body:has(.pdf-report) {
+    margin: 0;
+  }
+
   /* 仅当打印文档真的在 DOM 里（正在导出）才隐藏 App —— 否则用户对普通页面
      Cmd+P 会打出白纸。报表通过 portal 挂在 body 下，按兄弟节点排除。 */
   body:has(.pdf-report) > *:not(.pdf-report) {
@@ -38,16 +45,25 @@
   }
 
   .pdf-report {
-    display: block;
+    position: static;
+    left: auto;
+    width: auto;
+  }
+
+  .pdf-report-measure {
+    display: none !important;
   }
 }
 
 /* ── 页 ───────────────────────────────────────────────────────────── */
 
 .pdf-page {
-  /* A4 = 210×297mm。用 mm 而不是 794/1123px，避免打印机 DPI 换算误差。 */
+  /* A4 = 210×297mm。用 mm 而不是 794/1123px，避免打印机 DPI 换算误差。
+     必须是固定 height，不能只用 min-height：否则订阅表一长，单页会被撑成自定义长页。 */
   width: 210mm;
+  height: 297mm;
   min-height: 297mm;
+  max-height: 297mm;
   padding: 14mm 14mm 10mm;
   background: var(--pdf-bg);
   color: var(--pdf-text);
@@ -58,11 +74,42 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow: hidden;
+  break-inside: avoid;
   break-after: page;
 }
 
 .pdf-page:last-child {
   break-after: auto;
+}
+
+/* 屏幕外测量：按真实 A4 宽度排版，但允许高度自然伸展以便量溢出。 */
+.pdf-report-measure {
+  display: block;
+  position: absolute;
+  left: -200vw;
+  top: 0;
+  width: 210mm;
+}
+
+.pdf-page-metrics {
+  width: 210mm;
+  height: 297mm;
+  padding: 14mm 14mm 10mm;
+  box-sizing: border-box;
+  visibility: hidden;
+}
+
+.pdf-page-measure {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  break-after: auto;
+}
+
+.pdf-next30 {
+  margin-top: 22px;
 }
 
 .pdf-page * {

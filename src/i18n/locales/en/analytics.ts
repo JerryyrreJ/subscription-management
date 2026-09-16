@@ -68,8 +68,8 @@ export const analytics = {
  suggestionAnnualDescriptionOther: 'You have {{count}} monthly subscriptions. If these services offer annual billing, you can typically save 10-20% on costs.',
 
  // ===== PDF report =====
- pdfExportSnapshot: 'Export snapshot (1 page)',
- pdfExportAnnual: 'Export annual report (2 pages)',
+ pdfExportSnapshot: 'Export snapshot',
+ pdfExportAnnual: 'Export annual report',
  pdfSnapshotKicker: 'SUBSCRIPTION SUMMARY',
  pdfSnapshotTitle: 'Current snapshot',
  pdfAnnualKicker: 'ANNUAL REPORT',
@@ -114,4 +114,6 @@ export const analytics = {
  pdfColCategoryService: 'CATEGORY / SERVICE',
  pdfTotal: 'Total',
  pdfTotalItems: '{{count}} items',
+ pdfContinued: 'Continued',
+ pdfPageOf: '{{current}} / {{total}}',
 };

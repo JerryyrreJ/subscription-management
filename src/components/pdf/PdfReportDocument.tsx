@@ -1,14 +1,24 @@
-import { Fragment } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type {
  PdfCategoryRow,
  PdfKpi,
  PdfReportData,
  PdfReportMeta,
+ PdfSubscriptionRow,
 } from '../../utils/pdfReportData';
-
-/** 未来 30 天列表最多铺 4 行 × 3 列，超出的只在汇总行里计数，避免快照页溢出 A4。 */
-const MAX_RENEWAL_ENTRIES = 12;
+import {
+ estimateAnnualDetailHeights,
+ estimateSnapshotHeights,
+ MAX_RENEWAL_ENTRIES,
+ packAnnualDetailPages,
+ packSnapshotPages,
+ readAnnualDetailHeights,
+ readSnapshotHeights,
+ type PdfAnnualDetailPage,
+ type PdfSnapshotPage,
+} from '../../utils/pdfReportPagination';
 
 interface PdfReportDocumentProps {
  data: PdfReportData;
@@ -100,120 +110,209 @@ function CategoryBars({ rows, showPercentage }: { rows: PdfCategoryRow[]; showPe
  );
 }
 
-function PageFoot({ meta }: { meta: PdfReportMeta }) {
+function PageFoot({ meta, pageLabel }: { meta: PdfReportMeta; pageLabel?: string }) {
  return (
   <>
    <div className="pdf-spacer" />
    <div className="pdf-foot">
     <span>{meta.generatedBy}</span>
+    {pageLabel ? <span>{pageLabel}</span> : null}
     <span>{meta.fxNote}</span>
    </div>
   </>
  );
 }
 
-/**
- * 快照页（设计稿 1a / 1c —— 同一组件，语言与基准货币由 i18n 和 baseCurrency 决定）。
- */
-function SnapshotPage({ data }: PdfReportDocumentProps) {
+function pageMeta(
+ data: PdfReportData,
+ continuation: boolean,
+ continuedLabel: string,
+ pageLabel: string | undefined
+): string[] {
+ if (continuation) {
+  return [data.meta.asOf, continuedLabel, ...(pageLabel ? [pageLabel] : [])];
+ }
+
+ return [data.meta.asOf, data.meta.baseCurrencyLine, data.meta.scopeLine];
+}
+
+function SnapshotTable({
+ rows,
+ totalMonthly,
+ showTotal,
+ itemCount,
+ t,
+}: {
+ rows: PdfSubscriptionRow[];
+ totalMonthly: string;
+ showTotal: boolean;
+ itemCount: number;
+ t: TFunction;
+}) {
+ return (
+  <table className="pdf-table">
+   <thead data-pdf="table-head">
+    <tr>
+     <th>{t('analytics:pdfColService')}</th>
+     <th>{t('analytics:pdfColCategory')}</th>
+     <th className="pdf-num">{t('analytics:pdfColCharged')}</th>
+     <th className="pdf-cycle">{t('analytics:pdfColCycle')}</th>
+     <th className="pdf-num">{t('analytics:pdfColMonthly')}</th>
+     <th className="pdf-num">{t('analytics:pdfColRenews')}</th>
+    </tr>
+   </thead>
+   <tbody>
+    {rows.map(row => (
+     <tr data-pdf="row" key={`${row.name}-${row.next}-${row.monthly}`}>
+      <td className="pdf-name">{row.name}</td>
+      <td className="pdf-dim">{row.category}</td>
+      <td className="pdf-num">{row.price}</td>
+      <td className="pdf-cycle">{row.cycle}</td>
+      <td className="pdf-num pdf-strong">{row.monthly}</td>
+      <td className="pdf-num pdf-dim">{row.next}</td>
+     </tr>
+    ))}
+    {showTotal ? (
+     <tr className="pdf-total-row" data-pdf="total">
+      <td>{t('analytics:pdfTotal')}</td>
+      <td>{t('analytics:pdfTotalItems', { count: itemCount })}</td>
+      <td />
+      <td className="pdf-cycle" />
+      <td className="pdf-num">{totalMonthly}</td>
+      <td />
+     </tr>
+    ) : null}
+   </tbody>
+  </table>
+ );
+}
+
+function Next30Days({ data }: { data: PdfReportData }) {
  const { t } = useTranslation(['analytics']);
  const shownRenewals = data.next30Days.slice(0, MAX_RENEWAL_ENTRIES);
  const hiddenRenewals = data.next30Days.length - shownRenewals.length;
 
+ if (data.next30Days.length === 0) {
+  return null;
+ }
+
  return (
-  <section className="pdf-page">
-   <PageHead
-    kicker={t('analytics:pdfSnapshotKicker')}
-    title={t('analytics:pdfSnapshotTitle')}
-    meta={[data.meta.asOf, data.meta.baseCurrencyLine, data.meta.scopeLine]}
-   />
-   <div className="pdf-rule" />
+  <div data-pdf="renewals" className="pdf-next30">
+   <SectionHead title={t('analytics:pdfSectionNext30')} note={data.next30Summary} />
+   <div className="pdf-renewals">
+    {shownRenewals.map(entry => (
+     <div
+      className={`pdf-renewal${entry.isNext ? ' pdf-renewal-next' : ''}`}
+      key={`${entry.date}-${entry.name}`}
+     >
+      <span className="pdf-renewal-date">{entry.date}</span>
+      <span className="pdf-renewal-name">{entry.name}</span>
+      <span className="pdf-renewal-amount">{entry.amount}</span>
+     </div>
+    ))}
+    {hiddenRenewals > 0 ? (
+     <div className="pdf-renewal">
+      <span className="pdf-renewal-name pdf-dim">
+       {t('analytics:pdfMoreRenewals', { count: hiddenRenewals })}
+      </span>
+     </div>
+    ) : null}
+   </div>
+  </div>
+ );
+}
 
-   <KpiRow items={data.snapshotKpis} />
+function SnapshotBody({
+ data,
+ page,
+}: {
+ data: PdfReportData;
+ page?: PdfSnapshotPage;
+}) {
+ const { t } = useTranslation(['analytics']);
+ const showKpis = page?.showKpis ?? true;
+ const showCategories = page?.showCategories ?? true;
+ const showTable = page?.showTable ?? true;
+ const showTotal = page?.showTotal ?? true;
+ const showRenewals = page?.showRenewals ?? true;
+ const rows = showTable
+  ? data.subscriptionRows.slice(page?.rowStart ?? 0, page?.rowEnd ?? data.subscriptionRows.length)
+  : [];
 
-   <SectionHead
-    title={t('analytics:pdfSectionCategories')}
-    note={data.categoryHeaderNote}
-   />
-   <CategoryBars rows={data.categoryRows} showPercentage />
+ return (
+  <>
+   {showKpis ? (
+    <div data-pdf="kpis">
+     <KpiRow items={data.snapshotKpis} />
+    </div>
+   ) : null}
 
-   <SectionHead
-    title={t('analytics:pdfSectionSubscriptions')}
-    note={t('analytics:pdfSubscriptionsSortNote')}
-   />
-   <table className="pdf-table">
-    <thead>
-     <tr>
-      <th>{t('analytics:pdfColService')}</th>
-      <th>{t('analytics:pdfColCategory')}</th>
-      <th className="pdf-num">{t('analytics:pdfColCharged')}</th>
-      <th className="pdf-cycle">{t('analytics:pdfColCycle')}</th>
-      <th className="pdf-num">{t('analytics:pdfColMonthly')}</th>
-      <th className="pdf-num">{t('analytics:pdfColRenews')}</th>
-     </tr>
-    </thead>
-    <tbody>
-     {data.subscriptionRows.map(row => (
-      <tr key={`${row.name}-${row.next}-${row.monthly}`}>
-       <td className="pdf-name">{row.name}</td>
-       <td className="pdf-dim">{row.category}</td>
-       <td className="pdf-num">{row.price}</td>
-       <td className="pdf-cycle">{row.cycle}</td>
-       <td className="pdf-num pdf-strong">{row.monthly}</td>
-       <td className="pdf-num pdf-dim">{row.next}</td>
-      </tr>
-     ))}
-     <tr className="pdf-total-row">
-      <td>{t('analytics:pdfTotal')}</td>
-      <td>{t('analytics:pdfTotalItems', { count: data.subscriptionRows.length })}</td>
-      <td />
-      <td className="pdf-cycle" />
-      <td className="pdf-num">{data.totalMonthly}</td>
-      <td />
-     </tr>
-    </tbody>
-   </table>
+   {showCategories ? (
+    <div data-pdf="categories">
+     <SectionHead title={t('analytics:pdfSectionCategories')} note={data.categoryHeaderNote} />
+     <CategoryBars rows={data.categoryRows} showPercentage />
+    </div>
+   ) : null}
 
-   {data.next30Days.length > 0 ? (
+   {showTable ? (
     <>
-     <div style={{ marginTop: '22px' }}>
-      <SectionHead title={t('analytics:pdfSectionNext30')} note={data.next30Summary} />
+     <div data-pdf="table-section">
+      <SectionHead
+       title={t('analytics:pdfSectionSubscriptions')}
+       note={t('analytics:pdfSubscriptionsSortNote')}
+      />
      </div>
-     <div className="pdf-renewals">
-      {shownRenewals.map(entry => (
-       <div
-        className={`pdf-renewal${entry.isNext ? ' pdf-renewal-next' : ''}`}
-        key={`${entry.date}-${entry.name}`}
-       >
-        <span className="pdf-renewal-date">{entry.date}</span>
-        <span className="pdf-renewal-name">{entry.name}</span>
-        <span className="pdf-renewal-amount">{entry.amount}</span>
-       </div>
-      ))}
-      {hiddenRenewals > 0 ? (
-       <div className="pdf-renewal">
-        <span className="pdf-renewal-name pdf-dim">
-         {t('analytics:pdfMoreRenewals', { count: hiddenRenewals })}
-        </span>
-       </div>
-      ) : null}
-     </div>
+     <SnapshotTable
+      rows={rows}
+      totalMonthly={data.totalMonthly}
+      showTotal={showTotal}
+      itemCount={data.subscriptionRows.length}
+      t={t}
+     />
     </>
    ) : null}
 
-   <PageFoot meta={data.meta} />
+   {showRenewals ? <Next30Days data={data} /> : null}
+  </>
+ );
+}
+
+function SnapshotPageView({
+ data,
+ page,
+ pageNumber,
+ pageCount,
+}: PdfReportDocumentProps & {
+ page: PdfSnapshotPage;
+ pageNumber: number;
+ pageCount: number;
+}) {
+ const { t } = useTranslation(['analytics']);
+ const pageLabel = pageCount > 1 ? t('analytics:pdfPageOf', { current: pageNumber, total: pageCount }) : undefined;
+
+ return (
+  <section className="pdf-page">
+   <div data-pdf="head">
+    <PageHead
+     kicker={t('analytics:pdfSnapshotKicker')}
+     title={t('analytics:pdfSnapshotTitle')}
+     meta={pageMeta(data, page.continuation, t('analytics:pdfContinued'), pageLabel)}
+    />
+    <div className="pdf-rule" />
+   </div>
+   <SnapshotBody data={data} page={page} />
+   <PageFoot meta={data.meta} pageLabel={pageLabel} />
   </section>
  );
 }
 
-/**
- * 年度报告第 1 页（设计稿 1b）。
- *
- * 与设计稿的差异：原稿的「年内已支出」和「同比」需要历史账单表，本项目只存当前订阅
- * 快照，无法计算，已按决策替换为可由快照算出的指标（见 pdfReportData.annualKpis）。
- */
-function AnnualOverviewPage({ data }: PdfReportDocumentProps) {
+function AnnualOverviewPage({
+ data,
+ pageNumber,
+ pageCount,
+}: PdfReportDocumentProps & { pageNumber: number; pageCount: number }) {
  const { t } = useTranslation(['analytics']);
+ const pageLabel = pageCount > 1 ? t('analytics:pdfPageOf', { current: pageNumber, total: pageCount }) : undefined;
 
  return (
   <section className="pdf-page">
@@ -270,40 +369,59 @@ function AnnualOverviewPage({ data }: PdfReportDocumentProps) {
     </div>
    </div>
 
-   <PageFoot meta={data.meta} />
+   <PageFoot meta={data.meta} pageLabel={pageLabel} />
   </section>
  );
 }
 
-/** 年度报告第 2 页：按分类分组的明细表。 */
-function AnnualDetailPage({ data }: PdfReportDocumentProps) {
+function AnnualDetailTable({
+ data,
+ page,
+}: {
+ data: PdfReportData;
+ page?: PdfAnnualDetailPage;
+}) {
  const { t } = useTranslation(['analytics']);
+ const groups = page
+  ? page.groups.map(slice => {
+     const group = data.categoryGroups[slice.groupIndex];
+     return {
+      ...slice,
+      label: group.label,
+      monthly: group.monthly,
+      yearly: group.yearly,
+      rows: group.rows.slice(slice.rowStart, slice.rowEnd),
+     };
+    })
+  : data.categoryGroups.map((group, groupIndex) => ({
+     groupIndex,
+     showHeader: true,
+     rowStart: 0,
+     rowEnd: group.rows.length,
+     label: group.label,
+     monthly: group.monthly,
+     yearly: group.yearly,
+     rows: group.rows,
+    }));
+ const showTotal = page?.showTotal ?? true;
 
  return (
-  <section className="pdf-page">
-   <PageHead
-    kicker={t('analytics:pdfAnnualKicker')}
-    title={t('analytics:pdfAnnualDetailTitle')}
-    titleClassName="pdf-title-sm"
-    meta={[data.meta.scopeLine, data.meta.baseCurrencyLine]}
-   />
-   <div className="pdf-rule" />
-
-   <table className="pdf-table">
-    <thead>
-     <tr>
-      <th>{t('analytics:pdfColCategoryService')}</th>
-      <th className="pdf-num">{t('analytics:pdfColCharged')}</th>
-      <th className="pdf-cycle">{t('analytics:pdfColCycle')}</th>
-      <th className="pdf-num">{t('analytics:pdfColMonthly')}</th>
-      <th className="pdf-num">{t('analytics:pdfColYearly')}</th>
-      <th className="pdf-num">{t('analytics:pdfColRenews')}</th>
-     </tr>
-    </thead>
-    <tbody>
-     {data.categoryGroups.map(group => (
-      <Fragment key={group.label}>
-       <tr className="pdf-group-row">
+  <table className="pdf-table">
+   <thead data-pdf="table-head">
+    <tr>
+     <th>{t('analytics:pdfColCategoryService')}</th>
+     <th className="pdf-num">{t('analytics:pdfColCharged')}</th>
+     <th className="pdf-cycle">{t('analytics:pdfColCycle')}</th>
+     <th className="pdf-num">{t('analytics:pdfColMonthly')}</th>
+     <th className="pdf-num">{t('analytics:pdfColYearly')}</th>
+     <th className="pdf-num">{t('analytics:pdfColRenews')}</th>
+    </tr>
+   </thead>
+   <tbody>
+    {groups.map(group => (
+     <Fragment key={`${group.groupIndex}-${group.rowStart}`}>
+      {group.showHeader ? (
+       <tr className="pdf-group-row" data-pdf="group-header">
         <td>{group.label}</td>
         <td />
         <td className="pdf-cycle" />
@@ -311,19 +429,25 @@ function AnnualDetailPage({ data }: PdfReportDocumentProps) {
         <td className="pdf-num">{group.yearly}</td>
         <td />
        </tr>
-       {group.rows.map(row => (
-        <tr className="pdf-group-child" key={`${group.label}-${row.name}-${row.monthly}`}>
-         <td className="pdf-name">{row.name}</td>
-         <td className="pdf-num">{row.price}</td>
-         <td className="pdf-cycle">{row.cycle}</td>
-         <td className="pdf-num pdf-strong">{row.monthly}</td>
-         <td className="pdf-num pdf-dim">{row.yearly}</td>
-         <td className="pdf-num pdf-dim">{row.next}</td>
-        </tr>
-       ))}
-      </Fragment>
-     ))}
-     <tr className="pdf-total-row">
+      ) : null}
+      {group.rows.map(row => (
+       <tr
+        className="pdf-group-child"
+        data-pdf="group-row"
+        key={`${group.label}-${row.name}-${row.monthly}`}
+       >
+        <td className="pdf-name">{row.name}</td>
+        <td className="pdf-num">{row.price}</td>
+        <td className="pdf-cycle">{row.cycle}</td>
+        <td className="pdf-num pdf-strong">{row.monthly}</td>
+        <td className="pdf-num pdf-dim">{row.yearly}</td>
+        <td className="pdf-num pdf-dim">{row.next}</td>
+       </tr>
+      ))}
+     </Fragment>
+    ))}
+    {showTotal ? (
+     <tr className="pdf-total-row" data-pdf="total">
       <td>{t('analytics:pdfTotal')}</td>
       <td />
       <td className="pdf-cycle" />
@@ -331,31 +455,235 @@ function AnnualDetailPage({ data }: PdfReportDocumentProps) {
       <td className="pdf-num">{data.totalYearly}</td>
       <td />
      </tr>
-    </tbody>
-   </table>
+    ) : null}
+   </tbody>
+  </table>
+ );
+}
 
-   <PageFoot meta={data.meta} />
+function AnnualDetailPageView({
+ data,
+ page,
+ pageNumber,
+ pageCount,
+}: PdfReportDocumentProps & {
+ page: PdfAnnualDetailPage;
+ pageNumber: number;
+ pageCount: number;
+}) {
+ const { t } = useTranslation(['analytics']);
+ const pageLabel = pageCount > 1 ? t('analytics:pdfPageOf', { current: pageNumber, total: pageCount }) : undefined;
+
+ return (
+  <section className="pdf-page">
+   <div data-pdf="head">
+    <PageHead
+     kicker={t('analytics:pdfAnnualKicker')}
+     title={t('analytics:pdfAnnualDetailTitle')}
+     titleClassName="pdf-title-sm"
+     meta={pageMeta(data, page.continuation, t('analytics:pdfContinued'), pageLabel)}
+    />
+    <div className="pdf-rule" />
+   </div>
+   <div data-pdf="table-margin">
+    <AnnualDetailTable data={data} page={page} />
+   </div>
+   <PageFoot meta={data.meta} pageLabel={pageLabel} />
   </section>
+ );
+}
+
+function MeasureShell({
+ rootRef,
+ children,
+}: {
+ rootRef: Ref<HTMLDivElement>;
+ children: ReactNode;
+}) {
+ return (
+  <div className="pdf-report-measure" ref={rootRef}>
+   <div className="pdf-page-metrics" data-pdf="metrics" />
+   <section className="pdf-page pdf-page-measure">{children}</section>
+  </div>
+ );
+}
+
+function SnapshotMeasure({
+ data,
+ rootRef,
+}: PdfReportDocumentProps & { rootRef: Ref<HTMLDivElement> }) {
+ const { t } = useTranslation(['analytics']);
+
+ return (
+  <MeasureShell rootRef={rootRef}>
+   <div data-pdf="head">
+    <PageHead
+     kicker={t('analytics:pdfSnapshotKicker')}
+     title={t('analytics:pdfSnapshotTitle')}
+     meta={[data.meta.asOf, data.meta.baseCurrencyLine, data.meta.scopeLine]}
+    />
+    <div className="pdf-rule" />
+   </div>
+   <SnapshotBody data={data} />
+   <PageFoot meta={data.meta} />
+  </MeasureShell>
+ );
+}
+
+function AnnualDetailMeasure({
+ data,
+ rootRef,
+}: PdfReportDocumentProps & { rootRef: Ref<HTMLDivElement> }) {
+ const { t } = useTranslation(['analytics']);
+
+ return (
+  <MeasureShell rootRef={rootRef}>
+   <div data-pdf="head">
+    <PageHead
+     kicker={t('analytics:pdfAnnualKicker')}
+     title={t('analytics:pdfAnnualDetailTitle')}
+     titleClassName="pdf-title-sm"
+     meta={[data.meta.scopeLine, data.meta.baseCurrencyLine]}
+    />
+    <div className="pdf-rule" />
+   </div>
+   <div data-pdf="table-margin">
+    <AnnualDetailTable data={data} />
+   </div>
+   <PageFoot meta={data.meta} />
+  </MeasureShell>
  );
 }
 
 export type PdfReportVariant = 'snapshot' | 'annual';
 
+const estimateSnapshotPlan = (data: PdfReportData) =>
+ packSnapshotPages(
+  estimateSnapshotHeights({
+   categoryCount: data.categoryRows.length,
+   rowCount: data.subscriptionRows.length,
+   renewalCount: data.next30Days.length,
+  })
+ );
+
+const estimateAnnualDetailPlan = (data: PdfReportData) =>
+ packAnnualDetailPages(estimateAnnualDetailHeights(data.categoryGroups.map(group => group.rows.length)));
+
 /**
- * 打印文档。屏幕上恒为 display:none（见 print-report.css），只在 window.print() 时出现。
+ * 打印文档。屏幕上在屏外排版（见 print-report.css），只在 window.print() 时进入纸张。
+ * 先按 CSS 预算切成固定 A4 页（SSR/首屏就能用），字体就绪后再按实测高度校正。
  */
 export function PdfReportDocument({
  data,
  variant,
-}: PdfReportDocumentProps & { variant: PdfReportVariant }) {
+ onReady,
+}: PdfReportDocumentProps & { variant: PdfReportVariant; onReady?: () => void }) {
+ const measureRef = useRef<HTMLDivElement>(null);
+ const [snapshotPages, setSnapshotPages] = useState<PdfSnapshotPage[]>(() =>
+  variant === 'snapshot' ? estimateSnapshotPlan(data) : []
+ );
+ const [annualDetailPages, setAnnualDetailPages] = useState<PdfAnnualDetailPage[]>(() =>
+  variant === 'annual' ? estimateAnnualDetailPlan(data) : []
+ );
+ const [layoutReady, setLayoutReady] = useState(false);
+
+ useEffect(() => {
+  let cancelled = false;
+  let planned = false;
+  let timeoutId = 0;
+  let frameId = 0;
+
+  const plan = () => {
+   if (cancelled || planned) {
+    return;
+   }
+   planned = true;
+   window.clearTimeout(timeoutId);
+
+   if (variant === 'snapshot') {
+    const measured = readSnapshotHeights(measureRef.current);
+    const heights =
+     measured ??
+     estimateSnapshotHeights({
+      categoryCount: data.categoryRows.length,
+      rowCount: data.subscriptionRows.length,
+      renewalCount: data.next30Days.length,
+     });
+    setSnapshotPages(packSnapshotPages(heights));
+   } else {
+    const measured = readAnnualDetailHeights(measureRef.current);
+    const heights =
+     measured ?? estimateAnnualDetailHeights(data.categoryGroups.map(group => group.rows.length));
+    setAnnualDetailPages(packAnnualDetailPages(heights));
+   }
+
+   setLayoutReady(true);
+  };
+
+  const run = async () => {
+   try {
+    await document.fonts?.ready;
+   } catch {
+    // 字体接口不可用时直接按系统字体测量
+   }
+
+   if (cancelled) {
+    return;
+   }
+
+   frameId = requestAnimationFrame(plan);
+  };
+
+  timeoutId = window.setTimeout(plan, 2000);
+  void run();
+
+  return () => {
+   cancelled = true;
+   window.clearTimeout(timeoutId);
+   cancelAnimationFrame(frameId);
+  };
+ }, [data, variant]);
+
+ useEffect(() => {
+  if (!layoutReady) {
+   return;
+  }
+
+  const frameId = requestAnimationFrame(() => onReady?.());
+  return () => cancelAnimationFrame(frameId);
+ }, [layoutReady, onReady]);
+
+ const snapshotPageCount = snapshotPages.length;
+ const annualPageCount = 1 + annualDetailPages.length;
+
  return (
   <div className="pdf-report">
    {variant === 'snapshot' ? (
-    <SnapshotPage data={data} />
+    <>
+     <SnapshotMeasure data={data} rootRef={measureRef} />
+     {snapshotPages.map((page, index) => (
+      <SnapshotPageView
+       data={data}
+       page={page}
+       pageNumber={index + 1}
+       pageCount={snapshotPageCount}
+       key={`snapshot-${index}`}
+      />
+     ))}
+    </>
    ) : (
     <>
-     <AnnualOverviewPage data={data} />
-     <AnnualDetailPage data={data} />
+     <AnnualDetailMeasure data={data} rootRef={measureRef} />
+     <AnnualOverviewPage data={data} pageNumber={1} pageCount={annualPageCount} />
+     {annualDetailPages.map((page, index) => (
+      <AnnualDetailPageView
+       data={data}
+       page={page}
+       pageNumber={index + 2}
+       pageCount={annualPageCount}
+       key={`annual-detail-${index}`}
+      />
+     ))}
     </>
    )}
   </div>
