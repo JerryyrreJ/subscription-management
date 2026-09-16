@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeDrafts } from '../../src/utils/subscriptionDraft.ts';
+import { normalizeDrafts, constrainDraftCategories } from '../../src/utils/subscriptionDraft.ts';
 import { DEFAULT_CURRENCY } from '../../src/utils/currency.ts';
 import { MAX_SUBSCRIPTION_AMOUNT } from '../../src/utils/subscriptionValidation.ts';
 
@@ -73,6 +73,69 @@ test('only accepts real booleans for notificationEnabled', () => {
 
   assert.equal(drafts[0].notificationEnabled, true);
   assert.ok(drafts[0].warnings.includes('notificationEnabled_invalid'));
+});
+
+test('forces category onto the allowed list when provided', () => {
+  const allowed = ['Entertainment', 'Software', 'Other'];
+
+  const matched = normalizeDrafts([{
+    name: 'Netflix',
+    category: 'entertainment',
+    amount: 15,
+    currency: 'USD',
+    period: 'monthly',
+    nextPaymentDate: '2026-07-01',
+  }], TODAY, allowed);
+  assert.equal(matched.drafts[0].category, 'Entertainment');
+  assert.equal(matched.drafts[0].warnings.includes('category_defaulted'), false);
+
+  const localized = normalizeDrafts([{
+    name: 'Netflix',
+    category: '娱乐',
+    amount: 15,
+    currency: 'USD',
+    period: 'monthly',
+    nextPaymentDate: '2026-07-01',
+  }], TODAY, allowed);
+  assert.equal(localized.drafts[0].category, 'Entertainment');
+
+  const unknown = normalizeDrafts([{
+    name: 'Netflix',
+    category: 'Streaming',
+    amount: 15,
+    currency: 'USD',
+    period: 'monthly',
+    nextPaymentDate: '2026-07-01',
+  }], TODAY, allowed);
+  assert.equal(unknown.drafts[0].category, 'Other');
+  assert.ok(unknown.drafts[0].warnings.includes('category_defaulted'));
+
+  const missing = normalizeDrafts([{
+    name: 'Netflix',
+    amount: 15,
+    currency: 'USD',
+    period: 'monthly',
+    nextPaymentDate: '2026-07-01',
+  }], TODAY, allowed);
+  assert.equal(missing.drafts[0].category, 'Other');
+  assert.ok(missing.drafts[0].warnings.includes('category_defaulted'));
+  assert.equal(missing.drafts[0].warnings.includes('category_missing'), false);
+});
+
+test('constrainDraftCategories remaps free-text categories after parse', () => {
+  const constrained = constrainDraftCategories([{
+    name: 'Netflix',
+    category: 'Streaming',
+    amount: 15,
+    currency: 'USD',
+    period: 'monthly',
+    nextPaymentDate: '2026-07-01',
+    notificationEnabled: true,
+    warnings: ['category_missing'],
+  }], ['Entertainment', 'Other']);
+
+  assert.equal(constrained[0].category, 'Other');
+  assert.deepEqual(constrained[0].warnings, ['category_defaulted']);
 });
 
 test('caps the number of drafts', () => {

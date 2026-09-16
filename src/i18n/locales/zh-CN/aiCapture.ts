@@ -70,6 +70,7 @@ export const aiCapture = {
   },
   warnings: {
     category_missing: '请选择分类',
+    category_defaulted: '已映射到现有分类，请确认',
     amount_missing: '请确认金额',
     amount_capped: '金额偏大，请核对',
     currency_defaulted: '请确认币种',
