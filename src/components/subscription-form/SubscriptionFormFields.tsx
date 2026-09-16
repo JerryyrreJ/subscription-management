@@ -10,7 +10,7 @@ import {
 import { compareDateOnly, formatDateOnly, getDateOnlyDay, getTodayDateOnly } from '../../utils/dates';
 import { createSubscriptionRecord, getSubscriptionValidationMessage, updateSubscriptionRecord } from '../../utils/subscriptionDomain';
 import { rememberSubscriptionCurrency } from '../../utils/subscriptionCurrencyPreference';
-import { validateSubscriptionAmount } from '../../utils/subscriptionValidation';
+import { validateSubscriptionAmount, normalizeSubscriptionAmountInput } from '../../utils/subscriptionValidation';
 import { translateSubscriptionFormError } from '../../utils/subscriptionFormErrors';
 import { CustomDatePicker } from '../CustomDatePicker';
 import { AmountHero } from './AmountHero';
@@ -105,7 +105,7 @@ export function SubscriptionFormFields({
    errors.category = t('addSubscription:categoryRequired');
   }
 
-  const amountError = validateSubscriptionAmount(formData.amount);
+  const amountError = validateSubscriptionAmount(formData.amount, formData.currency);
   if (amountError) {
    errors.amount = translateSubscriptionFormError(amountError, t);
   }
@@ -282,7 +282,11 @@ export function SubscriptionFormFields({
      if (mode === 'add') {
       rememberSubscriptionCurrency(currency);
      }
-     updateForm({ currency });
+     updateForm({
+      currency,
+      amount: normalizeSubscriptionAmountInput(formData.amount, currency),
+     });
+     clearFieldError('amount');
     }}
    />
 

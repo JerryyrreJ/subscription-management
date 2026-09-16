@@ -26,7 +26,7 @@ export function LiveSummaryStrip({
  const { language } = useAppLanguage();
 
  const displayName = name.trim() || t('addSubscription:summaryUntitled');
- const amountIsValid = !validateSubscriptionAmount(amount);
+ const amountIsValid = !validateSubscriptionAmount(amount, currency);
  const displayAmount = amountIsValid ? formatCurrency(Number(amount), currency, language) : '—';
  const customDays = Number.parseInt(customDate, 10);
  const periodLabel = period === 'monthly'

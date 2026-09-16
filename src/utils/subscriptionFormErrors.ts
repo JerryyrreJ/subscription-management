@@ -10,6 +10,10 @@ export function translateSubscriptionFormError(message: string, t: TFunction): s
   return t('addSubscription:amountInvalid');
  }
 
+ if (message === 'Amount must be a whole number') {
+  return t('addSubscription:amountInvalidWhole');
+ }
+
  if (message === 'Amount must be a finite number') {
   return t('addSubscription:amountFinite');
  }

@@ -26,6 +26,7 @@ test('maps domain amount and field errors onto addSubscription copy', () => {
   translateSubscriptionFormError(`Amount cannot exceed ${MAX_SUBSCRIPTION_AMOUNT}`, t),
   `Amount cannot exceed ${MAX_SUBSCRIPTION_AMOUNT}`
  );
+ assert.equal(translateSubscriptionFormError('Amount must be a whole number', t), 'Amount must be a whole number');
  assert.equal(translateSubscriptionFormError('Name is required', t), 'Name is required.');
  assert.equal(translateSubscriptionFormError('Custom period is required', t), 'Custom period is required.');
  assert.equal(translateSubscriptionFormError('Next payment date cannot be in the past', t), 'Next renewal date cannot be in the past.');

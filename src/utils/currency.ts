@@ -27,6 +27,46 @@ export const getCurrencyInfo = (code: Currency): CurrencyInfo => {
  return CURRENCIES.find(currency => currency.code === code) || CURRENCIES[0];
 };
 
+const CURRENCY_FRACTION_DIGITS: Record<Currency, number> = {
+ CNY: 2,
+ USD: 2,
+ EUR: 2,
+ JPY: 0,
+ GBP: 2,
+ AUD: 2,
+ CAD: 2,
+ CHF: 2,
+ HKD: 2,
+ SGD: 2,
+};
+
+const currencyFractionDigitsCache = new Map<Currency, number>();
+
+export const getCurrencyFractionDigits = (currency: Currency): number => {
+ const cached = currencyFractionDigitsCache.get(currency);
+ if (cached !== undefined) {
+  return cached;
+ }
+
+ let digits = CURRENCY_FRACTION_DIGITS[currency] ?? 2;
+
+ try {
+  const resolved = new Intl.NumberFormat('en', {
+   style: 'currency',
+   currency,
+  }).resolvedOptions().maximumFractionDigits;
+
+  if (typeof resolved === 'number' && Number.isInteger(resolved) && resolved >= 0) {
+   digits = resolved;
+  }
+ } catch {
+  // Keep the explicit ISO-4217 fallback when Intl cannot resolve the currency.
+ }
+
+ currencyFractionDigitsCache.set(currency, digits);
+ return digits;
+};
+
 export const formatCurrencyOptionLabel = (
  code: Currency,
  t: TFunction

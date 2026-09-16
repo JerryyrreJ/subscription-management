@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { Currency } from '../../types';
-import { CURRENCIES, formatCurrencyOptionLabel } from '../../utils/currency';
+import { CURRENCIES, formatCurrencyOptionLabel, getCurrencyFractionDigits } from '../../utils/currency';
 import { isAllowedSubscriptionAmountInput } from '../../utils/subscriptionValidation';
 import { CustomSelect } from '../CustomSelect';
 
@@ -20,6 +20,7 @@ export function AmountHero({
  error,
 }: AmountHeroProps) {
  const { t } = useTranslation(['addSubscription', 'currency']);
+ const fractionDigits = getCurrencyFractionDigits(currency);
 
  return (
   <div>
@@ -47,12 +48,12 @@ export function AmountHero({
     <input
      id="subscription-amount"
      type="text"
-     inputMode="decimal"
+     inputMode={fractionDigits === 0 ? 'numeric' : 'decimal'}
      autoComplete="off"
      value={amount}
      onChange={(e) => {
       const nextValue = e.target.value;
-      if (isAllowedSubscriptionAmountInput(nextValue)) {
+      if (isAllowedSubscriptionAmountInput(nextValue, currency)) {
        onAmountChange(nextValue);
       }
      }}
@@ -62,11 +63,15 @@ export function AmountHero({
       const selectionStart = input.selectionStart ?? input.value.length;
       const selectionEnd = input.selectionEnd ?? input.value.length;
       const nextValue = `${input.value.slice(0, selectionStart)}${pasted}${input.value.slice(selectionEnd)}`;
-      if (!isAllowedSubscriptionAmountInput(nextValue)) {
+      if (!isAllowedSubscriptionAmountInput(nextValue, currency)) {
        e.preventDefault();
       }
      }}
-     placeholder={t('addSubscription:amountPlaceholder')}
+     placeholder={
+      fractionDigits === 0
+       ? t('addSubscription:amountPlaceholderWhole')
+       : t('addSubscription:amountPlaceholder')
+     }
      aria-invalid={Boolean(error)}
      className="min-w-0 flex-1 bg-transparent py-1 text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums text-gray-900 dark:text-white outline-none placeholder:text-gray-300 dark:placeholder:text-gray-600"
     />
