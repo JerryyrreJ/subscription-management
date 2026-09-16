@@ -18,8 +18,6 @@ export const editSubscription = {
  customPeriodLabel: 'Custom Period (days)',
  nextPaymentDateLabel: 'Next Renewal Date',
  trialToggleLabel: 'This is a free trial',
- trialToggleHintOn: 'Reminders use the trial end / first-charge date and will not auto-roll after it passes.',
- trialToggleHintOff: 'Track this as a recurring paid subscription.',
  trialEndsOnLabel: 'Trial end / first charge date',
  trialNotificationsEnabledHint: 'You will receive reminders before this trial ends',
  notificationsLabel: 'Enable notifications',

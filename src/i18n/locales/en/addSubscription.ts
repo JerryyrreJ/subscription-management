@@ -32,8 +32,6 @@ export const addSubscription = {
  nextPaymentDateRequired: 'Next renewal date is required.',
  nextPaymentDateInPast: 'Next renewal date cannot be in the past.',
  trialToggleLabel: 'This is a free trial',
- trialToggleHintOn: 'Reminders use the trial end / first-charge date and will not auto-roll after it passes.',
- trialToggleHintOff: 'Track this as a recurring paid subscription.',
  trialEndsOnLabel: 'Trial end / first charge date',
  trialEndsOnRequired: 'Trial end / first charge date is required.',
  trialNotificationsEnabledHint: 'You will receive reminders before this trial ends',

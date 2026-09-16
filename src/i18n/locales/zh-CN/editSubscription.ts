@@ -18,8 +18,6 @@ export const editSubscription = {
  customPeriodLabel: '自定义周期（天）',
  nextPaymentDateLabel: '下次续费日期',
  trialToggleLabel: '这是免费试用',
- trialToggleHintOn: '提醒按试用结束 / 首次扣费日期发送，到期后不会像普通续费那样自动滚动。',
- trialToggleHintOff: '按常规付费订阅跟踪。',
  trialEndsOnLabel: '试用结束 / 首次扣费日期',
  trialNotificationsEnabledHint: '你将在试用结束前收到提醒',
  notificationsLabel: '启用通知',
