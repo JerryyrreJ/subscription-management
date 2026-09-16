@@ -21,8 +21,11 @@ npm run build
 - `npm run build` 作为构建命令
 - `dist` 作为发布目录
 - `netlify/functions` 作为 functions 目录
+- 静态 `/blog` 重写（未知指南 slug 返回 404，而不是 SPA 壳）
 - SPA 请求重定向到 `index.html`
 - 基础安全响应头
+
+公开指南写在 `content/blog/` 的 Markdown 里，在 `vite build` 时编译到 `dist/blog/`。Canonical、`robots.txt` 和 `sitemap.xml` 使用 `https://sub.jerrylu.xyz`。详见[公开指南](blog.md)。
 
 ## Functions
 

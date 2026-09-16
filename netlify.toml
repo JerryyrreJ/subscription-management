@@ -40,6 +40,19 @@
   status = 200
   force = true
 
+# Static blog HTML is emitted into dist/blog at build time.
+# Keep these rewrites above the SPA fallback so unknown /blog/* slugs
+# 404 instead of serving the React app shell.
+[[redirects]]
+  from = "/blog"
+  to = "/blog/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/blog/*"
+  to = "/blog/:splat/index.html"
+  status = 200
+
 # Redirect rules for SPA
 [[redirects]]
   from = "/*"

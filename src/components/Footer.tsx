@@ -27,6 +27,13 @@ export function Footer() {
  </svg>
  </a>
  <br />
+ <a
+ href="/blog"
+ className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+ >
+ {t('footer:guides')}
+ </a>
+ <span className="text-[10px] text-gray-300 dark:text-gray-600"> · </span>
  <span className="text-[10px] text-gray-300 dark:text-gray-600">
  {t('footer:version', { version })}
  </span>

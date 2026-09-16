@@ -9,6 +9,7 @@
 - [快速开始](getting-started.md)
 - [配置](configuration.md)
 - [部署](deployment.md)
+- [公开指南（`/blog`）](blog.md)
 
 ## 可选服务
 
