@@ -10,7 +10,7 @@ import { TopSubscriptionsChart } from './TopSubscriptionsChart';
 import { RenewalHeatmap } from './RenewalHeatmap';
 import { InsightsSection } from './InsightsSection';
 import { X, TrendingUp, Calendar, DollarSign, Package, HelpCircle, Download } from 'lucide-react';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useAppLanguage } from '../hooks/useAppLanguage';
@@ -34,6 +34,10 @@ export function AdvancedReport({
  const { language } = useAppLanguage();
  const [isVisible, setIsVisible] = useState(false);
  const [printVariant, setPrintVariant] = useState<PdfReportVariant | null>(null);
+ const [printDocumentReady, setPrintDocumentReady] = useState(false);
+ const handlePrintDocumentReady = useCallback(() => {
+  setPrintDocumentReady(true);
+ }, []);
 
  // 生成报表数据
  const reportData: ReportData = useMemo(
@@ -75,35 +79,17 @@ export function AdvancedReport({
  }, 300); // 匹配 CSS transition 时间
  };
 
- // PDF 导出：把打印态文档挂进 DOM，等字体和一次绘制完成后交给浏览器打印。
+ // PDF 导出：把打印态文档挂进 DOM，等分页切成固定 A4 页后再交给浏览器打印。
  // 不走无头 Chromium —— 报表是纯 HTML/CSS，且订阅数据不必离开本机。
  useEffect(() => {
- if (!printVariant) {
-  return;
- }
-
- let cancelled = false;
-
- const frame = requestAnimationFrame(async () => {
-  try {
-   await document.fonts?.ready;
-  } catch {
-   // 字体接口不可用时直接打印，回落到系统字体
-  }
-
-  if (cancelled) {
+  if (!printVariant || !printDocumentReady) {
    return;
   }
 
   window.print();
   setPrintVariant(null);
- });
-
- return () => {
-  cancelled = true;
-  cancelAnimationFrame(frame);
- };
- }, [printVariant]);
+  setPrintDocumentReady(false);
+ }, [printVariant, printDocumentReady]);
 
  return (
  <div
@@ -269,7 +255,7 @@ export function AdvancedReport({
  {/* 打印文档挂在 body 下：@media print 会隐藏 body 的其他直接子节点 */}
  {pdfData && printVariant
   ? createPortal(
-     <PdfReportDocument data={pdfData} variant={printVariant} />,
+     <PdfReportDocument data={pdfData} variant={printVariant} onReady={handlePrintDocumentReady} />,
      document.body
     )
   : null}

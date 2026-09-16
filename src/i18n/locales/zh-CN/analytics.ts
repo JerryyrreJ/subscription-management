@@ -68,8 +68,8 @@ export const analytics = {
  suggestionAnnualDescriptionOther: '你有 {{count}} 个按月付费的订阅。如果这些服务支持年付，通常可以节省 10%-20% 的费用。',
 
  // ===== PDF 报表 =====
- pdfExportSnapshot: '导出快照（1 页）',
- pdfExportAnnual: '导出年度报告（2 页）',
+ pdfExportSnapshot: '导出快照',
+ pdfExportAnnual: '导出年度报告',
  pdfSnapshotKicker: '订阅汇总 / SUBSCRIPTION SUMMARY',
  pdfSnapshotTitle: '当前订阅快照',
  pdfAnnualKicker: '年度报告 / ANNUAL REPORT',
@@ -114,4 +114,6 @@ export const analytics = {
  pdfColCategoryService: '分类 / 服务',
  pdfTotal: '合计',
  pdfTotalItems: '{{count}} 项',
+ pdfContinued: '续页',
+ pdfPageOf: '{{current}} / {{total}}',
 };
