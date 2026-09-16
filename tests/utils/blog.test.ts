@@ -83,7 +83,7 @@ test('public blog files list app and posts under the canonical host', () => {
 
   const first = posts.find(post => post.slug === 'how-to-do-a-subscription-audit');
   assert.ok(first);
-  assert.equal(first.status, 'draft');
+  assert.equal(first.status, 'published');
   assert.ok(first.faqs.length >= 8);
 
   const index = files['blog/index.html'];
@@ -101,8 +101,9 @@ test('public blog files list app and posts under the canonical host', () => {
     article,
     /rel="canonical" href="https:\/\/sub.jerrylu.xyz\/blog\/how-to-do-a-subscription-audit"/
   );
-  assert.match(article, /Draft outline/);
-  assert.match(article, /https:\/\/support.apple.com\/en-us\/118428/);
+  assert.doesNotMatch(index, /Draft outline/);
+  assert.doesNotMatch(article, /Draft outline/);
+  assert.match(article, /https:\/\/support.apple.com\/118428/);
   assert.match(article, /https:\/\/support.google.com\/googleplay\/answer\/7018481/);
   assert.match(article, /consumer.ftc.gov/);
   assert.doesNotMatch(index, /netlify\.app/);
@@ -126,10 +127,10 @@ test('first post follows soft-CTA and claims rules from the writer brief', () =>
   const intro = source.split('## Before you start')[0] ?? '';
 
   assert.equal(intro.includes('Subscription Manager'), false);
-  assert.match(source, /Keep the list somewhere it will get reminders/);
-  assert.match(source, /does not connect to your bank/);
-  assert.match(source, /cancel merchants for you/);
+  assert.match(source, /does \*\*not\*\* connect to your bank/);
+  assert.match(source, /cancel for you/);
   assert.match(source, /or negotiate bills/);
+  assert.match(source, /no bank login required/);
 
   assert.doesNotMatch(source, /Plaid/i);
   assert.doesNotMatch(source, /average person has/i);
