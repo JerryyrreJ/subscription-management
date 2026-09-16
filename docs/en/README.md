@@ -9,6 +9,7 @@ These docs cover the public setup and operating surface for Subscription Manager
 - [Getting started](getting-started.md)
 - [Configuration](configuration.md)
 - [Deployment](deployment.md)
+- [Public guides (`/blog`)](blog.md)
 
 ## Optional Services
 

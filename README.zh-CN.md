@@ -118,6 +118,7 @@ AI 录入可以从一句话、一段粘贴的银行/信用卡账单，或一张�
 - [快速开始](docs/zh-CN/getting-started.md)
 - [配置](docs/zh-CN/configuration.md)
 - [部署](docs/zh-CN/deployment.md)
+- [公开指南（`/blog`）](docs/zh-CN/blog.md)
 - [使用 Supabase 云同步](docs/zh-CN/supabase.md)
 - [使用 Bark 续费提醒](docs/zh-CN/notifications.md)
 - [使用 Stripe 支付](docs/zh-CN/payments.md)
@@ -133,12 +134,18 @@ src/components/      UI 组件
 src/hooks/           React hooks
 src/services/        云服务、支付和同步服务
 src/utils/           存储、货币、通知和校验工具
+content/blog/        公开 SEO 指南（静态 HTML，路径 `/blog`）
+scripts/blog/        构建时生成博客 HTML、sitemap、robots
 netlify/functions/   Serverless functions
 supabase/            SQL 设置和迁移
 tests/               Node test runner 工具测试
 docs/                按语言拆分的公开文档
 dev-docs/            开发笔记和归档实现草稿
 ```
+
+## 公开指南
+
+`/blog` 是与应用同域的静态内容中心（`https://sub.jerrylu.xyz/blog`）。在 `content/blog/` 新增 Markdown 即可，见[公开指南](docs/zh-CN/blog.md)。
 
 ## 许可证
 

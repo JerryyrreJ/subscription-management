@@ -71,7 +71,7 @@ supabase/.temp/
 *.bak
 *.backup
 
-# Documentation files (keep README, changelog, public docs, and dev notes)
+# Documentation files (keep README, changelog, public docs, blog posts, and dev notes)
 *.md
 !README.md
 !README.zh-CN.md
@@ -80,3 +80,5 @@ supabase/.temp/
 !docs/**/*.md
 !dev-docs/
 !dev-docs/**/*.md
+!content/
+!content/**/*.md

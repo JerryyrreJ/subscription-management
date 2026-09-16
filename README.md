@@ -119,6 +119,7 @@ AI capture can start from a sentence, a pasted bank/credit-card statement, or a 
 - [Getting started](docs/en/getting-started.md)
 - [Configuration](docs/en/configuration.md)
 - [Deployment](docs/en/deployment.md)
+- [Public guides (`/blog`)](docs/en/blog.md)
 - [Cloud sync with Supabase](docs/en/supabase.md)
 - [Renewal reminders with Bark](docs/en/notifications.md)
 - [Payments with Stripe](docs/en/payments.md)
@@ -134,6 +135,8 @@ src/components/      UI components
 src/hooks/           React hooks
 src/services/        Cloud, payment, and sync services
 src/utils/           Storage, currency, notification, and validation utilities
+content/blog/        Public SEO guides (static HTML at `/blog`)
+scripts/blog/        Build-time blog HTML, sitemap, and robots generator
 netlify/functions/   Serverless functions
 supabase/            SQL setup and migrations
 tests/               Node test runner utility tests
@@ -141,6 +144,10 @@ docs/                Public documentation, split by language
 docs-site/           Mintlify documentation site, split by language
 dev-docs/            Development notes and archived implementation drafts
 ```
+
+## Public guides
+
+`/blog` is a static content hub on the same domain as the app (`https://sub.jerrylu.xyz/blog`). Add a Markdown file to `content/blog/` — see [Public guides](docs/en/blog.md).
 
 ## License
 
