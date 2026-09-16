@@ -333,7 +333,7 @@ export const packAnnualDetailPages = (heights: PdfAnnualDetailHeights): PdfAnnua
    }
 
    used += headerPx;
-   let rowStart = rowCursor;
+   const rowStart = rowCursor;
    let rowEnd = rowCursor;
    while (rowEnd < group.rows.length && fits(used, group.rows[rowEnd], budget)) {
     used += group.rows[rowEnd];
