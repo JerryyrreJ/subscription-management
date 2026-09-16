@@ -82,3 +82,35 @@ test('updateSubscriptionRecord preserves identity and creation time while derivi
  assert.equal(updated.updatedAt, '2026-02-01T00:00:00.000Z');
  assert.equal(updated.nextPaymentDate, '2025-02-28');
 });
+
+test('createSubscriptionRecord stores a one-shot trial end date', () => {
+ const subscription = createSubscriptionRecord({
+  ...validInput,
+  isTrial: true,
+  trialEndsOn: '2026-03-15',
+ }, {
+  id: 'trial-1',
+  now: '2026-02-01T00:00:00.000Z',
+ });
+
+ assert.equal(subscription.isTrial, true);
+ assert.equal(subscription.trialEndsOn, '2026-03-15');
+ assert.equal(subscription.nextPaymentDate, '2026-03-15');
+});
+
+test('turning off a trial clears trialEndsOn and keeps the date as nextPaymentDate', () => {
+ const trial = createSubscriptionRecord({
+  ...validInput,
+  isTrial: true,
+  trialEndsOn: '2026-03-15',
+ }, { id: 'trial-1' });
+ const converted = updateSubscriptionRecord(trial, {
+  ...validInput,
+  nextPaymentDate: '2026-03-15',
+  isTrial: false,
+ });
+
+ assert.equal(converted.isTrial, false);
+ assert.equal(converted.trialEndsOn, undefined);
+ assert.equal(converted.nextPaymentDate, '2026-03-15');
+});

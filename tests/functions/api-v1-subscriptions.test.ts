@@ -224,11 +224,80 @@ test('creates subscriptions for the API key owner and derives server-managed fie
     billing_anchor_day: null,
     custom_date: null,
     notification_enabled: false,
+    is_trial: false,
+    trial_ends_on: null,
     status: 'active',
   });
   assert.equal(body.data.id, createdRow.id);
   assert.equal(body.data.amount, 12.5);
   assert.equal(body.data.nextPaymentDate, '2027-06-17');
+});
+
+test('creates a free trial with a one-shot trial end date', async () => {
+  let insertPayload: unknown;
+  const createdRow = {
+    ...subscriptionRow,
+    id: '55555555-5555-4555-8555-555555555555',
+    name: 'Cursor Pro',
+    is_trial: true,
+    trial_ends_on: '2026-07-15',
+    next_payment_date: '2026-07-15',
+    last_payment_date: '2026-06-15',
+  };
+  const database = createDatabase((state: QueryState) => {
+    assert.equal(state.operation, 'insert');
+    insertPayload = state.payload;
+    return {
+      data: createdRow,
+      error: null,
+    };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-create-trial',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'POST',
+    '/api/v1/subscriptions',
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({
+      name: 'Cursor Pro',
+      category: 'Streaming',
+      amount: 20,
+      currency: 'USD',
+      period: 'monthly',
+      isTrial: true,
+      trialEndsOn: '2026-07-15',
+    })
+  ), {} as never));
+  const body = parseJsonResponse<{ data: { isTrial: boolean; trialEndsOn?: string; nextPaymentDate: string } }>(response);
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(insertPayload, {
+    user_id: userId,
+    name: 'Cursor Pro',
+    category: 'Streaming',
+    amount: 20,
+    currency: 'USD',
+    period: 'monthly',
+    last_payment_date: '2026-06-15',
+    next_payment_date: '2026-07-15',
+    billing_anchor_day: 15,
+    custom_date: null,
+    notification_enabled: true,
+    is_trial: true,
+    trial_ends_on: '2026-07-15',
+    status: 'active',
+  });
+  assert.equal(body.data.isTrial, true);
+  assert.equal(body.data.trialEndsOn, '2026-07-15');
+  assert.equal(body.data.nextPaymentDate, '2026-07-15');
 });
 
 test('patches subscriptions only within the API key owner scope and keeps the next renewal authoritative', async () => {
@@ -296,6 +365,8 @@ test('patches subscriptions only within the API key owner scope and keeps the ne
     billing_anchor_day: null,
     custom_date: null,
     notification_enabled: true,
+    is_trial: false,
+    trial_ends_on: null,
     status: 'active',
   });
   assert.equal(body.data.period, 'yearly');
@@ -401,6 +472,8 @@ test('clears stale custom billing data when patching back to a standard period',
     billing_anchor_day: 16,
     custom_date: null,
     notification_enabled: true,
+    is_trial: false,
+    trial_ends_on: null,
     status: 'active',
   });
 });

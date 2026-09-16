@@ -16,11 +16,33 @@ export interface ResolvedSubscriptionRenewal {
 }
 
 export const resolveSubscriptionRenewal = (
- subscription: Pick<Subscription, 'nextPaymentDate' | 'period' | 'customDate' | 'billingAnchorDay'>,
+ subscription: Pick<Subscription, 'nextPaymentDate' | 'period' | 'customDate' | 'billingAnchorDay' | 'isTrial' | 'trialEndsOn'>,
  timeZone: string = getCurrentTimeZone()
 ): ResolvedSubscriptionRenewal => {
+ const storedNextPaymentDate = subscription.isTrial
+  ? subscription.trialEndsOn || subscription.nextPaymentDate
+  : subscription.nextPaymentDate;
+
+ if (subscription.isTrial) {
+  const storedLastPaymentDate = calculatePreviousPaymentDate(
+   storedNextPaymentDate,
+   subscription.period,
+   subscription.customDate,
+   subscription.billingAnchorDay
+  );
+
+  return {
+   storedLastPaymentDate,
+   storedNextPaymentDate,
+   effectiveLastPaymentDate: storedLastPaymentDate,
+   effectiveNextPaymentDate: storedNextPaymentDate,
+   daysUntilEffectiveNextPayment: getDaysUntil(storedNextPaymentDate, timeZone),
+   isAutoRenewed: false,
+  };
+ }
+
  const renewedDates = getAutoRenewedDates(
-  subscription.nextPaymentDate,
+  storedNextPaymentDate,
   subscription.period,
   subscription.customDate,
   subscription.billingAnchorDay,
@@ -34,7 +56,7 @@ export const resolveSubscriptionRenewal = (
    subscription.customDate,
    subscription.billingAnchorDay
   ),
-  storedNextPaymentDate: subscription.nextPaymentDate,
+  storedNextPaymentDate,
   effectiveLastPaymentDate: renewedDates.lastPaymentDate,
   effectiveNextPaymentDate: renewedDates.nextPaymentDate,
   daysUntilEffectiveNextPayment: getDaysUntil(renewedDates.nextPaymentDate, timeZone),

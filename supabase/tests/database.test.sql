@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(78);
+SELECT plan(80);
 
 SELECT has_table('public', 'user_profiles', 'user_profiles exists');
 SELECT has_table('public', 'subscriptions', 'subscriptions exists');
@@ -35,6 +35,8 @@ SELECT is(
 SELECT has_column('public', 'user_notification_settings', 'locale', 'notification settings store locale');
 SELECT has_column('public', 'subscriptions', 'status', 'subscriptions store lifecycle status');
 SELECT has_column('public', 'subscriptions', 'billing_anchor_day', 'subscriptions preserve a monthly calendar anchor');
+SELECT has_column('public', 'subscriptions', 'is_trial', 'subscriptions can be marked as a free trial');
+SELECT has_column('public', 'subscriptions', 'trial_ends_on', 'trial subscriptions store a one-shot end date');
 SELECT has_column('public', 'api_keys', 'scopes', 'API keys store permission scopes');
 SELECT has_function(
   'public',

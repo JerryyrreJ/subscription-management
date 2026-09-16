@@ -23,6 +23,8 @@ export interface SupabaseSubscription {
  billing_anchor_day?: number | null
  custom_date?: string | null
  notification_enabled: boolean
+ is_trial?: boolean
+ trial_ends_on?: string | null
  created_at: string
  updated_at: string
 }
@@ -284,6 +286,8 @@ export class SubscriptionService {
  customDate: data.custom_date,
  updatedAt: data.updated_at,
  notificationEnabled: data.notification_enabled ?? true, // 默认 true
+ isTrial: Boolean(data.is_trial),
+ trialEndsOn: data.trial_ends_on ?? undefined,
  createdAt: data.created_at
  })
  }
@@ -305,7 +309,9 @@ export class SubscriptionService {
  next_payment_date: normalized.nextPaymentDate,
  billing_anchor_day: normalized.billingAnchorDay ?? null,
  custom_date: normalized.customDate || null,
- notification_enabled: normalized.notificationEnabled ?? true
+ notification_enabled: normalized.notificationEnabled ?? true,
+ is_trial: normalized.isTrial ?? false,
+ trial_ends_on: normalized.isTrial ? (normalized.trialEndsOn || normalized.nextPaymentDate) : null
  }
  }
 

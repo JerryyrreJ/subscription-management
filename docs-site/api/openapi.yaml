@@ -665,12 +665,14 @@ components:
                     - category
                     - currency
                     - customDate
+                    - isTrial
                     - lastPaymentDate
-                    - nextPaymentDate
                     - name
+                    - nextPaymentDate
                     - notificationEnabled
                     - period
                     - status
+                    - trialEndsOn
                 requestId: request-1
             invalidPeriod:
               value:
@@ -826,6 +828,7 @@ components:
         - lastPaymentDate
         - nextPaymentDate
         - notificationEnabled
+        - isTrial
         - status
         - createdAt
         - updatedAt
@@ -870,6 +873,12 @@ components:
           description: Required only when period is custom. Despite the legacy name, this is a positive whole-number string of days, not a calendar date.
         notificationEnabled:
           type: boolean
+        isTrial:
+          type: boolean
+          description: True when this record is a free trial. Trial end dates are one-shot and are not auto-advanced like nextPaymentDate.
+        trialEndsOn:
+          description: Trial end / first-charge date. Present when isTrial is true.
+          $ref: "#/components/schemas/DateOnly"
         status:
           $ref: "#/components/schemas/SubscriptionStatus"
         createdAt:
@@ -927,6 +936,13 @@ components:
         notificationEnabled:
           type: boolean
           default: true
+        isTrial:
+          type: boolean
+          default: false
+          description: Mark a free trial. When true, trialEndsOn is the one-shot end / first-charge date.
+        trialEndsOn:
+          description: Trial end / first-charge date in YYYY-MM-DD format. Required when isTrial is true.
+          $ref: "#/components/schemas/DateOnly"
         status:
           $ref: "#/components/schemas/SubscriptionStatus"
       additionalProperties: false
@@ -965,6 +981,10 @@ components:
           description: Required only when period is custom. Despite the legacy name, this is a positive whole-number string of days, not a calendar date.
         notificationEnabled:
           type: boolean
+        isTrial:
+          type: boolean
+        trialEndsOn:
+          $ref: "#/components/schemas/DateOnly"
         status:
           $ref: "#/components/schemas/SubscriptionStatus"
       additionalProperties: false

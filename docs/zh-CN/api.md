@@ -52,11 +52,13 @@ Authorization: Bearer subm_xxx
   "nextPaymentDate": "2026-07-01",
   "customDate": null,
   "notificationEnabled": true,
+  "isTrial": false,
+  "trialEndsOn": null,
   "status": "active"
 }
 ```
 
-`nextPaymentDate` 是权威的下次续费日期；`id`、`createdAt` 和 `updatedAt` 由服务端管理。`customDate` 只用于自定义扣费周期。
+`nextPaymentDate` 是付费订阅的权威下次续费日期。免费试用（`isTrial: true`）使用一次性的 `trialEndsOn`（试用结束 / 首次扣费日期），到期后不会自动向后滚动。`id`、`createdAt` 和 `updatedAt` 由服务端管理。`customDate` 只用于自定义扣费周期。
 
 月付订阅按照每月固定的日历日期续费，因此单个周期可能是 28、29、30 或 31 天。例如以 1 月 31 日为锚点时，2 月会临时落到月末，3 月恢复为 31 日。如果服务是固定每 30 天扣费，请使用 `period: "custom"` 和 `customDate: "30"`。`lastPaymentDate` 仅作为旧客户端兼容字段，由计划反推得到。
 

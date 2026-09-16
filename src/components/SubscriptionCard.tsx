@@ -6,6 +6,7 @@ import { formatDate, parseDateOnly, getTodayDateOnly } from '../utils/dates';
 import { formatCurrency } from '../utils/currency';
 import { getCategoryDisplayName } from '../utils/categories';
 import { resolveSubscriptionRenewal } from '../utils/subscriptionRenewal';
+import { isTrialSubscription } from '../utils/subscriptionReminder';
 
 interface SubscriptionCardProps {
  subscription: Subscription;
@@ -19,7 +20,8 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
 
  // 检查是否需要自动续期
  const renewal = resolveSubscriptionRenewal(subscription);
- const shouldAutoRenew = renewal.isAutoRenewed;
+ const isTrial = isTrialSubscription(subscription);
+ const shouldAutoRenew = renewal.isAutoRenewed && !isTrial;
  const autoRenewKey = `${subscription.id}:${renewal.effectiveLastPaymentDate}:${renewal.effectiveNextPaymentDate}`;
  const lastAutoRenewKeyRef = useRef<string | null>(null);
 
@@ -77,7 +79,14 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  <div className="flex justify-between items-start mb-3 sm:mb-4">
  <div className="flex-1 min-w-0 pr-2">
  <h3 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-white truncate app-dark-text-primary">{subscription.name}</h3>
- <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 app-dark-text-muted">{getCategoryDisplayName(subscription.category, t)}</span>
+ <div className="flex items-center gap-2 min-w-0">
+ <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 app-dark-text-muted truncate">{getCategoryDisplayName(subscription.category, t)}</span>
+ {isTrial && (
+  <span className="flex-shrink-0 text-[10px] sm:text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+   {t('subscriptionCard:trialBadge')}
+  </span>
+ )}
+ </div>
  </div>
  <div className="text-right flex-shrink-0">
  <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight app-dark-text-primary">
@@ -91,7 +100,9 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  <div className="flex items-center space-x-2">
  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 dark:text-gray-500 flex-shrink-0 app-dark-text-muted"/>
  <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 app-dark-text-secondary">
- {t('subscriptionCard:nextPayment', { date: formatDate(renewal.effectiveNextPaymentDate) })}
+ {isTrial
+  ? t('subscriptionCard:trialEndsOn', { date: formatDate(renewal.effectiveNextPaymentDate) })
+  : t('subscriptionCard:nextPayment', { date: formatDate(renewal.effectiveNextPaymentDate) })}
  </span>
  </div>
 
@@ -100,11 +111,11 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4"/>
  <span className="text-xs sm:text-sm font-medium">
  {daysUntil === 0
-  ? t('subscriptionCard:dueToday')
+  ? t(isTrial ? 'subscriptionCard:trialEndsToday' : 'subscriptionCard:dueToday')
   : t(
    daysUntil === 1
-    ? 'subscriptionCard:dueInDaysOne'
-    : 'subscriptionCard:dueInDaysOther',
+    ? (isTrial ? 'subscriptionCard:trialEndsInDaysOne' : 'subscriptionCard:dueInDaysOne')
+    : (isTrial ? 'subscriptionCard:trialEndsInDaysOther' : 'subscriptionCard:dueInDaysOther'),
    { count: daysUntil }
   )}
  </span>

@@ -7,6 +7,7 @@ import { DEFAULT_LOCALE } from '../../src/i18n/types'
 import { normalizeLocale } from '../../src/utils/locale'
 import { hasValidBarkConfig } from '../../src/utils/barkSettings'
 import { resolveSubscriptionRenewal } from '../../src/utils/subscriptionRenewal'
+import { isSubscriptionReminderEligible, isTrialSubscription } from '../../src/utils/subscriptionReminder'
 import type { Currency, Period } from '../../src/types'
 import type { Config } from '@netlify/functions'
 import { getSupabaseAdminConfig } from './_shared/env'
@@ -24,6 +25,9 @@ interface Subscription {
   billing_anchor_day?: number | null
   notification_enabled: boolean
   custom_date?: string
+  status?: string | null
+  is_trial?: boolean | null
+  trial_ends_on?: string | null
 }
 
 interface NotificationSettings {
@@ -248,11 +252,25 @@ export default async (req: Request): Promise<Response> => {
 
       // 4. 检查每个订阅
       for (const subscription of subscriptions as Subscription[]) {
+        if (!isSubscriptionReminderEligible({
+          notification_enabled: subscription.notification_enabled,
+          status: subscription.status
+        })) {
+          console.log(`[Scheduled Notifications] Skipping inactive subscription ${buildSubscriptionLogContext(user_id, subscription, {
+            status: subscription.status ?? 'active',
+            notification_enabled: subscription.notification_enabled
+          })}`)
+          continue
+        }
+
+        const isTrial = isTrialSubscription(subscription)
         const renewal = resolveSubscriptionRenewal({
           nextPaymentDate: subscription.next_payment_date,
           period: subscription.period as Period,
           customDate: subscription.custom_date,
-          billingAnchorDay: subscription.billing_anchor_day ?? undefined
+          billingAnchorDay: subscription.billing_anchor_day ?? undefined,
+          isTrial,
+          trialEndsOn: subscription.trial_ends_on ?? undefined
         }, userTimeZone)
         const renewedDate = renewal.effectiveNextPaymentDate
         const daysUntil = renewal.daysUntilEffectiveNextPayment
@@ -265,7 +283,9 @@ export default async (req: Request): Promise<Response> => {
           days_until: daysUntil,
           bark_days_before: bark_days_before,
           notified_today: wasNotifiedToday(subscription.id, updatedHistory, userTimeZone),
-          is_auto_renewed: renewal.isAutoRenewed
+          is_auto_renewed: renewal.isAutoRenewed,
+          is_trial: isTrial,
+          trial_ends_on: subscription.trial_ends_on ?? 'null'
         })}`)
 
         // 跳过已过期或距离太远的订阅
@@ -290,7 +310,9 @@ export default async (req: Request): Promise<Response> => {
               lastPaymentDate: renewal.effectiveLastPaymentDate,
               nextPaymentDate: renewedDate,
               billingAnchorDay: subscription.billing_anchor_day ?? undefined,
-              customDate: subscription.custom_date
+              customDate: subscription.custom_date,
+              isTrial,
+              trialEndsOn: subscription.trial_ends_on ?? undefined
             },
             daysUntil,
             userLocale

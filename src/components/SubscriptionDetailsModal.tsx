@@ -5,6 +5,7 @@ import { formatDate } from '../utils/dates';
 import { formatCurrency } from '../utils/currency';
 import { getCategoryDisplayName } from '../utils/categories';
 import { resolveSubscriptionRenewal } from '../utils/subscriptionRenewal';
+import { isTrialSubscription } from '../utils/subscriptionReminder';
 
 interface SubscriptionDetailsModalProps {
  subscription: Subscription | null;
@@ -26,6 +27,7 @@ export function SubscriptionDetailsModal({
  if (!isOpen || !subscription) return null;
 
  const renewal = resolveSubscriptionRenewal(subscription);
+ const isTrial = isTrialSubscription(subscription);
 
  const periodLabel = subscription.period === 'monthly'
   ? t('addSubscription:periodMonthly')
@@ -64,7 +66,9 @@ export function SubscriptionDetailsModal({
  <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500"/>
  <div className="space-y-1">
  <div className="text-gray-600 dark:text-gray-300">
- {t('subscriptionDetails:nextPayment', { date: formatDate(renewal.effectiveNextPaymentDate) })}
+ {t(isTrial ? 'subscriptionDetails:trialEndsOn' : 'subscriptionDetails:nextPayment', {
+  date: formatDate(renewal.effectiveNextPaymentDate),
+ })}
  </div>
  {renewal.isAutoRenewed && (
   <div className="text-xs text-amber-600 dark:text-amber-400">

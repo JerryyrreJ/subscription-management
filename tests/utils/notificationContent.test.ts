@@ -38,3 +38,19 @@ test('buildTestNotificationContent localizes test push copy', () => {
  assert.equal(content.title, '测试通知');
  assert.equal(content.body, '这是一条来自订阅管理器的测试推送');
 });
+
+test('buildSubscriptionReminderContent uses trial-ending copy for free trials', () => {
+ const trial: Subscription = {
+  ...subscription,
+  isTrial: true,
+  trialEndsOn: '2026-05-01',
+ };
+
+ const english = buildSubscriptionReminderContent(trial, 3, 'en');
+ assert.match(english.body, /Netflix trial ends in 3 days — decide cancel or keep/);
+ assert.equal(english.body.includes('renews'), false);
+
+ const chinese = buildSubscriptionReminderContent(trial, 0, 'zh-CN');
+ assert.match(chinese.body, /Netflix 试用将于今天结束，请决定取消或保留/);
+ assert.equal(chinese.body.includes('续费'), false);
+});

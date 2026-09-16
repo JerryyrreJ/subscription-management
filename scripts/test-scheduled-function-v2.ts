@@ -3,7 +3,10 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { BARK_NOTIFICATION_ICON_URL, sendBarkNotification } from '../src/utils/barkPush'
-import { addBillingPeriodToDate, compareDateOnly, formatDateOnly, getDaysUntil, getTodayDateOnly } from '../src/utils/dates'
+import { buildSubscriptionReminderContent } from '../src/utils/notificationContent'
+import { resolveSubscriptionRenewal } from '../src/utils/subscriptionRenewal'
+import { isSubscriptionReminderEligible, isTrialSubscription } from '../src/utils/subscriptionReminder'
+import type { Currency, Period } from '../src/types'
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
@@ -84,28 +87,31 @@ async function testNotificationLogic() {
 
     // Check each subscription
     for (const sub of subscriptions) {
-      // 自动续费逻辑：如果订阅已过期，计算最新的续费日期
-      const today = formatDateOnly(getTodayDateOnly())
-      let nextPayment = sub.next_payment_date
-
-      // 如果已过期，循环续费直到找到未来的日期
-      while (compareDateOnly(nextPayment, today) < 0) {
-        const advancedDate = addBillingPeriodToDate(nextPayment, sub.period, sub.custom_date)
-
-        if (advancedDate === nextPayment) {
-          break
-        }
-
-        nextPayment = advancedDate
+      if (!isSubscriptionReminderEligible({
+        notification_enabled: sub.notification_enabled,
+        status: sub.status,
+      })) {
+        console.log(`\n  📋 ${sub.name}`)
+        console.log(`     ⏭️  Skip: status=${sub.status ?? 'active'} (paused/cancelled are not reminded)`)
+        continue
       }
 
-      const renewedDateStr = nextPayment
-      const daysUntil = getDaysUntil(nextPayment)
+      const isTrial = isTrialSubscription(sub)
+      const renewal = resolveSubscriptionRenewal({
+        nextPaymentDate: sub.next_payment_date,
+        period: sub.period,
+        customDate: sub.custom_date,
+        billingAnchorDay: sub.billing_anchor_day,
+        isTrial,
+        trialEndsOn: sub.trial_ends_on,
+      })
+      const daysUntil = renewal.daysUntilEffectiveNextPayment
 
       console.log(`\n  📋 ${sub.name}`)
-      console.log(`     Database Date: ${sub.next_payment_date}`)
-      if (renewedDateStr !== sub.next_payment_date) {
-        console.log(`     Auto-renewed: ${renewedDateStr}`)
+      console.log(`     Kind: ${isTrial ? 'trial' : 'subscription'}`)
+      console.log(`     Stored date: ${isTrial ? (sub.trial_ends_on || sub.next_payment_date) : sub.next_payment_date}`)
+      if (renewal.isAutoRenewed) {
+        console.log(`     Auto-renewed: ${renewal.effectiveNextPaymentDate}`)
       }
       console.log(`     Days Until: ${daysUntil}`)
       console.log(`     Should Remind: ${userSettings.bark_days_before} days before`)
@@ -113,23 +119,30 @@ async function testNotificationLogic() {
       if (daysUntil === userSettings.bark_days_before) {
         console.log(`     ✅ MATCH! Would send notification`)
 
-        // Test Bark push (optional)
         console.log(`     Testing Bark push...`)
-
-        const periodText = sub.period === 'monthly' ? 'month' : sub.period === 'yearly' ? 'year' : sub.period
-        const symbols: Record<string, string> = {
-          CNY: '¥', USD: '$', EUR: '€', JPY: '¥', GBP: '£',
-          AUD: 'A$', CAD: 'C$', CHF: 'CHF', HKD: 'HK$', SGD: 'S$'
-        }
-        const symbol = symbols[sub.currency] || sub.currency
-        const amount = `${symbol}${sub.amount.toFixed(2)}`
+        const content = buildSubscriptionReminderContent(
+          {
+            id: sub.id,
+            name: sub.name,
+            category: '',
+            amount: Number(sub.amount),
+            currency: sub.currency as Currency,
+            period: sub.period as Period,
+            lastPaymentDate: renewal.effectiveLastPaymentDate,
+            nextPaymentDate: renewal.effectiveNextPaymentDate,
+            isTrial,
+            trialEndsOn: sub.trial_ends_on,
+          },
+          daysUntil,
+          userSettings.locale
+        )
 
         const success = await sendBarkNotification(
           userSettings.bark_server_url,
           userSettings.bark_device_key,
-          'Subscription Manager',
-          `${sub.name} expires in ${daysUntil} day${daysUntil > 1 ? 's' : ''}\n${amount}/${periodText}`,
-          { sound: 'bell', group: 'Subscription Manager', icon: BARK_NOTIFICATION_ICON_URL }
+          content.title,
+          content.body,
+          { sound: 'bell', group: content.group, icon: BARK_NOTIFICATION_ICON_URL }
         )
 
         if (success) {
