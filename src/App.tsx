@@ -582,8 +582,11 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  }
 
  if (
- targetSubscription.lastPaymentDate === newDates.lastPaymentDate &&
- targetSubscription.nextPaymentDate === newDates.nextPaymentDate
+ targetSubscription.isTrial ||
+ (
+  targetSubscription.lastPaymentDate === newDates.lastPaymentDate &&
+  targetSubscription.nextPaymentDate === newDates.nextPaymentDate
+ )
  ) {
  return;
  }

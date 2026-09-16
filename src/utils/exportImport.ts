@@ -172,7 +172,9 @@ const hasSameSubscriptionContent = (left: Subscription, right: Subscription): bo
   left.nextPaymentDate === right.nextPaymentDate &&
   (left.billingAnchorDay ?? null) === (right.billingAnchorDay ?? null) &&
   (left.customDate || '') === (right.customDate || '') &&
-  (left.notificationEnabled ?? true) === (right.notificationEnabled ?? true);
+  (left.notificationEnabled ?? true) === (right.notificationEnabled ?? true) &&
+  Boolean(left.isTrial) === Boolean(right.isTrial) &&
+  (left.trialEndsOn || '') === (right.trialEndsOn || '');
 };
 
 const hasSameCategoryContent = (left: Category, right: Category): boolean => {

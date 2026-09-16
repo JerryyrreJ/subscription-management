@@ -10,6 +10,9 @@ interface NotificationLocaleCopy {
  reminderToday: string;
  reminderInDaysOne: string;
  reminderInDaysOther: string;
+ trialReminderToday: string;
+ trialReminderInDaysOne: string;
+ trialReminderInDaysOther: string;
  periodMonthly: string;
  periodYearly: string;
  periodCustom: string;
@@ -25,6 +28,9 @@ const NOTIFICATION_COPY: Record<SupportedLocale, NotificationLocaleCopy> = {
   reminderToday: '{{name}} renews today',
   reminderInDaysOne: '{{name}} renews in {{count}} day',
   reminderInDaysOther: '{{name}} renews in {{count}} days',
+  trialReminderToday: '{{name}} trial ends today — decide cancel or keep',
+  trialReminderInDaysOne: '{{name}} trial ends in {{count}} day — decide cancel or keep',
+  trialReminderInDaysOther: '{{name}} trial ends in {{count}} days — decide cancel or keep',
   periodMonthly: 'month',
   periodYearly: 'year',
   periodCustom: 'custom',
@@ -38,6 +44,9 @@ const NOTIFICATION_COPY: Record<SupportedLocale, NotificationLocaleCopy> = {
   reminderToday: '{{name}} 将于今天续费',
   reminderInDaysOne: '{{name}} 将于 {{count}} 天后续费',
   reminderInDaysOther: '{{name}} 将于 {{count}} 天后续费',
+  trialReminderToday: '{{name}} 试用将于今天结束，请决定取消或保留',
+  trialReminderInDaysOne: '{{name}} 试用将于 {{count}} 天后结束，请决定取消或保留',
+  trialReminderInDaysOther: '{{name}} 试用将于 {{count}} 天后结束，请决定取消或保留',
   periodMonthly: '月',
   periodYearly: '年',
   periodCustom: '自定义',
@@ -81,9 +90,21 @@ const getPeriodLabel = (
 const buildReminderLine = (
  subscriptionName: string,
  daysUntil: number,
- locale?: string | null
+ locale?: string | null,
+ isTrial = false
 ): string => {
  const copy = resolveLocaleCopy(locale);
+
+ if (isTrial) {
+  if (daysUntil <= 0) {
+   return interpolate(copy.trialReminderToday, { name: subscriptionName });
+  }
+
+  return interpolate(
+   daysUntil === 1 ? copy.trialReminderInDaysOne : copy.trialReminderInDaysOther,
+   { name: subscriptionName, count: daysUntil }
+  );
+ }
 
  if (daysUntil <= 0) {
   return interpolate(copy.reminderToday, { name: subscriptionName });
@@ -108,7 +129,7 @@ export const buildSubscriptionReminderContent = (
  return {
   title: copy.appName,
   group: copy.appName,
-  body: `${buildReminderLine(subscription.name, daysUntil, normalizedLocale)}\n${amountLabel}/${periodLabel}`,
+  body: `${buildReminderLine(subscription.name, daysUntil, normalizedLocale, Boolean(subscription.isTrial))}\n${amountLabel}/${periodLabel}`,
  };
 };
 

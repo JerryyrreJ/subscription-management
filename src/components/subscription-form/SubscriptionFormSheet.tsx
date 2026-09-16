@@ -14,6 +14,7 @@ function buildAddFormValues(isNotificationReady: boolean): FormValues {
   period: 'monthly',
   nextPaymentDate: '',
   customDate: '',
+  isTrial: false,
   notificationEnabled: isNotificationReady,
  };
 }
@@ -39,9 +40,11 @@ export function SubscriptionFormSheet({
     amount: subscription.amount.toString(),
     currency: subscription.currency || 'CNY',
     period: subscription.period,
-    nextPaymentDate: subscription.nextPaymentDate,
+    nextPaymentDate: (subscription.isTrial ? subscription.trialEndsOn : undefined)
+     || subscription.nextPaymentDate,
     billingAnchorDay: subscription.billingAnchorDay,
     customDate: subscription.customDate || '',
+    isTrial: subscription.isTrial ?? false,
     notificationEnabled: subscription.notificationEnabled ?? true,
    };
   }

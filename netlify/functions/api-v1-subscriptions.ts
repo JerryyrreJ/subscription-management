@@ -29,6 +29,8 @@ interface SubscriptionRow {
   billing_anchor_day: number | null;
   custom_date: string | null;
   notification_enabled: boolean;
+  is_trial: boolean;
+  trial_ends_on: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -54,6 +56,8 @@ const SUBSCRIPTION_COLUMNS = [
   'billing_anchor_day',
   'custom_date',
   'notification_enabled',
+  'is_trial',
+  'trial_ends_on',
   'status',
   'created_at',
   'updated_at',
@@ -70,6 +74,8 @@ const allowedSubscriptionFields = new Set([
   'billingAnchorDay',
   'customDate',
   'notificationEnabled',
+  'isTrial',
+  'trialEndsOn',
   'status',
 ]);
 
@@ -86,6 +92,8 @@ const subscriptionFieldGuidance: Record<string, string> = {
   billingAnchorDay: 'For monthly billing, use the original calendar day from 1 to 31. Short months temporarily use month end.',
   customDate: 'Use a positive whole-number string when period is custom; omit customDate for monthly or yearly subscriptions.',
   notificationEnabled: 'Use true or false. Omit the field to use the default value true.',
+  isTrial: 'Use true to mark a free trial. Trial end dates are one-shot and are not auto-advanced like nextPaymentDate.',
+  trialEndsOn: 'Use the trial end / first-charge date in YYYY-MM-DD format when isTrial is true.',
   status: `Use one of the supported lifecycle states: ${SUBSCRIPTION_STATUSES.join(', ')}. Set cancelled to stop tracking without deleting history.`,
 };
 
@@ -295,6 +303,8 @@ const toApiSubscription = (row: SubscriptionRow) => ({
   billingAnchorDay: row.billing_anchor_day ?? undefined,
   customDate: row.custom_date ?? undefined,
   notificationEnabled: row.notification_enabled,
+  isTrial: Boolean(row.is_trial),
+  trialEndsOn: row.trial_ends_on ?? undefined,
   status: row.status,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -303,15 +313,27 @@ const toApiSubscription = (row: SubscriptionRow) => ({
 const toDatabasePayload = (
   parsed: z.infer<typeof subscriptionCreateInputSchema>
 ) => {
+  const isTrial = parsed.isTrial ?? false;
   const billingAnchorDay = parsed.period === 'monthly'
-    ? parsed.billingAnchorDay ?? getDateOnlyDay(parsed.lastPaymentDate ?? parsed.nextPaymentDate as string)
+    ? parsed.billingAnchorDay ?? getDateOnlyDay(
+      parsed.lastPaymentDate ?? parsed.nextPaymentDate ?? parsed.trialEndsOn as string
+    )
     : undefined;
-  const nextPaymentDate = parsed.nextPaymentDate ?? calculateNextPaymentDate(
-    parsed.lastPaymentDate as string,
-    parsed.period,
-    parsed.customDate,
-    billingAnchorDay
+  const derivedNextPaymentDate = parsed.nextPaymentDate ?? (
+    parsed.lastPaymentDate
+      ? calculateNextPaymentDate(
+        parsed.lastPaymentDate,
+        parsed.period,
+        parsed.customDate,
+        billingAnchorDay
+      )
+      : parsed.trialEndsOn
   );
+  const trialEndsOn = isTrial ? (parsed.trialEndsOn ?? derivedNextPaymentDate) : undefined;
+  const nextPaymentDate = (isTrial ? trialEndsOn : derivedNextPaymentDate) ?? derivedNextPaymentDate;
+  if (!nextPaymentDate) {
+    throw new Error('Next payment date is required');
+  }
   const lastPaymentDate = calculatePreviousPaymentDate(
     nextPaymentDate,
     parsed.period,
@@ -330,6 +352,8 @@ const toDatabasePayload = (
     billing_anchor_day: billingAnchorDay ?? null,
     custom_date: parsed.customDate || null,
     notification_enabled: parsed.notificationEnabled,
+    is_trial: isTrial,
+    trial_ends_on: isTrial ? (trialEndsOn || nextPaymentDate) : null,
     status: parsed.status,
   };
 };
@@ -414,6 +438,8 @@ const parsePatchInput = (
     billingAnchorDay: existing.billingAnchorDay,
     customDate: existing.customDate,
     notificationEnabled: existing.notificationEnabled,
+    isTrial: existing.isTrial,
+    trialEndsOn: existing.trialEndsOn,
     status: existing.status,
   };
 
@@ -464,6 +490,14 @@ const parsePatchInput = (
         suggestedFix: subscriptionFieldGuidance.customDate,
       });
     }
+  }
+
+  if (merged.isTrial) {
+    merged.trialEndsOn = merged.trialEndsOn ?? merged.nextPaymentDate;
+    merged.nextPaymentDate = merged.trialEndsOn;
+  } else {
+    merged.isTrial = false;
+    merged.trialEndsOn = undefined;
   }
 
   return merged as z.infer<typeof subscriptionCreateInputSchema>;

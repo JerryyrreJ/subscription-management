@@ -28,6 +28,7 @@ interface FormValues {
  nextPaymentDate: string;
  billingAnchorDay?: number;
  customDate: string;
+ isTrial: boolean;
  notificationEnabled: boolean;
 }
 
@@ -111,9 +112,16 @@ export function SubscriptionFormFields({
   }
 
   if (!formData.nextPaymentDate) {
-   errors.nextPaymentDate = t('addSubscription:nextPaymentDateRequired');
-  } else if (compareDateOnly(formData.nextPaymentDate, formatDateOnly(getTodayDateOnly())) < 0) {
-   errors.nextPaymentDate = t('addSubscription:nextPaymentDateInPast');
+   errors.nextPaymentDate = formData.isTrial
+    ? t('addSubscription:trialEndsOnRequired')
+    : t('addSubscription:nextPaymentDateRequired');
+  } else if (
+   !(formData.isTrial && mode === 'edit') &&
+   compareDateOnly(formData.nextPaymentDate, formatDateOnly(getTodayDateOnly())) < 0
+  ) {
+   errors.nextPaymentDate = formData.isTrial
+    ? t('addSubscription:trialEndsOnInPast')
+    : t('addSubscription:nextPaymentDateInPast');
   }
 
   if (formData.period === 'custom') {
@@ -210,6 +218,9 @@ export function SubscriptionFormFields({
    billingAnchorDay: formData.period === 'monthly'
     ? formData.billingAnchorDay ?? getDateOnlyDay(formData.nextPaymentDate)
     : undefined,
+   status: existingSubscription?.status,
+   isTrial: formData.isTrial,
+   trialEndsOn: formData.isTrial ? formData.nextPaymentDate : undefined,
   };
 
   setIsSubmitting(true);
@@ -230,6 +241,7 @@ export function SubscriptionFormFields({
 
  const chipCategories = mergeCurrentCategory(categories, formData.category);
  const canEnableNotifications = mode === 'add' || isNotificationReady || formData.notificationEnabled;
+ const allowPastTrialDate = formData.isTrial && mode === 'edit';
 
  return (
   <form noValidate onSubmit={handleSubmit} className="space-y-5">
@@ -244,6 +256,7 @@ export function SubscriptionFormFields({
     period={formData.period}
     customDate={formData.customDate}
     nextPaymentDate={formData.nextPaymentDate}
+    isTrial={formData.isTrial}
    />
 
    <div>
@@ -290,26 +303,53 @@ export function SubscriptionFormFields({
     }}
    />
 
-   <div>
-    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-     {t('addSubscription:nextPaymentDateLabel')}
-    </label>
-    <CustomDatePicker
-     value={formData.nextPaymentDate}
-     minDate={formatDateOnly(getTodayDateOnly())}
-     invalid={Boolean(fieldErrors.nextPaymentDate)}
-     onChange={(value) => {
-      updateForm({
-       nextPaymentDate: value,
-       billingAnchorDay: formData.period === 'monthly' ? getDateOnlyDay(value) : undefined,
-      });
-      clearFieldError('nextPaymentDate');
-     }}
-     required
-    />
-    {fieldErrors.nextPaymentDate && (
-     <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{fieldErrors.nextPaymentDate}</p>
-    )}
+   <div className="space-y-3">
+    <div className="flex items-center justify-between gap-3">
+     <label className="text-sm font-medium text-gray-900 dark:text-white">
+      {t('addSubscription:trialToggleLabel')}
+     </label>
+     <button
+      type="button"
+      onClick={() => {
+       updateForm({ isTrial: !formData.isTrial });
+       clearFieldError('nextPaymentDate');
+      }}
+      aria-pressed={formData.isTrial}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+       formData.isTrial ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'
+      }`}
+     >
+      <span
+       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+        formData.isTrial ? 'translate-x-6' : 'translate-x-1'
+       }`}
+      />
+     </button>
+    </div>
+
+    <div>
+     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+      {formData.isTrial
+       ? t('addSubscription:trialEndsOnLabel')
+       : t('addSubscription:nextPaymentDateLabel')}
+     </label>
+     <CustomDatePicker
+      value={formData.nextPaymentDate}
+      minDate={allowPastTrialDate ? undefined : formatDateOnly(getTodayDateOnly())}
+      invalid={Boolean(fieldErrors.nextPaymentDate)}
+      onChange={(value) => {
+       updateForm({
+        nextPaymentDate: value,
+        billingAnchorDay: formData.period === 'monthly' ? getDateOnlyDay(value) : undefined,
+       });
+       clearFieldError('nextPaymentDate');
+      }}
+      required
+     />
+     {fieldErrors.nextPaymentDate && (
+      <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{fieldErrors.nextPaymentDate}</p>
+     )}
+    </div>
    </div>
 
    <div className="space-y-5 pt-1">
@@ -372,14 +412,6 @@ export function SubscriptionFormFields({
      notice={categoryNotice ?? undefined}
     />
 
-    {/*
-     TODO(trial): Wire `isTrial` + `trialEndsOn` when those fields exist on the
-     starting schema/types (historically PR #5 / feat/trial-reminders). Do not
-     invent API or persist fake trial flags. When available, add a Tier 2
-     emerald toggle here and highlight trial-end copy on the date field /
-     summary strip; pass the flags into createSubscriptionRecord / updateSubscriptionRecord.
-    */}
-
     <div className="flex items-start gap-3 pt-1">
      <div className="flex-shrink-0 mt-0.5">
       {formData.notificationEnabled ? (
@@ -415,7 +447,9 @@ export function SubscriptionFormFields({
       ) : (
        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
         {formData.notificationEnabled
-         ? t('addSubscription:notificationsEnabledHint')
+         ? (formData.isTrial
+          ? t('addSubscription:trialNotificationsEnabledHint')
+          : t('addSubscription:notificationsEnabledHint'))
          : t('addSubscription:notificationsDisabledHint')}
        </p>
       )}

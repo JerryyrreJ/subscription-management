@@ -4,6 +4,8 @@ export type Period = 'monthly' | 'yearly' | 'custom';
 
 export type SubscriptionStatus = 'active' | 'paused' | 'cancelled';
 
+export type SubscriptionKind = 'subscription' | 'trial';
+
 export type Currency = 'CNY' | 'USD' | 'EUR' | 'JPY' | 'GBP' | 'AUD' | 'CAD' | 'CHF' | 'HKD' | 'SGD';
 
 export interface Subscription {
@@ -23,6 +25,10 @@ export interface Subscription {
  updatedAt?: string;
  notificationEnabled?: boolean; // 是否启用通知提醒（默认 true）
  status?: SubscriptionStatus; // 生命周期状态（默认 active）
+ /** Free trial flag. When true, trialEndsOn is one-shot and must not auto-roll. */
+ isTrial?: boolean;
+ /** Trial end / first-charge date (YYYY-MM-DD). Ignored unless isTrial is true. */
+ trialEndsOn?: string;
 }
 
 export type PendingSyncOperationType = 'create' | 'update' | 'delete';

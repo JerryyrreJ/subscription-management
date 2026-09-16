@@ -24,12 +24,14 @@
       "category",
       "currency",
       "customDate",
+      "isTrial",
       "lastPaymentDate",
       "nextPaymentDate",
       "name",
       "notificationEnabled",
       "period",
-      "status"
+      "status",
+      "trialEndsOn"
     ],
     "billingPeriods": [
       "monthly",
@@ -56,10 +58,12 @@
     "fieldSemantics": {
       "period": "The billing cycle. Monthly means the same calendar day each month, not a fixed 30 days. Send monthly, yearly, or custom.",
       "customDate": "The fixed interval in days when period is custom. Use customDate 30 for every 30 days.",
-      "nextPaymentDate": "The authoritative upcoming renewal date in YYYY-MM-DD format.",
+      "nextPaymentDate": "The authoritative upcoming renewal date in YYYY-MM-DD format. For free trials, prefer trialEndsOn; that date is one-shot and is not auto-advanced.",
       "billingAnchorDay": "Original calendar day (1-31) for monthly billing. Short months use month end temporarily, then return to this day.",
       "lastPaymentDate": "Deprecated compatibility input. New tools should send nextPaymentDate instead.",
-      "status": "Lifecycle state. active means billing; paused means temporarily stopped; cancelled means no longer billing but kept for history. Cancel or pause instead of deleting when the user may want the record back."
+      "isTrial": "True when the record is a free trial rather than a recurring paid subscription.",
+      "trialEndsOn": "The trial end / first-charge date in YYYY-MM-DD format. Required when isTrial is true. Do not roll this date forward after it passes.",
+      "status": "Lifecycle state. active means billing; paused means temporarily stopped; cancelled means no longer billing but kept for history. Cancel or pause instead of deleting when the user may want the record back. Paused and cancelled records do not receive reminders."
     },
     "scopes": "API keys carry scopes. A read key can call list, get, the analytics endpoints, and the audit log. A write key additionally allows create, update, cancel, pause, resume, and delete. Calling a write tool with a read-only key returns 403 insufficient_scope; do not retry, ask the user for a write-scoped key.",
     "auditTrail": "Every successful create, update, and delete is recorded in the audit log with before/after state. Use list_audit_log to show the user what changed or to support an undo.",
@@ -207,7 +211,7 @@
       "requiredScope": "write",
       "confirmationPrompt": "I will update subscription {id} with these fields: {patch}. Confirm?",
       "useWhen": [
-        "The target subscription has been identified and the user asks to change amount, category, currency, period, nextPaymentDate, customDate, name, notificationEnabled, or status."
+        "The target subscription has been identified and the user asks to change amount, category, currency, period, nextPaymentDate, customDate, name, notificationEnabled, isTrial, trialEndsOn, or status."
       ],
       "doNotUseWhen": [
         "The user wants to permanently remove the record. Use delete_subscription after explicit confirmation.",
@@ -554,6 +558,8 @@
           "description": "Required only when period is custom. Omit for monthly or yearly subscriptions."
         },
         "notificationEnabled": { "type": "boolean", "default": true },
+        "isTrial": { "type": "boolean", "default": false },
+        "trialEndsOn": { "$ref": "#/$defs/dateOnly" },
         "status": {
           "type": "string",
           "enum": ["active", "paused", "cancelled"],
@@ -579,6 +585,8 @@
         "billingAnchorDay": { "type": "integer", "minimum": 1, "maximum": 31 },
         "customDate": { "type": "string", "pattern": "^[1-9]\\d*$" },
         "notificationEnabled": { "type": "boolean" },
+        "isTrial": { "type": "boolean" },
+        "trialEndsOn": { "$ref": "#/$defs/dateOnly" },
         "status": { "type": "string", "enum": ["active", "paused", "cancelled"] }
       },
       "additionalProperties": false

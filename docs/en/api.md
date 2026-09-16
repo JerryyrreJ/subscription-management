@@ -52,11 +52,13 @@ Writable fields use camelCase:
   "nextPaymentDate": "2026-07-01",
   "customDate": null,
   "notificationEnabled": true,
+  "isTrial": false,
+  "trialEndsOn": null,
   "status": "active"
 }
 ```
 
-`nextPaymentDate` is the authoritative upcoming renewal date. `id`, `createdAt`, and `updatedAt` are managed by the server. `customDate` is only used with custom billing periods.
+`nextPaymentDate` is the authoritative upcoming renewal date for paid subscriptions. For free trials (`isTrial: true`), `trialEndsOn` is the one-shot trial end / first-charge date and is not auto-advanced after it passes. `id`, `createdAt`, and `updatedAt` are managed by the server. `customDate` is only used with custom billing periods.
 
 Monthly subscriptions renew on the same calendar day each month, so a cycle may contain 28, 29, 30, or 31 days. A January 31 anchor temporarily renews at the end of February and returns to March 31. For a fixed 30-day cycle, use `period: "custom"` with `customDate: "30"`. `lastPaymentDate` is retained only as a derived compatibility field for older clients.
 

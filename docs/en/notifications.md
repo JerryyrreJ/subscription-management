@@ -1,8 +1,8 @@
-# Renewal Reminders With Bark
+# Renewal and Trial Reminders With Bark
 
 [English](notifications.md) | [简体中文](../zh-CN/notifications.md)
 
-Subscription Manager can send renewal reminders through Bark. The hosted reminder flow uses a Netlify Scheduled Function and Supabase-backed notification settings.
+Subscription Manager can send renewal and free-trial reminders through Bark. The hosted reminder flow uses a Netlify Scheduled Function and Supabase-backed notification settings.
 
 ## Before You Start
 
@@ -13,7 +13,7 @@ Before you start, you need:
 - A signed-in Subscription Manager account.
 - [Bark](https://apps.apple.com/app/bark-customed-notifications/id1403753865) installed on an iPhone or iPad.
 - The push URL shown in Bark.
-- The number of days before renewal when you want to be reminded.
+- The number of days before renewal or trial end when you want to be reminded.
 
 > Your Bark URL contains your device key. Do not publish it or share it with anyone you do not trust, because it can be used to send pushes to your device.
 
@@ -31,7 +31,7 @@ Before you start, you need:
 3. Enable **Bark push notifications**.
 4. Paste the complete Bark URL into the **Bark URL** field.
 5. Check that the field is marked valid and review the detected server and device key.
-6. Choose how many days before renewal to send the reminder.
+6. Choose how many days before renewal or trial end to send the reminder.
 7. Select **Test Push** and confirm that the message arrives on your iOS device.
 8. Select **Save Settings**.
 
@@ -41,6 +41,14 @@ Notification settings are linked to the current account. You must be signed in b
 
 After enabling Bark globally, you can still turn reminders on or off for each subscription when adding or editing it. Disabling one subscription does not affect the others.
 
+Paused and cancelled subscriptions are skipped even if their per-subscription notification toggle is still on.
+
+## Free Trials
+
+When you mark a subscription as a free trial, reminders use the trial end / first-charge date instead of a rolling renewal date. The push and dashboard copy say the trial is ending so you can cancel or keep it. After that date passes, it is not auto-advanced the way a normal `nextPaymentDate` is.
+
+Formal (non-trial) subscriptions keep the existing next-renewal reminder behavior.
+
 ## Troubleshooting
 
 If a reminder does not arrive:
@@ -49,7 +57,7 @@ If a reminder does not arrive:
 - Confirm that iOS notifications are allowed for Bark, then try an example push from Bark.
 - Confirm that you are signed in and saved the notification settings.
 - Confirm that notifications are enabled for the subscription.
-- Confirm that the next payment date is valid and in the future.
+- Confirm that the next payment date (or trial end date) is valid and in the future.
 - If you use a self-hosted Bark server, confirm that its URL is publicly reachable.
 - Run **Test Push** again to distinguish a device configuration issue from a scheduled-job issue.
 
@@ -76,6 +84,7 @@ Notification tables and constraints are included in the Supabase migrations. For
 ```text
 supabase/migrations/20260615000100_baseline.sql
 supabase/migrations/20260615000200_harden_existing_schema.sql
+supabase/migrations/20260916000100_subscription_trials.sql
 ```
 
 Older setup notes and legacy migration files are kept in `supabase/legacy/` for reference only.

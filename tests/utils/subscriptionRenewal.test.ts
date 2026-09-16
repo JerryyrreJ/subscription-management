@@ -17,6 +17,8 @@ const createSubscription = (overrides: Partial<Subscription> = {}): Subscription
  createdAt: overrides.createdAt || '2026-03-01T00:00:00.000Z',
  updatedAt: overrides.updatedAt || '2026-03-01T00:00:00.000Z',
  notificationEnabled: overrides.notificationEnabled ?? true,
+ isTrial: overrides.isTrial,
+ trialEndsOn: overrides.trialEndsOn,
 });
 
 const withMockedNow = (isoDateTime: string, run: () => void) => {
@@ -114,5 +116,21 @@ test('resolveSubscriptionRenewal restores the original day after a short month',
   assert.equal(renewal.effectiveLastPaymentDate, '2026-02-28');
   assert.equal(renewal.effectiveNextPaymentDate, '2026-03-31');
   assert.equal(renewal.isAutoRenewed, true);
+ });
+});
+
+test('resolveSubscriptionRenewal does not auto-roll a free trial after the end date', () => {
+ withMockedNow('2026-04-21T07:03:48.016Z', () => {
+  const renewal = resolveSubscriptionRenewal(createSubscription({
+   isTrial: true,
+   trialEndsOn: '2026-02-13',
+   nextPaymentDate: '2026-02-13',
+   lastPaymentDate: '2026-01-13',
+  }), 'UTC');
+
+  assert.equal(renewal.effectiveNextPaymentDate, '2026-02-13');
+  assert.equal(renewal.storedNextPaymentDate, '2026-02-13');
+  assert.equal(renewal.isAutoRenewed, false);
+  assert.ok(renewal.daysUntilEffectiveNextPayment < 0);
  });
 });

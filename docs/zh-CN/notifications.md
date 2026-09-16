@@ -1,8 +1,8 @@
-# 使用 Bark 续费提醒
+# 使用 Bark 续费与试用提醒
 
 [English](../en/notifications.md) | [简体中文](notifications.md)
 
-Subscription Manager 可以通过 Bark 发送续费提醒。托管提醒流程使用 Netlify Scheduled Function 和存储在 Supabase 中的通知设置。
+Subscription Manager 可以通过 Bark 发送续费提醒和免费试用到期提醒。托管提醒流程使用 Netlify Scheduled Function 和存储在 Supabase 中的通知设置。
 
 ## 配置前准备
 
@@ -13,7 +13,7 @@ Bark 是一款免费、开源的 iOS 推送应用。提醒由 Subscription Manag
 - 一个已登录的 Subscription Manager 账号；
 - 在 iPhone 或 iPad 上安装 [Bark](https://apps.apple.com/app/bark-customed-notifications/id1403753865)；
 - Bark 中显示的推送 URL；
-- 你希望提前收到提醒的天数。
+- 你希望提前收到提醒的天数（续费或试用结束前）。
 
 > Bark URL 中包含你的 device key。不要把它公开或发送给不信任的人，否则对方可能向你的设备发送推送。
 
@@ -31,7 +31,7 @@ Bark 是一款免费、开源的 iOS 推送应用。提醒由 Subscription Manag
 3. 启用 **Bark 推送通知**。
 4. 将刚才复制的完整 Bark URL 粘贴到 **Bark URL** 输入框。
 5. 确认输入框下方显示“有效”，并核对识别出的 server 和 device key。
-6. 选择提前提醒的天数。
+6. 选择提前提醒的天数（续费或试用结束前）。
 7. 点击 **测试推送**，确认 iOS 设备收到了测试消息。
 8. 点击 **保存设置**。
 
@@ -41,6 +41,14 @@ Bark 是一款免费、开源的 iOS 推送应用。提醒由 Subscription Manag
 
 全局启用 Bark 后，你仍可以在添加或编辑订阅时单独开启或关闭提醒。关闭某个订阅的通知不会影响其他订阅。
 
+即使单个订阅仍开启了通知，`paused` 和 `cancelled` 状态也不会发送提醒。
+
+## 免费试用
+
+把订阅标记为免费试用后，提醒按试用结束 / 首次扣费日期发送，而不是按会自动滚动的续费日期。推送和仪表盘文案会说明试用即将结束，方便你决定取消或保留。该日期过期后，不会像普通 `nextPaymentDate` 那样自动向后滚动。
+
+正式（非试用）订阅仍使用现有的下次续费提醒行为。
+
 ## 问题排查
 
 如果没有收到提醒：
@@ -49,7 +57,7 @@ Bark 是一款免费、开源的 iOS 推送应用。提醒由 Subscription Manag
 - 确认 Bark 允许系统通知，并尝试在 Bark 内发送示例推送；
 - 确认你已登录且保存了通知设置；
 - 确认该订阅启用了通知；
-- 确认下一次付款日期有效且在未来；
+- 确认下一次付款日期（或试用结束日期）有效且在未来；
 - 如果使用自托管 Bark，确认 server URL 可以从公网访问；
 - 再次点击 **测试推送**，区分设备配置问题与定时任务问题。
 
@@ -76,6 +84,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 ```text
 supabase/migrations/20260615000100_baseline.sql
 supabase/migrations/20260615000200_harden_existing_schema.sql
+supabase/migrations/20260916000100_subscription_trials.sql
 ```
 
 旧安装说明和 legacy migration 文件仅保留在 `supabase/legacy/` 中作为历史参考。

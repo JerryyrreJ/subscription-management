@@ -56,10 +56,22 @@ const subscriptionInputObject = z.object({
  customDate: customDateSchema,
  notificationEnabled: z.boolean().default(true),
  status: z.enum(SUBSCRIPTION_STATUSES).default('active'),
+ isTrial: z.boolean().default(false),
+ trialEndsOn: z.preprocess(
+  value => value === '' || value === null ? undefined : value,
+  dateOnlySchema.optional()
+ ),
 });
 
 const validateCustomPeriod = (
- value: { period: string; customDate?: string; lastPaymentDate?: string; nextPaymentDate?: string },
+ value: {
+  period: string;
+  customDate?: string;
+  lastPaymentDate?: string;
+  nextPaymentDate?: string;
+  isTrial?: boolean;
+  trialEndsOn?: string;
+ },
  context: z.RefinementCtx
 ): void => {
  if (value.period === 'custom' && !value.customDate) {
@@ -78,11 +90,11 @@ const validateCustomPeriod = (
   });
  }
 
- if (!value.nextPaymentDate && !value.lastPaymentDate) {
+ if (!value.nextPaymentDate && !value.lastPaymentDate && !value.trialEndsOn) {
   context.addIssue({
    code: 'custom',
-   path: ['nextPaymentDate'],
-   message: 'Next payment date is required',
+   path: [value.isTrial ? 'trialEndsOn' : 'nextPaymentDate'],
+   message: value.isTrial ? 'Trial end date is required' : 'Next payment date is required',
   });
  }
 };
@@ -111,15 +123,26 @@ export const createSubscriptionRecord = (
 ): Subscription => {
  const parsed = subscriptionCreateInputSchema.parse(input);
  const now = options.now || new Date().toISOString();
+ const isTrial = parsed.isTrial ?? false;
  const billingAnchorDay = parsed.period === 'monthly'
-  ? parsed.billingAnchorDay ?? getDateOnlyDay(parsed.lastPaymentDate ?? parsed.nextPaymentDate as string)
+  ? parsed.billingAnchorDay ?? getDateOnlyDay(
+   parsed.lastPaymentDate ?? parsed.nextPaymentDate ?? parsed.trialEndsOn as string
+  )
   : undefined;
- const nextPaymentDate = parsed.nextPaymentDate ?? calculateNextPaymentDate(
-  parsed.lastPaymentDate as string,
-  parsed.period,
-  parsed.customDate,
-  billingAnchorDay
+ const derivedNextPaymentDate = parsed.nextPaymentDate ?? (
+  parsed.lastPaymentDate
+   ? calculateNextPaymentDate(
+    parsed.lastPaymentDate,
+    parsed.period,
+    parsed.customDate,
+    billingAnchorDay
+   )
+   : parsed.trialEndsOn
  );
+ const trialEndsOn = isTrial
+  ? parsed.trialEndsOn ?? derivedNextPaymentDate
+  : undefined;
+ const nextPaymentDate = (isTrial ? trialEndsOn : derivedNextPaymentDate) as string;
  const lastPaymentDate = calculatePreviousPaymentDate(
   nextPaymentDate,
   parsed.period,
@@ -134,6 +157,8 @@ export const createSubscriptionRecord = (
   nextPaymentDate,
   billingAnchorDay,
   customDate: parsed.period === 'custom' ? parsed.customDate : undefined,
+  isTrial,
+  trialEndsOn,
   createdAt: options.createdAt || now,
   updatedAt: now,
  };
