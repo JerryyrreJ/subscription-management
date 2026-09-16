@@ -22,6 +22,7 @@ export const editSubscription = {
  notificationsEnabledHint: 'You will receive reminders for this subscription',
  notificationsDisabledHint: 'No reminders will be sent for this subscription',
  saveChanges: 'Save Changes',
+ submitting: 'Saving...',
  amountRequired: 'Amount is required',
  amountInvalid: 'Amount must be a valid number with up to 2 decimal places',
  amountFinite: 'Amount must be a finite number',

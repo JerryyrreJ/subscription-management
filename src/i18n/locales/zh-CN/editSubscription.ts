@@ -22,6 +22,7 @@ export const editSubscription = {
  notificationsEnabledHint: '你将收到这个订阅的提醒',
  notificationsDisabledHint: '这个订阅不会发送提醒',
  saveChanges: '保存修改',
+ submitting: '保存中...',
  amountRequired: '金额不能为空',
  amountInvalid: '金额必须是最多保留两位小数的有效数字',
  amountFinite: '金额必须是有限数字',

@@ -9,9 +9,11 @@ interface CustomDatePickerProps {
  onChange: (value: string) => void;
  maxDate?: string; // YYYY-MM-DD format
  required?: boolean;
+ className?: string;
+ invalid?: boolean;
 }
 
-export function CustomDatePicker({ value, onChange, maxDate, required }: CustomDatePickerProps) {
+export function CustomDatePicker({ value, onChange, maxDate, required, className = '', invalid = false }: CustomDatePickerProps) {
  const { t } = useTranslation(['common']);
  const { language } = useAppLanguage();
 
@@ -206,7 +208,11 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  type="button"
  aria-required={required}
  onClick={() => setIsOpen(!isOpen)}
- className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/80"
+ className={`w-full px-4 py-2.5 border bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/80 ${
+ invalid
+  ? 'border-red-400 dark:border-red-500'
+  : 'border-gray-300 dark:border-gray-600'
+ } ${className}`}
  >
  <span className={value ? '' : 'text-gray-400 dark:text-gray-500'}>
  {formatDisplayDate(value)}
@@ -218,7 +224,7 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  {isOpen && (
  <div
  ref={calendarRef}
- className="absolute z-[60] mt-2 w-full min-w-[280px] bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-apple-lg p-4"
+ className="absolute z-[60] mt-2 w-full min-w-[280px] bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-gray-700 rounded-xl shadow-apple-lg p-4"
  >
  {/* Month/Year Header */}
  <div className="flex items-center justify-between mb-4">
@@ -263,11 +269,11 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  type="button"
  onClick={() => selectDate(day)}
  disabled={isDateDisabled(day)}
- className={`w-full h-full rounded-2xl text-sm font-medium transition-all ${
+ className={`w-full h-full rounded-xl text-sm font-medium transition-all ${
  isDateSelected(day)
- ? 'bg-teal-600 text-white hover:bg-teal-700'
+ ? 'bg-emerald-600 text-white hover:bg-emerald-700'
  : isToday(day)
- ? 'bg-gray-100 dark:bg-gray-700 text-teal-600 dark:text-teal-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+ ? 'bg-gray-100 dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 hover:bg-gray-200 dark:hover:bg-gray-600'
  : isDateDisabled(day)
  ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -291,7 +297,7 @@ export function CustomDatePicker({ value, onChange, maxDate, required }: CustomD
  setIsOpen(false);
  }}
  disabled={maxDate ? todayStr > maxDate : false}
- className="w-full py-2 px-4 text-sm font-medium text-teal-600 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-2xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+ className="w-full py-2 px-4 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
  >
  {t('common:today')}
  </button>
