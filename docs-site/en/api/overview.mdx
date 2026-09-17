@@ -17,6 +17,7 @@ Main endpoint groups live under:
 
 ```text
 /api/v1/subscriptions
+/api/v1/notification-settings
 /api/v1/analytics
 /api/v1/audit
 ```
@@ -29,7 +30,8 @@ Main endpoint groups live under:
 - The API key owner determines the user scope.
 - Every subscription query is filtered by the authenticated API key owner.
 - `nextPaymentDate` is the authoritative renewal date; monthly schedules preserve their original calendar-day anchor.
-- `status` supports soft lifecycle changes: `active`, `paused`, and `cancelled`.
+- `status` is returned on records and accepted as a list filter, but is not writable through the public API.
+- Notification settings expose only `enabled` and `daysBefore` for writes; Bark URL, test push, timeZone, and locale stay web-managed.
 - Analytics endpoints report totals per currency and never convert across currencies.
 - Audit endpoints expose write history for public API create, update, and delete operations.
 - Write operations return AI-readable validation errors when a specific field can be corrected.

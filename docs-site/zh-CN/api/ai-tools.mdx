@@ -29,6 +29,8 @@ description: "把开放 API 作为 AI Agent 的工具使用，包括操作语义
 | “添加 ChatGPT Plus” | 确认后调用 `create_subscription` |
 | “把 Netflix 改成年付” | `list_subscriptions`，确认目标和变更后调用 `update_subscription` |
 | “删除重复的 Netflix 记录” | `list_subscriptions`，确认名称和 id 后调用 `delete_subscription` |
+| “提醒开了吗 / 提前 7 天提醒我” | `get_notification_settings` / 确认后 `update_notification_settings` |
+| “这是我的 Bark URL，帮我配置” | 拒绝；引导到[续费提醒指南](/zh-CN/user-guide/reminders) |
 
 ## 风险等级
 
@@ -38,7 +40,9 @@ description: "把开放 API 作为 AI Agent 的工具使用，包括操作语义
 | 中 | 创建、更新 | 调用前确认计划写入内容 |
 | 高 | 删除 | 调用前确认准确记录名称和 id |
 
-当前 API 没有 inactive 状态字段。如果用户说“取消订阅”，需要先确认：是删除本地追踪记录，还是要去外部服务真正取消订阅。
+公开 API 不支持通过 `status` 做软取消/暂停/恢复。如果用户说“取消订阅”，需要先确认：是删除本地追踪记录，还是要去外部服务真正取消订阅。
+
+Bark URL、test push、时区和 locale 也不能通过公开 API 配置；引导用户到网页端设置与[续费提醒指南](/zh-CN/user-guide/reminders)。
 
 ## 示例流程
 

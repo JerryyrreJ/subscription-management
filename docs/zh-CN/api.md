@@ -15,8 +15,8 @@ AI Agent 可以使用 `docs-site/api/ai-tools.json` 获取 tool/function 定义�
 
 API Key 带有 scopes：
 
-- `read`：查询和读取订阅；调用分析和审计端点
-- `write`：包含 `read` 的能力，并额外允许创建、更新、取消、暂停、恢复和删除
+- `read`：查询和读取订阅；读取通知设置；调用分析和审计端点
+- `write`：包含 `read` 的能力，并额外允许创建、更新、删除，以及更新通知设置
 
 ## 鉴权
 
@@ -31,8 +31,10 @@ Authorization: Bearer subm_xxx
 | `GET` | `/api/v1/subscriptions` | 查询订阅列表 |
 | `GET` | `/api/v1/subscriptions/:id` | 查询单个订阅 |
 | `POST` | `/api/v1/subscriptions` | 创建订阅 |
-| `PATCH` | `/api/v1/subscriptions/:id` | 更新可写字段，包括 `status` |
+| `PATCH` | `/api/v1/subscriptions/:id` | 更新可写字段 |
 | `DELETE` | `/api/v1/subscriptions/:id` | 永久删除订阅 |
+| `GET` | `/api/v1/notification-settings` | 读取全局提醒设置 |
+| `PATCH` | `/api/v1/notification-settings` | 更新 `enabled` 和/或 `daysBefore` |
 | `GET` | `/api/v1/analytics/summary` | 按币种/分类汇总支出并返回即将续费项 |
 | `GET` | `/api/v1/analytics/duplicates` | 查找重复订阅候选 |
 | `GET` | `/api/v1/analytics/optimizations` | 返回不虚构折扣的优化候选 |
@@ -53,8 +55,7 @@ Authorization: Bearer subm_xxx
   "customDate": null,
   "notificationEnabled": true,
   "isTrial": false,
-  "trialEndsOn": null,
-  "status": "active"
+  "trialEndsOn": null
 }
 ```
 
@@ -62,7 +63,11 @@ Authorization: Bearer subm_xxx
 
 月付订阅按照每月固定的日历日期续费，因此单个周期可能是 28、29、30 或 31 天。例如以 1 月 31 日为锚点时，2 月会临时落到月末，3 月恢复为 31 日。如果服务是固定每 30 天扣费，请使用 `period: "custom"` 和 `customDate: "30"`。`lastPaymentDate` 仅作为旧客户端兼容字段，由计划反推得到。
 
-`status` 可以是 `active`、`paused` 或 `cancelled`。当用户希望保留历史时，优先使用 `PATCH {"status":"cancelled"}` 或 `PATCH {"status":"paused"}`；只有需要永久移除记录时才使用 `DELETE`。
+响应中可能包含只读的 `status`（`active`、`paused`、`cancelled`），也可作为列表过滤参数。公开 API **不能** 通过写入 `status` 来取消、暂停或恢复订阅；需要移除记录时使用 `DELETE`。
+
+## 通知设置
+
+`GET` / `PATCH` `/api/v1/notification-settings` 开放全局提醒开关（`enabled`）和提前天数（`daysBefore`：1、3、7 或 14）。响应还会返回只读的 `timeZone`、`locale` 和 `barkConfigured`。Bark URL、test push、timeZone、locale 不能通过 API 写入——请先在网页端配置 Bark。
 
 ## 列表过滤
 

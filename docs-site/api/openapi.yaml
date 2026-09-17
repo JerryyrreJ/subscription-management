@@ -14,11 +14,13 @@ tags:
     x-ai:
       domain: subscription_management
       ownerScope: authenticated_api_key_owner
-      writeSafety: Confirm create, update, cancel, pause, resume, and delete operations with the user before calling them from an AI agent. Write operations require an API key with the write scope.
+      writeSafety: Confirm create, update, and delete operations with the user before calling them from an AI agent. Write operations require an API key with the write scope. Soft cancel/pause/resume via status is not supported.
   - name: Analytics
     description: Computed spend summaries, duplicate detection, and optimization candidates. Read-only; money is reported per currency and never converted.
   - name: Audit
     description: Read-only audit trail of write operations performed through the API.
+  - name: Notification settings
+    description: Global reminder settings. Writable fields are limited to enabled and daysBefore. Bark URL, test push, timeZone, and locale are web-managed.
 paths:
   /api/v1/subscriptions:
     get:
@@ -363,7 +365,7 @@ paths:
         riskLevel: high
         requiresConfirmation: true
         useWhen: The user clearly wants the tracked record removed permanently and has confirmed the exact subscription.
-        doNotUseWhen: The user only wants to stop billing but keep the record; set status to cancelled or paused with updateSubscription instead.
+        doNotUseWhen: The user wants to change fields on a subscription they still track; use updateSubscription instead.
       x-mint:
         href: /api-reference/subscriptions/delete
       responses:
@@ -616,12 +618,104 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/v1/notification-settings:
+    get:
+      tags:
+        - Notification settings
+      summary: Get notification settings
+      description: Returns global reminder settings for the API key owner. Bark secrets are never returned; barkConfigured indicates whether a valid Bark endpoint is already configured in the web app.
+      operationId: getNotificationSettings
+      x-ai:
+        purpose: Read whether global reminders are enabled, the advance window, read-only timeZone/locale, and whether Bark is configured.
+        naturalLanguageTriggers:
+          - Are my renewal reminders enabled?
+          - How many days before renewal do you remind me?
+          - Is Bark configured on my account?
+        riskLevel: low
+        requiresConfirmation: false
+        useWhen: The user asks about global reminder state or the agent needs it before an update.
+        doNotUseWhen: The user wants to set a Bark URL or send a test push; refuse and point to the web reminders guide.
+      responses:
+        "200":
+          description: Notification settings.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSettingsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      tags:
+        - Notification settings
+      summary: Update notification settings
+      description: Updates enabled and/or daysBefore. Rejects Bark URL, test push, timeZone, and locale fields. Settings must already exist from a prior web configuration.
+      operationId: updateNotificationSettings
+      x-ai:
+        purpose: Turn global reminders on or off, or change the advance reminder window (1, 3, 7, or 14 days).
+        naturalLanguageTriggers:
+          - Turn on my renewal reminders.
+          - Remind me 7 days before renewals.
+          - Disable global Bark reminders.
+        riskLevel: medium
+        requiresConfirmation: true
+        useWhen: The user wants to change the global reminder switch or advance window.
+        doNotUseWhen: The user wants to paste a Bark URL, change timezone/locale, or send a test push.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationSettingsPatch"
+            examples:
+              enableSevenDay:
+                value:
+                  enabled: true
+                  daysBefore: 7
+      responses:
+        "200":
+          description: Updated notification settings.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/XRateLimitLimit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/XRateLimitRemaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/XRateLimitReset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSettingsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     bearerApiKey:
       type: http
       scheme: bearer
-      description: Developer API key generated in the app. Keys carry scopes; a read key can call list, get, analytics, and audit endpoints, while a write key additionally allows create, update, cancel, pause, resume, and delete.
+      description: Developer API key generated in the app. Keys carry scopes; a read key can call list, get, notification settings, analytics, and audit endpoints, while a write key additionally allows create, update, delete, and notification settings updates.
       x-default: subm_your_key_here
   headers:
     XRateLimitLimit:
@@ -658,7 +752,7 @@ components:
                   code: invalid_subscription_field
                   message: "Field is not writable: id"
                   field: id
-                  suggestedFix: Remove server-managed fields such as id, createdAt, and updatedAt before retrying.
+                  suggestedFix: Remove non-writable fields such as id, createdAt, updatedAt, and status before retrying.
                   writableFields:
                     - amount
                     - billingAnchorDay
@@ -671,7 +765,6 @@ components:
                     - nextPaymentDate
                     - notificationEnabled
                     - period
-                    - status
                     - trialEndsOn
                 requestId: request-1
             invalidPeriod:
@@ -792,7 +885,7 @@ components:
         - custom
     SubscriptionStatus:
       type: string
-      description: Lifecycle state. active means billing; paused means temporarily stopped; cancelled means no longer billing but kept for history.
+      description: Read-only lifecycle state returned on subscription records and accepted as a list filter. The public API does not write status.
       enum:
         - active
         - paused
@@ -943,8 +1036,6 @@ components:
         trialEndsOn:
           description: Trial end / first-charge date in YYYY-MM-DD format. Required when isTrial is true.
           $ref: "#/components/schemas/DateOnly"
-        status:
-          $ref: "#/components/schemas/SubscriptionStatus"
       additionalProperties: false
     SubscriptionPatch:
       type: object
@@ -985,8 +1076,6 @@ components:
           type: boolean
         trialEndsOn:
           $ref: "#/components/schemas/DateOnly"
-        status:
-          $ref: "#/components/schemas/SubscriptionStatus"
       additionalProperties: false
     SubscriptionResponse:
       type: object
@@ -1281,6 +1370,57 @@ components:
       properties:
         error:
           $ref: "#/components/schemas/Error"
+        requestId:
+          type: string
+      additionalProperties: false
+    NotificationSettings:
+      type: object
+      required:
+        - enabled
+        - daysBefore
+        - barkConfigured
+        - updatedAt
+      properties:
+        enabled:
+          type: boolean
+          description: Global reminder master switch.
+        daysBefore:
+          type: integer
+          enum: [1, 3, 7, 14]
+          description: Days before renewal or trial end to send a reminder.
+        timeZone:
+          type: string
+          nullable: true
+          description: Read-only IANA time zone captured from the web app. Not writable through the public API.
+        locale:
+          type: string
+          nullable: true
+          description: Read-only reminder locale captured from the web app. Not writable through the public API.
+        barkConfigured:
+          type: boolean
+          description: True when a valid Bark endpoint is already configured in the web app. Secrets are never returned.
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    NotificationSettingsPatch:
+      type: object
+      minProperties: 1
+      properties:
+        enabled:
+          type: boolean
+        daysBefore:
+          type: integer
+          enum: [1, 3, 7, 14]
+      additionalProperties: false
+    NotificationSettingsResponse:
+      type: object
+      required:
+        - data
+        - requestId
+      properties:
+        data:
+          $ref: "#/components/schemas/NotificationSettings"
         requestId:
           type: string
       additionalProperties: false

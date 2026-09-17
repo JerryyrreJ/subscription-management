@@ -29,6 +29,8 @@ If the API returns field, suggestedFix, allowedValues, or writableFields, revise
 | "Add ChatGPT Plus" | Confirm, then `create_subscription` |
 | "Change Netflix to yearly" | `list_subscriptions`, confirm target/change, then `update_subscription` |
 | "Delete the duplicate Netflix record" | `list_subscriptions`, confirm exact name/id, then `delete_subscription` |
+| "Are reminders on / remind me 7 days ahead?" | `get_notification_settings` / confirm then `update_notification_settings` |
+| "Here is my Bark URL, configure it" | Refuse; point to the [reminders guide](/en/user-guide/reminders) |
 
 ## Risk levels
 
@@ -38,7 +40,9 @@ If the API returns field, suggestedFix, allowedValues, or writableFields, revise
 | Medium | Create and update | Confirm the planned write before calling |
 | High | Delete | Confirm the exact record name and id before calling |
 
-The API does not currently have an inactive status field. If the user asks to cancel a subscription, clarify whether they mean deleting the local tracking record or cancelling the service outside this app.
+The public API does not support soft cancel/pause/resume via `status`. If the user asks to cancel a subscription, clarify whether they mean deleting the local tracking record or cancelling the service outside this app.
+
+Bark URL, test push, timeZone, and locale also cannot be configured through the public API; point the user to the web app and the [reminders guide](/en/user-guide/reminders).
 
 ## Example flow
 

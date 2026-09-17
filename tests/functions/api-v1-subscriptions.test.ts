@@ -583,8 +583,9 @@ test('rejects client-managed subscription fields', async () => {
   assert.equal(response.statusCode, 400);
   assert.equal(body.error.code, 'invalid_subscription_field');
   assert.equal(body.error.field, 'id');
-  assert.match(body.error.suggestedFix ?? '', /server-managed fields/);
+  assert.match(body.error.suggestedFix ?? '', /non-writable fields/);
   assert.ok(body.error.writableFields?.includes('period'));
+  assert.equal(body.error.writableFields?.includes('status'), false);
   // Validation failures are rejected before the hourly quota is consumed, so
   // they carry no rate-limit headers (nothing was charged) but still set CORS.
   assert.equal(response.headers?.['X-RateLimit-Limit'], undefined);
@@ -1084,15 +1085,15 @@ test('rejects unsupported filter values with recovery hints', async () => {
   assert.ok(body.error.allowedValues?.includes('cancelled'));
 });
 
-test('cancels a subscription via a status patch without deleting it', async () => {
-  let updatePayload: Record<string, unknown> | undefined;
+test('rejects status patches because lifecycle writes are not part of the public API', async () => {
+  let updateTouched = false;
   const database = createDatabase((state: QueryState) => {
     if (state.operation === 'select') {
       return { data: subscriptionRow, error: null };
     }
 
-    updatePayload = state.payload as Record<string, unknown>;
-    return { data: { ...subscriptionRow, status: 'cancelled' }, error: null };
+    updateTouched = true;
+    return { data: subscriptionRow, error: null };
   });
   const handler = createSubscriptionsApiHandler(() => ({
     database,
@@ -1110,13 +1111,13 @@ test('cancels a subscription via a status patch without deleting it', async () =
     },
     JSON.stringify({ status: 'cancelled' })
   ), {} as never));
-  const body = parseJsonResponse<{ data: { status: string } }>(response);
+  const body = parseJsonResponse<{ error: { code: string; field?: string; writableFields?: string[] } }>(response);
 
-  assert.equal(response.statusCode, 200);
-  assert.equal(updatePayload?.status, 'cancelled');
-  // Billing date is untouched by a pure status change.
-  assert.equal(updatePayload?.next_payment_date, subscriptionRow.next_payment_date);
-  assert.equal(body.data.status, 'cancelled');
+  assert.equal(response.statusCode, 400);
+  assert.equal(body.error.code, 'invalid_subscription_field');
+  assert.equal(body.error.field, 'status');
+  assert.equal(body.error.writableFields?.includes('status'), false);
+  assert.equal(updateTouched, false);
 });
 
 test('rejects writes from a read-only API key before touching subscriptions', async () => {

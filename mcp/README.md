@@ -11,17 +11,20 @@ with your bearer key.
 
 ## Tools
 
-All twelve tools from the API tool schema are exposed, including:
+All tools from the API tool schema are exposed, including:
 
 - `list_subscriptions` (with `status`, `category`, `period`, `q`, `expiringBefore`, `sort` filters)
 - `get_subscription`, `create_subscription`, `update_subscription`
-- `cancel_subscription`, `pause_subscription`, `resume_subscription` (status changes that keep history)
 - `delete_subscription` (permanent)
+- `get_notification_settings`, `update_notification_settings` (`enabled` / `daysBefore` only)
 - `get_spend_summary`, `find_duplicate_subscriptions`, `get_optimization_suggestions`
 - `list_audit_log`
 
 Write tools require a key with the `write` scope; read and analytics tools work
-with a read-only key.
+with a read-only key. Soft cancel/pause/resume via `status` is not part of the
+public API surface. Bark URL, test push, timeZone, and locale stay web-managed;
+the tool schema tells agents to refuse those requests and point users to the
+reminders guide.
 
 ## Configuration
 

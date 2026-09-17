@@ -35,8 +35,8 @@ Each API key carries scopes that bound what it can do:
 
 | Scope | Allows |
 | --- | --- |
-| `read` | List and read subscriptions; call the analytics and audit endpoints |
-| `write` | Everything `read` allows, plus create, update, cancel, pause, resume, and delete |
+| `read` | List and read subscriptions; read notification settings; call the analytics and audit endpoints |
+| `write` | Everything `read` allows, plus create, update, delete, and notification settings updates |
 
 `read` is always present. By default a new key is granted both `read` and `write`. To create a read-only key — useful for analysis agents that should never modify data — pass a `scopes` array when creating the key:
 

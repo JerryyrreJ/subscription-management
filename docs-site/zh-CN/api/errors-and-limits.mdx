@@ -69,8 +69,7 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
       "nextPaymentDate",
       "name",
       "notificationEnabled",
-      "period",
-      "status"
+      "period"
     ]
   },
   "requestId": "request-..."
@@ -79,7 +78,7 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
 
 ## 权限范围（Scopes）
 
-API Key 带有 scopes。`read` Key 可以查询、读取订阅，并调用分析与审计端点；`write` Key 额外允许创建、更新、取消、暂停、恢复和删除。用只读 Key 执行写操作会返回 `403 insufficient_scope`，此时不要重试——需要换用带 `write` 权限的 Key。详见 [API 认证](/zh-CN/api/authentication#权限范围-scopes)。
+API Key 带有 scopes。`read` Key 可以查询、读取订阅与通知设置，并调用分析与审计端点；`write` Key 额外允许创建、更新、删除，以及更新通知设置。用只读 Key 执行写操作会返回 `403 insufficient_scope`，此时不要重试——需要换用带 `write` 权限的 Key。详见 [API 认证](/zh-CN/api/authentication#权限范围-scopes)。
 
 ## Rate limit headers
 

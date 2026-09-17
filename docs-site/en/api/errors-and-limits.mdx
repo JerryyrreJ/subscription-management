@@ -69,8 +69,7 @@ Example non-writable field error:
       "nextPaymentDate",
       "name",
       "notificationEnabled",
-      "period",
-      "status"
+      "period"
     ]
   },
   "requestId": "request-..."
@@ -79,7 +78,7 @@ Example non-writable field error:
 
 ## Scopes
 
-API keys carry scopes. A `read` key can list and read subscriptions and call the analytics and audit endpoints. A `write` key additionally allows create, update, cancel, pause, resume, and delete. A write call made with a read-only key returns `403 insufficient_scope`; do not retry — request a write-scoped key. See [Authentication](/en/api/authentication#scopes).
+API keys carry scopes. A `read` key can list and read subscriptions, read notification settings, and call the analytics and audit endpoints. A `write` key additionally allows create, update, delete, and notification settings updates. A write call made with a read-only key returns `403 insufficient_scope`; do not retry — request a write-scoped key. See [Authentication](/en/api/authentication#scopes).
 
 ## Rate-limit headers
 

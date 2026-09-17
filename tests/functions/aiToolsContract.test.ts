@@ -38,6 +38,8 @@ const KNOWN_ROUTES = new Set([
   'POST /api/v1/subscriptions',
   'PATCH /api/v1/subscriptions/{id}',
   'DELETE /api/v1/subscriptions/{id}',
+  'GET /api/v1/notification-settings',
+  'PATCH /api/v1/notification-settings',
   'GET /api/v1/analytics/summary',
   'GET /api/v1/analytics/duplicates',
   'GET /api/v1/analytics/optimizations',
@@ -74,29 +76,26 @@ test('write tools require confirmation and the write scope', () => {
   }
 });
 
-test('status-changing tools target PATCH with a valid lifecycle state', () => {
+test('the AI tool schema no longer exposes status-changing write helpers', () => {
   const statusTools = tools.filter((tool) => tool.fixedBody);
-  assert.equal(statusTools.length, 3, 'cancel, pause, and resume use fixedBody');
-  for (const tool of statusTools) {
-    assert.equal(tool.method, 'PATCH');
-    assert.ok(
-      (SUBSCRIPTION_STATUSES as readonly string[]).includes(tool.fixedBody?.status ?? ''),
-      `${tool.name} sets a valid status`
-    );
-  }
+  assert.equal(statusTools.length, 0, 'cancel, pause, and resume helpers are removed');
+  assert.equal(
+    tools.some((tool) => ['cancel_subscription', 'pause_subscription', 'resume_subscription'].includes(tool.name)),
+    false
+  );
 });
 
 test('global conventions stay in sync with the domain constants', () => {
   assert.deepEqual(schema.globalConventions.currencies, [...SUBSCRIPTION_CURRENCIES]);
   assert.deepEqual(schema.globalConventions.billingPeriods, [...SUBSCRIPTION_PERIODS]);
   assert.deepEqual(schema.globalConventions.lifecycleStates, [...SUBSCRIPTION_STATUSES]);
-  assert.ok(schema.globalConventions.writableFields.includes('status'));
+  assert.equal(schema.globalConventions.writableFields.includes('status'), false);
 });
 
-test('shared schemas enumerate the same currencies and statuses as the domain', () => {
+test('shared schemas enumerate the same currencies and list-filter statuses as the domain', () => {
   assert.deepEqual(schema.$defs.subscriptionWrite.properties.currency.enum, [...SUBSCRIPTION_CURRENCIES]);
-  assert.deepEqual(schema.$defs.subscriptionWrite.properties.status.enum, [...SUBSCRIPTION_STATUSES]);
-  assert.deepEqual(schema.$defs.subscriptionPatch.properties.status.enum, [...SUBSCRIPTION_STATUSES]);
+  assert.equal(schema.$defs.subscriptionWrite.properties.status, undefined);
+  assert.equal(schema.$defs.subscriptionPatch.properties.status, undefined);
 
   const listTool = tools.find((tool) => tool.name === 'list_subscriptions');
   assert.deepEqual(listTool?.parameters?.properties?.status?.enum, [...SUBSCRIPTION_STATUSES]);

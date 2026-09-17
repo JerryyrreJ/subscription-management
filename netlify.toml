@@ -40,6 +40,12 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/api/v1/notification-settings"
+  to = "/.netlify/functions/api-v1-notification-settings"
+  status = 200
+  force = true
+
 # Static blog HTML is emitted into dist/blog and dist/zh/blog at build time.
 # Keep these rewrites above the SPA fallback so unknown guide slugs
 # 404 instead of serving the React app shell.
