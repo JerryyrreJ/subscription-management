@@ -23,45 +23,57 @@ Your Bark URL contains your device key. Do not publish it or share it with anyon
 ## Get your Bark URL
 
 1. Download and open Bark on your iOS device.
-2. Tap **Server** at the bottom of Bark.
-3. Copy any example push URL from the Server page, such as `https://api.day.app/your-device-key/example`.
+2. Tap **Service** at the bottom of Bark.
+3. On the Service page, tap the copy button next to any example push URL, such as `https://api.day.app/your_device_key/Body Text`.
 4. Keep the complete URL. Subscription Manager extracts the server URL and device key automatically.
 
-<Frame caption="Bark's Service page. Use the copy button beside any example URL.">
+<Frame caption="Bark's Service page. The orange circle marks Copy URL. The key shown is the placeholder `your_device_key`.">
   <img
-    src="/images/guides/bark-service-url.webp"
-    alt="Bark Service page with a copy button beside each example push URL"
+    src="/images/guides/bark-guide-01-service-copy-url.webp"
+    alt="Bark Service page with an orange circle on the Copy URL button. Example URLs use the placeholder key your_device_key."
     width="360"
   />
 </Frame>
 
 <Note>
-This image comes from Bark's App Store page. Copy the URL shown on your own device; do not reuse the example URL in the image.
+Screenshots use redacted placeholders such as `your_device_key`. They are not real device keys. Copy the URL from Bark on your own device and paste that URL — do not reuse the example from the images.
 </Note>
 
 ## Configure Subscription Manager
 
 1. Sign in to Subscription Manager.
-2. Open **Settings** > **Notifications**.
-3. Enable **Bark push notifications**.
-4. Paste the complete Bark URL into the **Bark URL** field.
-5. Check that the field is marked valid and review the detected server and device key.
-6. Choose how many days before renewal to send the reminder.
-7. Select **Test Push** and confirm that the message arrives on your iOS device.
-8. Select **Save Settings**.
+2. Open **Settings** → **Notifications**.
+3. Select the **Enable Bark push notifications** checkbox.
 
-Notification settings are linked to the current account. You must be signed in before saving or testing so that the server can match subscriptions to the correct notification device.
-
-<Frame caption="Notification settings automatically extract and validate the Bark URL.">
+<Frame caption="Settings → Notifications. The orange circle marks the Enable Bark checkbox.">
   <img
-    src="/images/guides/subscription-manager-bark-settings-en.jpg"
-    alt="Subscription Manager notification settings showing the Bark URL, valid status, reminder timing, and Test Push button"
+    src="/images/guides/bark-guide-02-enable.webp"
+    alt="Subscription Manager notification settings with an orange circle around the Enable Bark push notifications checkbox"
   />
 </Frame>
 
-<Note>
-`DEMO_DEVICE_KEY` in the image is a redacted example. Paste the complete URL copied from Bark on your own device.
-</Note>
+4. Paste the complete Bark URL into the **Bark URL** field. Confirm the status shows **Valid**, then tap **Test Push**.
+
+<Frame caption="Paste your Bark URL. The screenshot circles Valid and Test Push. The key is the placeholder `your_device_key`.">
+  <img
+    src="/images/guides/bark-guide-03-paste-url-test.webp"
+    alt="Bark URL field filled with a placeholder your_device_key URL, Valid status circled, and Test Push circled"
+  />
+</Frame>
+
+5. Confirm the test notification arrives on your iPhone.
+
+<Frame caption="iPhone home screen showing the Bark test notification from Subscription Manager.">
+  <img
+    src="/images/guides/bark-guide-04-test-received.jpg"
+    alt="iPhone home screen with a Bark test notification that reads This is a test push from Subscription Manager"
+    width="360"
+  />
+</Frame>
+
+6. Choose how many days before renewal to send the reminder, then select **Save Settings**.
+
+Notification settings are linked to the current account. You must be signed in before saving or testing so that the server can match subscriptions to the correct notification device.
 
 ## Per-subscription toggles
 

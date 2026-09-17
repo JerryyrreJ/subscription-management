@@ -20,20 +20,31 @@ Before you start, you need:
 ## Get Your Bark URL
 
 1. Download and open Bark on your iOS device.
-2. Tap **Server** at the bottom of Bark.
-3. Copy any example push URL from the Server page, such as `https://api.day.app/your-device-key/example`.
+2. Tap **Service** at the bottom of Bark.
+3. On the Service page, tap the copy button next to any example push URL, such as `https://api.day.app/your_device_key/Body Text`.
 4. Keep the complete URL. Subscription Manager extracts the server URL and device key automatically.
+
+![Bark Service page with an orange circle on the Copy URL button. Example URLs use the placeholder key your_device_key.](../../docs-site/images/guides/bark-guide-01-service-copy-url.webp)
+
+> Screenshots use redacted placeholders such as `your_device_key`. They are not real device keys. Copy the URL from Bark on your own device and paste that URL — do not reuse the example from the images.
 
 ## Configure Subscription Manager
 
 1. Sign in to Subscription Manager.
-2. Open **Settings** > **Notifications**.
-3. Enable **Bark push notifications**.
-4. Paste the complete Bark URL into the **Bark URL** field.
-5. Check that the field is marked valid and review the detected server and device key.
-6. Choose how many days before renewal or trial end to send the reminder.
-7. Select **Test Push** and confirm that the message arrives on your iOS device.
-8. Select **Save Settings**.
+2. Open **Settings** → **Notifications**.
+3. Select the **Enable Bark push notifications** checkbox.
+
+![Subscription Manager notification settings with an orange circle around the Enable Bark push notifications checkbox](../../docs-site/images/guides/bark-guide-02-enable.webp)
+
+4. Paste the complete Bark URL into the **Bark URL** field. Confirm the status shows **Valid**, then tap **Test Push**.
+
+![Bark URL field filled with a placeholder your_device_key URL, Valid status circled, and Test Push circled](../../docs-site/images/guides/bark-guide-03-paste-url-test.webp)
+
+5. Confirm the test notification arrives on your iPhone.
+
+![iPhone home screen with a Bark test notification that reads This is a test push from Subscription Manager](../../docs-site/images/guides/bark-guide-04-test-received.jpg)
+
+6. Choose how many days before renewal or trial end to send the reminder, then select **Save Settings**.
 
 Notification settings are linked to the current account. You must be signed in before saving or testing so that the server can match subscriptions to the correct notification device.
 

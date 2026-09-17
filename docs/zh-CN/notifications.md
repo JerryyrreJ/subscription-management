@@ -20,20 +20,31 @@ Bark 是一款免费、开源的 iOS 推送应用。提醒由 Subscription Manag
 ## 获取 Bark URL
 
 1. 在 iOS 设备上下载并打开 Bark。
-2. 点击 Bark 底部的 **Server**。
-3. 从 Server 页面复制任意一条示例推送 URL，例如 `https://api.day.app/your-device-key/example`。
+2. 点击 Bark 底部的 **Service**。
+3. 在 Service 页面，点击任意一条示例推送 URL 右侧的复制按钮，例如 `https://api.day.app/your_device_key/Body Text`。
 4. 保留完整 URL。Subscription Manager 会自动识别 server URL 和 device key。
+
+![Bark Service 页面，橙色圆圈标出 Copy URL 按钮，示例 URL 使用占位符密钥 your_device_key](../../docs-site/images/guides/bark-guide-01-service-copy-url.webp)
+
+> 截图中的 `your_device_key` 等是脱敏占位符，不是真实 device key。请从你自己的 Bark App 复制 URL 并粘贴，不要照抄图片里的示例。
 
 ## 在 Subscription Manager 中配置
 
 1. 登录 Subscription Manager。
-2. 打开 **设置** > **通知**。
-3. 启用 **Bark 推送通知**。
-4. 将刚才复制的完整 Bark URL 粘贴到 **Bark URL** 输入框。
-5. 确认输入框下方显示“有效”，并核对识别出的 server 和 device key。
-6. 选择提前提醒的天数（续费或试用结束前）。
-7. 点击 **测试推送**，确认 iOS 设备收到了测试消息。
-8. 点击 **保存设置**。
+2. 打开 **设置** → **通知**。
+3. 勾选 **启用 Bark 推送通知**。
+
+![Subscription Manager 通知设置页，橙色圆圈标出启用 Bark 推送通知复选框](../../docs-site/images/guides/bark-guide-02-enable.webp)
+
+4. 将刚才复制的完整 Bark URL 粘贴到 **Bark URL** 输入框。确认状态显示 **有效（Valid）**，然后点击 **测试推送（Test Push）**。
+
+![Bark URL 输入框中为占位符 your_device_key，橙色圆圈标出 Valid 状态和 Test Push 按钮](../../docs-site/images/guides/bark-guide-03-paste-url-test.webp)
+
+5. 确认 iPhone 已收到测试通知。
+
+![iPhone 主屏幕顶部显示 Bark 测试通知：This is a test push from Subscription Manager](../../docs-site/images/guides/bark-guide-04-test-received.jpg)
+
+6. 选择提前提醒的天数（续费或试用结束前），然后点击 **保存设置**。
 
 通知设置会绑定到当前账号。保存或测试推送前必须登录，这样服务器才能把订阅和正确的通知设备对应起来。
 
