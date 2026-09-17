@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Bell, Send, BookOpen, ExternalLink, Lock, LogIn } from 'lucide-react';
+import { X, Bell, Send, BookOpen, ExternalLink, LogIn } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ReminderSettings } from '../types';
 import { testBarkPush, validateBarkConfig } from '../utils/barkPush';
@@ -168,60 +168,28 @@ export function NotificationSettingsModal({
     </div>
   )}
 
- {/* Login Required Banner - Only show when not logged in */}
- {!user && (
- <div className="mx-6 mt-6 mb-0 relative overflow-hidden rounded-3xl border-2 border-orange-200 dark:border-orange-900/50 bg-gradient-to-br from-orange-50 via-amber-50 to-red-50 dark:from-orange-950/20 dark:via-amber-950/20 dark:to-red-950/20">
- {/* Decorative background pattern */}
- <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
- <div className="absolute inset-0"style={{
- backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, currentColor 10px, currentColor 11px)`,
- color: '#f97316'
- }} />
- </div>
-
- <div className="relative p-5">
- <div className="flex gap-4">
- {/* Icon */}
- <div className="flex-shrink-0">
- <div className="w-11 h-11 rounded-3xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-fey shadow-orange-500/20">
- <Lock className="w-6 h-6 text-white"strokeWidth={2.5} />
- </div>
- </div>
-
  {/* Content */}
- <div className="flex-1 min-w-0">
- <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1.5 tracking-tight">
- {t('notificationSettings:loginBannerTitle')}
- </h3>
- <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
- <strong className="text-orange-900 dark:text-orange-300">{t('notificationSettings:loginBannerStrong')}</strong>
- {' '}
- {t('notificationSettings:loginBannerBody')}
+ <div className="p-6 space-y-6">
+ {/* 未登录引导 */}
+ {!user && (
+ <div className="flex overflow-hidden rounded-2xl border border-zinc-200 bg-[#f4f5f7] dark:border-zinc-700 dark:bg-[#202225]">
+ <div className="w-0.5 shrink-0 bg-emerald-500 dark:bg-emerald-400" aria-hidden="true" />
+ <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+ <div className="min-w-0">
+ <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+ {t('notificationSettings:loginGuide')}
  </p>
- <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
- {t('notificationSettings:loginBannerExplanation')}
+ <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+ {t('notificationSettings:loginGuideHint')}
  </p>
-
- {/* Feature breakdown */}
- <div className="grid grid-cols-1 gap-2 mb-4">
- <div className="flex items-center gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0"/>
- <span className="text-xs text-gray-600 dark:text-gray-400">{t('notificationSettings:loginPointAccount')}</span>
  </div>
- <div className="flex items-center gap-2">
- <div className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0"/>
- <span className="text-xs text-gray-600 dark:text-gray-400">{t('notificationSettings:loginPointRouting')}</span>
- </div>
- </div>
-
- {/* Login button */}
  {onOpenAuth && (
  <button
  onClick={() => {
  onClose();
  onOpenAuth();
  }}
- className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white text-sm font-semibold rounded-2xl transition-all shadow-apple hover:shadow-fey hover:scale-[1.02] active:scale-[0.98]"
+ className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
  >
  <LogIn className="w-4 h-4"/>
  {t('notificationSettings:loginToEnable')}
@@ -229,12 +197,8 @@ export function NotificationSettingsModal({
  )}
  </div>
  </div>
- </div>
- </div>
  )}
 
- {/* Content */}
- <div className="p-6 space-y-6">
  {/* 全局提示 */}
  <div className="bg-[#f4f5f7] dark:bg-[#202225] dark:bg-zinc-800/20 border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700 dark:border-zinc-700 rounded-2xl p-4">
  <p className="text-sm text-emerald-600 dark:text-emerald-300">
@@ -393,11 +357,7 @@ export function NotificationSettingsModal({
   )}
   <button
   onClick={handleSave}
-  className={`flex-1 px-4 py-2.5 rounded-2xl font-medium transition-all ${
-  user
-  ? 'bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white'
-  : 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white shadow-apple hover:shadow-fey'
-  }`}
+  className="flex-1 px-4 py-2.5 rounded-2xl font-medium transition-colors bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white"
   >
   {user ? (
   t('notificationSettings:saveSettings')
