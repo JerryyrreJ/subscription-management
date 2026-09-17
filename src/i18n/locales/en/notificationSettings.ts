@@ -1,11 +1,7 @@
 export const notificationSettings = {
  title: 'Notification Settings',
- loginBannerTitle: 'Login Required for Notifications',
- loginBannerStrong: 'Login is required before notifications can be enabled.',
- loginBannerBody: 'Automatic reminders are sent by our server, so your device must be linked to your account first.',
- loginBannerExplanation: 'This allows us to match your notification device with your subscription list and deliver the right reminder to the right user. Without login, the app can store data only in this browser, but the server cannot reliably identify which device should receive which subscription reminders.',
- loginPointAccount: 'Login links notifications to your account',
- loginPointRouting: 'Server reminders use that link to route pushes',
+ loginGuide: 'Sign in before enabling notifications so your Bark device can be linked to your account and the server can deliver reminders.',
+ loginGuideHint: 'Until you sign in, data can only be stored in this browser.',
  loginToEnable: 'Login to Enable',
  noteTitle: 'Note:',
  noteBody: "Notifications are sent automatically from our server. You don't need to keep the app open. Additionally, you can enable or disable notifications for individual subscriptions when adding or editing them.",

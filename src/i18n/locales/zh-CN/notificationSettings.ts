@@ -1,11 +1,7 @@
 export const notificationSettings = {
  title: '通知设置',
- loginBannerTitle: '启用通知需要先登录',
- loginBannerStrong: '启用通知前需要先登录。',
- loginBannerBody: '自动提醒由我们的服务器发送，所以你的通知设备需要先和账号绑定。',
- loginBannerExplanation: '这样我们才能把通知设备和你的订阅列表对应起来，把正确的提醒发给正确的用户。未登录时，应用只能把数据保存在当前浏览器里，但服务器无法可靠判断应该把哪条订阅提醒发到哪个设备。',
- loginPointAccount: '登录后可将通知设备绑定到你的账号',
- loginPointRouting: '服务器会通过这层绑定来投递提醒',
+ loginGuide: '启用通知前请先登录，以便把 Bark 设备绑到账号并由服务器投递提醒。',
+ loginGuideHint: '未登录时数据只保存在当前浏览器。',
  loginToEnable: '登录后启用',
  noteTitle: '说明：',
  noteBody: '通知由我们的服务器自动发送，你不需要一直打开这个应用。另外，你也可以在添加或编辑订阅时，单独开启或关闭该订阅的提醒。',
