@@ -15,8 +15,8 @@ Default limits:
 
 API keys have scopes:
 
-- `read`: list and read subscriptions; call analytics and audit endpoints
-- `write`: everything `read` allows, plus create, update, cancel, pause, resume, and delete
+- `read`: list and read subscriptions; read notification settings; call analytics and audit endpoints
+- `write`: everything `read` allows, plus create, update, delete, and notification settings updates
 
 ## Authentication
 
@@ -31,8 +31,10 @@ Authorization: Bearer subm_xxx
 | `GET` | `/api/v1/subscriptions` | List subscriptions |
 | `GET` | `/api/v1/subscriptions/:id` | Get one subscription |
 | `POST` | `/api/v1/subscriptions` | Create a subscription |
-| `PATCH` | `/api/v1/subscriptions/:id` | Update writable fields, including `status` |
+| `PATCH` | `/api/v1/subscriptions/:id` | Update writable fields |
 | `DELETE` | `/api/v1/subscriptions/:id` | Permanently delete a subscription |
+| `GET` | `/api/v1/notification-settings` | Read global reminder settings |
+| `PATCH` | `/api/v1/notification-settings` | Update `enabled` and/or `daysBefore` |
 | `GET` | `/api/v1/analytics/summary` | Spend summary by currency/category and upcoming renewals |
 | `GET` | `/api/v1/analytics/duplicates` | Duplicate subscription candidates |
 | `GET` | `/api/v1/analytics/optimizations` | Optimization candidates without invented savings |
@@ -53,8 +55,7 @@ Writable fields use camelCase:
   "customDate": null,
   "notificationEnabled": true,
   "isTrial": false,
-  "trialEndsOn": null,
-  "status": "active"
+  "trialEndsOn": null
 }
 ```
 
@@ -62,7 +63,11 @@ Writable fields use camelCase:
 
 Monthly subscriptions renew on the same calendar day each month, so a cycle may contain 28, 29, 30, or 31 days. A January 31 anchor temporarily renews at the end of February and returns to March 31. For a fixed 30-day cycle, use `period: "custom"` with `customDate: "30"`. `lastPaymentDate` is retained only as a derived compatibility field for older clients.
 
-`status` can be `active`, `paused`, or `cancelled`. Prefer `PATCH {"status":"cancelled"}` or `PATCH {"status":"paused"}` when the user wants to keep history; use `DELETE` only when the record should be removed permanently.
+Responses may include a read-only `status` (`active`, `paused`, or `cancelled`), and list queries may filter by it. The public API does **not** cancel, pause, or resume subscriptions by writing `status`; use `DELETE` to remove a tracked record.
+
+## Notification settings
+
+`GET` / `PATCH` `/api/v1/notification-settings` expose the global reminder switch (`enabled`) and advance window (`daysBefore`: 1, 3, 7, or 14). Responses also include read-only `timeZone`, `locale`, and `barkConfigured`. Bark URL, test push, timeZone, and locale cannot be written through the API — configure Bark in the web app first.
 
 ## List filters
 

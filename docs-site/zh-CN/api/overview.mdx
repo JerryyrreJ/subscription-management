@@ -17,6 +17,7 @@ https://your-site.example/api/v1
 
 ```text
 /api/v1/subscriptions
+/api/v1/notification-settings
 /api/v1/analytics
 /api/v1/audit
 ```
@@ -29,7 +30,8 @@ https://your-site.example/api/v1
 - API Key 所属用户决定访问范围。
 - 所有订阅查询都会按 API Key owner 过滤。
 - `nextPaymentDate` 是权威续费日期；月付计划会保留原始的每月固定日期。
-- `status` 支持软生命周期状态：`active`、`paused`、`cancelled`。
+- `status` 会在记录中返回，也可作为列表过滤参数，但不能通过公开 API 写入。
+- 通知设置仅开放 `enabled` 与 `daysBefore` 的写入；Bark URL、test push、timeZone、locale 仍由网页管理。
 - 分析端点按币种分别报告金额，不跨币种换算。
 - 审计端点暴露开放 API create、update 和 delete 的写操作历史。
 - 当字段可修正时，写操作会返回适合 AI 读取的校验错误。

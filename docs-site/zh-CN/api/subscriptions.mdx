@@ -14,8 +14,8 @@ description: "通过开放 API 创建、读取、更新和删除订阅，并提�
 | `GET /api/v1/subscriptions` | 查询、搜索、汇总、分析或识别订阅 | 低 | 不需要 |
 | `GET /api/v1/subscriptions/{id}` | 已知 UUID，读取单条订阅 | 低 | 不需要 |
 | `POST /api/v1/subscriptions` | 记录一个新的订阅 | 中 | 需要 |
-| `PATCH /api/v1/subscriptions/{id}` | 修改可写字段，包括 `status`（取消/暂停/恢复） | 中–高 | 需要 |
-| `DELETE /api/v1/subscriptions/{id}` | 永久删除本地追踪记录（如需保留历史请改用取消） | 高 | 需要 |
+| `PATCH /api/v1/subscriptions/{id}` | 修改可写字段 | 中 | 需要 |
+| `DELETE /api/v1/subscriptions/{id}` | 永久删除本地追踪记录 | 高 | 需要 |
 
 AI 集成在更新或删除前，应该先查询并确认目标订阅；除非用户已经提供了准确的订阅 UUID。写操作需要带 `write` 权限的 API Key；只读 Key 会收到 `403 insufficient_scope`。
 
@@ -135,30 +135,14 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
 | `lastPaymentDate` | 已弃用的兼容输入；未提供 `nextPaymentDate` 时会转换为下次续费日期 |
 | `customDate` | 仅当 `period` 为 `custom` 时必填；表示间隔天数，需为正整数字符串 |
 | `notificationEnabled` | 可选布尔值，默认 `true` |
-| `status` | 可选，`active`、`paused`、`cancelled` 之一，默认 `active` |
 
 `nextPaymentDate` 是权威的订阅计划日期。月付订阅通过 `billingAnchorDay` 保留原始日历日期，短月份只会临时落到月末，例如：1 月 31 日 → 2 月 28/29 日 → 3 月 31 日。如果服务是固定每 30 天扣费，而不是每月固定日期，请使用 `period: "custom"` 和 `customDate: "30"`。响应中的 `lastPaymentDate` 只是反推得到的兼容字段，新集成不应再依赖它。
 
-## 生命周期：取消、暂停、恢复 vs 删除
+## 状态 vs 删除
 
-订阅有一个 `status`：`active`（计费中）、`paused`（暂停）、`cancelled`（已取消、停止计费但保留历史）。修改状态是软操作——记录及其审计历史都会保留，可随时恢复为 `active`。而 `DELETE` 是永久删除，会一并移除该记录的审计历史。
+响应中会返回只读的 `status`（`active`、`paused`、`cancelled`），列表查询也可以按它过滤。公开 API **不能** 通过写入 `status` 来取消、暂停或恢复订阅。需要移除追踪记录时使用 `DELETE`。
 
-当用户表示不再使用某服务但将来可能回来时，优先改状态而不是删除：
-
-```bash
-# 取消（保留历史）
-curl -X PATCH \
-  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"status":"cancelled"}' \
-  https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
-
-# 暂停，之后再恢复
-curl -X PATCH ... -d '{"status":"paused"}' .../{id}
-curl -X PATCH ... -d '{"status":"active"}'  .../{id}
-```
-
-在[分析](/zh-CN/api/analytics)端点中，只有 `active` 订阅计入活跃支出。只有当用户希望永久删除记录时才用 `DELETE`。
+在[分析](/zh-CN/api/analytics)端点中，只有 `active` 订阅计入活跃支出。
 
 ## 自然语言示例
 

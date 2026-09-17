@@ -1,0 +1,65 @@
+---
+title: "Notification settings"
+description: "Read and update global reminder settings through the public API without exposing Bark secrets."
+---
+
+# Notification settings
+
+Global reminder settings live at `/api/v1/notification-settings`.
+
+This endpoint is intentionally narrow:
+
+| Field | API |
+| --- | --- |
+| `enabled` | Read + write |
+| `daysBefore` | Read + write (`1`, `3`, `7`, or `14`) |
+| `timeZone` | Read-only |
+| `locale` | Read-only |
+| `barkConfigured` | Read-only boolean |
+| Bark URL / device key | Not available |
+| Test push | Not available |
+
+Configure Bark once in the web app under **Settings → Notifications**. See the [reminders guide](/en/user-guide/reminders). After that, agents can toggle the global switch and advance window here. Per-subscription reminder toggles stay on subscription records as `notificationEnabled`.
+
+## Get settings
+
+`GET /api/v1/notification-settings`
+
+```bash
+curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  https://your-site.example/api/v1/notification-settings
+```
+
+```json
+{
+  "data": {
+    "enabled": true,
+    "daysBefore": 3,
+    "timeZone": "Asia/Shanghai",
+    "locale": "zh-CN",
+    "barkConfigured": true,
+    "updatedAt": "2026-06-16T00:00:00.000Z"
+  },
+  "requestId": "request-..."
+}
+```
+
+If the account has never saved notification settings in the web app, the API returns `404 notification_settings_not_found` and points the agent to the web reminders setup.
+
+## Update settings
+
+`PATCH /api/v1/notification-settings` requires the `write` scope.
+
+```bash
+curl -X PATCH \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled":true,"daysBefore":7}' \
+  https://your-site.example/api/v1/notification-settings
+```
+
+Requests that include `barkUrl`, `timeZone`, `locale`, or other non-writable fields return `400 invalid_notification_settings_field` with `writableFields: ["daysBefore","enabled"]`.
+
+## Agent behavior
+
+If the user asks to paste a Bark URL or send a test push, refuse and send them to the web app + [reminders guide](/en/user-guide/reminders). Do not invent credentials.

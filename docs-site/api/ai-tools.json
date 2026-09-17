@@ -30,7 +30,6 @@
       "name",
       "notificationEnabled",
       "period",
-      "status",
       "trialEndsOn"
     ],
     "billingPeriods": [
@@ -63,11 +62,15 @@
       "lastPaymentDate": "Deprecated compatibility input. New tools should send nextPaymentDate instead.",
       "isTrial": "True when the record is a free trial rather than a recurring paid subscription.",
       "trialEndsOn": "The trial end / first-charge date in YYYY-MM-DD format. Required when isTrial is true. Do not roll this date forward after it passes.",
-      "status": "Lifecycle state. active means billing; paused means temporarily stopped; cancelled means no longer billing but kept for history. Cancel or pause instead of deleting when the user may want the record back. Paused and cancelled records do not receive reminders."
+      "status": "Read-only lifecycle state returned on subscription records and accepted as a list filter. The public API does not create, cancel, pause, or resume via status changes; use delete_subscription to remove a tracked record.",
+      "notificationEnabled": "Per-subscription reminder toggle on a subscription record. Independent from the global enabled flag in notification settings.",
+      "notificationSettings.enabled": "Global reminder master switch. Reminders only send when this is true, Bark is configured in the web app, and the subscription has notificationEnabled true.",
+      "notificationSettings.daysBefore": "How many days before renewal/trial end to remind. Allowed values: 1, 3, 7, 14."
     },
-    "scopes": "API keys carry scopes. A read key can call list, get, the analytics endpoints, and the audit log. A write key additionally allows create, update, cancel, pause, resume, and delete. Calling a write tool with a read-only key returns 403 insufficient_scope; do not retry, ask the user for a write-scoped key.",
+    "scopes": "API keys carry scopes. A read key can call list, get, notification settings read, the analytics endpoints, and the audit log. A write key additionally allows create, update, delete, and notification settings updates. Calling a write tool with a read-only key returns 403 insufficient_scope; do not retry, ask the user for a write-scoped key.",
     "auditTrail": "Every successful create, update, and delete is recorded in the audit log with before/after state. Use list_audit_log to show the user what changed or to support an undo.",
-    "writeConfirmationPolicy": "Ask for user confirmation before any write (create, update, cancel, pause, resume, delete). For cancel and delete, repeat the target subscription name and id."
+    "writeConfirmationPolicy": "Ask for user confirmation before any write (create, update, delete, update_notification_settings). For delete, repeat the target subscription name and id.",
+    "outOfScope": "Do not claim you can configure Bark URL/device key, send a test push, change timeZone/locale, or manage the category catalog. Those stay in the web app. If the user asks to paste a Bark URL or run a test push, refuse and point them to Settings → Notifications in the web app, and to the reminders guide at /en/user-guide/reminders (Chinese: /zh-CN/user-guide/reminders). After Bark is configured on the web, you may toggle enabled/daysBefore and per-subscription notificationEnabled."
   },
   "tools": [
     {
@@ -82,7 +85,7 @@
         "The user asks to show, search, analyze, or summarize subscriptions.",
         "The user names a subscription but does not provide its UUID.",
         "The user asks which subscriptions renew soon (use status=active with expiringBefore).",
-        "The agent needs current state before planning an update, cancel, or delete."
+        "The agent needs current state before planning an update or delete."
       ],
       "doNotUseWhen": [
         "The user provides a known UUID and asks for only that exact record.",
@@ -92,7 +95,7 @@
         "Show all my subscriptions.",
         "Which subscriptions renew before the end of the month?",
         "Find my Netflix subscription.",
-        "List my cancelled subscriptions."
+        "List my active subscriptions."
       ],
       "parameters": {
         "type": "object",
@@ -112,7 +115,11 @@
           },
           "status": {
             "type": "string",
-            "enum": ["active", "paused", "cancelled"],
+            "enum": [
+              "active",
+              "paused",
+              "cancelled"
+            ],
             "description": "Filter by lifecycle state."
           },
           "category": {
@@ -121,7 +128,11 @@
           },
           "period": {
             "type": "string",
-            "enum": ["monthly", "yearly", "custom"],
+            "enum": [
+              "monthly",
+              "yearly",
+              "custom"
+            ],
             "description": "Filter by billing period."
           },
           "q": {
@@ -135,7 +146,16 @@
           },
           "sort": {
             "type": "string",
-            "enum": ["createdAt", "-createdAt", "nextPaymentDate", "-nextPaymentDate", "amount", "-amount", "name", "-name"],
+            "enum": [
+              "createdAt",
+              "-createdAt",
+              "nextPaymentDate",
+              "-nextPaymentDate",
+              "amount",
+              "-amount",
+              "name",
+              "-name"
+            ],
             "default": "-createdAt",
             "description": "Sort order. Prefix with - for descending, for example -nextPaymentDate."
           }
@@ -164,7 +184,9 @@
       ],
       "parameters": {
         "type": "object",
-        "required": ["id"],
+        "required": [
+          "id"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -211,11 +233,10 @@
       "requiredScope": "write",
       "confirmationPrompt": "I will update subscription {id} with these fields: {patch}. Confirm?",
       "useWhen": [
-        "The target subscription has been identified and the user asks to change amount, category, currency, period, nextPaymentDate, customDate, name, notificationEnabled, isTrial, trialEndsOn, or status."
+        "The target subscription has been identified and the user asks to change amount, category, currency, period, nextPaymentDate, customDate, name, notificationEnabled, isTrial, or trialEndsOn."
       ],
       "doNotUseWhen": [
-        "The user wants to permanently remove the record. Use delete_subscription after explicit confirmation.",
-        "The user only wants to stop billing but keep history. Use cancel_subscription or pause_subscription."
+        "The user wants to permanently remove the record. Use delete_subscription after explicit confirmation."
       ],
       "naturalLanguageExamples": [
         "Change Netflix to yearly billing.",
@@ -224,7 +245,10 @@
       ],
       "parameters": {
         "type": "object",
-        "required": ["id", "patch"],
+        "required": [
+          "id",
+          "patch"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -239,121 +263,11 @@
       }
     },
     {
-      "name": "cancel_subscription",
-      "operationId": "updateSubscription",
-      "method": "PATCH",
-      "path": "/api/v1/subscriptions/{id}",
-      "fixedBody": {
-        "status": "cancelled"
-      },
-      "purpose": "Mark a subscription as cancelled. This is a soft state change: billing stops but the record and its history are kept, so it can be resumed later. Prefer this over delete_subscription when the user says they stopped using a service.",
-      "riskLevel": "high",
-      "requiresConfirmation": true,
-      "requiredScope": "write",
-      "confirmationPrompt": "I will mark subscription {name} ({id}) as cancelled. It will stop counting toward active spend but stay in your history. Confirm?",
-      "useWhen": [
-        "The user says they no longer use a service and want to stop tracking it as active.",
-        "The user asks to cancel a subscription but may want it back later."
-      ],
-      "doNotUseWhen": [
-        "The user wants the record permanently gone. Use delete_subscription.",
-        "The user only wants a temporary break. Use pause_subscription."
-      ],
-      "naturalLanguageExamples": [
-        "I don't use Figma anymore, cancel it.",
-        "Cancel my Spotify subscription."
-      ],
-      "parameters": {
-        "type": "object",
-        "required": ["id"],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Subscription id returned by list_subscriptions."
-          }
-        },
-        "additionalProperties": false
-      }
-    },
-    {
-      "name": "pause_subscription",
-      "operationId": "updateSubscription",
-      "method": "PATCH",
-      "path": "/api/v1/subscriptions/{id}",
-      "fixedBody": {
-        "status": "paused"
-      },
-      "purpose": "Mark a subscription as paused. Billing is treated as temporarily stopped; the record is kept and can be resumed.",
-      "riskLevel": "medium",
-      "requiresConfirmation": true,
-      "requiredScope": "write",
-      "confirmationPrompt": "I will pause subscription {name} ({id}). Confirm?",
-      "useWhen": [
-        "The user wants to temporarily stop a subscription without cancelling it."
-      ],
-      "doNotUseWhen": [
-        "The user is permanently done with the service. Use cancel_subscription or delete_subscription."
-      ],
-      "naturalLanguageExamples": [
-        "Pause my gym membership for now.",
-        "Temporarily stop tracking Netflix."
-      ],
-      "parameters": {
-        "type": "object",
-        "required": ["id"],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Subscription id returned by list_subscriptions."
-          }
-        },
-        "additionalProperties": false
-      }
-    },
-    {
-      "name": "resume_subscription",
-      "operationId": "updateSubscription",
-      "method": "PATCH",
-      "path": "/api/v1/subscriptions/{id}",
-      "fixedBody": {
-        "status": "active"
-      },
-      "purpose": "Reactivate a paused or cancelled subscription by setting its status back to active.",
-      "riskLevel": "medium",
-      "requiresConfirmation": true,
-      "requiredScope": "write",
-      "confirmationPrompt": "I will reactivate subscription {name} ({id}). Confirm?",
-      "useWhen": [
-        "The user wants to resume a paused or cancelled subscription."
-      ],
-      "doNotUseWhen": [
-        "The subscription is already active."
-      ],
-      "naturalLanguageExamples": [
-        "Reactivate my Spotify subscription.",
-        "I'm using Figma again, mark it active."
-      ],
-      "parameters": {
-        "type": "object",
-        "required": ["id"],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Subscription id returned by list_subscriptions."
-          }
-        },
-        "additionalProperties": false
-      }
-    },
-    {
       "name": "delete_subscription",
       "operationId": "deleteSubscription",
       "method": "DELETE",
       "path": "/api/v1/subscriptions/{id}",
-      "purpose": "Permanently delete a tracked subscription record. This cannot be undone and removes audit history for the record.",
+      "purpose": "Permanently delete a tracked subscription record. This cannot be undone and removes audit history for the record. This is the public API removal path; soft cancel/pause via status is not supported.",
       "riskLevel": "high",
       "requiresConfirmation": true,
       "requiredScope": "write",
@@ -362,8 +276,7 @@
         "The user explicitly asks to permanently delete or remove a tracked subscription and confirms the exact target."
       ],
       "doNotUseWhen": [
-        "The user only wants to stop billing or stop using the service. Use cancel_subscription so the record and history are kept.",
-        "The user wants a temporary break. Use pause_subscription."
+        "The user wants to change fields on a subscription they still track. Use update_subscription instead."
       ],
       "naturalLanguageExamples": [
         "Delete the duplicate Netflix record permanently.",
@@ -371,12 +284,85 @@
       ],
       "parameters": {
         "type": "object",
-        "required": ["id"],
+        "required": [
+          "id"
+        ],
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid",
             "description": "Subscription id returned by list_subscriptions or create_subscription."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_notification_settings",
+      "operationId": "getNotificationSettings",
+      "method": "GET",
+      "path": "/api/v1/notification-settings",
+      "purpose": "Read the account's global reminder settings: enabled, daysBefore, read-only timeZone/locale, and whether Bark is configured. Does not return Bark secrets.",
+      "riskLevel": "low",
+      "requiresConfirmation": false,
+      "useWhen": [
+        "The user asks whether reminders are on, how many days in advance they fire, or whether Bark is configured.",
+        "The agent needs current global reminder state before changing enabled or daysBefore."
+      ],
+      "doNotUseWhen": [
+        "The user wants to change a single subscription's reminder toggle; use update_subscription with notificationEnabled.",
+        "The user wants to set a Bark URL or send a test push; refuse and point to the web reminders guide."
+      ],
+      "naturalLanguageExamples": [
+        "Are my renewal reminders enabled?",
+        "How many days before renewal do you remind me?",
+        "Is Bark configured on my account?"
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "update_notification_settings",
+      "operationId": "updateNotificationSettings",
+      "method": "PATCH",
+      "path": "/api/v1/notification-settings",
+      "purpose": "Update global reminder settings. Writable fields are only enabled and daysBefore (1, 3, 7, or 14). timeZone, locale, Bark URL, and test push are not writable.",
+      "riskLevel": "medium",
+      "requiresConfirmation": true,
+      "requiredScope": "write",
+      "confirmationPrompt": "I will update your global reminder settings to {patch}. Confirm?",
+      "useWhen": [
+        "The user asks to turn global reminders on or off, or change the advance reminder window."
+      ],
+      "doNotUseWhen": [
+        "The user wants to paste a Bark URL, change timezone/locale, or send a test push.",
+        "Notification settings do not exist yet (API returns 404); tell the user to configure Bark once in the web app first."
+      ],
+      "naturalLanguageExamples": [
+        "Turn on my renewal reminders.",
+        "Remind me 7 days before renewals.",
+        "Disable global Bark reminders."
+      ],
+      "parameters": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Global reminder master switch."
+          },
+          "daysBefore": {
+            "type": "integer",
+            "enum": [
+              1,
+              3,
+              7,
+              14
+            ],
+            "description": "Days before renewal or trial end to send a reminder."
           }
         },
         "additionalProperties": false
@@ -518,18 +504,24 @@
         "message": "Human-readable error",
         "field": "period",
         "suggestedFix": "Use one of the supported billing periods: monthly, yearly, custom.",
-        "allowedValues": ["monthly", "yearly", "custom"]
+        "allowedValues": [
+          "monthly",
+          "yearly",
+          "custom"
+        ]
       },
       "requestId": "request-..."
     },
     "agentBehavior": [
       "If field and suggestedFix are present, revise the payload and retry only when the user's intent is unchanged.",
-      "If the failed operation is create, update, cancel, pause, resume, or delete, ask for confirmation again before retrying when the effective write changes.",
+      "If the failed operation is create, update, delete, or update_notification_settings, ask for confirmation again before retrying when the effective write changes.",
       "On 403 insufficient_scope, do not retry: the API key is read-only. Tell the user a write-scoped key is required for this action.",
       "On 400 invalid_query, correct the filter or sort parameter named in field and retry.",
       "Validation errors (400) are rejected before the hourly quota is consumed, so fixing the payload and retrying does not cost rate-limit budget.",
       "On 429, wait the number of seconds in the Retry-After header before retrying.",
-      "Use requestId when reporting unresolved API errors."
+      "Use requestId when reporting unresolved API errors.",
+      "On 404 notification_settings_not_found, do not invent Bark credentials. Tell the user to open the web app Settings → Notifications and follow /en/user-guide/reminders (Chinese: /zh-CN/user-guide/reminders), then retry.",
+      "If the user asks to configure a Bark URL or send a test push, refuse: those are web-only. Point them to the reminders guide links above."
     ]
   },
   "$defs": {
@@ -540,31 +532,77 @@
     },
     "subscriptionWrite": {
       "type": "object",
-      "required": ["name", "category", "amount", "currency", "period", "nextPaymentDate"],
+      "required": [
+        "name",
+        "category",
+        "amount",
+        "currency",
+        "period",
+        "nextPaymentDate"
+      ],
       "properties": {
-        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "amount": { "type": "number", "minimum": 0, "maximum": 999999.99, "multipleOf": 0.01 },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "amount": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 999999.99,
+          "multipleOf": 0.01
+        },
         "currency": {
           "type": "string",
-          "enum": ["CNY", "USD", "EUR", "JPY", "GBP", "AUD", "CAD", "CHF", "HKD", "SGD"]
+          "enum": [
+            "CNY",
+            "USD",
+            "EUR",
+            "JPY",
+            "GBP",
+            "AUD",
+            "CAD",
+            "CHF",
+            "HKD",
+            "SGD"
+          ]
         },
-        "period": { "type": "string", "enum": ["monthly", "yearly", "custom"] },
-        "nextPaymentDate": { "$ref": "#/$defs/dateOnly" },
-        "billingAnchorDay": { "type": "integer", "minimum": 1, "maximum": 31 },
+        "period": {
+          "type": "string",
+          "enum": [
+            "monthly",
+            "yearly",
+            "custom"
+          ]
+        },
+        "nextPaymentDate": {
+          "$ref": "#/$defs/dateOnly"
+        },
+        "billingAnchorDay": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31
+        },
         "customDate": {
           "type": "string",
           "pattern": "^[1-9]\\d*$",
           "description": "Required only when period is custom. Omit for monthly or yearly subscriptions."
         },
-        "notificationEnabled": { "type": "boolean", "default": true },
-        "isTrial": { "type": "boolean", "default": false },
-        "trialEndsOn": { "$ref": "#/$defs/dateOnly" },
-        "status": {
-          "type": "string",
-          "enum": ["active", "paused", "cancelled"],
-          "default": "active",
-          "description": "Lifecycle state. Defaults to active on create."
+        "notificationEnabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "isTrial": {
+          "type": "boolean",
+          "default": false
+        },
+        "trialEndsOn": {
+          "$ref": "#/$defs/dateOnly"
         }
       },
       "additionalProperties": false
@@ -573,21 +611,66 @@
       "type": "object",
       "minProperties": 1,
       "properties": {
-        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "category": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "amount": { "type": "number", "minimum": 0, "maximum": 999999.99, "multipleOf": 0.01 },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "amount": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 999999.99,
+          "multipleOf": 0.01
+        },
         "currency": {
           "type": "string",
-          "enum": ["CNY", "USD", "EUR", "JPY", "GBP", "AUD", "CAD", "CHF", "HKD", "SGD"]
+          "enum": [
+            "CNY",
+            "USD",
+            "EUR",
+            "JPY",
+            "GBP",
+            "AUD",
+            "CAD",
+            "CHF",
+            "HKD",
+            "SGD"
+          ]
         },
-        "period": { "type": "string", "enum": ["monthly", "yearly", "custom"] },
-        "nextPaymentDate": { "$ref": "#/$defs/dateOnly" },
-        "billingAnchorDay": { "type": "integer", "minimum": 1, "maximum": 31 },
-        "customDate": { "type": "string", "pattern": "^[1-9]\\d*$" },
-        "notificationEnabled": { "type": "boolean" },
-        "isTrial": { "type": "boolean" },
-        "trialEndsOn": { "$ref": "#/$defs/dateOnly" },
-        "status": { "type": "string", "enum": ["active", "paused", "cancelled"] }
+        "period": {
+          "type": "string",
+          "enum": [
+            "monthly",
+            "yearly",
+            "custom"
+          ]
+        },
+        "nextPaymentDate": {
+          "$ref": "#/$defs/dateOnly"
+        },
+        "billingAnchorDay": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31
+        },
+        "customDate": {
+          "type": "string",
+          "pattern": "^[1-9]\\d*$"
+        },
+        "notificationEnabled": {
+          "type": "boolean"
+        },
+        "isTrial": {
+          "type": "boolean"
+        },
+        "trialEndsOn": {
+          "$ref": "#/$defs/dateOnly"
+        }
       },
       "additionalProperties": false
     }

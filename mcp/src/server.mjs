@@ -62,6 +62,12 @@ const describeTool = (tool) => {
   if (tool.requiredScope) {
     lines.push(`Requires the '${tool.requiredScope}' API key scope.`);
   }
+  if (Array.isArray(tool.doNotUseWhen) && tool.doNotUseWhen.length > 0) {
+    lines.push(`Do not use when: ${tool.doNotUseWhen.join(' ')}`);
+  }
+  if (schema.globalConventions?.outOfScope) {
+    lines.push(schema.globalConventions.outOfScope);
+  }
   return lines.join(' ');
 };
 

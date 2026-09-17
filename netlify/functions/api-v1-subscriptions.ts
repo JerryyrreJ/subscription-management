@@ -76,7 +76,6 @@ const allowedSubscriptionFields = new Set([
   'notificationEnabled',
   'isTrial',
   'trialEndsOn',
-  'status',
 ]);
 
 const writableSubscriptionFields = Array.from(allowedSubscriptionFields).sort();
@@ -94,7 +93,6 @@ const subscriptionFieldGuidance: Record<string, string> = {
   notificationEnabled: 'Use true or false. Omit the field to use the default value true.',
   isTrial: 'Use true to mark a free trial. Trial end dates are one-shot and are not auto-advanced like nextPaymentDate.',
   trialEndsOn: 'Use the trial end / first-charge date in YYYY-MM-DD format when isTrial is true.',
-  status: `Use one of the supported lifecycle states: ${SUBSCRIPTION_STATUSES.join(', ')}. Set cancelled to stop tracking without deleting history.`,
 };
 
 const ALLOWED_METHODS = 'GET, POST, PATCH, DELETE, OPTIONS';
@@ -249,7 +247,7 @@ const assertAllowedFields = (body: Record<string, unknown>): void => {
     throw new HttpError(400, 'invalid_subscription_field', `Field is not writable: ${unknownField}`, {}, {
       field: unknownField,
       writableFields: writableSubscriptionFields,
-      suggestedFix: 'Remove server-managed fields such as id, createdAt, and updatedAt before retrying.',
+      suggestedFix: 'Remove non-writable fields such as id, createdAt, updatedAt, and status before retrying.',
     });
   }
 };
@@ -264,9 +262,7 @@ const getValidationDetails = (error: z.ZodError) => {
       ? SUBSCRIPTION_CURRENCIES
       : field === 'period'
         ? SUBSCRIPTION_PERIODS
-        : field === 'status'
-          ? SUBSCRIPTION_STATUSES
-          : undefined,
+        : undefined,
     suggestedFix: field
       ? subscriptionFieldGuidance[field] ?? 'Correct the field value and retry the request.'
       : 'Validate the request body against the subscription write schema before retrying.',
@@ -354,7 +350,8 @@ const toDatabasePayload = (
     notification_enabled: parsed.notificationEnabled,
     is_trial: isTrial,
     trial_ends_on: isTrial ? (trialEndsOn || nextPaymentDate) : null,
-    status: parsed.status,
+    // Status is not writable through the public API; new records are always active.
+    status: 'active',
   };
 };
 
