@@ -117,6 +117,7 @@ test('monthly cycle one month ahead does not report negative days used at 2026-0
   // Recording instant: 06:00 UTC = 14:00 Asia/Shanghai. Both calendars are Sep 18.
   withMockedNow('2026-09-18T06:00:00.000Z', () => {
     assert.equal(formatInstantToDateOnly(new Date(), 'UTC'), '2026-09-18');
+    assert.equal(formatInstantToDateOnly(new Date(), 'Asia/Hong_Kong'), '2026-09-18');
     assert.equal(formatInstantToDateOnly(new Date(), 'Asia/Shanghai'), '2026-09-18');
 
     const subscription = createSubscriptionRecord({
@@ -131,7 +132,7 @@ test('monthly cycle one month ahead does not report negative days used at 2026-0
     assert.equal(subscription.lastPaymentDate, '2026-09-18');
     assert.equal(subscription.nextPaymentDate, '2026-10-18');
 
-    for (const timeZone of ['UTC', 'Asia/Shanghai']) {
+    for (const timeZone of ['UTC', 'Asia/Hong_Kong', 'Asia/Shanghai']) {
       const usage = getBillingCycleUsage(
         subscription.lastPaymentDate,
         subscription.nextPaymentDate,
