@@ -3,13 +3,16 @@ import assert from 'node:assert/strict';
 import {
   addBillingPeriodToDate,
   calculateNextPaymentDate,
+  calculatePreviousPaymentDate,
   formatDate,
   formatMonthYear,
   formatInstantToDateOnly,
   getAutoRenewedDates,
+  getBillingCycleUsage,
   getDaysUntil,
   subtractBillingPeriodFromDate,
 } from '../../src/utils/dates.ts';
+import { createSubscriptionRecord } from '../../src/utils/subscriptionDomain.ts';
 
 const withMockedNow = (isoDateTime: string, run: () => void) => {
   const RealDate = Date;
@@ -80,6 +83,80 @@ test('getDaysUntil uses the provided time zone calendar day', () => {
   withMockedNow('2026-04-04T01:30:00.000Z', () => {
     assert.equal(getDaysUntil('2026-04-04', 'UTC'), 0);
     assert.equal(getDaysUntil('2026-04-04', 'America/Los_Angeles'), 1);
+  });
+});
+
+test('monthly cycle one month ahead of today never reports negative days used at timezone midnight', () => {
+  // 2026-09-18 00:30 in Asia/Shanghai; UTC calendar date is still 2026-09-17.
+  withMockedNow('2026-09-17T16:30:00.000Z', () => {
+    const today = formatInstantToDateOnly(new Date(), 'Asia/Shanghai');
+    assert.equal(today, '2026-09-18');
+
+    const nextPaymentDate = calculateNextPaymentDate(today, 'monthly');
+    assert.equal(nextPaymentDate, '2026-10-18');
+    const lastPaymentDate = calculatePreviousPaymentDate(nextPaymentDate, 'monthly');
+    assert.equal(lastPaymentDate, '2026-09-18');
+
+    const shanghaiUsage = getBillingCycleUsage(lastPaymentDate, nextPaymentDate, 'Asia/Shanghai');
+    assert.equal(shanghaiUsage.daysTotal, 30);
+    assert.equal(shanghaiUsage.daysUntil, 30);
+    assert.equal(shanghaiUsage.daysUsed, 0);
+    assert.equal(shanghaiUsage.daysUsed + shanghaiUsage.daysUntil, shanghaiUsage.daysTotal);
+
+    // Same instant in UTC still thinks last payment is tomorrow, so remaining
+    // is 31 vs a 30-day cycle (used = 30 - 31). That must not render as -1.
+    const utcUsage = getBillingCycleUsage(lastPaymentDate, nextPaymentDate, 'UTC');
+    assert.equal(utcUsage.daysTotal, 30);
+    assert.equal(utcUsage.daysUntil, 31);
+    assert.equal(utcUsage.daysUsed, 0);
+    assert.ok(utcUsage.daysUsed >= 0);
+  });
+});
+
+test('monthly cycle one month ahead does not report negative days used at 2026-09-18 06:00 UTC', () => {
+  // Recording instant: 06:00 UTC = 14:00 Asia/Shanghai. Both calendars are Sep 18.
+  withMockedNow('2026-09-18T06:00:00.000Z', () => {
+    assert.equal(formatInstantToDateOnly(new Date(), 'UTC'), '2026-09-18');
+    assert.equal(formatInstantToDateOnly(new Date(), 'Asia/Hong_Kong'), '2026-09-18');
+    assert.equal(formatInstantToDateOnly(new Date(), 'Asia/Shanghai'), '2026-09-18');
+
+    const subscription = createSubscriptionRecord({
+      name: 'Netflix',
+      category: 'Entertainment',
+      amount: 15.49,
+      currency: 'USD',
+      period: 'monthly',
+      nextPaymentDate: '2026-10-18',
+      notificationEnabled: true,
+    });
+    assert.equal(subscription.lastPaymentDate, '2026-09-18');
+    assert.equal(subscription.nextPaymentDate, '2026-10-18');
+
+    for (const timeZone of ['UTC', 'Asia/Hong_Kong', 'Asia/Shanghai']) {
+      const usage = getBillingCycleUsage(
+        subscription.lastPaymentDate,
+        subscription.nextPaymentDate,
+        timeZone
+      );
+      assert.equal(usage.daysTotal, 30);
+      assert.equal(usage.daysUntil, 30);
+      assert.equal(usage.daysUsed, 0);
+      assert.ok(usage.daysUsed >= 0);
+      assert.equal(usage.daysUsed + usage.daysUntil, usage.daysTotal);
+    }
+
+    // Same UTC instant, timezone still on Sep 17: lastPayment is "tomorrow",
+    // so used = 30 - 31 without the clamp. The label must still be 0.
+    assert.equal(formatInstantToDateOnly(new Date(), 'America/Los_Angeles'), '2026-09-17');
+    const pacificUsage = getBillingCycleUsage(
+      subscription.lastPaymentDate,
+      subscription.nextPaymentDate,
+      'America/Los_Angeles'
+    );
+    assert.equal(pacificUsage.daysTotal, 30);
+    assert.equal(pacificUsage.daysUntil, 31);
+    assert.equal(pacificUsage.daysUsed, 0);
+    assert.ok(pacificUsage.daysUsed >= 0);
   });
 });
 
