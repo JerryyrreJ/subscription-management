@@ -12,6 +12,7 @@ import {
   getDaysUntil,
   subtractBillingPeriodFromDate,
 } from '../../src/utils/dates.ts';
+import { createSubscriptionRecord } from '../../src/utils/subscriptionDomain.ts';
 
 const withMockedNow = (isoDateTime: string, run: () => void) => {
   const RealDate = Date;
@@ -109,6 +110,52 @@ test('monthly cycle one month ahead of today never reports negative days used at
     assert.equal(utcUsage.daysUntil, 31);
     assert.equal(utcUsage.daysUsed, 0);
     assert.ok(utcUsage.daysUsed >= 0);
+  });
+});
+
+test('monthly cycle one month ahead does not report negative days used at 2026-09-18 06:00 UTC', () => {
+  // Recording instant: 06:00 UTC = 14:00 Asia/Shanghai. Both calendars are Sep 18.
+  withMockedNow('2026-09-18T06:00:00.000Z', () => {
+    assert.equal(formatInstantToDateOnly(new Date(), 'UTC'), '2026-09-18');
+    assert.equal(formatInstantToDateOnly(new Date(), 'Asia/Shanghai'), '2026-09-18');
+
+    const subscription = createSubscriptionRecord({
+      name: 'Netflix',
+      category: 'Entertainment',
+      amount: 15.49,
+      currency: 'USD',
+      period: 'monthly',
+      nextPaymentDate: '2026-10-18',
+      notificationEnabled: true,
+    });
+    assert.equal(subscription.lastPaymentDate, '2026-09-18');
+    assert.equal(subscription.nextPaymentDate, '2026-10-18');
+
+    for (const timeZone of ['UTC', 'Asia/Shanghai']) {
+      const usage = getBillingCycleUsage(
+        subscription.lastPaymentDate,
+        subscription.nextPaymentDate,
+        timeZone
+      );
+      assert.equal(usage.daysTotal, 30);
+      assert.equal(usage.daysUntil, 30);
+      assert.equal(usage.daysUsed, 0);
+      assert.ok(usage.daysUsed >= 0);
+      assert.equal(usage.daysUsed + usage.daysUntil, usage.daysTotal);
+    }
+
+    // Same UTC instant, timezone still on Sep 17: lastPayment is "tomorrow",
+    // so used = 30 - 31 without the clamp. The label must still be 0.
+    assert.equal(formatInstantToDateOnly(new Date(), 'America/Los_Angeles'), '2026-09-17');
+    const pacificUsage = getBillingCycleUsage(
+      subscription.lastPaymentDate,
+      subscription.nextPaymentDate,
+      'America/Los_Angeles'
+    );
+    assert.equal(pacificUsage.daysTotal, 30);
+    assert.equal(pacificUsage.daysUntil, 31);
+    assert.equal(pacificUsage.daysUsed, 0);
+    assert.ok(pacificUsage.daysUsed >= 0);
   });
 });
 

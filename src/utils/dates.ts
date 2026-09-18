@@ -268,8 +268,9 @@ export const getBillingCycleUsage = (
  const today = formatDateOnly(getTodayDateOnly(timeZone));
  const daysTotal = Math.max(0, diffDateOnlyDays(lastPaymentDate, nextPaymentDate));
  const daysUntil = diffDateOnlyDays(today, nextPaymentDate);
- // used = cycleLength - daysUntil. If "today" is still yesterday in this
- // timezone, daysUntil is one day longer than last→next and used would be -1.
+ // used = cycleLength - daysUntil. lastPayment is derived from nextPayment
+ // (timezone-naive). If this timezone's calendar day is still before that
+ // lastPayment, remaining is one day longer than last→next and used is -1.
  const daysUsed = daysTotal === 0 ? 0 : Math.min(daysTotal, Math.max(0, daysTotal - daysUntil));
  const progress = daysTotal === 0 ? 0 : (daysUsed / daysTotal) * 100;
 
