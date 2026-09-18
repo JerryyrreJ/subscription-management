@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Calendar, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Subscription } from '../types';
-import { formatDate, parseDateOnly, getTodayDateOnly } from '../utils/dates';
+import { formatDate, getBillingCycleUsage, getCurrentTimeZone } from '../utils/dates';
 import { formatCurrency } from '../utils/currency';
 import { getCategoryDisplayName } from '../utils/categories';
 import { resolveSubscriptionRenewal } from '../utils/subscriptionRenewal';
@@ -17,9 +17,10 @@ interface SubscriptionCardProps {
 
 export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: SubscriptionCardProps) {
  const { t } = useTranslation(['subscriptionCard', 'addSubscription', 'categoryLabels']);
+ const timeZone = getCurrentTimeZone();
 
  // 检查是否需要自动续期
- const renewal = resolveSubscriptionRenewal(subscription);
+ const renewal = resolveSubscriptionRenewal(subscription, timeZone);
  const isTrial = isTrialSubscription(subscription);
  const shouldAutoRenew = renewal.isAutoRenewed && !isTrial;
  const autoRenewKey = `${subscription.id}:${renewal.effectiveLastPaymentDate}:${renewal.effectiveNextPaymentDate}`;
@@ -45,15 +46,14 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  const daysUntil = renewal.daysUntilEffectiveNextPayment;
  const isUpcoming = daysUntil <= 7 && daysUntil >= 0;
 
- // Calculate progress
- const lastPaymentDate = parseDateOnly(renewal.effectiveLastPaymentDate);
- const nextPaymentDate = parseDateOnly(renewal.effectiveNextPaymentDate);
- const today = getTodayDateOnly();
- const totalDays = (nextPaymentDate.getTime() - lastPaymentDate.getTime()) / (1000 * 60 * 60 * 24);
- const daysElapsed = (today.getTime() - lastPaymentDate.getTime()) / (1000 * 60 * 60 * 24);
- const progress = Math.min(Math.max((daysElapsed / totalDays) * 100, 0), 100);
- const roundedDaysElapsed = Math.round(daysElapsed);
- const roundedTotalDays = Math.round(totalDays);
+ const cycleUsage = getBillingCycleUsage(
+  renewal.effectiveLastPaymentDate,
+  renewal.effectiveNextPaymentDate,
+  timeZone
+ );
+ const progress = cycleUsage.progress;
+ const roundedDaysElapsed = cycleUsage.daysUsed;
+ const roundedTotalDays = cycleUsage.daysTotal;
  const customDays = Number.parseInt(subscription.customDate || '', 10);
  const periodLabel = subscription.period === 'monthly'
   ? t('addSubscription:periodMonthly')

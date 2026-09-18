@@ -245,14 +245,35 @@ export const calculatePreviousPaymentDate = (
  billingAnchorDay?: number
 ): string => subtractBillingPeriodFromDate(nextPaymentDate, period, customDate, billingAnchorDay);
 
+export const diffDateOnlyDays = (from: Date | string, to: Date | string): number =>
+ Math.round((toDateObject(to).getTime() - toDateObject(from).getTime()) / MS_PER_DAY);
+
 export const getDaysUntil = (
  dateString: string,
  timeZone: string = getCurrentTimeZone()
-): number => {
- const today = getTodayDateOnly(timeZone);
- const date = parseDateOnly(dateString);
- const diffTime = date.getTime() - today.getTime();
- return Math.ceil(diffTime / MS_PER_DAY);
+): number => diffDateOnlyDays(getTodayDateOnly(timeZone), parseDateOnly(dateString));
+
+export interface BillingCycleUsage {
+ daysUsed: number;
+ daysTotal: number;
+ daysUntil: number;
+ progress: number;
+}
+
+export const getBillingCycleUsage = (
+ lastPaymentDate: string,
+ nextPaymentDate: string,
+ timeZone: string = getCurrentTimeZone()
+): BillingCycleUsage => {
+ const today = formatDateOnly(getTodayDateOnly(timeZone));
+ const daysTotal = Math.max(0, diffDateOnlyDays(lastPaymentDate, nextPaymentDate));
+ const daysUntil = diffDateOnlyDays(today, nextPaymentDate);
+ // used = cycleLength - daysUntil. If "today" is still yesterday in this
+ // timezone, daysUntil is one day longer than last→next and used would be -1.
+ const daysUsed = daysTotal === 0 ? 0 : Math.min(daysTotal, Math.max(0, daysTotal - daysUntil));
+ const progress = daysTotal === 0 ? 0 : (daysUsed / daysTotal) * 100;
+
+ return { daysUsed, daysTotal, daysUntil, progress };
 };
 
 export const getAutoRenewedDates = (

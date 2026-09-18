@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import {
   addBillingPeriodToDate,
   calculateNextPaymentDate,
+  calculatePreviousPaymentDate,
   formatDate,
   formatMonthYear,
   formatInstantToDateOnly,
   getAutoRenewedDates,
+  getBillingCycleUsage,
   getDaysUntil,
   subtractBillingPeriodFromDate,
 } from '../../src/utils/dates.ts';
@@ -80,6 +82,33 @@ test('getDaysUntil uses the provided time zone calendar day', () => {
   withMockedNow('2026-04-04T01:30:00.000Z', () => {
     assert.equal(getDaysUntil('2026-04-04', 'UTC'), 0);
     assert.equal(getDaysUntil('2026-04-04', 'America/Los_Angeles'), 1);
+  });
+});
+
+test('monthly cycle one month ahead of today never reports negative days used at timezone midnight', () => {
+  // 2026-09-18 00:30 in Asia/Shanghai; UTC calendar date is still 2026-09-17.
+  withMockedNow('2026-09-17T16:30:00.000Z', () => {
+    const today = formatInstantToDateOnly(new Date(), 'Asia/Shanghai');
+    assert.equal(today, '2026-09-18');
+
+    const nextPaymentDate = calculateNextPaymentDate(today, 'monthly');
+    assert.equal(nextPaymentDate, '2026-10-18');
+    const lastPaymentDate = calculatePreviousPaymentDate(nextPaymentDate, 'monthly');
+    assert.equal(lastPaymentDate, '2026-09-18');
+
+    const shanghaiUsage = getBillingCycleUsage(lastPaymentDate, nextPaymentDate, 'Asia/Shanghai');
+    assert.equal(shanghaiUsage.daysTotal, 30);
+    assert.equal(shanghaiUsage.daysUntil, 30);
+    assert.equal(shanghaiUsage.daysUsed, 0);
+    assert.equal(shanghaiUsage.daysUsed + shanghaiUsage.daysUntil, shanghaiUsage.daysTotal);
+
+    // Same instant in UTC still thinks last payment is tomorrow, so remaining
+    // is 31 vs a 30-day cycle (used = 30 - 31). That must not render as -1.
+    const utcUsage = getBillingCycleUsage(lastPaymentDate, nextPaymentDate, 'UTC');
+    assert.equal(utcUsage.daysTotal, 30);
+    assert.equal(utcUsage.daysUntil, 31);
+    assert.equal(utcUsage.daysUsed, 0);
+    assert.ok(utcUsage.daysUsed >= 0);
   });
 });
 
