@@ -20,7 +20,7 @@ AI never writes directly to subscription storage. It prepares a structured comma
 ## Required hosted services
 
 - Supabase auth, because AI capture is only available to signed-in users.
-- Supabase migrations through `20260625000100_ai_budget_reservations.sql`, because quota and budget RPCs are required.
+- Supabase migrations through `20260922000100_ai_monthly_quota.sql`, because monthly quota and budget RPCs are required.
 - Netlify Functions, because provider keys stay server-side.
 - An AI provider key for OpenRouter or Anthropic.
 
@@ -54,8 +54,8 @@ AI_MODEL=claude-haiku-4-5
 All guardrails are server-only variables:
 
 ```bash
-AI_FREE_DAILY_PARSES=20
-AI_PREMIUM_DAILY_PARSES=200
+AI_FREE_MONTHLY_PARSES=10
+AI_PREMIUM_MONTHLY_PARSES=300
 AI_MAX_INPUT_CHARS=20000
 AI_MAX_IMAGE_BYTES=4194304
 AI_MONTHLY_BUDGET_USD=50
@@ -63,13 +63,13 @@ AI_INPUT_USD_PER_MTOK=0.1
 AI_OUTPUT_USD_PER_MTOK=0.4
 ```
 
-Daily quota is per user. Monthly budget is workspace-wide and is enforced with an atomic reservation before the provider call, so concurrent requests cannot all enter the model call after observing the same old spend.
+Monthly quota is per user and is charged only after a successful parse. Monthly budget is workspace-wide and is enforced with an atomic reservation before the provider call, so concurrent requests cannot all enter the model call after observing the same old spend.
 
 ## Privacy model
 
 The pasted text or uploaded screenshot is sent once to the configured model provider for extraction. Subscription Manager does not store or log the content. The database keeps only:
 
-- Per-user daily AI capture counters.
+- Per-user monthly AI capture counters.
 - Workspace-wide monthly aggregate token counts.
 
 Function logs include request id, user id, command type, and token counts, but not the raw input.
@@ -81,7 +81,7 @@ Common error codes returned by `/.netlify/functions/ai-parse-subscriptions`:
 | Code | Meaning |
 | --- | --- |
 | `ai_unavailable` | No provider key is configured |
-| `ai_quota_exceeded` | The signed-in user has used today's quota |
+| `ai_quota_exceeded` | The signed-in user has used this month's quota |
 | `ai_budget_exceeded` | The workspace monthly budget is exhausted |
 | `input_too_large` | Text exceeds `AI_MAX_INPUT_CHARS` |
 | `image_too_large` | Image exceeds `AI_MAX_IMAGE_BYTES` |

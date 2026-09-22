@@ -36,9 +36,9 @@ netlify/functions/stripe-webhook.ts
 
 ## Stripe Dashboard 设置
 
-1. 创建 Stripe product。
-2. 创建一次性 price。
-3. 只把 Price ID 配置到服务端可信变量 `STRIPE_PRICE_ID`。
+1. 创建 Stripe product（例如 `Subscription Manager Premium`）。
+2. 创建 **一次性** Price，金额 **$9.00 USD**（终身）。不要复用旧的 $6 Price——新建 Price 即可，Product 可保留。
+3. 把新的 Price ID（`price_...`）写入服务端可信变量 `STRIPE_PRICE_ID`（Netlify / 本地 `.env`）。`VITE_STRIPE_PRICE_ID` 仅作旧版服务端回退；浏览器不会用它授权 checkout。
 4. 将 publishable key 和 secret key 添加到对应环境。
 5. 创建 webhook endpoint：
 

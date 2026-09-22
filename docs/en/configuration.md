@@ -33,8 +33,8 @@ The core app runs without environment variables. Add environment variables only 
 | `AI_FALLBACK_MODELS` | Comma-separated OpenRouter fallback models | Server only |
 | `OPENROUTER_SITE_URL` | Optional OpenRouter referer; falls back to `SITE_URL` or `URL` | Server only |
 | `OPENROUTER_APP_TITLE` | Optional OpenRouter app title header | Server only |
-| `AI_FREE_DAILY_PARSES` | Free user AI captures per day; defaults to `20` | Server only |
-| `AI_PREMIUM_DAILY_PARSES` | Premium user AI captures per day; defaults to `200` | Server only |
+| `AI_FREE_MONTHLY_PARSES` | Free user AI captures per month (successful parses only); defaults to `10`. Legacy `AI_FREE_DAILY_PARSES` is accepted as a fallback. | Server only |
+| `AI_PREMIUM_MONTHLY_PARSES` | Premium user AI captures per month (successful parses only); defaults to `300`. Legacy `AI_PREMIUM_DAILY_PARSES` is accepted as a fallback. | Server only |
 | `AI_MAX_INPUT_CHARS` | AI capture text input cap; defaults to `20000` | Server only |
 | `AI_MAX_IMAGE_BYTES` | AI capture image cap; defaults to `4194304` | Server only |
 | `AI_MONTHLY_BUDGET_USD` | Workspace-wide monthly AI capture budget; defaults to `50` | Server only |

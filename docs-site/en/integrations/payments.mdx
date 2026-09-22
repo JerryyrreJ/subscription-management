@@ -39,9 +39,9 @@ netlify/functions/stripe-webhook.ts
 
 ## Stripe dashboard setup
 
-1. Create a Stripe product.
-2. Create a one-time price.
-3. Set the Price ID only in the trusted server variable `STRIPE_PRICE_ID`.
+1. Create a Stripe product (for example `Subscription Manager Premium`).
+2. Create a **one-time** Price of **$9.00 USD** (lifetime). Do not reuse an old $6 Price — create a new Price and keep the product if you want.
+3. Copy the new Price ID (`price_...`) into the trusted server variable `STRIPE_PRICE_ID`. Optionally keep `VITE_STRIPE_PRICE_ID` only as a legacy server fallback; the browser does not trust it for checkout.
 4. Add your publishable key and secret key to the correct environments.
 5. Create a webhook endpoint for:
 

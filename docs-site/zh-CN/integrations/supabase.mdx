@@ -15,7 +15,7 @@ Supabase 是 Subscription Manager 的可选云层。未配置 Supabase 时，应
 - 订阅数据表。
 - 付费状态和套餐信息。
 - Bark 提醒配置。
-- AI 录入的每日配额与月度预算计数。
+- AI 录入的每月配额与月度预算计数。
 
 ## 配置步骤
 
@@ -38,7 +38,7 @@ supabase/migrations/20260619000100_ai_capture.sql
 supabase/migrations/20260625000100_ai_budget_reservations.sql
 ```
 
-AI 录入相关表只保存每日调用次数和月度聚合 token 计数，不保存用户粘贴的文本、截图或解析内容。
+AI 录入相关表只保存每月调用次数和月度聚合 token 计数，不保存用户粘贴的文本、截图或解析内容。
 
 ## 安全边界
 

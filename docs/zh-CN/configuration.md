@@ -33,8 +33,8 @@
 | `AI_FALLBACK_MODELS` | OpenRouter fallback 模型，逗号分隔 | 仅服务端 |
 | `OPENROUTER_SITE_URL` | 可选 OpenRouter referer；默认回退到 `SITE_URL` 或 `URL` | 仅服务端 |
 | `OPENROUTER_APP_TITLE` | 可选 OpenRouter app title header | 仅服务端 |
-| `AI_FREE_DAILY_PARSES` | 普通用户每日 AI 录入次数，默认 `20` | 仅服务端 |
-| `AI_PREMIUM_DAILY_PARSES` | Premium 用户每日 AI 录入次数，默认 `200` | 仅服务端 |
+| `AI_FREE_MONTHLY_PARSES` | 普通用户每月 AI 录入次数（仅成功解析计次），默认 `10`。旧名 `AI_FREE_DAILY_PARSES` 仍可作回退。 | 仅服务端 |
+| `AI_PREMIUM_MONTHLY_PARSES` | Premium 用户每月 AI 录入次数（仅成功解析计次），默认 `300`。旧名 `AI_PREMIUM_DAILY_PARSES` 仍可作回退。 | 仅服务端 |
 | `AI_MAX_INPUT_CHARS` | AI 录入文本长度上限，默认 `20000` | 仅服务端 |
 | `AI_MAX_IMAGE_BYTES` | AI 录入图片大小上限，默认 `4194304` | 仅服务端 |
 | `AI_MONTHLY_BUDGET_USD` | 工作区级月度 AI 录入预算，默认 `50` | 仅服务端 |

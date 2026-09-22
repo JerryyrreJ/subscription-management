@@ -5,7 +5,7 @@ description: "使用 Stripe Checkout 和 webhook 激活 Premium 能力。"
 
 # 支付集成
 
-支付能力是可选的。启用后，用户可以通过 Stripe Checkout 升级 Premium，并解锁更高的 API Key 和请求限额。
+支付能力是可选的。启用后，用户可以通过 Stripe Checkout 以 **$9 USD 终身** 升级 Premium（主卖 AI 额度与进阶分析 / PDF，不当 API 限流卖点）。
 
 ## 组成部分
 
@@ -19,15 +19,23 @@ description: "使用 Stripe Checkout 和 webhook 激活 Premium 能力。"
 ```bash
 STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
+STRIPE_PRICE_ID=price_...   # 必须是 $9 USD 一次性 Price
 SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
 这些变量不能暴露给浏览器。
 
+## Stripe Dashboard
+
+1. 创建 Product（例如 Premium Lifetime）。
+2. **新建** One-time Price：**$9.00 USD**（不要复用旧的 $6 Price）。
+3. 将新 Price ID 写入 Netlify / `.env` 的 `STRIPE_PRICE_ID`。
+4. 配置 webhook：`checkout.session.completed` → `/.netlify/functions/stripe-webhook`。
+
 ## Webhook
 
-Webhook 必须校验 Stripe 签名。只有签名合法的事件才能更新用户套餐状态。
+Webhook 必须校验 Stripe 签名，并核对购买的 Price ID 与 `STRIPE_PRICE_ID` 一致。只有校验通过才会激活 Premium。
 
 ## 与 API 限额的关系
 
-Premium 用户默认拥有更高的 API 请求限额和更多 active API keys。具体数值可以通过 API 限额环境变量覆盖。
+开放 API / MCP 保留统一防滥用上限；Premium 可能提高内部天花板，但**不在定价页作为卖点**。开发者 API 页面仍会显示当前套餐与限流数字，便于自查。
