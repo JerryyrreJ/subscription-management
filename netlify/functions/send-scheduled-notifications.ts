@@ -1,3 +1,4 @@
+import { requirePlaintextAccount } from './_shared/e2ee'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { BARK_NOTIFICATION_ICON_URL, sendBarkNotification } from '../../src/utils/barkPush'
 import { formatDateOnly, getTodayDateOnly, normalizeTimeZone } from '../../src/utils/dates'
@@ -61,7 +62,6 @@ function buildSubscriptionLogContext(
 ): string {
   return buildUserLogContext(userId, {
     subscription_id: subscription.id,
-    subscription_name: subscription.name,
     ...details
   })
 }
@@ -329,6 +329,8 @@ export default async (req: Request): Promise<Response> => {
             }
 
             deliveryReserved = true
+
+            await requirePlaintextAccount(supabase, user_id)
 
             // 发送 Bark 推送
             const success = await sendBarkNotification(

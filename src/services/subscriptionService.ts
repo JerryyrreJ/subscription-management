@@ -1,3 +1,4 @@
+import { requirePlaintextClient, handlePlaintextRejection, vaultEnabled, readVault, vaultSubscriptions } from '../lib/e2ee/vault'
 import { supabase } from '../lib/supabase'
 import { PendingSyncOperation, Subscription, SyncSubscriptionsResult, UploadLocalSubscriptionsResult } from '../types'
 import { config } from '../lib/config'
@@ -45,11 +46,13 @@ export class SubscriptionService {
  throw new Error('User not authenticated')
  }
 
+ await requirePlaintextClient(user.id)
  return user.id
  }
 
  // 获取云端数据
  static async getSubscriptions(): Promise<Subscription[]> {
+ if (vaultEnabled()) return (await readVault()).subscriptions
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -65,6 +68,7 @@ export class SubscriptionService {
  )
 
  if (error) {
+ handlePlaintextRejection(error, userId)
  console.error('Error fetching subscriptions:', error)
  throw error
  }
@@ -74,6 +78,7 @@ export class SubscriptionService {
 
  // 创建订阅
  static async createSubscription(subscription: Subscription | Omit<Subscription, 'id'>): Promise<Subscription> {
+ if (vaultEnabled()) return vaultSubscriptions.create(subscription)
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -96,6 +101,7 @@ export class SubscriptionService {
  .single()
 
  if (error) {
+ handlePlaintextRejection(error, userId)
  console.error('Error creating subscription:', error)
  throw error
  }
@@ -105,6 +111,7 @@ export class SubscriptionService {
 
  // 更新订阅
  static async updateSubscription(subscription: Subscription): Promise<Subscription> {
+ if (vaultEnabled()) return vaultSubscriptions.update(subscription)
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -123,6 +130,7 @@ export class SubscriptionService {
  .single()
 
  if (error) {
+ handlePlaintextRejection(error, userId)
  console.error('Error updating subscription:', error)
  throw error
  }
@@ -132,6 +140,7 @@ export class SubscriptionService {
 
  // 删除订阅
  static async deleteSubscription(id: string): Promise<void> {
+ if (vaultEnabled()) return vaultSubscriptions.remove(id)
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -146,6 +155,7 @@ export class SubscriptionService {
  )
 
  if (error) {
+ handlePlaintextRejection(error, userId)
  console.error('Error deleting subscription:', error)
  throw error
  }
@@ -156,6 +166,7 @@ export class SubscriptionService {
  localSubscriptions: Subscription[],
  pendingOperations: PendingSyncOperation[] = []
  ): Promise<SyncSubscriptionsResult> {
+ if (vaultEnabled()) return { subscriptions: (await readVault()).subscriptions, pendingOperations: [] }
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -191,6 +202,7 @@ export class SubscriptionService {
  pendingOperations: remainingOperations
  }
  } catch (error) {
+ if (vaultEnabled()) throw error
  console.error('Error syncing subscriptions:', error)
 
  return {
@@ -272,7 +284,7 @@ export class SubscriptionService {
  }
 
  // 数据格式转换：Supabase -> App
- private static transformFromSupabase(data: SupabaseSubscription): Subscription {
+ static transformFromSupabase(data: SupabaseSubscription): Subscription {
  return normalizeSubscriptionRecord({
  id: data.id,
  name: data.name,
@@ -285,6 +297,7 @@ export class SubscriptionService {
  billingAnchorDay: data.billing_anchor_day ?? undefined,
  customDate: data.custom_date,
  updatedAt: data.updated_at,
+ status: (data as SupabaseSubscription & { status?: Subscription['status'] }).status ?? 'active',
  notificationEnabled: data.notification_enabled ?? true, // 默认 true
  isTrial: Boolean(data.is_trial),
  trialEndsOn: data.trial_ends_on ?? undefined,

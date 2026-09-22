@@ -111,9 +111,12 @@ export const createFakeSupabaseClient = (
   rpcResolver: (name: string, args: Record<string, unknown>) => QueryResult = () => ({
     data: null,
     error: null,
-  })
+  }),
+  encryptedUsers: readonly string[] = []
 ): SupabaseClient => ({
-  from: (table: string) => new FakeQueryBuilder(table, resolver),
+  from: (table: string) => new FakeQueryBuilder(table, state => state.table === 'encrypted_vaults'
+    ? { data: encryptedUsers.includes(String(state.filters.user_id)) ? { user_id: state.filters.user_id } : null, error: null }
+    : resolver(state)),
   rpc: (name: string, args: Record<string, unknown>) => Promise.resolve(rpcResolver(name, args)),
 } as unknown as SupabaseClient);
 

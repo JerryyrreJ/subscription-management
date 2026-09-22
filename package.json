@@ -19,9 +19,10 @@
     "test:functions": "node --import tsx --test tests/functions/*.test.ts",
     "db:start": "supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor",
     "db:verify": "npm run db:start && supabase db reset --local && supabase db lint --local --fail-on error && supabase test db --local",
-    "check": "npm run typecheck && npm run lint && npm test && npm run test:functions && npm run build",
+    "check": "npm run typecheck && npm run lint && npm test && npm run test:functions && npm run test:e2ee-db && npm run build",
     "preview": "vite preview",
-    "test:notifications": "tsx scripts/test-scheduled-function-v2.ts"
+    "test:notifications": "tsx scripts/test-scheduled-function-v2.ts",
+    "test:e2ee-db": "node --import tsx --test tests/e2ee/database.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
@@ -38,6 +39,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@eslint/js": "^9.9.1",
     "@types/node": "22.19.21",
     "@types/react": "^18.3.5",

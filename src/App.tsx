@@ -1,3 +1,4 @@
+import { vaultEnabled } from './lib/e2ee/vault';
 import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
 import { Plus, BarChart3, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -171,7 +172,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  const appLocale = normalizeLocale(i18n.language);
  const appUser = passwordRecoveryPending ? null : user;
  const appSession = passwordRecoveryPending ? null : session;
- const notificationReady = isBarkReady(notificationSettings);
+ const notificationReady = !vaultEnabled() && isBarkReady(notificationSettings);
  const notificationScope = appUser ? getUserDataScope(appUser.id) : GUEST_DATA_SCOPE;
 
  useEffect(() => {
@@ -391,11 +392,11 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   return;
  }
 
- if (appUser && isOwnedGuestDataForUser(appUser.id)) {
+ if (!vaultEnabled() && appUser && isOwnedGuestDataForUser(appUser.id)) {
   migrateOwnedGuestDataToUserScope(appUser.id);
  }
 
- if (appUser) {
+ if (appUser && !vaultEnabled()) {
   migrateUnownedGuestDataToUserScope(appUser.id);
  }
 
@@ -537,6 +538,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setIsAddModalOpen(false);
  } catch (error) {
  console.error('Failed to add subscription:', error);
+ if (vaultEnabled()) throw error;
  // 错误处理已在Hook中完成，这里只是确保模态框关闭
  setIsAddModalOpen(false);
  }
@@ -549,6 +551,10 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setSelectedSubscription(null);
  } catch (error) {
  console.error('Failed to delete subscription:', error);
+ if (vaultEnabled()) {
+  alert(appLocale === 'zh-CN' ? '删除未保存。请检查网络，先同步后重试。' : 'Deletion was not saved. Check your connection, sync and retry.');
+  return;
+ }
  // 错误处理已在Hook中完成
  setSelectedSubscription(null);
  }
@@ -562,6 +568,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setIsEditModalOpen(false);
  } catch (error) {
  console.error('Failed to edit subscription:', error);
+ if (vaultEnabled()) throw error;
  // 错误处理已在Hook中完成
  setSelectedSubscription(null);
  setIsEditModalOpen(false);
@@ -632,6 +639,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  // 导出数据
  const handleExportData = () => {
+ if (vaultEnabled() && !window.confirm(appLocale === 'zh-CN' ? '导出文件包含未加密的订阅详情，请妥善保管。继续？' : 'The exported file contains unencrypted subscription details. Continue?')) return;
  try {
  exportData();
  } catch (error) {
@@ -898,6 +906,10 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  </div>
  </div>
 
+ {vaultEnabled() && <div className="rounded-2xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950 p-4 flex flex-wrap gap-3 justify-between text-emerald-900 dark:text-emerald-100">
+  <span>{appLocale === 'zh-CN' ? '端到端加密已启用 · 在线保存 · 刷新后需要恢复密钥解锁' : 'End-to-end encryption enabled · online saves · recovery key required after refresh'}</span>
+  <button onClick={() => openSettingsHub('encryption')}>{appLocale === 'zh-CN' ? '加密设置' : 'Encryption settings'}</button>
+ </div>}
  <Dashboard
  subscriptions={sortedSubscriptions}
  viewMode={viewMode}
@@ -929,7 +941,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  <button
  onClick={() => {
- if (appUser && appSession?.access_token && config.hasSupabaseConfig) {
+ if (!vaultEnabled() && appUser && appSession?.access_token && config.hasSupabaseConfig) {
  setIsAiCaptureOpen(true);
  } else {
  setIsAddModalOpen(true);
@@ -964,7 +976,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   isOpen={isAddModalOpen}
   onClose={() => setIsAddModalOpen(false)}
   onAdd={handleAddSubscription}
-  onOpenNotificationSettings={() => openSettingsHub('notifications')}
+  onOpenNotificationSettings={() => openSettingsHub(vaultEnabled() ? 'encryption' : 'notifications')}
   categorySync={{
    createCategory
   }}

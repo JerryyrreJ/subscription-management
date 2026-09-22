@@ -1,3 +1,4 @@
+import { requirePlaintextClient, handlePlaintextRejection, vaultEnabled, readVault, vaultCategories } from '../lib/e2ee/vault'
 import { supabase } from '../lib/supabase'
 import { Category } from '../utils/categories'
 import { config } from '../lib/config'
@@ -27,11 +28,13 @@ export class CategoryService {
  throw new Error('User not authenticated')
  }
 
+ await requirePlaintextClient(user.id)
  return user.id
  }
 
  // 获取云端类别数据
  static async getCategories(): Promise<Category[]> {
+ if (vaultEnabled()) return (await readVault()).categories
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -48,6 +51,7 @@ export class CategoryService {
  )
 
  if (error) {
+ handlePlaintextRejection(error, userId)
  console.error('Error fetching categories:', error)
  throw error
  }
@@ -57,6 +61,7 @@ export class CategoryService {
 
  // 创建类别
  static async createCategory(category: Category): Promise<Category> {
+ if (vaultEnabled()) return vaultCategories.put(category)
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -78,6 +83,7 @@ export class CategoryService {
  .single()
 
  if (error) {
+ handlePlaintextRejection(error, userId)
  console.error('Error creating category:', error)
  throw error
  }
@@ -87,6 +93,7 @@ export class CategoryService {
 
  // 更新类别
  static async updateCategory(category: Category): Promise<Category> {
+ if (vaultEnabled()) return vaultCategories.put(category)
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -110,6 +117,7 @@ export class CategoryService {
  .single()
 
  if (error) {
+ handlePlaintextRejection(error, userId)
  console.error('Error updating category:', error)
  throw error
  }
@@ -119,6 +127,7 @@ export class CategoryService {
 
  // 删除类别
  static async deleteCategory(categoryId: string): Promise<void> {
+ if (vaultEnabled()) return vaultCategories.remove(categoryId)
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -134,6 +143,7 @@ export class CategoryService {
  )
 
  if (error) {
+ handlePlaintextRejection(error, userId)
  console.error('Error deleting category:', error)
  throw error
  }
@@ -154,6 +164,7 @@ export class CategoryService {
 
  return cloudCategories
  } catch (error) {
+ if (vaultEnabled()) throw error
  console.error('Error syncing categories:', error)
  // 如果同步失败，返回本地数据作为降级方案
  return localCategories
@@ -190,6 +201,7 @@ export class CategoryService {
 
  // 批量更新类别顺序
  static async updateCategoriesOrder(categories: Category[]): Promise<void> {
+ if (vaultEnabled()) return vaultCategories.order(categories)
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -222,7 +234,7 @@ export class CategoryService {
  }
 
  // 数据格式转换：Supabase -> App
- private static transformFromSupabase(data: SupabaseCategory): Category {
+ static transformFromSupabase(data: SupabaseCategory): Category {
  return {
  id: data.category_id,
  name: data.name,

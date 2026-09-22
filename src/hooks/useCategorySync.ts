@@ -1,3 +1,4 @@
+import { vaultEnabled, readVault } from '../lib/e2ee/vault'
 import { useState, useCallback, useRef } from 'react'
 import { User } from '@supabase/supabase-js'
 import { CloudMutationResult } from '../types'
@@ -183,6 +184,12 @@ export function useCategorySync(
 
  // 创建类别（自动同步）
  const createCategory = useCallback(async (category: Category): Promise<CloudMutationResult<Category>> => {
+ if (vaultEnabled()) {
+  await CategoryService.createCategory(category)
+  const next = (await readVault()).categories
+  persistCategories(next)
+  return buildCloudMutationResult(category, true, false)
+ }
  const scope = resolveScope()
  const hadPendingSync = Boolean(loadPendingCategorySync(scope))
  const categories = loadCategories(scope)
@@ -223,6 +230,12 @@ export function useCategorySync(
 
  // 更新类别（自动同步）
  const updateCategory = useCallback(async (category: Category): Promise<CloudMutationResult<Category>> => {
+ if (vaultEnabled()) {
+  await CategoryService.updateCategory(category)
+  const next = (await readVault()).categories
+  persistCategories(next)
+  return buildCloudMutationResult(category, true, false)
+ }
  const scope = resolveScope()
  const hadPendingSync = Boolean(loadPendingCategorySync(scope))
  const categories = loadCategories(scope)
@@ -263,6 +276,12 @@ export function useCategorySync(
 
  // 删除类别（自动同步）
  const deleteCategory = useCallback(async (categoryId: string): Promise<CloudMutationResult<void>> => {
+ if (vaultEnabled()) {
+  await CategoryService.deleteCategory(categoryId)
+  const next = (await readVault()).categories
+  persistCategories(next)
+  return buildCloudMutationResult(undefined, true, false)
+ }
  const scope = resolveScope()
  const hadPendingSync = Boolean(loadPendingCategorySync(scope))
  const categories = loadCategories(scope)
@@ -311,6 +330,12 @@ export function useCategorySync(
 
  // 更新类别顺序（拖拽排序）
  const updateCategoriesOrder = useCallback(async (categories: Category[]): Promise<CloudMutationResult<Category[]>> => {
+ if (vaultEnabled()) {
+  await CategoryService.updateCategoriesOrder(categories.map((c, order) => ({ ...c, order })))
+  const next = (await readVault()).categories
+  persistCategories(next)
+  return buildCloudMutationResult(next, true, false)
+ }
  const scope = resolveScope()
  // 更新 order 字段
  const reorderedCategories = categories.map((cat, index) => ({

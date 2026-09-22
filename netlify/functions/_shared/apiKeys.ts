@@ -1,3 +1,4 @@
+import { requirePlaintextAccount } from './e2ee';
 import { createHash, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ApiLimitsConfig } from './env';
@@ -217,6 +218,8 @@ export const identifyApiKey = async (
   if (!lookup.id || !lookup.user_id || !lookup.key_prefix) {
     throw new HttpError(401, 'invalid_api_key', 'Invalid API key');
   }
+
+  await requirePlaintextAccount(database, lookup.user_id);
 
   const apiKeyRecord: ApiKeyRecord = {
     id: lookup.id,

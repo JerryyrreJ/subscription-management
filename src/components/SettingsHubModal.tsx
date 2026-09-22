@@ -1,3 +1,5 @@
+import { E2EESettings } from './settings/E2EESettings';
+import { vaultEnabled } from '../lib/e2ee/vault';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, User, Settings, Folder, Bell, Code2 } from 'lucide-react';
@@ -9,7 +11,7 @@ import { DeveloperApiModal } from './DeveloperApiModal';
 import { CloudMutationResult, ReminderSettings, Subscription } from '../types';
 import { Category } from '../utils/categories';
 
-export type SettingsTab = 'general' | 'account' | 'categories' | 'notifications' | 'api';
+export type SettingsTab = 'general' | 'account' | 'categories' | 'notifications' | 'api' | 'encryption';
 
 interface CategorySyncMethods {
   createCategory: (category: Category) => Promise<CloudMutationResult<Category>>;
@@ -71,7 +73,7 @@ export function SettingsHubModal({
   notificationSettings,
   onSaveNotificationSettings
 }: SettingsHubModalProps) {
-  const { t } = useTranslation(['settingsHub']);
+  const { t, i18n } = useTranslation(['settingsHub']);
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
 
   useEffect(() => {
@@ -87,10 +89,11 @@ export function SettingsHubModal({
     { id: 'account', label: t('settingsHub:tabs.account'), icon: User, requiresAuth: true },
     { id: 'categories', label: t('settingsHub:tabs.categories'), icon: Folder, requiresAuth: false },
     { id: 'notifications', label: t('settingsHub:tabs.notifications'), icon: Bell, requiresAuth: false },
+    { id: 'encryption', label: i18n.language.startsWith('zh') ? '端到端加密' : 'Encryption', icon: Settings, requiresAuth: true },
     { id: 'api', label: t('settingsHub:tabs.api'), icon: Code2, requiresAuth: true },
   ] as const;
 
-  const visibleTabs = tabs.filter(tab => !tab.requiresAuth || user);
+  const visibleTabs = tabs.filter(tab => (!tab.requiresAuth || user) && !(vaultEnabled() && (tab.id === 'notifications' || tab.id === 'api')));
   const selectedTab = visibleTabs.some(tab => tab.id === activeTab) ? activeTab : 'general';
 
   return (
@@ -160,6 +163,7 @@ export function SettingsHubModal({
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-4 sm:px-10 pb-8 sm:pb-10">
+            {selectedTab === 'encryption' && <E2EESettings />}
             {selectedTab === 'general' && (
               <GeneralSettingsContent 
                 onExportData={onExportData} 

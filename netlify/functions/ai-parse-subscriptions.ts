@@ -1,3 +1,4 @@
+import { requirePlaintextAccount } from './_shared/e2ee';
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticateRequest, type AuthClient } from './_shared/auth';
@@ -330,6 +331,8 @@ export const createAiParseHandler = (
       event.headers,
       dependencies.createAuthClient(dependencies.supabaseConfig)
     );
+
+    await requirePlaintextAccount(dependencies.database, authenticated.userId);
 
     // No key configured (e.g. a self-host without one) -> feature is off; the UI
     // falls back to the manual form.

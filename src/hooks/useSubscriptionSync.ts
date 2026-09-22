@@ -1,3 +1,4 @@
+import { vaultEnabled } from '../lib/e2ee/vault'
 import { Dispatch, SetStateAction, useState, useCallback, useRef } from 'react'
 import { User } from '@supabase/supabase-js'
 import { PendingSyncOperation, Subscription } from '../types'
@@ -223,6 +224,7 @@ export function useSubscriptionSync(
  setLastSyncTime(new Date())
  return newSubscription
  } catch (error) {
+ if (vaultEnabled()) throw error
  console.error('Failed to save subscription online:', error)
  // 降级到离线模式
  setSubscriptions(prev => {
@@ -288,6 +290,7 @@ export function useSubscriptionSync(
  setLastSyncTime(new Date())
  return updatedSubscription
  } catch (error) {
+ if (vaultEnabled()) throw error
  console.error('Failed to update subscription online:', error)
  // 降级到离线模式
  setSubscriptions(prev => {
@@ -374,6 +377,7 @@ export function useSubscriptionSync(
  removeQueuedOperations(id)
  setLastSyncTime(new Date())
  } catch (error) {
+ if (vaultEnabled()) throw error
  console.error('Failed to delete subscription online:', error)
  // 降级到离线模式：使用函数式更新
  setSubscriptions(prev => {

@@ -1,3 +1,4 @@
+import { requirePlaintextAccount } from './_shared/e2ee';
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
@@ -195,6 +196,7 @@ export const createApiKeysHandler = (
       event.headers,
       dependencies.createAuthClient(dependencies.supabaseConfig)
     );
+    await requirePlaintextAccount(dependencies.database, authenticated.userId);
     const profile = await getProfile(dependencies.database, authenticated.userId);
 
     if (event.httpMethod === 'GET') {

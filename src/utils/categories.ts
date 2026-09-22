@@ -1,3 +1,4 @@
+import { privateStorage } from '../lib/e2ee/storage';
 import { DataScope, GUEST_DATA_SCOPE, getActiveDataScope, resolveScopedStorageKey } from './dataScope'
 import type { TFunction } from 'i18next'
 
@@ -116,7 +117,7 @@ export function coerceToExistingCategory(
 export function loadCategories(scope?: DataScope): Category[] {
  try {
  const dataScope = scope ?? getActiveDataScope()
- const stored = localStorage.getItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope))
+ const stored = privateStorage.getItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope))
 
  if (stored) {
  const categories: Category[] = JSON.parse(stored)
@@ -125,7 +126,7 @@ export function loadCategories(scope?: DataScope): Category[] {
 
  // 数据迁移：检查是否有旧版本数据
  const oldCustomCategories = dataScope === GUEST_DATA_SCOPE
-  ? localStorage.getItem('subscription_custom_categories')
+  ? privateStorage.getItem('subscription_custom_categories')
   : null
  if (oldCustomCategories) {
  console.log('Migrating categories from v1 to v2...')
@@ -147,7 +148,7 @@ export function loadCategories(scope?: DataScope): Category[] {
  saveCategories(migratedCategories, scope)
 
  // 删除旧数据
- localStorage.removeItem('subscription_custom_categories')
+ privateStorage.removeItem('subscription_custom_categories')
 
  return migratedCategories
  }
@@ -167,7 +168,7 @@ export function loadCategories(scope?: DataScope): Category[] {
  */
 export function saveCategories(categories: Category[], scope?: DataScope): void {
  try {
- localStorage.setItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope), JSON.stringify(categories))
+ privateStorage.setItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope), JSON.stringify(categories))
  } catch (error) {
  console.error('Error saving categories:', error)
  }
@@ -178,7 +179,7 @@ export function saveCategories(categories: Category[], scope?: DataScope): void 
  */
 export function clearCategories(scope?: DataScope): void {
  try {
- localStorage.removeItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope))
+ privateStorage.removeItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope))
  } catch (error) {
  console.error('Error clearing categories:', error)
  }
@@ -189,7 +190,7 @@ export function clearCategories(scope?: DataScope): void {
  */
 export function loadPendingCategorySync(scope?: DataScope): Category[] | null {
  try {
- const stored = localStorage.getItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope))
+ const stored = privateStorage.getItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope))
  if (!stored) {
  return null
  }
@@ -217,7 +218,7 @@ export function loadPendingCategorySync(scope?: DataScope): Category[] | null {
  */
 export function savePendingCategorySync(categories: Category[], scope?: DataScope): void {
  try {
- localStorage.setItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope), JSON.stringify(categories))
+ privateStorage.setItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope), JSON.stringify(categories))
  } catch (error) {
  console.error('Error saving pending category sync state:', error)
  }
@@ -228,7 +229,7 @@ export function savePendingCategorySync(categories: Category[], scope?: DataScop
  */
 export function clearPendingCategorySync(scope?: DataScope): void {
  try {
- localStorage.removeItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope))
+ privateStorage.removeItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope))
  } catch (error) {
  console.error('Error clearing pending category sync state:', error)
  }

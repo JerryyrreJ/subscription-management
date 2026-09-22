@@ -1,3 +1,4 @@
+import { privateStorage } from '../lib/e2ee/storage';
 import { ReminderSettings } from '../types';
 import { getCurrentTimeZone, getDaysUntil, normalizeTimeZone } from './dates';
 import { DataScope, resolveScopedStorageKey } from './dataScope';
@@ -44,7 +45,7 @@ export function getDefaultNotificationSettings(): ReminderSettings {
  */
 export function loadNotificationSettings(scope?: DataScope): ReminderSettings {
  try {
- const stored = localStorage.getItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope));
+ const stored = privateStorage.getItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope));
  if (!stored) {
  return getDefaultNotificationSettings();
  }
@@ -53,7 +54,7 @@ export function loadNotificationSettings(scope?: DataScope): ReminderSettings {
  const cleanedSettings = cleanupNotificationHistory(normalizeNotificationSettings(parsedSettings));
 
  if (JSON.stringify(parsedSettings) !== JSON.stringify(cleanedSettings)) {
-  localStorage.setItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope), JSON.stringify(cleanedSettings));
+  privateStorage.setItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope), JSON.stringify(cleanedSettings));
  }
 
  return cleanedSettings;
@@ -69,7 +70,7 @@ export function loadNotificationSettings(scope?: DataScope): ReminderSettings {
 export function saveNotificationSettings(settings: ReminderSettings, scope?: DataScope): void {
  try {
  const cleanedSettings = cleanupNotificationHistory(normalizeNotificationSettings(settings));
- localStorage.setItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope), JSON.stringify(cleanedSettings));
+ privateStorage.setItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope), JSON.stringify(cleanedSettings));
  } catch (error) {
  console.error('Failed to save notification settings:', error);
  }
@@ -77,7 +78,7 @@ export function saveNotificationSettings(settings: ReminderSettings, scope?: Dat
 
 export function clearNotificationSettings(scope?: DataScope): void {
  try {
- localStorage.removeItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope));
+ privateStorage.removeItem(resolveScopedStorageKey(NOTIFICATION_STORAGE_KEY, scope));
  } catch (error) {
  console.error('Failed to clear notification settings:', error);
  }

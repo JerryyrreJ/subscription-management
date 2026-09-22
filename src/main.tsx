@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
+import { E2EEGate } from './components/E2EEGate';
 import { AuthProvider } from './contexts/AuthContext';
 import './i18n';
 import './index.css';
@@ -11,7 +11,7 @@ if (!rootElement) throw new Error('Root element not found');
 createRoot(rootElement).render(
  <StrictMode>
  <AuthProvider>
- <App />
+ <E2EEGate />
  </AuthProvider>
  </StrictMode>
 );

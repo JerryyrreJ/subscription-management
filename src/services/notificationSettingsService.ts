@@ -1,3 +1,4 @@
+import { vaultEnabled } from '../lib/e2ee/vault'
 import { supabase } from '../lib/supabase'
 import { ReminderSettings } from '../types'
 import { config } from '../lib/config'
@@ -36,6 +37,7 @@ export class NotificationSettingsService {
 
  // 获取云端通知设置
  static async getSettings(): Promise<ReminderSettings | null> {
+ if (vaultEnabled()) return null
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -75,6 +77,7 @@ export class NotificationSettingsService {
 
  // 保存/更新通知设置
  static async saveSettings(settings: ReminderSettings): Promise<ReminderSettings> {
+ if (vaultEnabled()) return { ...settings, barkPush: { ...settings.barkPush, enabled: false } }
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
