@@ -4,7 +4,7 @@ import { config } from '../lib/config'
 import { cleanupNotificationHistory } from '../utils/notificationChecker'
 import { getCurrentTimeZone, normalizeTimeZone } from '../utils/dates'
 import { getCurrentLocale, normalizeLocale } from '../utils/locale'
-import { buildNotificationSettingsConfigPayload, NotificationSettingsConfigPayload } from '../utils/notificationSettingsPayload'
+import { buildNotificationContextPayload, buildNotificationSettingsConfigPayload, NotificationSettingsConfigPayload } from '../utils/notificationSettingsPayload'
 
 export interface SupabaseNotificationSettings {
  id: string
@@ -72,6 +72,18 @@ export class NotificationSettingsService {
 
  return settings
 }
+
+ // Automatic locale/time-zone sync must never overwrite API-managed preferences.
+ static async updateContext(context: { locale?: string; timeZone?: string }): Promise<void> {
+ const userId = await this.getAuthenticatedUserId()
+ const payload = buildNotificationContextPayload(context)
+ if (Object.keys(payload).length === 0) return
+ const { error } = await supabase!
+ .from('user_notification_settings')
+ .update(payload)
+ .eq('user_id', userId)
+ if (error) throw error
+ }
 
  // 保存/更新通知设置
  static async saveSettings(settings: ReminderSettings): Promise<ReminderSettings> {

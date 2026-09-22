@@ -350,8 +350,8 @@ const toDatabasePayload = (
     notification_enabled: parsed.notificationEnabled,
     is_trial: isTrial,
     trial_ends_on: isTrial ? (trialEndsOn || nextPaymentDate) : null,
-    // Status is not writable through the public API; new records are always active.
-    status: 'active',
+    // Creates default to active; edits preserve the existing read-only lifecycle.
+    status: parsed.status ?? 'active',
   };
 };
 
@@ -490,7 +490,23 @@ const parsePatchInput = (
   }
 
   if (merged.isTrial) {
+    if (Object.hasOwn(body, 'trialEndsOn') && Object.hasOwn(body, 'nextPaymentDate')
+      && patch.trialEndsOn && patch.trialEndsOn !== patch.nextPaymentDate) {
+      throw new HttpError(400, 'invalid_subscription', 'Trial end and next payment dates must agree', {}, {
+        field: 'trialEndsOn',
+      });
+    }
+    if (Object.hasOwn(body, 'trialEndsOn') && patch.trialEndsOn) {
+      merged.trialEndsOn = patch.trialEndsOn;
+    } else if (Object.hasOwn(body, 'nextPaymentDate') || Object.hasOwn(body, 'lastPaymentDate')) {
+      merged.trialEndsOn = merged.nextPaymentDate;
+    }
     merged.trialEndsOn = merged.trialEndsOn ?? merged.nextPaymentDate;
+    if (merged.period === 'monthly' && !Object.hasOwn(body, 'billingAnchorDay')
+      && (Object.hasOwn(body, 'trialEndsOn') || Object.hasOwn(body, 'nextPaymentDate')
+        || Object.hasOwn(body, 'lastPaymentDate'))) {
+      merged.billingAnchorDay = getDateOnlyDay(merged.trialEndsOn as string);
+    }
     merged.nextPaymentDate = merged.trialEndsOn;
   } else {
     merged.isTrial = false;
