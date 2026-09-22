@@ -225,7 +225,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   saveNotificationSettings(nextSettings, notificationScope);
 
   if (appUser && config.hasSupabaseConfig && isBarkReady(nextSettings)) {
-   void NotificationSettingsService.saveSettings(nextSettings).catch(error => {
+   void NotificationSettingsService.updateContext({ locale: appLocale }).catch(error => {
     console.error('Failed to sync notification locale to cloud:', error);
    });
   }
@@ -249,7 +249,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   setNotificationSettings(nextSettings);
   saveNotificationSettings(nextSettings, notificationScope);
 
-  void NotificationSettingsService.saveSettings(nextSettings).catch(error => {
+  void NotificationSettingsService.updateContext({ timeZone: currentTimeZone }).catch(error => {
    console.error('Failed to sync notification time zone to cloud:', error);
   });
  }, [appUser, loading, notificationScope, notificationSettings]);
