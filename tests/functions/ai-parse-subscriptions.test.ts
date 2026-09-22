@@ -22,8 +22,8 @@ const aiConfig: AiConfig = {
   fallbackModels: [],
   openRouterSiteUrl: null,
   openRouterAppTitle: null,
-  freeDailyParses: 20,
-  premiumDailyParses: 200,
+  freeMonthlyParses: 10,
+  premiumMonthlyParses: 300,
   maxInputChars: 100,
   maxImageBytes: 1000,
   monthlyBudgetUsd: 50,
@@ -48,6 +48,7 @@ interface BuildOptions {
   parser?: SubscriptionParser | null;
   budgetReservation?: { allowed: boolean; input_tokens: number; output_tokens: number; request_count: number };
   quota?: QuotaRow;
+  usedCount?: number;
   queryResolver?: (state: QueryState) => { data: unknown; error: { message: string } | null };
 }
 
@@ -70,12 +71,16 @@ const buildHandler = (opts: BuildOptions = {}) => {
     },
   };
 
-  const quota: QuotaRow = opts.quota ?? { allowed: true, request_count: 1, remaining: 19, reset_at: '2026-06-20T00:00:00.000Z' };
+  const quota: QuotaRow = opts.quota ?? { allowed: true, request_count: 1, remaining: 9, reset_at: '2026-07-01T00:00:00.000Z' };
   const budgetReservation = opts.budgetReservation ?? { allowed: true, input_tokens: 100, output_tokens: 1024, request_count: 1 };
+  const usedCount = opts.usedCount ?? 0;
 
   const defaultQueryResolver = (state: QueryState) => {
     if (state.table === 'user_profiles') {
       return { data: { is_premium: false }, error: null };
+    }
+    if (state.table === 'ai_usage_windows') {
+      return { data: usedCount > 0 ? { request_count: usedCount } : null, error: null };
     }
     return { data: null, error: { message: `Unexpected query: ${state.table}` } };
   };
@@ -125,10 +130,11 @@ test('parses a capture and returns command + remaining quota', async () => {
   assert.equal(body.command.type, 'create');
   assert.equal(body.command.drafts.length, 1);
   assert.equal(body.command.drafts[0].name, 'Netflix');
-  assert.equal(body.quota.remaining, 19);
-  assert.equal(body.quota.limit, 20);
+  assert.equal(body.quota.remaining, 9);
+  assert.equal(body.quota.limit, 10);
   assert.equal(flags.parseCalled, true);
   assert.equal(flags.reserveCalled, true);
+  assert.equal(flags.consumeCalled, true);
   assert.equal(flags.adjustCalled, true);
 });
 
@@ -225,8 +231,8 @@ test('returns 503 when Supabase database queries cannot connect', async () => {
   assert.equal(flags.parseCalled, false);
 });
 
-test('returns 429 with Retry-After when the daily quota is exhausted', async () => {
-  const { handler, flags } = buildHandler({ quota: { allowed: false, request_count: 20, remaining: 0, reset_at: '2026-06-20T00:00:00.000Z' } });
+test('returns 429 with Retry-After when the monthly quota is exhausted', async () => {
+  const { handler, flags } = buildHandler({ usedCount: 10 });
   const response = expectHandlerResponse(await handler(postEvent({ text: 'Netflix' }), {} as never));
   const body = parseJsonResponse<{ error: { code: string } }>(response);
 
@@ -234,6 +240,28 @@ test('returns 429 with Retry-After when the daily quota is exhausted', async () 
   assert.equal(body.error.code, 'ai_quota_exceeded');
   assert.ok(response.headers?.['Retry-After']);
   assert.equal(flags.parseCalled, false);
+  assert.equal(flags.consumeCalled, false);
+  assert.equal(flags.reserveCalled, false);
+});
+
+test('does not charge monthly quota when the model call fails', async () => {
+  let parseInvoked = false;
+  const { handler, flags } = buildHandler({
+    parser: {
+      parse: async () => {
+        parseInvoked = true;
+        throw new Error('model failed');
+      },
+    },
+  });
+  const response = expectHandlerResponse(await handler(postEvent({ text: 'Netflix' }), {} as never));
+  const body = parseJsonResponse<{ error: { code: string } }>(response);
+
+  assert.equal(response.statusCode, 502);
+  assert.equal(body.error.code, 'ai_parse_failed');
+  assert.equal(parseInvoked, true);
+  assert.equal(flags.consumeCalled, false);
+  assert.equal(flags.adjustCalled, true);
 });
 
 test('returns 503 when the configured AI provider cannot connect', async () => {
@@ -250,6 +278,7 @@ test('returns 503 when the configured AI provider cannot connect', async () => {
   assert.equal(response.statusCode, 503);
   assert.equal(body.error.code, 'ai_provider_unavailable');
   assert.equal(flags.reserveCalled, true);
+  assert.equal(flags.consumeCalled, false);
   assert.equal(flags.adjustCalled, true);
 });
 

@@ -100,14 +100,21 @@ const pad = (value: number): string => String(value).padStart(2, '0');
 
 const dateKeys = (now: Date) => {
   const year = now.getUTCFullYear();
-  const month = pad(now.getUTCMonth() + 1);
+  const monthIndex = now.getUTCMonth();
+  const month = pad(monthIndex + 1);
   const day = pad(now.getUTCDate());
+  const nextMonth = new Date(Date.UTC(year, monthIndex + 1, 1));
   return {
     today: `${year}-${month}-${day}`,
     day: `${year}-${month}-${day}`,
     month: `${year}-${month}-01`,
+    monthResetAt: nextMonth.toISOString(),
   };
 };
+
+interface UsageWindowRow {
+  request_count: number | null;
+}
 
 // Decoded byte size of a base64 payload, without allocating the buffer.
 const base64Bytes = (value: string): number => {
@@ -343,7 +350,7 @@ export const createAiParseHandler = (
     // requests never cost a parse.
     const input = parseCaptureInput(event.body, dependencies.aiConfig);
 
-    const { today, day, month } = dateKeys(now);
+    const { today, month, monthResetAt } = dateKeys(now);
 
     const { data: profile, error: profileError } = await runDatabaseRequest(() => dependencies.database
       .from('user_profiles')
@@ -355,8 +362,29 @@ export const createAiParseHandler = (
     }
     const isPremium = Boolean(profile?.is_premium);
     const limit = isPremium
-      ? dependencies.aiConfig.premiumDailyParses
-      : dependencies.aiConfig.freeDailyParses;
+      ? dependencies.aiConfig.premiumMonthlyParses
+      : dependencies.aiConfig.freeMonthlyParses;
+
+    // Soft-check the monthly quota before spending budget or calling the model.
+    // Successful parses only are charged (consume after parse below).
+    const { data: usageRow, error: usageError } = await runDatabaseRequest(() => dependencies.database
+      .from('ai_usage_windows')
+      .select('request_count')
+      .eq('user_id', authenticated.userId)
+      .eq('window_start', month)
+      .maybeSingle<UsageWindowRow>());
+    if (usageError) {
+      throw usageError;
+    }
+    const usedCount = usageRow?.request_count ?? 0;
+    if (usedCount >= limit) {
+      const retryAfter = Math.max(0, Math.ceil((new Date(monthResetAt).getTime() - now.getTime()) / 1000));
+      throw new HttpError(429, 'ai_quota_exceeded', `Monthly AI capture limit reached (${limit})`, {
+        'Retry-After': String(retryAfter),
+      }, {
+        suggestedFix: 'Add subscriptions manually, or upgrade for a higher monthly limit. The limit resets at the start of next month.',
+      });
+    }
 
     // Reserve the estimated request cost before calling the provider. This closes
     // the concurrency race where many requests could all observe the same old
@@ -383,39 +411,8 @@ export const createAiParseHandler = (
       });
     }
 
-    // Per-user daily quota. Charged before the model call so abuse and model
-    // failures can't run up an unbounded bill. If this step fails after budget
-    // reservation, release the reservation because no provider call will happen.
-    let quota: QuotaResult;
-    try {
-      const { data: quotaData, error: quotaError } = await runDatabaseRequest(() => dependencies.database.rpc('consume_ai_quota', {
-        p_user_id: authenticated.userId,
-        p_window_start: day,
-        p_limit: limit,
-      }));
-      if (quotaError) {
-        throw quotaError;
-      }
-      const quotaResult = unwrapQuota(quotaData);
-      if (!quotaResult) {
-        throw new Error('AI quota RPC did not return a result');
-      }
-      if (!quotaResult.allowed) {
-        const retryAfter = Math.max(0, Math.ceil((new Date(quotaResult.reset_at).getTime() - now.getTime()) / 1000));
-        throw new HttpError(429, 'ai_quota_exceeded', `Daily AI capture limit reached (${limit})`, {
-          'Retry-After': String(retryAfter),
-        }, {
-          suggestedFix: 'Add subscriptions manually, or upgrade for a higher daily limit. The limit resets at the listed time.',
-        });
-      }
-      quota = quotaResult;
-    } catch (quotaError) {
-      await releaseBudgetReservation(dependencies.database, month, reserved, requestId);
-      throw quotaError;
-    }
-
-    // The model call. Failures degrade to a friendly error; details are never
-    // surfaced and the raw input is never logged.
+    // The model call. Failures degrade to a friendly error and do not consume
+    // per-user quota. Details are never surfaced and the raw input is never logged.
     let result;
     try {
       result = await dependencies.parser.parse(input, today);
@@ -432,6 +429,36 @@ export const createAiParseHandler = (
       }
       throw new HttpError(502, 'ai_parse_failed', 'AI could not read that input', {}, {
         suggestedFix: 'Try clearer wording or a sharper screenshot, or add the subscription manually.',
+      });
+    }
+
+    // Charge the monthly quota only after a successful parse.
+    let quota: QuotaResult = {
+      allowed: true,
+      request_count: usedCount + 1,
+      remaining: Math.max(limit - usedCount - 1, 0),
+      reset_at: monthResetAt,
+    };
+    try {
+      const { data: quotaData, error: quotaError } = await runDatabaseRequest(() => dependencies.database.rpc('consume_ai_quota', {
+        p_user_id: authenticated.userId,
+        p_window_start: month,
+        p_limit: limit,
+      }));
+      if (quotaError) {
+        throw quotaError;
+      }
+      const quotaResult = unwrapQuota(quotaData);
+      if (quotaResult?.allowed) {
+        quota = quotaResult;
+      } else if (quotaResult) {
+        // Rare race: concurrent successes filled the window after the soft check.
+        // Still return the successful parse; surface remaining as zero.
+        quota = { ...quotaResult, remaining: 0, reset_at: quotaResult.reset_at || monthResetAt };
+      }
+    } catch (quotaError) {
+      logEvent('warn', 'Failed to record AI quota after successful parse', requestId, {
+        ...describeError(quotaError),
       });
     }
 

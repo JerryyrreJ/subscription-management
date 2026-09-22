@@ -9,7 +9,7 @@ export const aiCapture = {
   parsing: 'Reading…',
   manualFallback: 'Fill in manually',
   privacyNote: 'What you paste or upload is sent once for this extraction only — it is never stored or logged.',
-  quotaRemaining: '{{remaining}} of {{limit}} AI captures left today',
+  quotaRemaining: '{{remaining}} of {{limit}} AI captures left this month',
   reviewTitle: 'Review {{count}} found',
   commandReviewTitle: 'Review AI action',
   reviewHint: 'Check the highlighted fields, then save the ones you want to keep.',
@@ -81,7 +81,7 @@ export const aiCapture = {
   },
   errors: {
     ai_unavailable: 'AI capture is not available right now. You can add subscriptions manually.',
-    ai_quota_exceeded: "You've used today's AI captures. Add manually, or upgrade for a higher daily limit.",
+    ai_quota_exceeded: "You've used this month's AI captures. Add manually, or upgrade for a higher monthly limit.",
     ai_budget_exceeded: 'AI capture is paused for this month. You can still add subscriptions manually.',
     input_too_large: 'That text is too long — paste a smaller excerpt.',
     image_too_large: 'That image is too large — downscale or crop it first.',

@@ -49,3 +49,28 @@ test('AI config keeps Anthropic compatibility when only an Anthropic key exists'
   assert.equal(config.inputUsdPerMillion, 1);
   assert.equal(config.outputUsdPerMillion, 5);
 });
+
+test('AI config defaults to monthly Free 10 / Premium 300 parse quotas', () => {
+  const config = getAiConfig({ ANTHROPIC_API_KEY: 'sk-ant-test' });
+
+  assert.equal(config.freeMonthlyParses, 10);
+  assert.equal(config.premiumMonthlyParses, 300);
+});
+
+test('AI config accepts monthly quota overrides and legacy daily env names', () => {
+  const monthly = getAiConfig({
+    ANTHROPIC_API_KEY: 'sk-ant-test',
+    AI_FREE_MONTHLY_PARSES: '12',
+    AI_PREMIUM_MONTHLY_PARSES: '250',
+  });
+  assert.equal(monthly.freeMonthlyParses, 12);
+  assert.equal(monthly.premiumMonthlyParses, 250);
+
+  const legacy = getAiConfig({
+    ANTHROPIC_API_KEY: 'sk-ant-test',
+    AI_FREE_DAILY_PARSES: '8',
+    AI_PREMIUM_DAILY_PARSES: '180',
+  });
+  assert.equal(legacy.freeMonthlyParses, 8);
+  assert.equal(legacy.premiumMonthlyParses, 180);
+});

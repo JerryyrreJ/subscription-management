@@ -185,8 +185,8 @@ export interface AiConfig {
   fallbackModels: string[];
   openRouterSiteUrl: string | null;
   openRouterAppTitle: string | null;
-  freeDailyParses: number;
-  premiumDailyParses: number;
+  freeMonthlyParses: number;
+  premiumMonthlyParses: number;
   maxInputChars: number;
   maxImageBytes: number;
   monthlyBudgetUsd: number;
@@ -232,8 +232,16 @@ export const getAiConfig = (env: Environment = process.env): AiConfig => {
     ),
     openRouterSiteUrl: optionalValue(env.OPENROUTER_SITE_URL || env.SITE_URL || env.URL) ?? null,
     openRouterAppTitle: optionalValue(env.OPENROUTER_APP_TITLE) ?? null,
-    freeDailyParses: optionalPositiveInteger('AI_FREE_DAILY_PARSES', env.AI_FREE_DAILY_PARSES, 20),
-    premiumDailyParses: optionalPositiveInteger('AI_PREMIUM_DAILY_PARSES', env.AI_PREMIUM_DAILY_PARSES, 200),
+    freeMonthlyParses: optionalPositiveInteger(
+      'AI_FREE_MONTHLY_PARSES',
+      env.AI_FREE_MONTHLY_PARSES || env.AI_FREE_DAILY_PARSES,
+      10
+    ),
+    premiumMonthlyParses: optionalPositiveInteger(
+      'AI_PREMIUM_MONTHLY_PARSES',
+      env.AI_PREMIUM_MONTHLY_PARSES || env.AI_PREMIUM_DAILY_PARSES,
+      300
+    ),
     maxInputChars: optionalPositiveInteger('AI_MAX_INPUT_CHARS', env.AI_MAX_INPUT_CHARS, 20000),
     maxImageBytes: optionalPositiveInteger('AI_MAX_IMAGE_BYTES', env.AI_MAX_IMAGE_BYTES, 4 * 1024 * 1024),
     monthlyBudgetUsd: optionalPositiveNumber('AI_MONTHLY_BUDGET_USD', env.AI_MONTHLY_BUDGET_USD, 50),

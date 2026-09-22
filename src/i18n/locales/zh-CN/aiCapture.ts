@@ -9,7 +9,7 @@ export const aiCapture = {
   parsing: '识别中…',
   manualFallback: '手动填写',
   privacyNote: '你粘贴或上传的内容仅用于本次识别，不会被保存或记录。',
-  quotaRemaining: '今日 AI 录入剩余 {{remaining}}/{{limit}} 次',
+  quotaRemaining: '本月 AI 录入剩余 {{remaining}}/{{limit}} 次',
   reviewTitle: '识别到 {{count}} 项，请确认',
   commandReviewTitle: '确认 AI 操作',
   reviewHint: '核对标注的字段，再保存你需要的。',
@@ -81,7 +81,7 @@ export const aiCapture = {
   },
   errors: {
     ai_unavailable: 'AI 录入当前不可用。你可以手动添加订阅。',
-    ai_quota_exceeded: '今日 AI 录入次数已用完。可手动添加，或升级以提高每日额度。',
+    ai_quota_exceeded: '本月 AI 录入次数已用完。可手动添加，或升级以提高每月额度。',
     ai_budget_exceeded: '本月 AI 录入已暂停。你仍可手动添加订阅。',
     input_too_large: '文本太长——请粘贴更短的片段。',
     image_too_large: '图片太大——请先压缩或裁剪。',
