@@ -4,6 +4,8 @@ export const app = {
  loading: '加载中...',
  advancedReport: '高级报表',
  viewAdvancedReport: '查看高级报表',
+ advancedReportPremiumOnly: '进阶分析与 PDF 报告为高级版功能，点击查看定价',
+ premiumBadge: '高级版',
  addFirstSubscription: '添加你的第一个订阅',
  addSubscription: '添加订阅',
  loadingNotificationSettingsTitle: '正在加载通知设置',

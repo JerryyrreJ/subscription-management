@@ -4,6 +4,8 @@ export const app = {
  loading: 'Loading...',
  advancedReport: 'Advanced Report',
  viewAdvancedReport: 'View Advanced Report',
+ advancedReportPremiumOnly: 'Advanced analytics and PDF reports are Premium. Tap to view pricing.',
+ premiumBadge: 'Premium',
  addFirstSubscription: 'Add your first subscription',
  addSubscription: 'Add a subscription',
  loadingNotificationSettingsTitle: 'Loading Notification Settings',

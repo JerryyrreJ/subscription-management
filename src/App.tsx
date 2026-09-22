@@ -157,6 +157,15 @@ export function App() {
  const fileInputRef = useRef<HTMLInputElement>(null);
  const [notificationSettings, setNotificationSettings] = useState<ReminderSettings>(loadNotificationSettings());
  const [isAdvancedReportOpen, setIsAdvancedReportOpen] = useState(false);
+ const canUseAdvancedReport = !config.features.cloudSync || Boolean(userProfile?.is_premium);
+
+ const openAdvancedReport = () => {
+  if (canUseAdvancedReport) {
+   setIsAdvancedReportOpen(true);
+   return;
+  }
+  setIsPricingModalOpen(true);
+ };
  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
@@ -855,12 +864,15 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  </h1>
  {subscriptions.length > 0 && (
  <button
- onClick={() => setIsAdvancedReportOpen(true)}
+ onClick={openAdvancedReport}
  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1a1c1e] text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-apple transition-all text-sm font-medium app-dark-chip"
- title={t('app:viewAdvancedReport')}
+ title={canUseAdvancedReport ? t('app:viewAdvancedReport') : t('app:advancedReportPremiumOnly')}
  >
  <BarChart3 className="w-4 h-4"/>
  <span className="hidden sm:inline">{t('app:advancedReport')}</span>
+ {!canUseAdvancedReport && (
+  <span className="hidden sm:inline text-xs text-amber-700 dark:text-amber-400">{t('app:premiumBadge')}</span>
+ )}
  </button>
  )}
  </div>

@@ -488,7 +488,7 @@ paths:
       tags:
         - Analytics
       summary: Duplicate subscriptions
-      description: Returns groups of non-cancelled subscriptions that share a normalized name, indicating likely duplicate tracking or double billing.
+      description: Premium only. Returns groups of non-cancelled subscriptions that share a normalized name, indicating likely duplicate tracking or double billing. Free accounts should use `/api/v1/analytics/summary` for basic spend totals.
       operationId: findDuplicateSubscriptions
       x-ai:
         purpose: Detect likely double-billing or duplicate tracking by matching normalized subscription names.
@@ -515,6 +515,8 @@ paths:
                 $ref: "#/components/schemas/DuplicatesResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -524,7 +526,7 @@ paths:
       tags:
         - Analytics
       summary: Optimization candidates
-      description: Returns factual optimization candidates - active monthly subscriptions with their current annualized cost, and subscriptions whose monthly cost exceeds twice the per-currency average. No discount rates are invented.
+      description: Premium only. Returns factual optimization candidates - active monthly subscriptions with their current annualized cost, and subscriptions whose monthly cost exceeds twice the per-currency average. No discount rates are invented. Free accounts should use `/api/v1/analytics/summary` for basic spend totals.
       operationId: getOptimizationSuggestions
       x-ai:
         purpose: Surface what the user could cut or switch to annual, using current costs only.
@@ -551,6 +553,8 @@ paths:
                 $ref: "#/components/schemas/OptimizationsResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":

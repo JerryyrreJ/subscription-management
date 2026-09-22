@@ -29,13 +29,13 @@ const rows = [
 ];
 
 const makeDatabase = (
-  options: { scopes?: string[]; subscriptionRows?: unknown[] } = {}
+  options: { scopes?: string[]; subscriptionRows?: unknown[]; isPremium?: boolean } = {}
 ) => createFakeSupabaseClient((state: QueryState) => {
   if (state.table === 'api_keys' && state.operation === 'update') {
     return { data: null, error: null };
   }
   if (state.table === 'user_profiles') {
-    return { data: { is_premium: false }, error: null };
+    return { data: { is_premium: options.isPremium ?? false }, error: null };
   }
   if (state.table === 'subscriptions') {
     return { data: options.subscriptionRows ?? rows, error: null };
@@ -91,7 +91,7 @@ test('summary returns per-currency totals and upcoming renewals', async () => {
 });
 
 test('duplicates groups active subscriptions sharing a name', async () => {
-  const response = expectHandlerResponse(await handlerWith(makeDatabase())(event(
+  const response = expectHandlerResponse(await handlerWith(makeDatabase({ isPremium: true }))(event(
     'GET',
     '/api/v1/analytics/duplicates',
     { authorization: `Bearer ${apiKey}` }
@@ -104,8 +104,8 @@ test('duplicates groups active subscriptions sharing a name', async () => {
   assert.equal(body.duplicates[0].subscriptions.length, 2);
 });
 
-test('optimizations is reachable by a read-only key', async () => {
-  const response = expectHandlerResponse(await handlerWith(makeDatabase({ scopes: ['read'] }))(event(
+test('optimizations is reachable by a read-only premium key', async () => {
+  const response = expectHandlerResponse(await handlerWith(makeDatabase({ scopes: ['read'], isPremium: true }))(event(
     'GET',
     '/api/v1/analytics/optimizations',
     { authorization: `Bearer ${apiKey}` }
@@ -114,6 +114,24 @@ test('optimizations is reachable by a read-only key', async () => {
 
   assert.equal(response.statusCode, 200);
   assert.ok(Array.isArray(body.optimizations.monthlyToAnnual));
+});
+
+test('free accounts cannot call advanced analytics views', async () => {
+  const duplicates = expectHandlerResponse(await handlerWith(makeDatabase())(event(
+    'GET',
+    '/api/v1/analytics/duplicates',
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+  const optimizations = expectHandlerResponse(await handlerWith(makeDatabase())(event(
+    'GET',
+    '/api/v1/analytics/optimizations',
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+
+  assert.equal(duplicates.statusCode, 403);
+  assert.equal(parseJsonResponse<{ error: { code: string } }>(duplicates).error.code, 'premium_required');
+  assert.equal(optimizations.statusCode, 403);
+  assert.equal(parseJsonResponse<{ error: { code: string } }>(optimizations).error.code, 'premium_required');
 });
 
 test('unknown analytics views return 404 with a recovery hint', async () => {

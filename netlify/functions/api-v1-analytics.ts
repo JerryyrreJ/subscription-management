@@ -174,6 +174,18 @@ export const createAnalyticsApiHandler = (
     );
     assertScope(identity.scopes, 'read');
 
+    if ((view === 'duplicates' || view === 'optimizations') && !identity.isPremium) {
+      throw new HttpError(
+        403,
+        'premium_required',
+        'Advanced analytics require Premium',
+        {},
+        {
+          suggestedFix: 'Upgrade to Premium for duplicate detection and optimization insights, or use /api/v1/analytics/summary for basic spend totals.',
+        }
+      );
+    }
+
     const context = await consumeApiRateLimit(dependencies.database, identity, now);
     apiContext = context;
 
