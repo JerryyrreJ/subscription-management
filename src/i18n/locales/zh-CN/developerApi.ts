@@ -16,7 +16,7 @@ export const developerApi = {
  keyName: 'Key 名称',
  createKey: '创建 Key',
  creating: '创建中...',
- keyLimitReached: '当前套餐最多只能保留 {{count}} 个可用 Key。',
+ keyLimitReached: '每个账户最多只能保留 {{count}} 个可用 Key。',
  keys: 'API Keys',
  loading: '正在加载 API Keys...',
  noKeys: '还没有 API Key。',

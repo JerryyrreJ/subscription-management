@@ -1,3 +1,5 @@
+import { runtimeEnvironment, webHandler } from './_shared/webHandler';
+import type { Config } from '@netlify/functions';
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticateRequest, type AuthClient } from './_shared/auth';
@@ -77,8 +79,8 @@ const MAX_CONTEXT_SUBSCRIPTIONS = 200;
 const MAX_OUTPUT_TOKENS = 1024;
 
 const createDefaultDependencies = (): AiParseDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(process.env);
-  const aiConfig = getAiConfig(process.env);
+  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
+  const aiConfig = getAiConfig(runtimeEnvironment);
 
   return {
     supabaseConfig,
@@ -290,32 +292,11 @@ const runDatabaseRequest = async <T>(operation: () => PromiseLike<T> | T): Promi
   }
 };
 
-const releaseBudgetReservation = async (
-  database: SupabaseClient,
-  month: string,
-  reserved: { inputTokens: number; outputTokens: number },
-  requestId: string
-): Promise<void> => {
-  try {
-    const { error: releaseError } = await runDatabaseRequest(() => database.rpc('adjust_ai_cost', {
-      p_window_start: month,
-      p_input_token_delta: -reserved.inputTokens,
-      p_output_token_delta: -reserved.outputTokens,
-    }));
-    if (releaseError) {
-      throw new Error(releaseError.message);
-    }
-  } catch (releaseError) {
-    logEvent('warn', 'Failed to release AI budget reservation', requestId, {
-      ...describeError(releaseError),
-    });
-  }
-};
-
 export const createAiParseHandler = (
   dependenciesFactory: () => AiParseDependencies = createDefaultDependencies
 ): Handler => async (event: HandlerEvent): Promise<HandlerResponse> => {
   let requestId: string = crypto.randomUUID();
+  let refundQuota: (() => Promise<void>) | undefined;
 
   if (event.httpMethod === 'OPTIONS') {
     return withCorsHeaders({ statusCode: 204, headers: { Allow: ALLOWED_METHODS }, body: '' });
@@ -366,7 +347,7 @@ export const createAiParseHandler = (
       : dependencies.aiConfig.freeMonthlyParses;
 
     // Soft-check the monthly quota before spending budget or calling the model.
-    // Successful parses only are charged (consume after parse below).
+    // An atomic reservation below makes this early check safe under concurrency.
     const { data: usageRow, error: usageError } = await runDatabaseRequest(() => dependencies.database
       .from('ai_usage_windows')
       .select('request_count')
@@ -385,6 +366,26 @@ export const createAiParseHandler = (
         suggestedFix: 'Add subscriptions manually, or upgrade for a higher monthly limit. The limit resets at the start of next month.',
       });
     }
+
+    const { data: quotaData, error: quotaError } = await runDatabaseRequest(() => dependencies.database.rpc('consume_ai_quota', {
+      p_user_id: authenticated.userId,
+      p_window_start: month,
+      p_limit: limit,
+    }));
+    if (quotaError) throw quotaError;
+    const quota = unwrapQuota(quotaData);
+    if (!quota) throw new Error('AI quota RPC did not return a result');
+    if (!quota.allowed) {
+      throw new HttpError(429, 'ai_quota_exceeded', 'Monthly AI capture limit reached', {
+        'Retry-After': String(Math.max(1, Math.ceil((new Date(monthResetAt).getTime() - now.getTime()) / 1000))),
+      });
+    }
+    refundQuota = async () => {
+      const { error } = await dependencies.database.rpc('release_ai_quota', {
+        p_user_id: authenticated.userId, p_window_start: month,
+      });
+      if (error) throw error;
+    };
 
     // Reserve the estimated request cost before calling the provider. This closes
     // the concurrency race where many requests could all observe the same old
@@ -417,7 +418,8 @@ export const createAiParseHandler = (
     try {
       result = await dependencies.parser.parse(input, today);
     } catch (parseError) {
-      await releaseBudgetReservation(dependencies.database, month, reserved, requestId);
+      // Usage is unknown on failure. Keep the cost reservation conservatively;
+      // the outer catch refunds only the user parse slot.
       logEvent('error', 'AI parse failed', requestId, {
         userId: authenticated.userId,
         ...describeError(parseError),
@@ -432,35 +434,7 @@ export const createAiParseHandler = (
       });
     }
 
-    // Charge the monthly quota only after a successful parse.
-    let quota: QuotaResult = {
-      allowed: true,
-      request_count: usedCount + 1,
-      remaining: Math.max(limit - usedCount - 1, 0),
-      reset_at: monthResetAt,
-    };
-    try {
-      const { data: quotaData, error: quotaError } = await runDatabaseRequest(() => dependencies.database.rpc('consume_ai_quota', {
-        p_user_id: authenticated.userId,
-        p_window_start: month,
-        p_limit: limit,
-      }));
-      if (quotaError) {
-        throw quotaError;
-      }
-      const quotaResult = unwrapQuota(quotaData);
-      if (quotaResult?.allowed) {
-        quota = quotaResult;
-      } else if (quotaResult) {
-        // Rare race: concurrent successes filled the window after the soft check.
-        // Still return the successful parse; surface remaining as zero.
-        quota = { ...quotaResult, remaining: 0, reset_at: quotaResult.reset_at || monthResetAt };
-      }
-    } catch (quotaError) {
-      logEvent('warn', 'Failed to record AI quota after successful parse', requestId, {
-        ...describeError(quotaError),
-      });
-    }
+    refundQuota = undefined; // A successful parse keeps its reservation.
 
     // Replace the reservation with the provider-reported usage (best-effort).
     // If this adjustment fails, the reservation stays in place conservatively.
@@ -492,6 +466,12 @@ export const createAiParseHandler = (
       requestId,
     }));
   } catch (error) {
+    if (refundQuota) {
+      try { await refundQuota(); }
+      catch (refundError) {
+        logEvent('warn', 'Failed to refund AI quota reservation', requestId, describeError(refundError));
+      }
+    }
     // Never include the request body (it may contain a bank statement).
     logEvent('error', 'AI capture request failed', requestId, {
       ...describeError(error),
@@ -500,4 +480,5 @@ export const createAiParseHandler = (
   }
 };
 
-export const handler = createAiParseHandler();
+export default webHandler(createAiParseHandler());
+export const config: Config = {};

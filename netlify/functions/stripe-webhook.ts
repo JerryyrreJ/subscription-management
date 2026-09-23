@@ -1,3 +1,5 @@
+import { runtimeEnvironment, webHandler } from './_shared/webHandler';
+import type { Config } from '@netlify/functions';
 import Stripe from 'stripe';
 import type { Handler, HandlerEvent } from '@netlify/functions';
 import { z } from 'zod';
@@ -46,8 +48,8 @@ interface WebhookDependencies {
 }
 
 const createDefaultDependencies = (): WebhookDependencies => {
-  const stripeConfig = getStripeServerConfig(process.env);
-  const supabaseConfig = getOptionalSupabaseAdminConfig(process.env);
+  const stripeConfig = getStripeServerConfig(runtimeEnvironment);
+  const supabaseConfig = getOptionalSupabaseAdminConfig(runtimeEnvironment);
 
   return {
     stripeConfig,
@@ -84,9 +86,13 @@ const processCompletedCheckout = async (
 ): Promise<void> => {
   const session = event.data.object as Stripe.Checkout.Session;
 
-  if (session.mode !== 'payment' || session.payment_status !== 'paid') {
+  if (session.mode !== 'payment') {
     throw new HttpError(400, 'payment_not_completed', 'Checkout session is not a completed payment');
   }
+
+  // Checkout can complete while a delayed payment is still processing.
+  // A later async_payment_succeeded event performs fulfillment.
+  if (session.payment_status !== 'paid') return;
 
   await verifyPurchasedPrice(
     dependencies.stripe,
@@ -176,7 +182,7 @@ export const createStripeWebhookHandler = (
 
   try {
     stripeEvent = dependencies.stripe.webhooks.constructEvent(
-      event.body,
+      event.isBase64Encoded ? Buffer.from(event.body, "base64").toString("utf8") : event.body,
       signature,
       dependencies.stripeConfig.webhookSecret
     );
@@ -188,7 +194,7 @@ export const createStripeWebhookHandler = (
   }
 
   try {
-    if (stripeEvent.type === 'checkout.session.completed') {
+    if (stripeEvent.type === 'checkout.session.completed' || stripeEvent.type === 'checkout.session.async_payment_succeeded') {
       await processCompletedCheckout(stripeEvent, dependencies, effectiveRequestId);
     }
 
@@ -203,4 +209,5 @@ export const createStripeWebhookHandler = (
   }
 };
 
-export const handler = createStripeWebhookHandler();
+export default webHandler(createStripeWebhookHandler());
+export const config: Config = {};

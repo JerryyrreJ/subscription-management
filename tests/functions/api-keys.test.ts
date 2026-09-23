@@ -23,10 +23,8 @@ const supabaseConfig = {
 };
 
 const limits = {
-  freeRequestsPerHour: 60,
-  premiumRequestsPerHour: 1000,
-  freeActiveKeys: 1,
-  premiumActiveKeys: 5,
+  requestsPerMinute: 60,
+  activeKeys: 5,
   failedAuthRequestsPerHour: 300,
   rateLimitRetentionHours: 48,
 };
@@ -89,7 +87,7 @@ test('creates an API key for an authenticated user and stores only the hash', as
     p_name: 'Zapier',
     p_key_prefix: keyPrefix,
     p_key_hash: hashApiKey(fullKey),
-    p_active_key_limit: limits.freeActiveKeys,
+    p_active_key_limit: limits.activeKeys,
     p_scopes: null,
   });
   assert.notEqual(body.key.keyPrefix, fullKey.slice(0, 14));
@@ -161,7 +159,7 @@ test('enforces active API key limits for free users through the creation RPC', a
     return { data: null, error: null };
   }, (name, args) => {
     assert.equal(name, 'create_api_key_if_under_limit');
-    assert.equal(args.p_active_key_limit, limits.freeActiveKeys);
+    assert.equal(args.p_active_key_limit, limits.activeKeys);
     rpcCalled = true;
     return {
       data: [{

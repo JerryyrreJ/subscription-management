@@ -49,11 +49,12 @@ interface BuildOptions {
   budgetReservation?: { allowed: boolean; input_tokens: number; output_tokens: number; request_count: number };
   quota?: QuotaRow;
   usedCount?: number;
+  reserveQuota?: () => { data: unknown; error: { message: string } | null };
   queryResolver?: (state: QueryState) => { data: unknown; error: { message: string } | null };
 }
 
 const buildHandler = (opts: BuildOptions = {}) => {
-  const flags = { parseCalled: false, consumeCalled: false, reserveCalled: false, adjustCalled: false };
+  const flags = { parseCalled: false, consumeCalled: false, reserveCalled: false, adjustCalled: false, refundCalled: false };
 
   const parser: SubscriptionParser | null = opts.parser !== undefined ? opts.parser : {
     parse: async () => {
@@ -86,9 +87,10 @@ const buildHandler = (opts: BuildOptions = {}) => {
   };
 
   const database = createFakeSupabaseClient(opts.queryResolver ?? defaultQueryResolver, (name) => {
+    if (name === 'release_ai_quota') { flags.refundCalled = true; return { data: null, error: null }; }
     if (name === 'consume_ai_quota') {
       flags.consumeCalled = true;
-      return { data: [quota], error: null };
+      return opts.reserveQuota?.() ?? { data: [quota], error: null };
     }
     if (name === 'reserve_ai_budget') {
       flags.reserveCalled = true;
@@ -206,7 +208,8 @@ test('pauses when the monthly budget is exceeded', async () => {
 
   assert.equal(response.statusCode, 503);
   assert.equal(body.error.code, 'ai_budget_exceeded');
-  assert.equal(flags.consumeCalled, false);
+  assert.equal(flags.consumeCalled, true);
+  assert.equal(flags.refundCalled, true);
   assert.equal(flags.reserveCalled, true);
   assert.equal(flags.parseCalled, false);
 });
@@ -260,8 +263,9 @@ test('does not charge monthly quota when the model call fails', async () => {
   assert.equal(response.statusCode, 502);
   assert.equal(body.error.code, 'ai_parse_failed');
   assert.equal(parseInvoked, true);
-  assert.equal(flags.consumeCalled, false);
-  assert.equal(flags.adjustCalled, true);
+  assert.equal(flags.consumeCalled, true);
+  assert.equal(flags.refundCalled, true);
+  assert.equal(flags.adjustCalled, false);
 });
 
 test('returns 503 when the configured AI provider cannot connect', async () => {
@@ -278,8 +282,9 @@ test('returns 503 when the configured AI provider cannot connect', async () => {
   assert.equal(response.statusCode, 503);
   assert.equal(body.error.code, 'ai_provider_unavailable');
   assert.equal(flags.reserveCalled, true);
-  assert.equal(flags.consumeCalled, false);
-  assert.equal(flags.adjustCalled, true);
+  assert.equal(flags.consumeCalled, true);
+  assert.equal(flags.refundCalled, true);
+  assert.equal(flags.adjustCalled, false);
 });
 
 test('rejects an empty capture', async () => {
@@ -300,4 +305,40 @@ test('handles preflight and rejects non-POST methods', async () => {
 
   const get = expectHandlerResponse(await handler(event('GET', '/.netlify/functions/ai-parse-subscriptions', { authorization: 'Bearer token' }), {} as never));
   assert.equal(get.statusCode, 405);
+});
+
+test('atomic quota denial after soft check never reaches provider or global budget', async () => {
+ const { handler, flags } = buildHandler({ quota: { allowed: false, request_count: 10, remaining: 0, reset_at: '2026-07-01T00:00:00Z' } });
+ const response = expectHandlerResponse(await handler(postEvent({ text: 'Netflix' }), {} as never));
+ assert.equal(response.statusCode, 429);
+ assert.equal(flags.parseCalled, false);
+ assert.equal(flags.reserveCalled, false);
+ assert.equal(flags.refundCalled, false);
+});
+
+test('quota database failure fails closed before provider work', async () => {
+ const { handler, flags } = buildHandler({ reserveQuota: () => ({ data: null, error: { message: 'database unavailable' } }) });
+ const response = expectHandlerResponse(await handler(postEvent({ text: 'Netflix' }), {} as never));
+ assert.equal(response.statusCode, 500);
+ assert.equal(flags.parseCalled, false);
+});
+
+test('concurrent requests compete for last quota slot before provider calls', async () => {
+ let remaining = 1;
+ let providerCalls = 0;
+ const { handler } = buildHandler({
+  reserveQuota: () => {
+   const allowed = remaining-- > 0;
+   return { data: [{ allowed, request_count: 10, remaining: 0, reset_at: '2026-07-01T00:00:00Z' }], error: null };
+  },
+  parser: { parse: async () => {
+   providerCalls++;
+   await new Promise(resolve => setTimeout(resolve, 20));
+   return { command: { type: 'create', drafts: [] }, usage: { inputTokens: 1, outputTokens: 1 } };
+  } },
+ });
+ const responses = await Promise.all(Array.from({ length: 8 }, () => handler(postEvent({ text: 'Netflix' }), {} as never)));
+ assert.equal(providerCalls, 1);
+ assert.equal(responses.filter(response => response?.statusCode === 200).length, 1);
+ assert.equal(responses.filter(response => response?.statusCode === 429).length, 7);
 });

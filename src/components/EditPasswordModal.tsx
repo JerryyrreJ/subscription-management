@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useState } from 'react';
 import { X, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +10,7 @@ interface EditPasswordModalProps {
 }
 
 export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPasswordModalProps) {
+ useModalScrollLock(isOpen);
  const { t } = useTranslation(['accountModals', 'app']);
  const [newPassword, setNewPassword] = useState('');
  const [confirmPassword, setConfirmPassword] = useState('');
@@ -82,8 +84,8 @@ export function EditPasswordModal({ isOpen, onClose, onUpdatePassword }: EditPas
  const passwordsMatch = newPassword && confirmPassword && newPassword === confirmPassword;
 
  return (
- <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl p-6 w-full max-w-md">
+ <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+ <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl p-6 w-full max-w-md mobile-modal-panel">
  <div className="flex items-center justify-between mb-6">
  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
  {t('accountModals:updatePasswordTitle')}

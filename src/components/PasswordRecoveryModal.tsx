@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useState } from 'react';
 import { AlertCircle, CheckCircle, Eye, EyeOff, X, LockKeyhole, ArrowLeft, Check } from 'lucide-react';
 import './PasswordRecoveryModal.css';
@@ -11,6 +12,7 @@ interface PasswordRecoveryModalProps {
 }
 
 export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, standalone = false }: PasswordRecoveryModalProps) {
+ useModalScrollLock(isOpen && !standalone);
  const { t } = useTranslation(['auth', 'accountModals', 'app']);
  const [newPassword, setNewPassword] = useState('');
  const [confirmPassword, setConfirmPassword] = useState('');
@@ -96,11 +98,11 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, stand
 
  const wrapperClassName = standalone
  ? 'recovery-stack'
- : 'fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay';
+ : 'fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay';
 
  const panelClassName = standalone
  ? 'recovery-card'
- : 'bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6 modal-content';
+ : 'bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full mobile-modal-panel p-6 modal-content';
 
  return (
  <div className={wrapperClassName}>

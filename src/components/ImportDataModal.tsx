@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { X, AlertTriangle, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ExportData } from '../utils/exportImport';
@@ -16,12 +17,13 @@ export function ImportDataModal({
  onConfirm,
  previewData
 }: ImportDataModalProps) {
+ useModalScrollLock(isOpen);
  const { t, i18n } = useTranslation(['importData', 'app']);
  if (!isOpen) return null;
 
  return (
- <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full animate-scale-in">
+ <div className="fixed inset-0 mobile-modal-viewport bg-black/50 flex items-center justify-center z-50 p-4">
+ <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full mobile-modal-panel animate-scale-in">
  <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
  <div className="flex items-center gap-3">
  <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">

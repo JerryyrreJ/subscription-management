@@ -28,7 +28,9 @@ test('premium checkout requires a valid bearer token', async () => {
  const handler = createCheckoutHandler(() => ({
   stripeConfig,
   supabaseConfig: { url: 'https://supabase.test', publishableKey: 'publishable' },
+  isPremium: async () => false,
   stripe: {
+   prices: { retrieve: async () => ({ active: true, currency: "usd", unit_amount: 900, type: "one_time", livemode: false }) },
    checkout: { sessions: { create: async () => {
     stripeCalled = true;
     return { id: 'cs_test', url: 'https://checkout.test' };
@@ -51,7 +53,9 @@ test('premium checkout ignores forged body identity and price', async () => {
  const handler = createCheckoutHandler(() => ({
   stripeConfig,
   supabaseConfig: { url: 'https://supabase.test', publishableKey: 'publishable' },
+  isPremium: async () => false,
   stripe: {
+   prices: { retrieve: async () => ({ active: true, currency: "usd", unit_amount: 900, type: "one_time", livemode: false }) },
    checkout: { sessions: { create: async params => {
     checkoutParams = params;
     return { id: 'cs_test', url: 'https://checkout.test' };
@@ -89,7 +93,9 @@ test('self-hosted support checkout permits a guest without Supabase', async () =
  const handler = createCheckoutHandler(() => ({
   stripeConfig,
   supabaseConfig: null,
+  isPremium: async () => false,
   stripe: {
+   prices: { retrieve: async () => ({ active: true, currency: "usd", unit_amount: 900, type: "one_time", livemode: false }) },
    checkout: { sessions: { create: async params => {
     checkoutParams = params;
     return { id: 'cs_support', url: 'https://checkout.test' };
@@ -109,4 +115,44 @@ test('self-hosted support checkout permits a guest without Supabase', async () =
   productType: 'support_donation',
   priceId: 'price_server',
  });
+});
+
+for (const [description, price] of [
+ ['old $6 price', { unit_amount: 600 }],
+ ['recurring price', { type: 'recurring' }],
+ ['wrong currency', { currency: 'eur' }],
+ ['inactive price', { active: false }],
+ ['live price in sandbox', { livemode: true }],
+] as const) {
+ test('checkout rejects ' + description + ' before creating a session', async () => {
+  let called = false;
+  const handler = createCheckoutHandler(() => ({
+   stripeConfig,
+   supabaseConfig: { url: 'https://supabase.test', publishableKey: 'publishable' },
+   isPremium: async () => false,
+   stripe: {
+    prices: { retrieve: async () => Object.assign({ active: true, currency: 'usd', unit_amount: 900, type: 'one_time' as 'one_time' | 'recurring', livemode: false }, price) },
+    checkout: { sessions: { create: async () => { called = true; return { id: 'cs', url: 'https://checkout.test' }; } } },
+   },
+   createAuthClient: () => ({ auth: { getUser: async () => ({ data: { user: authenticatedUser }, error: null }) } }),
+   createRequestId: () => 'price-regression',
+  }));
+  assert.equal((await handler(event({ authorization: 'Bearer valid-token' }), {} as never))?.statusCode, 503);
+  assert.equal(called, false);
+ });
+}
+
+test('existing Premium account cannot buy it again', async () => {
+ const handler = createCheckoutHandler(() => ({
+  stripeConfig,
+  supabaseConfig: { url: 'https://supabase.test', publishableKey: 'publishable' },
+  isPremium: async () => true,
+  stripe: {
+   prices: { retrieve: async () => { throw new Error('must not reach Stripe'); } },
+   checkout: { sessions: { create: async () => { throw new Error('must not charge'); } } },
+  },
+  createAuthClient: () => ({ auth: { getUser: async () => ({ data: { user: authenticatedUser }, error: null }) } }),
+  createRequestId: () => 'already-premium',
+ }));
+ assert.equal((await handler(event({ authorization: 'Bearer valid-token' }), {} as never))?.statusCode, 409);
 });

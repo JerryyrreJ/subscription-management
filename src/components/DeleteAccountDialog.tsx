@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Check, Loader2, ShieldAlert, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +15,7 @@ export function DeleteAccountDialog({
   onClose,
   onConfirm,
 }: DeleteAccountDialogProps) {
+ useModalScrollLock(isOpen);
   const { t } = useTranslation(['accountModals']);
   const [confirmation, setConfirmation] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -59,7 +61,7 @@ export function DeleteAccountDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[140] flex items-center justify-center bg-stone-950/70 p-3 backdrop-blur-xl sm:p-6"
+      className="fixed inset-0 mobile-modal-viewport z-[140] flex items-center justify-center bg-stone-950/70 p-3 backdrop-blur-xl sm:p-6"
       onMouseDown={event => {
         if (event.target === event.currentTarget && !isDeleting) onClose();
       }}
@@ -81,7 +83,7 @@ export function DeleteAccountDialog({
           <X className="h-5 w-5" />
         </button>
 
-        <div className="max-h-[90vh] overflow-y-auto px-5 py-6 sm:px-8 sm:py-8">
+        <div className="max-h-[calc(var(--app-viewport-height,100dvh)*0.9)] overflow-y-auto px-5 py-6 sm:px-8 sm:py-8">
           <div className="mb-6 flex items-start gap-4 pr-10">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-700 ring-1 ring-red-200 dark:bg-red-500/15 dark:text-red-300 dark:ring-red-500/20">
               <ShieldAlert className="h-6 w-6" />

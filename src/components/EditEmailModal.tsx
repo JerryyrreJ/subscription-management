@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useState } from 'react';
 import { X, Mail, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +11,7 @@ interface EditEmailModalProps {
 }
 
 export function EditEmailModal({ isOpen, onClose, currentEmail, onUpdateEmail }: EditEmailModalProps) {
+ useModalScrollLock(isOpen);
  const { t } = useTranslation(['accountModals', 'app']);
  const [newEmail, setNewEmail] = useState('');
  const [isLoading, setIsLoading] = useState(false);
@@ -50,8 +52,8 @@ export function EditEmailModal({ isOpen, onClose, currentEmail, onUpdateEmail }:
  if (!isOpen) return null;
 
  return (
- <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl p-6 w-full max-w-md">
+ <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+ <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl p-6 w-full max-w-md mobile-modal-panel">
  <div className="flex items-center justify-between mb-6">
  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
  {t('accountModals:updateEmailTitle')}

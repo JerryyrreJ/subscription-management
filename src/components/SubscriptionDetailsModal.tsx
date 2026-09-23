@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { X, Calendar, Tag, DollarSign } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Subscription } from '../types';
@@ -22,6 +23,7 @@ export function SubscriptionDetailsModal({
  onEdit,
  onDelete,
 }: SubscriptionDetailsModalProps) {
+ useModalScrollLock(isOpen && Boolean(subscription));
  const { t } = useTranslation(['subscriptionDetails', 'addSubscription', 'categoryLabels']);
 
  if (!isOpen || !subscription) return null;
@@ -36,8 +38,8 @@ export function SubscriptionDetailsModal({
    : t('addSubscription:periodCustom');
 
  return (
- <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full modal-content">
+ <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay">
+ <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full mobile-modal-panel modal-content">
  <div className="p-6">
  <div className="flex justify-between items-start mb-6">
  <h2 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">{subscription.name}</h2>

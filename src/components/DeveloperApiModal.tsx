@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useCallback, useEffect, useState } from 'react';
 import { Check, Clipboard, Code2, KeyRound, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +53,7 @@ export function DeveloperApiModal({
  onOpenAuth,
  isStandalone = true
 }: DeveloperApiModalProps) {
+ useModalScrollLock(isOpen && isStandalone);
  const { t } = useTranslation(['developerApi']);
  const defaultKeyName = t('developerApi:defaultKeyName');
  const [keys, setKeys] = useState<ApiKeyMetadata[]>([]);
@@ -213,7 +215,7 @@ export function DeveloperApiModal({
          </div>
          <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-4">
           <p className="text-xs uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">{t('developerApi:requests')}</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{limits.requestsPerHour}/h</p>
+          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{limits.requestsPerMinute}/min</p>
          </div>
         </div>
        )}
@@ -323,8 +325,8 @@ export function DeveloperApiModal({
   if (!isStandalone) return content;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-3xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-[#1a1c1e]/95 shadow-apple-xl">
+    <div className="fixed inset-0 mobile-modal-viewport bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-3xl max-h-[calc(var(--app-viewport-height,100dvh)*0.9)] overflow-y-auto rounded-3xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-[#1a1c1e]/95 shadow-apple-xl">
         {content}
       </div>
     </div>

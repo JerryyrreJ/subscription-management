@@ -129,7 +129,6 @@ export function App() {
  passwordRecoveryPending,
  signOut,
  deleteAccount,
- refreshUserProfile,
  updateUserNickname,
  updateUserEmail,
  updateUserPassword,
@@ -166,7 +165,7 @@ export function App() {
   }
   setIsPricingModalOpen(true);
  };
- const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+ const [isPricingModalOpen, setIsPricingModalOpen] = useState(() => window.location.pathname === "/pricing" || new URLSearchParams(window.location.search).has("payment"));
  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
 const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');
@@ -187,34 +186,23 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  document.title = t('app:documentTitle');
  }, [i18n.language, t]);
 
- useEffect(() => {
-  if (!appUser || typeof window === 'undefined') {
-   return;
-  }
-
+ const closePricing = () => {
+  setIsPricingModalOpen(false);
   const url = new URL(window.location.href);
-  if (url.searchParams.get('payment') !== 'success') {
-   return;
+  if (url.pathname === '/pricing') url.pathname = '/';
+  url.searchParams.delete('payment');
+  url.searchParams.delete('session_id');
+  if (url.hash === '#pricing-compare') url.hash = '';
+  window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+ };
+
+ useEffect(() => {
+  if (appUser && sessionStorage.getItem('pricing-return') === '1') {
+   sessionStorage.removeItem('pricing-return');
+   setIsAuthModalOpen(false);
+   setIsPricingModalOpen(true);
   }
-
-  const refreshDelays = [0, 1500, 4000];
-  const timeoutIds = refreshDelays.map(delay => window.setTimeout(() => {
-   void refreshUserProfile().catch(error => {
-    console.error('Failed to refresh premium status after payment:', error);
-   });
-  }, delay));
-
-  const cleanupTimeout = window.setTimeout(() => {
-   url.searchParams.delete('payment');
-   url.searchParams.delete('session_id');
-   window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
-  }, refreshDelays[refreshDelays.length - 1] + 500);
-
-  return () => {
-   timeoutIds.forEach(timeoutId => window.clearTimeout(timeoutId));
-   window.clearTimeout(cleanupTimeout);
-  };
- }, [appUser, refreshUserProfile]);
+ }, [appUser]);
 
  useEffect(() => {
   if (loading) {
@@ -1164,7 +1152,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  />
 
  {/* 高级报表 */}
- {isAdvancedReportOpen && (
+ {isAdvancedReportOpen && canUseAdvancedReport && (
  <Suspense
  fallback={(
   <LazyModalFallback
@@ -1191,13 +1179,13 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   <LazyModalFallback
    title={t('app:loadingPricingTitle')}
    description={t('app:loadingPricingDescription')}
-   onClose={() => setIsPricingModalOpen(false)}
+   onClose={closePricing}
   />
  )}
  >
   <PricingModal
   isOpen={isPricingModalOpen}
-  onClose={() => setIsPricingModalOpen(false)}
+  onClose={closePricing}
   onUpgrade={() => {
   setIsPricingModalOpen(false);
   if (!appUser) {

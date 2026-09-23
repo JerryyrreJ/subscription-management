@@ -85,8 +85,8 @@ export function CategoryChips({
         setDraft('');
        }
       }}
+      autoFocus={window.matchMedia('(hover: hover) and (pointer: fine)').matches}
       placeholder={t('addSubscription:newCategoryPlaceholder')}
-      autoFocus
       className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#1a1c1e] text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
      />
      <button

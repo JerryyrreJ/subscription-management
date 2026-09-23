@@ -50,16 +50,14 @@ Use these files when connecting an AI assistant or agent framework:
 
 | Plan | Active keys | Requests |
 | --- | ---: | ---: |
-| Free | 1 | 60 requests per user per hour |
-| Premium | 5 | 1000 requests per user per hour |
+| Free | 5 | 60 requests per account per minute |
+| Premium | 5 | 60 requests per account per minute |
 
 You can override defaults with server-only environment variables:
 
 ```bash
-API_FREE_RATE_LIMIT_PER_HOUR=60
-API_PREMIUM_RATE_LIMIT_PER_HOUR=1000
-API_FREE_ACTIVE_KEYS=1
-API_PREMIUM_ACTIVE_KEYS=5
+API_RATE_LIMIT_PER_MINUTE=60
+API_MAX_ACTIVE_KEYS=5
 API_FAILED_AUTH_RATE_LIMIT_PER_HOUR=300
 API_RATE_LIMIT_RETENTION_HOURS=48
 ```

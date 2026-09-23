@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../../hooks/useModalScrollLock';
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +30,7 @@ export function SubscriptionFormSheet({
  onOpenNotificationSettings,
  subscription,
 }: SubscriptionFormSheetProps) {
+ useModalScrollLock(isOpen);
  const { t } = useTranslation(['addSubscription', 'editSubscription']);
  const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,8 +59,6 @@ export function SubscriptionFormSheet({
    return undefined;
   }
 
-  const previousOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
 
   const handleKeyDown = (event: KeyboardEvent) => {
    if (event.key === 'Escape' && !isSubmitting) {
@@ -68,7 +68,6 @@ export function SubscriptionFormSheet({
 
   document.addEventListener('keydown', handleKeyDown);
   return () => {
-   document.body.style.overflow = previousOverflow;
    document.removeEventListener('keydown', handleKeyDown);
   };
  }, [isOpen, isSubmitting, onClose]);
@@ -86,7 +85,7 @@ export function SubscriptionFormSheet({
  };
 
  return (
-  <div className="fixed inset-0 z-50 modal-overlay">
+  <div className="fixed inset-0 mobile-modal-viewport z-50 modal-overlay">
    <div
     className="absolute inset-0 bg-black/50 dark:bg-black/70"
     onClick={handleClose}
@@ -96,7 +95,7 @@ export function SubscriptionFormSheet({
      role="dialog"
      aria-modal="true"
      aria-labelledby="subscription-form-title"
-     className="subscription-form-sheet pointer-events-auto w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-[#1a1c1e] rounded-t-2xl sm:rounded-2xl shadow-apple-lg pb-[env(safe-area-inset-bottom)]"
+     className="subscription-form-sheet pointer-events-auto w-full max-w-md max-h-[calc(var(--app-viewport-height,100dvh)*0.9)] overflow-y-auto bg-white dark:bg-[#1a1c1e] rounded-t-2xl sm:rounded-2xl shadow-apple-lg pb-[env(safe-area-inset-bottom)]"
     >
      <div className="sm:hidden flex justify-center pt-2">
       <span className="h-1 w-10 rounded-full bg-gray-300 dark:bg-gray-600" />

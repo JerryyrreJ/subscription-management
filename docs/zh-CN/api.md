@@ -10,8 +10,7 @@ AI Agent 可以使用 `docs-site/api/ai-tools.json` 获取 tool/function 定义�
 
 默认限额：
 
-- 普通用户：1 个可用 Key，每用户每小时 60 次请求
-- Premium 用户：5 个可用 Key，每用户每小时 1000 次请求
+- Free 与 Premium 相同：5 个有效 Key，每账户 API／MCP 合计每分钟 60 次，不设月度额度
 
 API Key 带有 scopes：
 

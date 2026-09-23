@@ -1,277 +1,122 @@
-import { X, Check, ArrowRight, Sparkles } from 'lucide-react';
-import { config } from '../lib/config';
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
+import { ArrowDown, ArrowLeft, ArrowUpRight, Check, FileText, Layers3, Loader2, Plus, ShieldCheck, Sparkles, TrendingUp } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { redirectToCheckout } from '../services/payment';
-import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { config } from '../lib/config';
+import { useAuth } from '../contexts/AuthContext';
+import { redirectToCheckout } from '../services/payment';
+import { pricingCopy } from './pricing/copy';
+import './pricing/pricing.css';
 
-interface PricingModalProps {
- isOpen: boolean;
- onClose: () => void;
- onUpgrade?: () => void;
-}
-
-const LIFETIME_PRICE = '$9';
+interface PricingModalProps { isOpen: boolean; onClose: () => void; onUpgrade?: () => void }
 
 export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) {
- const { t } = useTranslation(['pricing']);
- const containerRef = useRef<HTMLDivElement>(null);
- const [isVisible, setIsVisible] = useState(false);
- const [isProcessing, setIsProcessing] = useState(false);
- const { session, userProfile } = useAuth();
+ useModalScrollLock(isOpen);
+ const { i18n } = useTranslation();
+ const c = pricingCopy[i18n.language.startsWith('zh') ? 'zh' : 'en'];
+ const { session, userProfile, refreshUserProfile } = useAuth();
+ const dialog = useRef<HTMLDialogElement>(null);
+ const busy = useRef(false);
+ const [processing, setProcessing] = useState(false);
+ const [error, setError] = useState(false);
+ const [timedOut, setTimedOut] = useState(false);
+ const premium = Boolean(userProfile?.is_premium);
+ const payment = new URLSearchParams(window.location.search).get('payment');
+ const verifying = payment === 'success' && !premium;
+ const available = config.features.payment && config.features.cloudSync;
 
  useEffect(() => {
- if (isOpen) {
- if (containerRef.current) {
- containerRef.current.scrollTop = 0;
- }
- setTimeout(() => setIsVisible(true), 50);
- } else {
- setIsVisible(false);
- }
+  if (!isOpen) return;
+  const element = dialog.current;
+  element?.showModal();
+  return () => { element?.close(); };
  }, [isOpen]);
 
- const handlePayment = async () => {
- if (!config.features.payment) {
- alert(t('pricing:paymentNotConfigured'));
- return;
- }
+ useEffect(() => {
+  if (!isOpen || !verifying || !session) return;
+  let cancelled = false;
+  const refresh = () => { void refreshUserProfile().catch(() => { /* keep pending; never infer payment from URL */ }); };
+  refresh();
+  const timer = window.setInterval(refresh, 3000);
+  const timeout = window.setTimeout(() => {
+   window.clearInterval(timer);
+   if (!cancelled) setTimedOut(true);
+  }, 60_000);
+  return () => { cancelled = true; window.clearInterval(timer); window.clearTimeout(timeout); };
+ }, [isOpen, verifying, session, refreshUserProfile]);
 
- if (config.features.cloudSync && !session?.access_token) {
- onUpgrade?.();
- return;
- }
-
- setIsProcessing(true);
-
- try {
- await redirectToCheckout(session?.access_token);
- } catch (error) {
- console.error('Payment error:', error);
- alert(t('pricing:paymentFailed'));
- setIsProcessing(false);
- }
+ const pay = async () => {
+  if (busy.current || premium || (verifying && session) || !available) return;
+  if (!session) {
+   sessionStorage.setItem('pricing-return', '1');
+   onUpgrade?.();
+   return;
+  }
+  busy.current = true; setProcessing(true); setError(false);
+  try { await redirectToCheckout(session.access_token); }
+  catch { setError(true); busy.current = false; setProcessing(false); }
  };
 
  if (!isOpen) return null;
-
- const isCloudSyncAvailable = config.features.cloudSync;
- const alreadyPremium = Boolean(userProfile?.is_premium);
-
- const freeFeatures = isCloudSyncAvailable
- ? [
- t('pricing:featureUnlimitedSubscriptions'),
- t('pricing:featureMultiCurrencySupport'),
- t('pricing:featureCloudBackupSync'),
- t('pricing:featureNotificationReminders'),
- t('pricing:featureBasicStats'),
- t('pricing:featureImportExportData'),
- t('pricing:featureAiFreeQuota'),
- ]
- : [
- t('pricing:featureUnlimitedSubscriptions'),
- t('pricing:featureMultiCurrencySupport'),
- t('pricing:featureAdvancedAnalytics'),
- t('pricing:featurePdfExport'),
- t('pricing:featureLocalStorage'),
- t('pricing:featureImportExport'),
- t('pricing:featureNotificationReminders'),
- t('pricing:featureOpenSourceGithub'),
+ const features = [
+  { Icon: Sparkles, title: c.ai, note: c.aiNote },
+  { Icon: TrendingUp, title: c.reports, note: c.reportsNote },
+  { Icon: FileText, title: c.pdf, note: c.pdfNote },
  ];
-
- const premiumFeatures = isCloudSyncAvailable
- ? [
- t('pricing:featureEverythingInFree'),
- t('pricing:featureAiPremiumQuota'),
- t('pricing:featureAdvancedAnalyticsReports'),
- t('pricing:featurePdfExport'),
- ]
- : [
- t('pricing:featureSupportOpenSourceDevelopment'),
- t('pricing:featureAllFeaturesRemainFree'),
- t('pricing:featureHelpMaintainProject'),
- t('pricing:featureFundNewFeatures'),
- ];
-
- const premiumCta = !config.features.payment
- ? t('pricing:paymentNotAvailable')
- : isProcessing
- ? t('pricing:processing')
- : alreadyPremium
- ? t('pricing:alreadyPremium')
- : isCloudSyncAvailable
- ? t('pricing:upgradeNow')
- : t('pricing:supportProject');
+ const label = premium ? c.active : !available ? c.unavailable : !session ? c.login : verifying ? c.pending
+  : processing ? c.processing : c.buy;
 
  return (
- <div
- ref={containerRef}
- className="fixed inset-0 bg-gradient-to-b from-slate-50 via-white to-teal-50/40 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 z-50 overflow-y-auto"
- onClick={(e) => {
- if (e.target === e.currentTarget) {
- onClose();
- }
- }}
- >
- <div className="min-h-screen px-4 py-12 sm:py-16">
- <div className="max-w-4xl mx-auto">
- <button
- onClick={onClose}
- className="fixed top-6 right-6 sm:top-8 sm:right-8 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-200/80 hover:bg-gray-300/80 dark:bg-[#1a1c1e]/80 dark:hover:bg-gray-700/80 backdrop-blur-xl transition-all flex items-center justify-center group z-10 shadow-fey hover:shadow-apple-lg hover:scale-105"
- aria-label={t('pricing:closeAria')}
- >
- <X className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700 dark:text-gray-300 group-hover:rotate-90 transition-transform duration-300"/>
- </button>
-
- <div
- className={`text-center mb-10 sm:mb-14 transition-all duration-700 ${
- isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
- }`}
- >
- <p className="text-sm font-medium tracking-wide text-teal-700 dark:text-teal-400 mb-3">
- {t('pricing:productName')}
- </p>
- <h1 className="text-3xl sm:text-5xl font-bold text-gray-900 dark:text-white tracking-tight mb-4">
- {isCloudSyncAvailable ? t('pricing:heroTitleCloud') : t('pricing:heroTitleSupport')}
- </h1>
- <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
- {isCloudSyncAvailable ? t('pricing:heroSubtitleCloud') : t('pricing:heroSubtitleSupport')}
- </p>
- </div>
-
- {isCloudSyncAvailable && (
- <div
- className={`grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto mb-10 sm:mb-12 transition-all duration-700 delay-100 ${
- isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
- }`}
- >
- <div className="rounded-3xl border border-teal-500/20 bg-white/80 dark:bg-[#1a1c1e]/80 backdrop-blur-xl p-5 text-left">
- <div className="flex items-center gap-2 text-teal-700 dark:text-teal-400 mb-2">
- <Sparkles className="w-4 h-4" />
- <h2 className="font-semibold">{t('pricing:sellAiTitle')}</h2>
- </div>
- <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
- {t('pricing:sellAiDescription')}
- </p>
- </div>
- <div className="rounded-3xl border border-gray-200/60 dark:border-gray-700/60 bg-white/80 dark:bg-[#1a1c1e]/80 backdrop-blur-xl p-5 text-left">
- <h2 className="font-semibold text-gray-900 dark:text-white mb-2">
- {t('pricing:sellReportTitle')}
- </h2>
- <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
- {t('pricing:sellReportDescription')}
- </p>
- </div>
- </div>
- )}
-
- <div
- className={`text-center mb-10 sm:mb-12 transition-all duration-700 delay-150 ${
- isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
- }`}
- >
- <div className="inline-flex items-baseline gap-2">
- <span className="text-6xl sm:text-7xl font-bold tracking-tight text-gray-900 dark:text-white">
- {LIFETIME_PRICE}
- </span>
- <span className="text-base text-gray-500 dark:text-gray-400">
- {isCloudSyncAvailable ? t('pricing:lifetimeOnce') : t('pricing:oneTimePeriod')}
- </span>
- </div>
- <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
- {isCloudSyncAvailable ? t('pricing:lifetimeNote') : t('pricing:supportPriceNote')}
- </p>
- </div>
-
- <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-10 sm:mb-14">
- <div
- className={`rounded-3xl p-7 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-[#1a1c1e]/80 shadow-apple-lg transition-all duration-700 delay-200 ${
- isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
- }`}
- >
- <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
- {isCloudSyncAvailable ? t('pricing:freeName') : t('pricing:openSourceName')}
- </h3>
- <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
- {isCloudSyncAvailable ? t('pricing:freeDescription') : t('pricing:openSourceSupportDescription')}
- </p>
- <p className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
- {t('pricing:freePrice')}
- <span className="ml-2 text-sm font-normal text-gray-500">/ {t('pricing:foreverPeriod')}</span>
- </p>
- <ul className="space-y-3 mb-8">
- {freeFeatures.map((text) => (
- <li key={text} className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
- <Check className="w-5 h-5 flex-shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
- <span className="leading-relaxed">{text}</span>
- </li>
- ))}
- </ul>
- <button
- onClick={onClose}
- className="w-full py-3.5 px-6 rounded-2xl font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white transition-all"
- >
- {t('pricing:getStarted')}
- </button>
- </div>
-
- <div
- className={`relative rounded-3xl p-7 backdrop-blur-xl border-2 border-teal-500/25 dark:border-teal-400/25 bg-white/95 dark:bg-[#1a1c1e]/95 shadow-apple-xl transition-all duration-700 delay-300 ${
- isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
- }`}
- >
- <div className="absolute -top-3 left-1/2 -translate-x-1/2">
- <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-white bg-gradient-to-r from-slate-700 to-teal-600 shadow-fey">
- <Sparkles className="w-3.5 h-3.5" />
- {isCloudSyncAvailable ? t('pricing:badgeMostPopular') : t('pricing:badgeSupportOpenSource')}
- </span>
- </div>
- <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1 mt-2">
- {isCloudSyncAvailable ? t('pricing:premiumName') : t('pricing:supportDeveloperName')}
- </h3>
- <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
- {isCloudSyncAvailable ? t('pricing:premiumDescription') : t('pricing:supportDeveloperDescription')}
- </p>
- <p className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
- {LIFETIME_PRICE}
- <span className="ml-2 text-sm font-normal text-gray-500">
- / {isCloudSyncAvailable ? t('pricing:lifetimePeriod') : t('pricing:oneTimePeriod')}
- </span>
- </p>
- <ul className="space-y-3 mb-8">
- {premiumFeatures.map((text) => (
- <li key={text} className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
- <Check className="w-5 h-5 flex-shrink-0 mt-0.5 text-teal-600 dark:text-teal-400" />
- <span className="leading-relaxed">{text}</span>
- </li>
- ))}
- </ul>
- <button
- onClick={config.features.payment && !alreadyPremium ? handlePayment : undefined}
- disabled={!config.features.payment || alreadyPremium || isProcessing}
- className={`w-full py-3.5 px-6 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 group ${
- alreadyPremium || !config.features.payment
- ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
- : 'bg-gradient-to-r from-slate-700 to-teal-600 hover:from-slate-800 hover:to-teal-700 text-white shadow-fey hover:shadow-apple-lg'
- }`}
- >
- <span>{premiumCta}</span>
- {config.features.payment && !alreadyPremium && (
- <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform"/>
- )}
- </button>
- </div>
- </div>
-
- <p
- className={`text-center text-sm text-gray-500 dark:text-gray-500 max-w-2xl mx-auto leading-relaxed transition-all duration-700 delay-500 ${
- isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
- }`}
- >
- {isCloudSyncAvailable ? t('pricing:footerCloud') : t('pricing:footerSupport')}
- </p>
- </div>
- </div>
- </div>
+  <dialog ref={dialog} className="pricing-page" aria-labelledby="pricing-title" onCancel={e => { e.preventDefault(); onClose(); }}>
+   <div className="pricing-shell">
+    <header className="pricing-nav">
+     <button className="pricing-back" onClick={onClose} aria-label={c.back}><ArrowLeft size={17} /><span>Subscription Manager<span className="pricing-nav-dot">.</span></span></button>
+     <span className="pricing-nav-label">FREE & PREMIUM</span>
+    </header>
+    <main>
+     <section className="pricing-hero">
+      <div className="pricing-story">
+       <p className="pricing-eyebrow"><span />{c.label}</p>
+       <h1 id="pricing-title">{c.title}<br /><em>{c.accent}</em></h1>
+       <p className="pricing-intro">{c.intro}</p>
+       <a className="pricing-detail-link" href="#pricing-compare">{c.compare}<ArrowDown size={16} /></a>
+       <div className="pricing-free-note"><div className="pricing-free-icon"><Layers3 size={23} /></div><div><h2>{c.free}</h2><p>{c.freeNote}</p></div></div>
+      </div>
+      <div className="pricing-pass-wrap">
+       <div className="pricing-pass-shadow" aria-hidden="true" />
+       <article className="pricing-pass">
+        <div className="pricing-pass-top"><span>{c.pass}</span><Sparkles size={19} /></div>
+        <div className="pricing-pass-heading"><h2>Premium</h2><span className="pricing-pill">LIFETIME</span></div>
+        <p className="pricing-pass-intro">{c.premiumIntro}</p>
+        <div className="pricing-price"><span className="pricing-dollar">$</span><strong>9</strong><span>{c.once}</span></div>
+        <div className="pricing-perforation" aria-hidden="true" />
+        <p className="pricing-included">{c.included}</p>
+        <ul className="pricing-features">{features.map(({Icon, title, note}) => <li key={title}><Icon size={20} /><div><strong>{title}</strong><p>{note}</p></div></li>)}</ul>
+        <button className="pricing-buy" onClick={() => void pay()} disabled={!available || processing || premium || (verifying && Boolean(session))}>
+         <span>{label}</span>{processing || (verifying && !timedOut) ? <Loader2 className="pricing-spin" size={19} /> : premium ? <Check size={19} /> : <ArrowUpRight size={20} />}
+        </button>
+        <div aria-live="polite" className="pricing-feedback">
+         {error && <p role="alert">{c.error}</p>}
+         {verifying && <p>{timedOut ? c.waiting : c.pending}</p>}
+         {payment === 'cancelled' && !processing && <p>{c.cancelled}</p>}
+        </div>
+        <p className="pricing-safe"><ShieldCheck size={14} />{c.secure}</p>
+        <p className="pricing-no-renew">{c.noRenew}</p>
+       </article>
+       <div className="pricing-stamp" aria-hidden="true">{c.stamp}</div>
+      </div>
+     </section>
+     <section id="pricing-compare" className="pricing-comparison">
+      <div className="pricing-section-heading"><p className="pricing-eyebrow">{c.detailLabel}</p><h2>{c.detailTitle}</h2><p>{c.detailIntro}</p></div>
+      <div className="pricing-table-wrap"><table><thead><tr><th scope="col">{c.capability}</th><th scope="col">Free <small>$0</small></th><th scope="col">Premium <small>$9</small></th></tr></thead><tbody>
+       {c.rows.map((row, index) => <tr key={row}><th scope="row">{row}</th><td>{index === 0 ? c.unlimited : index === 5 ? c.api : index === 6 ? '10' : index === 7 ? c.no : <><Check size={17} aria-hidden="true" /><span className="pricing-sr">{c.yes}</span></>}</td><td>{index === 0 ? c.unlimited : index === 5 ? c.api : index === 6 ? '300' : <><Check size={17} aria-hidden="true" /><span className="pricing-sr">{c.yes}</span></>}</td></tr>)}
+      </tbody></table></div>
+      <div className="pricing-smallprint"><p>{c.limits}</p><p>{c.quota}</p></div>
+     </section>
+     <section className="pricing-faq"><div><p className="pricing-eyebrow">{c.faqLabel}</p><h2>{c.faqTitle}</h2></div><div>{c.faqs.map(([question, answer]) => <details key={question}><summary>{question}<Plus size={18} /></summary><p>{answer}</p></details>)}</div></section>
+    </main>
+    <footer className="pricing-footer"><span>Subscription Manager.</span><p>{c.footer}</p><button onClick={onClose}>{c.back}<ArrowUpRight size={14} /></button></footer>
+   </div>
+  </dialog>
  );
 }

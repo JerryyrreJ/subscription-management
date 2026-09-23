@@ -32,10 +32,8 @@ export interface StripeServerConfig {
 }
 
 export interface ApiLimitsConfig {
-  freeRequestsPerHour: number;
-  premiumRequestsPerHour: number;
-  freeActiveKeys: number;
-  premiumActiveKeys: number;
+  requestsPerMinute: number;
+  activeKeys: number;
   failedAuthRequestsPerHour: number;
   rateLimitRetentionHours: number;
 }
@@ -123,25 +121,11 @@ export const getStripeServerConfig = (
 export const getApiLimitsConfig = (
   env: Environment = process.env
 ): ApiLimitsConfig => ({
-  freeRequestsPerHour: optionalPositiveInteger(
-    'API_FREE_RATE_LIMIT_PER_HOUR',
-    env.API_FREE_RATE_LIMIT_PER_HOUR,
-    60
+  requestsPerMinute: optionalPositiveInteger(
+    'API_RATE_LIMIT_PER_MINUTE', env.API_RATE_LIMIT_PER_MINUTE, 60
   ),
-  premiumRequestsPerHour: optionalPositiveInteger(
-    'API_PREMIUM_RATE_LIMIT_PER_HOUR',
-    env.API_PREMIUM_RATE_LIMIT_PER_HOUR,
-    1000
-  ),
-  freeActiveKeys: optionalPositiveInteger(
-    'API_FREE_ACTIVE_KEYS',
-    env.API_FREE_ACTIVE_KEYS,
-    1
-  ),
-  premiumActiveKeys: optionalPositiveInteger(
-    'API_PREMIUM_ACTIVE_KEYS',
-    env.API_PREMIUM_ACTIVE_KEYS,
-    5
+  activeKeys: optionalPositiveInteger(
+    'API_MAX_ACTIVE_KEYS', env.API_MAX_ACTIVE_KEYS, 5
   ),
   failedAuthRequestsPerHour: optionalPositiveInteger(
     'API_FAILED_AUTH_RATE_LIMIT_PER_HOUR',
