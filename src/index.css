@@ -2,172 +2,98 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Shared theme tokens: geometry is identical; only colors change. */
+:root {
+  color-scheme: light;
+  --app-canvas: #f5f6f4;
+  --app-surface: #ffffff;
+  --app-control: #f0f2ef;
+  --app-hover: #e8ece7;
+  --app-border: #dde2dc;
+  --app-border-hover: #bac6bb;
+  --app-ink: #202923;
+  --app-secondary: #4b5850;
+  --app-muted: #69736c;
+  --app-track: #dfe5df;
+}
+.dark {
+  color-scheme: dark;
+  --app-canvas: #111415;
+  --app-surface: #1b1f20;
+  --app-control: #252a2b;
+  --app-hover: #303637;
+  --app-border: #343b3b;
+  --app-border-hover: #56615c;
+  --app-ink: #edf0ec;
+  --app-secondary: #c2cac4;
+  --app-muted: #a0aba4;
+  --app-track: #3b4741;
+}
 body {
-  @apply bg-[#fcfcfc] dark:bg-zinc-950;
   margin: 0;
   padding: 0;
-  transition: background-color 0.3s ease;
+  background: var(--app-canvas);
+  transition: background-color .2s ease;
 }
+.app-theme-topbar,
+.app-theme-panel,
+.app-theme-card {
+  background: var(--app-surface) !important;
+  border: 1px solid var(--app-border) !important;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 3%) !important;
+  backdrop-filter: none;
+}
+.app-theme-topbar,
+.app-theme-panel { border-radius: 16px; }
+.app-theme-card {
+  border-radius: 16px;
+  transition: border-color .18s ease, background-color .18s ease;
+}
+.app-theme-card:hover {
+  border-color: var(--app-border-hover) !important;
+  transform: none;
+}
+.app-theme-card:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 3px;
+}
+.app-theme-chip,
+.app-theme-icon-shell {
+  background: var(--app-control) !important;
+  border: 1px solid transparent !important;
+  color: var(--app-secondary) !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  border-radius: 10px;
+}
+button.app-theme-chip:hover { background: var(--app-hover) !important; }
+.app-theme-chip-active {
+  background: var(--app-surface) !important;
+  color: var(--app-ink) !important;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%) !important;
+  border-radius: 7px;
+}
+.app-theme-text-primary { color: var(--app-ink) !important; }
+.app-theme-text-secondary { color: var(--app-secondary) !important; }
+.app-theme-text-muted { color: var(--app-muted) !important; }
+.app-theme-divider { border-color: var(--app-border) !important; }
+.app-theme-progress-track { background: var(--app-track) !important; }
+.app-filter-toolbar.app-theme-chip {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0;
+}
+.app-footer {
+  margin: 0 auto;
+  max-width: 1280px;
+  padding: 22px 16px 28px;
+  color: var(--app-muted);
+  border-top: 1px solid var(--app-border);
+}
+.app-footer a { color: var(--app-muted); }
+.app-footer a:hover { color: var(--app-ink); }
 
-.dark {
-  --app-dark-canvas-start: #0b1020;
-  --app-dark-canvas-end: #121a30;
-  --app-dark-surface-1: #141b2d;
-  --app-dark-surface-2: #1b2438;
-  --app-dark-surface-3: #27324a;
-  --app-dark-border-soft: rgba(148, 163, 184, 0.14);
-  --app-dark-border-strong: rgba(148, 163, 184, 0.24);
-  --app-dark-text-primary: #f5f7fb;
-  --app-dark-text-secondary: #c8d0dd;
-  --app-dark-text-muted: #92a0b5;
-  --app-dark-shadow: 0 24px 60px rgba(3, 8, 20, 0.38);
-  --app-dark-shadow-hover: 0 28px 72px rgba(3, 8, 20, 0.46);
-}
 
-.dark .app-dark-canvas {
-  background:
-    radial-gradient(circle at top left, rgba(45, 212, 191, 0.08), transparent 28%),
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 22%),
-    linear-gradient(180deg, var(--app-dark-canvas-start) 0%, var(--app-dark-canvas-end) 100%);
-}
-
-.dark .app-dark-topbar {
-  background: rgba(20, 27, 45, 0.82) !important;
-  border-color: var(--app-dark-border-soft) !important;
-  box-shadow: var(--app-dark-shadow);
-}
-
-.dark .app-dark-panel {
-  background: linear-gradient(180deg, rgba(27, 36, 56, 0.96) 0%, rgba(20, 27, 45, 0.96) 100%) !important;
-  border-color: var(--app-dark-border-soft) !important;
-  box-shadow: var(--app-dark-shadow);
-}
-
-.dark .app-dark-card {
-  background: linear-gradient(180deg, rgba(29, 37, 58, 0.98) 0%, rgba(21, 28, 45, 0.96) 100%) !important;
-  border: 1px solid var(--app-dark-border-soft) !important;
-  box-shadow: 0 18px 44px rgba(3, 8, 20, 0.28);
-}
-
-.dark .app-dark-card:hover {
-  border-color: var(--app-dark-border-strong) !important;
-  box-shadow: var(--app-dark-shadow-hover);
-}
-
-.dark .app-dark-chip {
-  background: rgba(39, 50, 74, 0.88) !important;
-  border-color: rgba(148, 163, 184, 0.16) !important;
-  color: var(--app-dark-text-secondary) !important;
-}
-
-.dark .app-dark-chip:hover {
-  background: rgba(48, 61, 90, 0.96) !important;
-  border-color: rgba(148, 163, 184, 0.24) !important;
-}
-
-.dark .app-dark-chip-active {
-  background: rgba(14, 20, 34, 0.95) !important;
-  border-color: rgba(226, 232, 240, 0.14) !important;
-  color: var(--app-dark-text-primary) !important;
-}
-
-.dark .app-dark-icon-shell {
-  background: rgba(39, 50, 74, 0.7) !important;
-  border: 1px solid rgba(148, 163, 184, 0.12) !important;
-}
-
-.dark .app-dark-text-primary {
-  color: var(--app-dark-text-primary) !important;
-}
-
-.dark .app-dark-text-secondary {
-  color: var(--app-dark-text-secondary) !important;
-}
-
-.dark .app-dark-text-muted {
-  color: var(--app-dark-text-muted) !important;
-}
-
-.dark .app-dark-divider {
-  border-color: rgba(148, 163, 184, 0.14) !important;
-}
-
-.dark .app-dark-progress-track {
-  background: rgba(71, 85, 105, 0.56) !important;
-}
-
-/* Animated flowing gradient background - Pink to Orange */
-.animated-gradient-bg {
-  background: linear-gradient(-45deg,
-    #ffffff,  /* Very light pink */
-    #fcfcfc,  /* Warm cream */
-    #f5f5f5,  /* Light peach */
-    #fafafa,  /* Soft orange tint */
-    #fcfcfc   /* Rose tint */
-  );
-  background-size: 400% 400%;
-  animation: gradientFlow 20s ease infinite;
-}
-
-/* Alternative mesh gradient approach with overlapping gradients */
-@keyframes gradientFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-  25% {
-    background-position: 50% 75%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  75% {
-    background-position: 50% 25%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-/* Optional: Add subtle floating orbs for extra depth */
-.animated-gradient-bg::before,
-.animated-gradient-bg::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.3;
-  animation: float 25s ease-in-out infinite;
-}
-
-.animated-gradient-bg::before {
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(200, 200, 200, 0.15) 0%, transparent 70%);
-  top: -200px;
-  left: -200px;
-  animation: float 25s ease-in-out infinite;
-}
-
-.animated-gradient-bg::after {
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, rgba(150, 150, 150, 0.1) 0%, transparent 70%);
-  bottom: -150px;
-  right: -150px;
-  animation: float 30s ease-in-out infinite reverse;
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-}
 
 @keyframes fadeSlideIn {
   from {
@@ -248,364 +174,6 @@ body {
   animation: dropdownCloseAnimation 0.2s ease-in;
 }
 
-/* Dashboard select styles (legacy - old gradient style) */
-.dashboard-select button {
-  background: rgba(255, 255, 255, 0.1) !important;
-  color: white !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  font-size: 0.875rem !important;
-  padding: 0.25rem 0.75rem !important;
-}
-
-.dashboard-select button:focus {
-  --tw-ring-color: rgba(255, 255, 255, 0.3) !important;
-}
-
-.dashboard-select span {
-  color: white !important;
-}
-
-.dashboard-select svg {
-  color: rgba(255, 255, 255, 0.7) !important;
-}
-
-/* Dashboard select styles - Glassmorphism */
-.dashboard-select-glass button {
-  background: rgba(241, 245, 249, 0.8) !important;
-  color: #475569 !important;
-  border: 1px solid rgba(226, 232, 240, 0.5) !important;
-  font-size: 0.875rem !important;
-  padding: 0 1rem !important;
-  height: 38px !important;
-  border-radius: 9999px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  backdrop-filter: blur(8px) !important;
-  transition: all 0.2s ease !important;
-}
-
-.dark .dashboard-select-glass button {
-  background: rgba(39, 50, 74, 0.88) !important;
-  color: var(--app-dark-text-secondary) !important;
-  border-color: rgba(148, 163, 184, 0.14) !important;
-}
-
-.dashboard-select-glass button:hover {
-  background: rgba(226, 232, 240, 0.9) !important;
-}
-
-.dark .dashboard-select-glass button:hover {
-  background: rgba(48, 61, 90, 0.96) !important;
-}
-
-.dashboard-select-glass button:focus {
-  --tw-ring-color: rgba(100, 116, 139, 0.3) !important;
-  border-color: rgba(100, 116, 139, 0.5) !important;
-}
-
-.dark .dashboard-select-glass button:focus {
-  --tw-ring-color: rgba(148, 163, 184, 0.22) !important;
-  border-color: rgba(148, 163, 184, 0.3) !important;
-}
-
-.dashboard-select-glass span {
-  color: #475569 !important;
-}
-
-.dark .dashboard-select-glass span {
-  color: var(--app-dark-text-secondary) !important;
-}
-
-.dashboard-select-glass svg {
-  color: #64748b !important;
-}
-
-.dark .dashboard-select-glass svg {
-  color: var(--app-dark-text-muted) !important;
-}
-
-
-/* Dashboard货币选择器下拉选项样式 */
-.dashboard-select .absolute {
-  background: white !important;
-  border: 1px solid #e5e7eb !important;
-  border-radius: 6px !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
-  margin-top: 4px !important;
-  z-index: 60 !important;
-}
-
-.dark .dashboard-select .absolute {
-  background: #374151 !important;
-  border-color: #4b5563 !important;
-}
-
-.dashboard-select .absolute button {
-  background: transparent !important;
-  color: #374151 !important;
-  font-size: 0.875rem !important;
-  font-weight: 400 !important;
-  padding: 8px 12px !important;
-  text-align: left !important;
-  width: 100% !important;
-  border: none !important;
-  border-radius: 0 !important;
-  min-height: auto !important;
-}
-
-.dashboard-select .absolute button span {
-  color: #374151 !important;
-}
-
-.dashboard-select .absolute button:hover {
-  background: #f9fafb !important;
-  color: #374151 !important;
-}
-
-.dashboard-select .absolute button:hover span {
-  color: #374151 !important;
-}
-
-.dark .dashboard-select .absolute button {
-  color: #f9fafb !important;
-}
-
-.dark .dashboard-select .absolute button span {
-  color: #f9fafb !important;
-}
-
-.dark .dashboard-select .absolute button:hover {
-  background: #4b5563 !important;
-  color: #f9fafb !important;
-}
-
-.dark .dashboard-select .absolute button:hover span {
-  color: #f9fafb !important;
-}
-
-/* Dashboard-glass dropdown styles */
-.dashboard-select-glass .absolute {
-  background: rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(12px) !important;
-  border: 1px solid rgba(226, 232, 240, 0.6) !important;
-  border-radius: 20px !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
-  margin-top: 8px !important;
-  z-index: 60 !important;
-}
-
-.dark .dashboard-select-glass .absolute {
-  background: rgba(55, 65, 81, 0.95) !important;
-  border-color: rgba(75, 85, 99, 0.6) !important;
-}
-
-.dashboard-select-glass .absolute button {
-  background: transparent !important;
-  color: #475569 !important;
-  font-size: 0.875rem !important;
-  font-weight: 400 !important;
-  padding: 8px 12px !important;
-  text-align: left !important;
-  width: calc(100% - 8px) !important;
-  border: none !important;
-  border-radius: 12px !important;
-  min-height: auto !important;
-  margin: 4px !important;
-  transition: all 0.15s ease !important;
-}
-
-.dashboard-select-glass .absolute button span {
-  color: #475569 !important;
-}
-
-.dashboard-select-glass .absolute button:hover {
-  background: rgba(226, 232, 240, 0.7) !important;
-  color: #334155 !important;
-}
-
-.dashboard-select-glass .absolute button:hover span {
-  color: #334155 !important;
-}
-
-.dark .dashboard-select-glass .absolute button {
-  color: #e5e7eb !important;
-}
-
-.dark .dashboard-select-glass .absolute button span {
-  color: #e5e7eb !important;
-}
-
-.dark .dashboard-select-glass .absolute button:hover {
-  background: rgba(75, 85, 99, 0.7) !important;
-  color: #f3f4f6 !important;
-}
-
-.dark .dashboard-select-glass .absolute button:hover span {
-  color: #f3f4f6 !important;
-}
-
-/* Selected option in glass dropdown */
-.dashboard-select-glass .absolute button[aria-selected="true"] {
-  background: rgba(100, 116, 139, 0.15) !important;
-  color: #334155 !important;
-}
-
-.dark .dashboard-select-glass .absolute button[aria-selected="true"] {
-  background: rgba(148, 163, 184, 0.2) !important;
-  color: #f3f4f6 !important;
-}
-
-/* Sort control styles */
-.sort-select button {
-  background: white !important;
-  color: #374151 !important;
-  border-color: #d1d5db !important;
-  font-size: 0.875rem !important;
-  padding: 0.5rem 0.75rem !important;
-}
-
-.dark .sort-select button {
-  background: #374151 !important;
-  color: #f3f4f6 !important;
-  border-color: #4b5563 !important;
-}
-
-.sort-select button:focus {
-  --tw-ring-color: rgba(79, 70, 229, 0.5) !important;
-}
-
-.sort-select span {
-  color: inherit !important;
-}
-
-.sort-select svg {
-  color: #6b7280 !important;
-}
-
-.dark .sort-select svg {
-  color: #9ca3af !important;
-}
-
-/* Dashboard排序控件的CustomSelect样式 - Glassmorphism */
-.dashboard-sort-control button {
-  background: rgba(255, 255, 255, 0.6) !important;
-  color: #475569 !important;
-  border: 1px solid rgba(226, 232, 240, 0.5) !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  padding: 4px 8px !important;
-  min-height: 28px !important;
-  border-radius: 9999px !important;
-  backdrop-filter: blur(8px) !important;
-  transition: all 0.2s ease !important;
-}
-
-.dashboard-sort-control button:hover {
-  background: rgba(255, 255, 255, 0.9) !important;
-}
-
-.dark .dashboard-sort-control button {
-  background: rgba(55, 65, 81, 0.6) !important;
-  color: #d1d5db !important;
-  border-color: rgba(75, 85, 99, 0.5) !important;
-}
-
-.dark .dashboard-sort-control button:hover {
-  background: rgba(75, 85, 99, 0.9) !important;
-}
-
-.dashboard-sort-control span {
-  color: #475569 !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-}
-
-.dark .dashboard-sort-control span {
-  color: #d1d5db !important;
-}
-
-.dashboard-sort-control svg {
-  color: #64748b !important;
-  width: 12px !important;
-  height: 12px !important;
-}
-
-.dark .dashboard-sort-control svg {
-  color: #9ca3af !important;
-}
-
-/* Dashboard排序控件下拉选项 - Glassmorphism */
-.dashboard-sort-control .absolute {
-  background: rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(12px) !important;
-  border: 1px solid rgba(226, 232, 240, 0.6) !important;
-  border-radius: 18px !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
-  margin-top: 6px !important;
-  z-index: 60 !important;
-}
-
-.dark .dashboard-sort-control .absolute {
-  background: rgba(55, 65, 81, 0.95) !important;
-  border-color: rgba(75, 85, 99, 0.6) !important;
-}
-
-.dashboard-sort-control .absolute button {
-  background: transparent !important;
-  color: #475569 !important;
-  font-size: 13px !important;
-  font-weight: 400 !important;
-  padding: 8px 12px !important;
-  text-align: left !important;
-  width: calc(100% - 8px) !important;
-  border: none !important;
-  border-radius: 10px !important;
-  min-height: auto !important;
-  margin: 4px !important;
-  transition: all 0.15s ease !important;
-}
-
-.dashboard-sort-control .absolute button span {
-  color: #475569 !important;
-}
-
-.dashboard-sort-control .absolute button:hover {
-  background: rgba(226, 232, 240, 0.7) !important;
-  color: #334155 !important;
-}
-
-.dashboard-sort-control .absolute button:hover span {
-  color: #334155 !important;
-}
-
-.dark .dashboard-sort-control .absolute button {
-  color: #e5e7eb !important;
-}
-
-.dark .dashboard-sort-control .absolute button span {
-  color: #e5e7eb !important;
-}
-
-.dark .dashboard-sort-control .absolute button:hover {
-  background: rgba(75, 85, 99, 0.7) !important;
-  color: #f3f4f6 !important;
-}
-
-.dark .dashboard-sort-control .absolute button:hover span {
-  color: #f3f4f6 !important;
-}
-
-/* Selected option in sort dropdown */
-.dashboard-sort-control .absolute button[aria-selected="true"] {
-  background: rgba(100, 116, 139, 0.15) !important;
-  color: #334155 !important;
-}
-
-.dark .dashboard-sort-control .absolute button[aria-selected="true"] {
-  background: rgba(148, 163, 184, 0.2) !important;
-  color: #f3f4f6 !important;
-}
 /* Bottom Drawer Animations */
 @keyframes slideUp {
   from { transform: translateY(100%); }
@@ -670,4 +238,45 @@ dialog.pricing-page {
     bottom: auto;
     height: var(--app-viewport-height, 100dvh);
   }
+}
+
+/* Currency and filter menus share one control language in both themes.
+   Scope to listbox triggers; dropdown options retain their own hit targets. */
+:is(.dashboard-select-glass, .dashboard-sort-control) button[aria-haspopup="listbox"] {
+  background: var(--app-control) !important;
+  border: 1px solid var(--app-border) !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  color: var(--app-secondary) !important;
+  font-size: 14px;
+}
+:is(.dashboard-select-glass, .dashboard-sort-control) button[aria-haspopup="listbox"]:hover {
+  background: var(--app-hover) !important;
+}
+:is(.dashboard-select-glass, .dashboard-sort-control) :is(span, svg) {
+  color: inherit !important;
+}
+:is(.dashboard-select-glass, .dashboard-sort-control) .absolute {
+  background: var(--app-surface) !important;
+  border-color: var(--app-border) !important;
+  border-radius: 10px !important;
+  backdrop-filter: none !important;
+}
+:is(.dashboard-select-glass, .dashboard-sort-control) .absolute button {
+  color: var(--app-secondary) !important;
+  background: transparent !important;
+}
+:is(.dashboard-select-glass, .dashboard-sort-control) .absolute button:hover,
+:is(.dashboard-select-glass, .dashboard-sort-control) .absolute button[aria-selected="true"] {
+  color: var(--app-ink) !important;
+  background: var(--app-control) !important;
+}
+
+@media (max-width: 639px) {
+  .app-filter-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .app-filter-toolbar > svg,
+  .app-filter-toolbar > .h-6 { display: none; }
+  .app-filter-toolbar > button { min-width: 36px; min-height: 36px; }
+  .app-filter-toolbar button[aria-haspopup="listbox"] { padding-inline: 10px; }
 }

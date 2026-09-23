@@ -108,10 +108,10 @@ export function UserMenu({
  onClick={toggleMenu}
  aria-haspopup="menu"
  aria-expanded={isOpen}
- className="p-2 rounded-2xl bg-white dark:bg-[#1a1c1e] shadow-apple hover:shadow-fey hover:-translate-y-0.5 transition-all duration-200 ease-in-out app-dark-chip"
+ className="p-2 rounded-2xl bg-white dark:bg-[#1a1c1e] shadow-apple hover:shadow-fey hover:-translate-y-0.5 transition-all duration-200 ease-in-out app-theme-chip"
  >
  <div className="w-5 h-5 flex items-center justify-center">
- <User className="w-4 h-4 text-emerald-700 dark:text-zinc-400 app-dark-text-secondary"/>
+ <User className="w-4 h-4 text-emerald-700 dark:text-zinc-400 app-theme-text-secondary"/>
  </div>
  </button>
 
@@ -119,7 +119,7 @@ export function UserMenu({
  {(isOpen || isClosing) && (
  <div
  role="menu"
- className={`absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 max-w-[calc(100vw-3rem)] origin-top-left sm:origin-top-right bg-white dark:bg-[#1a1c1e] rounded-2xl shadow-fey border border-gray-200 dark:border-gray-700 p-2 z-50 flex flex-col gap-1 app-dark-panel ${
+ className={`absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 max-w-[calc(100vw-3rem)] origin-top-left sm:origin-top-right bg-white dark:bg-[#1a1c1e] rounded-2xl shadow-fey border border-gray-200 dark:border-gray-700 p-2 z-50 flex flex-col gap-1 app-theme-panel ${
  isClosing ? 'animate-dropdown-close' : 'animate-dropdown'
  }`}
  >

@@ -13,7 +13,7 @@ export function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
  return (
  <button
  onClick={onToggle}
- className="p-2 rounded-2xl bg-white dark:bg-[#1a1c1e] shadow-apple hover:shadow-fey hover:-translate-y-0.5 transition-all duration-200 ease-in-out app-dark-chip"
+ className="p-2 rounded-2xl bg-white dark:bg-[#1a1c1e] shadow-apple hover:shadow-fey hover:-translate-y-0.5 transition-all duration-200 ease-in-out app-theme-chip"
  aria-label={theme === 'light' ? t('theme:switchToDark') : t('theme:switchToLight')}
  >
  <div className="w-5 h-5 flex items-center justify-center relative overflow-hidden">

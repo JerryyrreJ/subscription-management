@@ -181,19 +181,16 @@ export function Dashboard({
  })();
 
  return (
-  <div className="relative rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-slate-200/60 dark:border-gray-700/60 bg-white/70 dark:bg-[#1a1c1e]/70 backdrop-blur-xl p-6 z-20 app-dark-panel">
- {/* Subtle background gradient overlay for depth */}
- <div className="absolute inset-0 bg-gradient-to-br from-slate-50/50 via-transparent to-slate-100/30 dark:from-slate-700/10 dark:via-transparent dark:to-slate-900/20 pointer-events-none rounded-2xl -z-10"></div>
-
- <div className="relative z-10">
+  <div className="relative rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-slate-200/60 dark:border-gray-700/60 bg-white/70 dark:bg-[#1a1c1e]/70 backdrop-blur-xl p-6 z-20 app-theme-panel">
+<div className="relative z-10">
  {/* 桌面端：原始布局（标题和控件在同一行） */}
  <div className="hidden sm:flex justify-between items-center mb-6">
      <div className="flex items-center space-x-2.5">
-      <div className="p-2 bg-slate-100/80 dark:bg-gray-700/80 rounded-3xl app-dark-icon-shell">
-       <CreditCard className="w-5 h-5 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
+      <div className="p-2 bg-slate-100/80 dark:bg-gray-700/80 rounded-3xl app-theme-icon-shell">
+       <CreditCard className="w-5 h-5 text-slate-600 dark:text-gray-300 app-theme-text-secondary"/>
       </div>
       <div>
-       <h2 className="text-xl font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-dark-text-primary">{t('dashboard:overview')}</h2>
+       <h2 className="text-xl font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-theme-text-primary">{t('dashboard:overview')}</h2>
        {exchangeRateStatus && (
         <p className={exchangeRateStatus.className}>
          {exchangeRateStatus.message}
@@ -216,12 +213,12 @@ options={CURRENCIES.map(currency => ({
  </div>
 
  {/* 视图模式切换 */}
- <div className="bg-slate-100/60 dark:bg-gray-700/60 rounded-full p-1 backdrop-blur-sm border border-slate-200/40 dark:border-gray-600/40 flex items-center h-[38px] app-dark-chip">
+ <div className="bg-slate-100/60 dark:bg-gray-700/60 rounded-full p-1 backdrop-blur-sm border border-slate-200/40 dark:border-gray-600/40 flex items-center h-[38px] app-theme-chip">
 <button
 onClick={() => onViewModeChange('monthly')}
 className={`px-4 h-full rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
 viewMode === 'monthly'
- ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-dark-chip-active'
+ ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-theme-chip-active'
  : 'text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
 }`}
  >
@@ -231,7 +228,7 @@ viewMode === 'monthly'
  onClick={() => onViewModeChange('yearly')}
  className={`px-4 h-full rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
 viewMode === 'yearly'
- ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-dark-chip-active'
+ ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-theme-chip-active'
  : 'text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200'
 }`}
  >
@@ -245,11 +242,11 @@ viewMode === 'yearly'
  <div className="flex sm:hidden flex-col space-y-4 mb-6">
  {/* 标题行 */}
  <div className="flex items-center space-x-2.5">
- <div className="p-1.5 bg-slate-100/80 dark:bg-gray-700/80 rounded-2xl app-dark-icon-shell">
- <CreditCard className="w-4 h-4 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
+ <div className="p-1.5 bg-slate-100/80 dark:bg-gray-700/80 rounded-2xl app-theme-icon-shell">
+ <CreditCard className="w-4 h-4 text-slate-600 dark:text-gray-300 app-theme-text-secondary"/>
  </div>
  <div>
- <h2 className="text-lg font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-dark-text-primary">{t('dashboard:overview')}</h2>
+ <h2 className="text-lg font-semibold text-slate-800 dark:text-gray-100 tracking-tight app-theme-text-primary">{t('dashboard:overview')}</h2>
  {exchangeRateStatus && (
  <p className={exchangeRateStatus.className}>
  {exchangeRateStatus.message}
@@ -276,12 +273,12 @@ options={CURRENCIES.map(currency => ({
  </div>
 
  {/* 视图模式切换 - 移动端全宽 */}
- <div className="bg-slate-100/60 dark:bg-gray-700/60 rounded-full p-1 w-full backdrop-blur-sm border border-slate-200/40 dark:border-gray-600/40 flex items-center h-[38px] app-dark-chip">
+ <div className="bg-slate-100/60 dark:bg-gray-700/60 rounded-full p-1 w-full backdrop-blur-sm border border-slate-200/40 dark:border-gray-600/40 flex items-center h-[38px] app-theme-chip">
  <button
  onClick={() => onViewModeChange('monthly')}
  className={`w-1/2 h-full flex items-center justify-center text-sm font-medium rounded-full transition-all duration-200 ${
  viewMode === 'monthly'
- ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-dark-chip-active'
+ ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-theme-chip-active'
  : 'text-slate-600 dark:text-gray-400'
  }`}
  >
@@ -291,7 +288,7 @@ options={CURRENCIES.map(currency => ({
  onClick={() => onViewModeChange('yearly')}
  className={`w-1/2 h-full flex items-center justify-center text-sm font-medium rounded-full transition-all duration-200 ${
  viewMode === 'yearly'
- ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-dark-chip-active'
+ ? 'bg-white dark:bg-[#1a1c1e] text-slate-900 dark:text-gray-100 shadow-apple-sm app-theme-chip-active'
  : 'text-slate-600 dark:text-gray-400'
  }`}
  >
@@ -303,11 +300,11 @@ options={CURRENCIES.map(currency => ({
 
  <div className="relative">
  <div className="flex flex-col">
- <p className="text-sm font-medium text-slate-500 dark:text-gray-400 mb-2 app-dark-text-muted">{t('dashboard:totalCost', {
+ <p className="text-sm font-medium text-slate-500 dark:text-gray-400 mb-2 app-theme-text-muted">{t('dashboard:totalCost', {
  mode: viewMode === 'monthly' ? t('dashboard:monthly').toLowerCase() : t('dashboard:yearly').toLowerCase()
  })}</p>
  <div className="flex items-center space-x-4 flex-wrap gap-y-2">
- <h3 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-gray-100 leading-none tracking-tight flex items-baseline app-dark-text-primary">
+ <h3 className="text-4xl sm:text-5xl font-semibold tabular-nums text-slate-900 dark:text-gray-100 leading-none tracking-tight flex items-baseline app-theme-text-primary">
  <CountUp
  end={currentTotal}
  duration={1}
@@ -319,19 +316,19 @@ options={CURRENCIES.map(currency => ({
  />
  </h3>
 
- <div className="flex items-center text-slate-700 dark:text-gray-300 bg-slate-100/80 dark:bg-gray-700/80 px-3.5 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/60 dark:border-gray-600/60 app-dark-chip">
- <TrendingUp className="w-4 h-4 mr-1.5 text-slate-600 dark:text-gray-400 app-dark-text-muted"/>
+ <div className="flex items-center text-slate-700 dark:text-gray-300 bg-slate-100/80 dark:bg-gray-700/80 px-3.5 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/60 dark:border-gray-600/60 app-theme-chip">
+ <TrendingUp className="w-4 h-4 mr-1.5 text-slate-600 dark:text-gray-400 app-theme-text-muted"/>
  <span className="text-sm font-medium">{t('dashboard:activeCount', { count: subscriptions.length })}</span>
  </div>
  </div>
  </div>
 
- {/* 紧凑筛选和排序控件 - 绝对定位到右下角 */}
+ {/* Filters flow below totals on narrow screens. */}
  {totalSubscriptions > 0 && (
- <div className="absolute bottom-0 right-0 flex items-center space-x-1.5 sm:space-x-2 bg-slate-100/60 dark:bg-gray-700/60 rounded-3xl p-1.5 sm:p-2 backdrop-blur-md border border-slate-200/50 dark:border-gray-600/50 app-dark-chip">
+ <div className="app-filter-toolbar mt-5 xl:mt-0 xl:absolute bottom-0 right-0 flex items-center gap-2 bg-slate-100/60 dark:bg-gray-700/60 rounded-3xl p-1.5 sm:p-2 backdrop-blur-md border border-slate-200/50 dark:border-gray-600/50 app-theme-chip">
  {/* 类型筛选 */}
- <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 dark:text-gray-400 app-dark-text-muted"/>
- <div className="min-w-[120px] dashboard-sort-control">
+ <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 dark:text-gray-400 app-theme-text-muted"/>
+ <div className="min-w-0 dashboard-sort-control">
  <CustomSelect
  value={selectedCategory || 'all'}
  onChange={handleCategoryChange}
@@ -343,10 +340,10 @@ options={CURRENCIES.map(currency => ({
  <div className="h-6 w-px bg-slate-300/50 dark:bg-gray-600/50"></div>
 
  {/* 排序控件 */}
- <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 dark:text-gray-400 app-dark-text-muted"/>
+ <ArrowUpDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 dark:text-gray-400 app-theme-text-muted"/>
 
  {/* 排序字段选择器 - 小尺寸 */}
- <div className="min-w-[110px] dashboard-sort-control">
+ <div className="min-w-0 dashboard-sort-control">
  <CustomSelect
  value={sortConfig.sortBy}
  onChange={handleSortByChange}
@@ -360,13 +357,13 @@ options={CURRENCIES.map(currency => ({
  {/* 排序顺序切换按钮 - 小尺寸 */}
  <button
  onClick={handleSortOrderToggle}
- className="bg-white/60 dark:bg-[#1a1c1e]/60 hover:bg-white/90 dark:hover:bg-gray-700/90 p-1 sm:p-1.5 rounded-2xl transition-all duration-200 border border-slate-200/50 dark:border-gray-600/50 app-dark-chip"
+ className="bg-white/60 dark:bg-[#1a1c1e]/60 hover:bg-white/90 dark:hover:bg-gray-700/90 p-1 sm:p-1.5 rounded-2xl transition-all duration-200 border border-slate-200/50 dark:border-gray-600/50 app-theme-chip"
  title={sortConfig.sortOrder === 'asc' ? t('dashboard:sortAscending') : t('dashboard:sortDescending')}
  >
  {sortConfig.sortOrder === 'asc' ? (
- <ArrowUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
+ <ArrowUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-600 dark:text-gray-300 app-theme-text-secondary"/>
 ) : (
- <ArrowDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-600 dark:text-gray-300 app-dark-text-secondary"/>
+ <ArrowDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-600 dark:text-gray-300 app-theme-text-secondary"/>
 )}
  </button>
  </div>

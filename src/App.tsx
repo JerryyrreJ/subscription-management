@@ -838,22 +838,18 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  return (
  <>
- <div className="min-h-screen pb-20 relative overflow-hidden transition-colors duration-300">
- {/* Animated flowing gradient background */}
- <div className="fixed inset-0 -z-10 dark:opacity-0 animated-gradient-bg"></div>
- {/* Dark mode fallback */}
- <div className="fixed inset-0 -z-10 bg-gray-900 dark:opacity-100 opacity-0 transition-opacity duration-300 app-dark-canvas"></div>
- <div className="px-4 py-8">
+ <div className="min-h-screen pb-4 relative overflow-hidden transition-colors duration-300">
+<div className="px-4 py-8">
  <div className="max-w-7xl mx-auto space-y-8">
  {/* 移动端优化的头部布局 */}
- <div className="sticky top-4 z-50 p-4 sm:px-6 sm:py-4 mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-[#fcfcfc]/80 dark:bg-[#1a1c1e]/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-800/50 rounded-3xl shadow-fey app-dark-topbar"> <div className="flex items-center gap-3">
- <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white app-dark-text-primary">
+ <div className="sticky top-4 z-50 p-4 sm:px-6 sm:py-4 mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-[#fcfcfc]/80 dark:bg-[#1a1c1e]/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-800/50 rounded-3xl shadow-fey app-theme-topbar"> <div className="flex items-center gap-3">
+ <h1 className="text-2xl sm:text-2xl font-semibold tracking-tight text-gray-900 dark:text-white app-theme-text-primary">
  {t('app:title')}
  </h1>
  {subscriptions.length > 0 && (
  <button
  onClick={openAdvancedReport}
- className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1a1c1e] text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-apple transition-all text-sm font-medium app-dark-chip"
+ className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1a1c1e] text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:shadow-apple transition-all text-sm font-medium app-theme-chip"
  title={canUseAdvancedReport ? t('app:viewAdvancedReport') : t('app:advancedReportPremiumOnly')}
  >
  <BarChart3 className="w-4 h-4"/>
@@ -935,12 +931,12 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setIsAddModalOpen(true);
  }
  }}
- className="group h-[200px] sm:h-[250px] bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey p-4 sm:p-6 flex flex-col items-center justify-center gap-3 sm:gap-4 transition-all duration-300 hover:scale-105 hover:shadow-apple-lg app-dark-card"
+ className="group min-h-[200px] sm:min-h-[216px] bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey p-4 sm:p-6 flex flex-col items-center justify-center gap-3 sm:gap-4 transition-all duration-300 hover:border-emerald-500 app-theme-card"
  >
- <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#f4f5f7] dark:bg-[#202225] flex items-center justify-center group-hover:bg-emerald-50 dark:group-hover:bg-emerald-500/10 transition-colors app-dark-icon-shell">
+ <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#f4f5f7] dark:bg-[#202225] flex items-center justify-center group-hover:bg-emerald-50 dark:group-hover:bg-emerald-500/10 transition-colors app-theme-icon-shell">
  <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 group-hover:text-emerald-600 dark:text-gray-500 dark:group-hover:text-emerald-400 transition-colors"/>
  </div>
- <p className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base text-center app-dark-text-secondary">
+ <p className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base text-center app-theme-text-secondary">
  {sortedSubscriptions.length === 0
  ?t('app:addFirstSubscription')
  :t('app:addSubscription')}
