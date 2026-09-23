@@ -50,16 +50,14 @@ https://your-site.example/api/v1
 
 | 套餐 | Active keys | 请求量 |
 | --- | ---: | ---: |
-| Free | 1 | 每用户每小时 60 次 |
-| Premium | 5 | 每用户每小时 1000 次 |
+| Free | 5 | 每账户每分钟 60 次 |
+| Premium | 5 | 每账户每分钟 60 次 |
 
 可以用服务端环境变量覆盖默认值：
 
 ```bash
-API_FREE_RATE_LIMIT_PER_HOUR=60
-API_PREMIUM_RATE_LIMIT_PER_HOUR=1000
-API_FREE_ACTIVE_KEYS=1
-API_PREMIUM_ACTIVE_KEYS=5
+API_RATE_LIMIT_PER_MINUTE=60
+API_MAX_ACTIVE_KEYS=5
 API_FAILED_AUTH_RATE_LIMIT_PER_HOUR=300
 API_RATE_LIMIT_RETENTION_HOURS=48
 ```

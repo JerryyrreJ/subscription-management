@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useState, useEffect } from 'react'
 import { X, Trash2, GripVertical, Plus, RotateCcw, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -43,6 +44,7 @@ export function CategorySettingsModal({
   categorySync,
   isStandalone = true
 }: CategorySettingsModalProps) {
+ useModalScrollLock(isOpen && isStandalone);
   const { t } = useTranslation(['categorySettings', 'app', 'settingsHub', 'categoryLabels'])
  const [categories, setCategories] = useState<Category[]>([])
  const [newCategoryName, setNewCategoryName] = useState('')
@@ -293,7 +295,7 @@ export function CategorySettingsModal({
       )}
 
       {/* Content */}
- <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+ <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-4">
  {/* Add New Category */}
  <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-4 space-y-3">
  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -492,8 +494,8 @@ export function CategorySettingsModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-2 sm:p-4 z-50 modal-overlay">
-      <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-lg w-full max-h-[90vh] overflow-hidden modal-content flex flex-col">
+    <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-2 sm:p-4 z-50 modal-overlay">
+      <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-lg w-full max-h-[calc(var(--app-viewport-height,100dvh)*0.9)] overflow-hidden modal-content flex flex-col">
         {content}
       </div>
 

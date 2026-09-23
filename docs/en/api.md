@@ -10,8 +10,7 @@ Create an API key from **Developer API** in the user menu. The full key is shown
 
 Default limits:
 
-- Free users: 1 active key, 60 requests per user per hour
-- Premium users: 5 active keys, 1000 requests per user per hour
+- Free and Premium: 5 active keys, 60 requests per account per minute across API/MCP keys; no monthly cap
 
 API keys have scopes:
 

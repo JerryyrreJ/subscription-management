@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { HandlerEvent } from '@netlify/functions';
-import type Stripe from 'stripe';
+import Stripe from 'stripe';
+import { webHandler } from '../../netlify/functions/_shared/webHandler.ts';
 import { createStripeWebhookHandler } from '../../netlify/functions/stripe-webhook.ts';
 
 const stripeConfig = {
@@ -132,4 +133,70 @@ test('webhook returns 500 so Stripe retries when the premium transaction fails',
 
  const response = await handler(event(), {} as never);
  assert.equal(response?.statusCode, 500);
+});
+
+test('delayed payment is acknowledged unpaid, then fulfilled on async success', async () => {
+ const incoming = completedEvent();
+ const session = incoming.data.object as Stripe.Checkout.Session;
+ session.payment_status = 'unpaid';
+ let grants = 0;
+ const handler = createStripeWebhookHandler(() => ({
+  stripeConfig,
+  supabaseConfig: { url: 'https://supabase.test', publishableKey: 'p', secretKey: 's' },
+  stripe: {
+   webhooks: { constructEvent: () => incoming },
+   checkout: { sessions: { listLineItems: async () => ({ data: [{ price: { id: 'price_server' } }] }) } },
+  },
+  database: { rpc: async () => { grants++; return { data: true, error: null }; } },
+  createRequestId: () => 'delayed-payment',
+ }));
+ assert.equal((await handler(event(), {} as never))?.statusCode, 200);
+ assert.equal(grants, 0);
+ incoming.type = 'checkout.session.async_payment_succeeded';
+ session.payment_status = 'paid';
+ assert.equal((await handler(event(), {} as never))?.statusCode, 200);
+ assert.equal(grants, 1);
+});
+
+test('base64 encoded webhook body is decoded before signature verification', async () => {
+ const request = event();
+ request.body = Buffer.from('{"original":"payload"}').toString('base64');
+ request.isBase64Encoded = true;
+ const handler = createStripeWebhookHandler(() => ({
+  stripeConfig, supabaseConfig: null, database: null,
+  stripe: {
+   webhooks: { constructEvent: body => {
+    assert.equal(body, '{"original":"payload"}');
+    return { ...completedEvent(), type: 'checkout.session.async_payment_failed' } as Stripe.Event;
+   } },
+   checkout: { sessions: { listLineItems: async () => ({ data: [] }) } },
+  },
+  createRequestId: () => 'base64',
+ }));
+ assert.equal((await handler(request, {} as never))?.statusCode, 200);
+});
+
+
+test('modern Request adapter preserves Stripe signed bytes and rejects tampering', async () => {
+ const stripe = new Stripe('sk_test_local_fixture');
+ const payload = JSON.stringify(completedEvent(), null, 2);
+ const signature = stripe.webhooks.generateTestHeaderString({ payload, secret: stripeConfig.webhookSecret });
+ let grants = 0;
+ const handler = webHandler(createStripeWebhookHandler(() => ({
+  stripeConfig,
+  supabaseConfig: { url: 'https://supabase.test', publishableKey: 'p', secretKey: 's' },
+  stripe: {
+   webhooks: stripe.webhooks,
+   checkout: { sessions: { listLineItems: async () => ({ data: [{ price: { id: 'price_server' } }] }) } },
+  },
+  database: { rpc: async () => { grants++; return { data: true, error: null }; } },
+  createRequestId: () => 'signed-request',
+ })));
+ const request = (body: string) => new Request('https://site.test/.netlify/functions/stripe-webhook', {
+  method: 'POST', body, headers: { 'stripe-signature': signature },
+ });
+ assert.equal((await handler(request(payload))).status, 200);
+ assert.equal(grants, 1);
+ assert.equal((await handler(request(payload + ' '))).status, 400);
+ assert.equal(grants, 1);
 });

@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useState, useEffect } from 'react';
 import { X, Bell, Send, BookOpen, ExternalLink, LogIn } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +26,7 @@ export function NotificationSettingsModal({
  onOpenAuth,
  isStandalone = true
 }: NotificationSettingsModalProps) {
+ useModalScrollLock(isOpen && isStandalone);
   const { t } = useTranslation(['notificationSettings', 'settingsHub']);
  const { language } = useAppLanguage();
  const { user } = useAuth();
@@ -375,8 +377,8 @@ export function NotificationSettingsModal({
   if (!isStandalone) return content;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+    <div className="fixed inset-0 mobile-modal-viewport bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-2xl w-full max-h-[calc(var(--app-viewport-height,100dvh)*0.9)] overflow-y-auto animate-scale-in">
         {content}
       </div>
     </div>

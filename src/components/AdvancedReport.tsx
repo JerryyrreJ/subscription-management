@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { Subscription, Currency, ExchangeRates } from '../types';
 import { generateReportData, ReportData } from '../utils/reportAnalytics';
 import { buildPdfReportData } from '../utils/pdfReportData';
@@ -30,6 +31,7 @@ export function AdvancedReport({
  exchangeRatesUpdatedAt,
  onClose,
 }: AdvancedReportProps) {
+ useModalScrollLock(true);
  const { t } = useTranslation(['analytics', 'currency', 'categoryLabels']);
  const { language } = useAppLanguage();
  const [isVisible, setIsVisible] = useState(false);
@@ -93,13 +95,13 @@ export function AdvancedReport({
 
  return (
  <div
- className={`fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-out ${
+ className={`fixed inset-0 mobile-modal-viewport bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-out ${
  isVisible ? 'opacity-100' : 'opacity-0'
  }`}
  onClick={handleClose}
  >
  <div
- className={`bg-[#fcfcfc]/95 dark:bg-[#0a0a0a]/95 backdrop-blur-2xl rounded-[2rem] border border-gray-200/50 dark:border-white/10 shadow-fey w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden transition-all duration-300 ease-out ${
+ className={`bg-[#fcfcfc]/95 dark:bg-[#0a0a0a]/95 backdrop-blur-2xl rounded-[2rem] border border-gray-200/50 dark:border-white/10 shadow-fey w-full max-w-7xl h-[calc(var(--app-viewport-height,100dvh)*0.9)] flex flex-col overflow-hidden transition-all duration-300 ease-out ${
  isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
  }`}
  onClick={(e) => e.stopPropagation()}
@@ -134,7 +136,7 @@ export function AdvancedReport({
     </div>
 
  {/* Scrollable Content Area */}
- <div id="report-content"className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+ <div id="report-content"className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50 dark:bg-gray-900">
  {/* Refined Overview Cards */}
  <div className="p-8 border-b border-gray-200/50 dark:border-white/10">
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

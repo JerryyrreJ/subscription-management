@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -25,6 +26,7 @@ export function DeleteCategoryDialog({
  onConfirm,
  onCancel
 }: DeleteCategoryDialogProps) {
+ useModalScrollLock(isOpen);
  const { t } = useTranslation(['categorySettings', 'app', 'categoryLabels'])
  const [moveToCategory, setMoveToCategory] = useState<string>('')
 
@@ -41,7 +43,7 @@ export function DeleteCategoryDialog({
  }
 
  return (
- <div className="fixed inset-0 bg-black bg-opacity-60 dark:bg-opacity-80 flex items-center justify-center p-4 z-[60]">
+ <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-60 dark:bg-opacity-80 flex items-center justify-center p-4 z-[60]">
  <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-xl max-w-md w-full">
  {/* Header */}
  <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">

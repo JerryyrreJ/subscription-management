@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
@@ -124,6 +125,7 @@ export function AiCaptureModal({
   onShowUndo,
   onManualFallback,
 }: AiCaptureModalProps) {
+ useModalScrollLock(isOpen);
   const { t } = useTranslation(['aiCapture', 'addSubscription', 'app', 'categoryLabels']);
   const [phase, setPhase] = useState<Phase>('capture');
   const [text, setText] = useState('');
@@ -1049,8 +1051,8 @@ export function AiCaptureModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-2 sm:p-4 z-50">
-      <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-2 sm:p-4 z-50">
+      <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-lg w-full max-h-[calc(var(--app-viewport-height,100dvh)*0.95)] sm:max-h-[calc(var(--app-viewport-height,100dvh)*0.9)] overflow-y-auto">
         <div className="p-4 sm:p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

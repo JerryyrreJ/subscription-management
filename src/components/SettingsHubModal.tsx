@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, User, Settings, Folder, Bell, Code2 } from 'lucide-react';
@@ -71,6 +72,7 @@ export function SettingsHubModal({
   notificationSettings,
   onSaveNotificationSettings
 }: SettingsHubModalProps) {
+ useModalScrollLock(isOpen);
   const { t } = useTranslation(['settingsHub']);
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
 
@@ -95,11 +97,11 @@ export function SettingsHubModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-2xl flex items-center justify-center z-[100] p-2 sm:p-6 transition-all duration-300"
+      className="fixed inset-0 mobile-modal-viewport bg-black/40 backdrop-blur-2xl flex items-center justify-center z-[100] p-2 sm:p-6 transition-all duration-300"
       onClick={onClose}
     >
       <div 
-        className="bg-[#fcfcfc]/95 dark:bg-[#0a0a0a]/95 backdrop-blur-3xl rounded-3xl sm:rounded-[2rem] shadow-apple-xl border border-gray-200/50 dark:border-white/10 w-full max-w-6xl h-[92vh] sm:h-[85vh] flex flex-col sm:flex-row overflow-hidden animate-scale-in"
+        className="bg-[#fcfcfc]/95 dark:bg-[#0a0a0a]/95 backdrop-blur-3xl rounded-3xl sm:rounded-[2rem] shadow-apple-xl border border-gray-200/50 dark:border-white/10 w-full max-w-6xl h-[calc(var(--app-viewport-height,100dvh)*0.92)] sm:h-[calc(var(--app-viewport-height,100dvh)*0.85)] flex flex-col sm:flex-row overflow-hidden animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sidebar */}
@@ -159,7 +161,7 @@ export function SettingsHubModal({
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 sm:px-10 pb-8 sm:pb-10">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-10 pb-8 sm:pb-10">
             {selectedTab === 'general' && (
               <GeneralSettingsContent 
                 onExportData={onExportData} 

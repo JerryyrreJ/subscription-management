@@ -642,3 +642,32 @@ body {
 .animate-undo-perimeter {
   animation: undo-perimeter-countdown 5s linear forwards;
 }
+
+/* Mobile input focus should not trigger readability zoom. Keep pinch zoom
+   available: no user-scalable=no, maximum-scale, or touch-action:none. */
+@media (max-width: 767px), (pointer: coarse) {
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]), textarea, select) {
+    font-size: max(16px, 1em);
+  }
+  :is(input, textarea, select):is(.text-xs, .text-sm) {
+    font-size: 16px !important;
+  }
+}
+.mobile-modal-viewport .overflow-y-auto,
+.mobile-modal-viewport .overflow-auto,
+dialog.pricing-page {
+  overscroll-behavior-y: contain;
+}
+.mobile-modal-panel {
+  max-height: calc(var(--app-viewport-height, 100dvh) - 2rem);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+@media (max-width: 767px) {
+  .mobile-modal-viewport,
+  dialog.pricing-page {
+    top: var(--app-viewport-top, 0px);
+    bottom: auto;
+    height: var(--app-viewport-height, 100dvh);
+  }
+}

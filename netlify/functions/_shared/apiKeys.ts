@@ -253,7 +253,7 @@ export const identifyApiKey = async (
     userId: apiKeyRecord.user_id,
     keyPrefix: apiKeyRecord.key_prefix,
     isPremium,
-    rateLimitMax: isPremium ? limits.premiumRequestsPerHour : limits.freeRequestsPerHour,
+    rateLimitMax: limits.requestsPerMinute,
     // Keys predating the scopes column (lookup returns null) keep full access.
     scopes: Array.isArray(lookup.scopes) && lookup.scopes.length > 0
       ? lookup.scopes
@@ -267,10 +267,10 @@ export const consumeApiRateLimit = async (
   now: Date = new Date()
 ): Promise<ApiClientContext> => {
   const { data: rateLimitData, error: rateLimitError } = await database.rpc(
-    'consume_api_user_rate_limit',
+    'consume_api_user_minute_limit',
     {
       p_user_id: identity.userId,
-      p_window_start: getWindowStart(now),
+      p_window_start: new Date(Math.floor(now.getTime() / 60_000) * 60_000).toISOString(),
       p_limit: identity.rateLimitMax,
     }
   );

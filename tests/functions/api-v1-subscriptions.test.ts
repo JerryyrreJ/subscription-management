@@ -15,10 +15,8 @@ const apiKeyId = '22222222-2222-4222-8222-222222222222';
 const userId = '11111111-1111-4111-8111-111111111111';
 
 const limits = {
-  freeRequestsPerHour: 60,
-  premiumRequestsPerHour: 1000,
-  freeActiveKeys: 1,
-  premiumActiveKeys: 5,
+  requestsPerMinute: 60,
+  activeKeys: 5,
   failedAuthRequestsPerHour: 300,
   rateLimitRetentionHours: 48,
 };
@@ -100,7 +98,7 @@ const createDatabase = (
     };
   }
 
-  assert.equal(name, 'consume_api_user_rate_limit');
+  assert.equal(name, 'consume_api_user_minute_limit');
   assert.equal(args.p_user_id, userId);
   assert.equal(Object.hasOwn(args, 'p_api_key_id'), false);
 
@@ -951,7 +949,7 @@ test('does not consume the hourly quota when the request body is invalid', async
         error: null,
       };
     }
-    if (name === 'consume_api_user_rate_limit') {
+    if (name === 'consume_api_user_minute_limit') {
       consumeCalled = true;
       return {
         data: [{ allowed: true, request_count: 1, remaining: 59, reset_at: '2026-06-16T01:00:00.000Z' }],

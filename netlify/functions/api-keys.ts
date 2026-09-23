@@ -1,3 +1,5 @@
+import { runtimeEnvironment, webHandler } from './_shared/webHandler';
+import type { Config } from '@netlify/functions';
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
@@ -77,12 +79,12 @@ const parseRevokeQuery = (
 };
 
 const createDefaultDependencies = (): ApiKeyDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(process.env);
+  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
 
   return {
     supabaseConfig,
     database: createSupabaseAdminClient(supabaseConfig),
-    limits: getApiLimitsConfig(process.env),
+    limits: getApiLimitsConfig(runtimeEnvironment),
     createAuthClient: createSupabaseAuthClient,
     createApiKeyMaterial: generateApiKeyMaterial,
     createRequestId: () => crypto.randomUUID(),
@@ -163,14 +165,12 @@ const listKeys = async (
 };
 
 const getKeyLimit = (
-  profile: ProfileRow | null,
   limits: ApiLimitsConfig
-): number => profile?.is_premium ? limits.premiumActiveKeys : limits.freeActiveKeys;
+): number => limits.activeKeys;
 
-const getHourlyLimit = (
-  profile: ProfileRow | null,
+const getMinuteLimit = (
   limits: ApiLimitsConfig
-): number => profile?.is_premium ? limits.premiumRequestsPerHour : limits.freeRequestsPerHour;
+): number => limits.requestsPerMinute;
 
 export const createApiKeysHandler = (
   dependenciesFactory: () => ApiKeyDependencies = createDefaultDependencies
@@ -202,8 +202,8 @@ export const createApiKeysHandler = (
       return jsonResponse(200, {
         keys: keys.map(toPublicKey),
         limits: {
-          activeKeys: getKeyLimit(profile, dependencies.limits),
-          requestsPerHour: getHourlyLimit(profile, dependencies.limits),
+          activeKeys: getKeyLimit(dependencies.limits),
+          requestsPerMinute: getMinuteLimit(dependencies.limits),
           plan: profile?.is_premium ? 'premium' : 'free',
         },
         requestId,
@@ -212,7 +212,7 @@ export const createApiKeysHandler = (
 
     if (event.httpMethod === 'POST') {
       const parsed = parseCreateKeyBody(event.body);
-      const activeKeyLimit = getKeyLimit(profile, dependencies.limits);
+      const activeKeyLimit = getKeyLimit(dependencies.limits);
       const apiKeyMaterial = dependencies.createApiKeyMaterial();
       const { data: createData, error } = await dependencies.database.rpc(
         'create_api_key_if_under_limit',
@@ -239,7 +239,7 @@ export const createApiKeysHandler = (
         throw new HttpError(
           403,
           'api_key_limit_exceeded',
-          `Active API key limit reached for this plan (${activeKeyLimit})`
+          `Active API key limit reached for this account (${activeKeyLimit})`
         );
       }
 
@@ -290,4 +290,5 @@ export const createApiKeysHandler = (
   }
 };
 
-export const handler = createApiKeysHandler();
+export default webHandler(createApiKeysHandler());
+export const config: Config = {};

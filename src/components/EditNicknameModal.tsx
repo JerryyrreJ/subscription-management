@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useState } from 'react'
 import { X, User, Check, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -9,6 +10,7 @@ interface EditNicknameModalProps {
 }
 
 export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
+ useModalScrollLock(isOpen);
  const { t } = useTranslation(['accountModals', 'app'])
  const { userProfile, updateUserNickname } = useAuth()
  const [nickname, setNickname] = useState(userProfile?.nickname || '')
@@ -58,8 +60,8 @@ export function EditNicknameModal({ isOpen, onClose }: EditNicknameModalProps) {
  if (!isOpen) return null
 
  return (
- <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6 modal-content">
+ <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay">
+ <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full mobile-modal-panel p-6 modal-content">
  <div className="flex justify-between items-center mb-6">
  <h2 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight">
  {t('accountModals:editNicknameTitle')}

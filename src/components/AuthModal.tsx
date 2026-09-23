@@ -1,3 +1,4 @@
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { X, Mail, Lock, User, UserPlus, AlertCircle, CheckCircle, Github } from 'lucide-react'
@@ -21,6 +22,7 @@ const isRetryableAuthRequestError = (error: unknown) => {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+ useModalScrollLock(isOpen);
  const { t } = useTranslation(['auth'])
  const [isLogin, setIsLogin] = useState(true)
  const [isPasswordResetMode, setIsPasswordResetMode] = useState(false)
@@ -212,8 +214,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  if (!isOpen) return null
 
  return (
- <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full p-6 modal-content">
+ <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay">
+ <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full mobile-modal-panel p-6 modal-content">
  <div className="flex justify-between items-center mb-6">
  <h2 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
  {isPasswordResetMode ? t('auth:resetPasswordTitle') : (isLogin ? t('auth:loginTitle') : t('auth:signUpTitle'))}

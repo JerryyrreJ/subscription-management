@@ -9,7 +9,7 @@ export interface ApiKeyMetadata {
 
 export interface ApiKeyLimits {
  activeKeys: number;
- requestsPerHour: number;
+ requestsPerMinute: number;
  plan: 'free' | 'premium';
 }
 
@@ -100,7 +100,7 @@ const isApiKeyLimits = (value: unknown): value is ApiKeyLimits => {
  }
 
  return typeof value.activeKeys === 'number' &&
-  typeof value.requestsPerHour === 'number' &&
+  typeof value.requestsPerMinute === 'number' &&
   (value.plan === 'free' || value.plan === 'premium');
 };
 

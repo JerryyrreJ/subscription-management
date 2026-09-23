@@ -16,7 +16,7 @@ export const developerApi = {
  keyName: 'Key name',
  createKey: 'Create key',
  creating: 'Creating...',
- keyLimitReached: 'You have reached the active key limit for this plan ({{count}}).',
+ keyLimitReached: 'You have reached the active key limit for this account ({{count}}).',
  keys: 'API keys',
  loading: 'Loading API keys...',
  noKeys: 'No API keys yet.',
