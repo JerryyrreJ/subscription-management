@@ -1,3 +1,4 @@
+import './AiCaptureModal.css';
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -144,6 +145,19 @@ export function AiCaptureModal({
   const [completion, setCompletion] = useState<CompletionState | null>(null);
   const [inlineUndoStatus, setInlineUndoStatus] = useState<'idle' | 'running' | 'done'>('idle');
   const fileRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const input = textRef.current;
+    if (!input) return;
+    const resize = () => {
+      input.style.height = "auto";
+      input.style.height = `${Math.min(input.scrollHeight, 200)}px`;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [text, phase, isOpen]);
   const mountedRef = useRef(false);
 
   useEffect(() => {
@@ -1051,21 +1065,21 @@ export function AiCaptureModal({
   };
 
   return (
-    <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-2 sm:p-4 z-50">
-      <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-lg w-full max-h-[calc(var(--app-viewport-height,100dvh)*0.95)] sm:max-h-[calc(var(--app-viewport-height,100dvh)*0.9)] overflow-y-auto">
-        <div className="p-4 sm:p-6 space-y-4">
-          <div className="flex items-center justify-between">
+    <div className="fixed inset-0 mobile-modal-viewport ai-capture-overlay bg-black bg-opacity-50 dark:bg-opacity-70 z-50">
+      <div role="dialog" aria-modal="true" aria-labelledby="ai-capture-title" className="ai-capture-panel shadow-apple-lg">
+        <div className="ai-capture-header flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <h2 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight">{t('aiCapture:title')}</h2>
+              <h2 id="ai-capture-title" className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-white tracking-tight">{t('aiCapture:title')}</h2>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1">
+            <button onClick={onClose} aria-label={t("aiCapture:close")} className="ai-capture-close text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
               <X className="w-5 h-5" />
             </button>
           </div>
 
+        <div className="ai-capture-body space-y-4">
           {errorCode && (
             <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3 text-sm text-amber-800 dark:text-amber-200">
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -1075,15 +1089,21 @@ export function AiCaptureModal({
 
           {phase !== 'review' && (
             <>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('aiCapture:subtitle')}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400"><span className="hidden sm:inline">{t('aiCapture:subtitle')}</span><span className="sm:hidden">{t('aiCapture:mobileSubtitle')}</span></p>
               <textarea
+                ref={textRef}
+                aria-label={t("aiCapture:inputLabel")}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                rows={4}
-                placeholder={t('aiCapture:textPlaceholder')}
-                className={`${inputBase} ${fieldBorder(false)} resize-none`}
+                rows={3}
+                placeholder={t('aiCapture:shortPlaceholder')}
+                className={`${inputBase} ${fieldBorder(false)} ai-capture-input resize-none`}
                 disabled={phase === 'parsing'}
               />
+              <details className="text-sm text-gray-500 dark:text-gray-400">
+                <summary className="cursor-pointer py-1">{t('aiCapture:examplesLabel')}</summary>
+                <p className="pt-2">{t('aiCapture:textPlaceholder')}</p>
+              </details>
               <div className="flex items-center gap-3">
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleImage(e.target.files?.[0])} />
                 {image ? (
@@ -1106,19 +1126,7 @@ export function AiCaptureModal({
 
               <p className="text-xs text-gray-400 dark:text-gray-500">{t('aiCapture:privacyNote')}</p>
 
-              <div className="flex gap-3 pt-1">
-                <button
-                  onClick={handleParse}
-                  disabled={phase === 'parsing' || (!text.trim() && !image)}
-                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 dark:bg-emerald-500 text-white py-2.5 px-4 rounded-2xl font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {phase === 'parsing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {phase === 'parsing' ? t('aiCapture:parsing') : t('aiCapture:parse')}
-                </button>
-                <button onClick={onManualFallback} className="px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600">
-                  {t('aiCapture:manualFallback')}
-                </button>
-              </div>
+
             </>
           )}
 
@@ -1149,6 +1157,21 @@ export function AiCaptureModal({
             </>
           )}
         </div>
+        {phase !== 'review' && (
+              <div className="ai-capture-actions">
+                <button
+                  onClick={() => { textRef.current?.blur(); void handleParse(); }}
+                  disabled={phase === 'parsing' || (!text.trim() && !image)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 dark:bg-emerald-500 text-white py-2.5 px-4 rounded-2xl font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {phase === 'parsing' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {phase === 'parsing' ? t('aiCapture:parsing') : t('aiCapture:parse')}
+                </button>
+                <button onClick={onManualFallback} className="ai-capture-manual text-gray-600 dark:text-gray-300">
+                  {t('aiCapture:manualFallback')}
+                </button>
+              </div>
+        )}
       </div>
     </div>
   );

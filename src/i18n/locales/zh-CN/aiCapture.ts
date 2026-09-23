@@ -1,4 +1,9 @@
 export const aiCapture = {
+  mobileSubtitle: '说出你想做的修改，确认后再保存。',
+  inputLabel: '描述订阅或你想做的修改',
+  shortPlaceholder: '例如：Netflix 每月 ¥68，6 月 1 日开始',
+  examplesLabel: '更多示例',
+
   title: 'AI 助手',
   subtitle: '用自然语言添加、修改或删除订阅——AI 准备操作，由你确认执行。',
   textPlaceholder: '例如「Netflix 每月 ¥68，6 月 1 日开始」「删除 Warmcar」「把腾讯云改成每年 ¥74」…',

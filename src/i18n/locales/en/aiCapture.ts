@@ -1,4 +1,9 @@
 export const aiCapture = {
+  mobileSubtitle: 'Describe a change. Review it before saving.',
+  inputLabel: 'Describe your subscription or change',
+  shortPlaceholder: 'e.g. Netflix $15.99 monthly, starting June 1',
+  examplesLabel: 'More examples',
+
   title: 'AI Assistant',
   subtitle: 'Add, update, or remove subscriptions in your own words — AI prepares the action, you confirm it.',
   textPlaceholder: 'e.g. "Netflix $15.99 monthly since June 1", "delete Warmcar", or "change Tencent Cloud to ¥74 yearly"…',
