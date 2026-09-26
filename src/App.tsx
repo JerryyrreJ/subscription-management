@@ -12,6 +12,11 @@ import {
  ExchangeRateSource,
  ExchangeRateLoadResult
 } from './types';
+// Core subscription flows load with the home page so opening them never waits on a chunk.
+import { AddSubscriptionModal } from './components/AddSubscriptionModal';
+import { AiCaptureModal } from './components/AiCaptureModal';
+import { SubscriptionDetailsModal } from './components/SubscriptionDetailsModal';
+import { EditSubscriptionModal } from './components/EditSubscriptionModal';
 import { Dashboard } from './components/Dashboard';
 import { SubscriptionCard } from './components/SubscriptionCard';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -58,18 +63,6 @@ import {
 
 const AdvancedReport = lazy(() =>
  import('./components/AdvancedReport').then(module => ({ default: module.AdvancedReport }))
-);
-const AddSubscriptionModal = lazy(() =>
- import('./components/AddSubscriptionModal').then(module => ({ default: module.AddSubscriptionModal }))
-);
-const AiCaptureModal = lazy(() =>
- import('./components/AiCaptureModal').then(module => ({ default: module.AiCaptureModal }))
-);
-const SubscriptionDetailsModal = lazy(() =>
- import('./components/SubscriptionDetailsModal').then(module => ({ default: module.SubscriptionDetailsModal }))
-);
-const EditSubscriptionModal = lazy(() =>
- import('./components/EditSubscriptionModal').then(module => ({ default: module.EditSubscriptionModal }))
 );
 const AuthModal = lazy(() =>
  import('./components/AuthModal').then(module => ({ default: module.AuthModal }))
@@ -947,15 +940,6 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  </div>
 
  {isAddModalOpen && (
- <Suspense
- fallback={(
-  <LazyModalFallback
-   title={t('app:addSubscription')}
-   description={t('app:loadingNotificationSettingsDescription')}
-   onClose={() => setIsAddModalOpen(false)}
-  />
- )}
- >
   <AddSubscriptionModal
   isOpen={isAddModalOpen}
   onClose={() => setIsAddModalOpen(false)}
@@ -966,19 +950,9 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   }}
   isNotificationReady={notificationReady}
   />
- </Suspense>
  )}
 
  {isAiCaptureOpen && (
- <Suspense
- fallback={(
-  <LazyModalFallback
-   title={t('aiCapture:title')}
-   description={t('app:loadingNotificationSettingsDescription')}
-   onClose={() => setIsAiCaptureOpen(false)}
-  />
- )}
- >
   <AiCaptureModal
   isOpen={isAiCaptureOpen}
   onClose={() => setIsAiCaptureOpen(false)}
@@ -990,19 +964,9 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   onShowUndo={showUndoAction}
   onManualFallback={() => { setIsAiCaptureOpen(false); setIsAddModalOpen(true); }}
   />
- </Suspense>
  )}
 
  {selectedSubscription && (
- <Suspense
- fallback={(
-  <LazyModalFallback
-   title={selectedSubscription.name}
-   description={t('app:loadingNotificationSettingsDescription')}
-   onClose={() => setSelectedSubscription(null)}
-  />
- )}
- >
   <SubscriptionDetailsModal
   isOpen={selectedSubscription !== null}
   subscription={selectedSubscription}
@@ -1010,19 +974,9 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   onEdit={handleEditClick}
   onDelete={handleDeleteSubscription}
   />
- </Suspense>
  )}
 
  {selectedSubscription && isEditModalOpen && (
- <Suspense
- fallback={(
-  <LazyModalFallback
-   title={t('app:addSubscription')}
-   description={t('app:loadingNotificationSettingsDescription')}
-   onClose={() => setIsEditModalOpen(false)}
-  />
- )}
- >
   <EditSubscriptionModal
   subscription={selectedSubscription}
   isOpen={isEditModalOpen}
@@ -1033,7 +987,6 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   }}
   isBarkEnabled={notificationReady}
   />
- </Suspense>
  )}
 
  {config.features.authentication && isAuthModalOpen && (
