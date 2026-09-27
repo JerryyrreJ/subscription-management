@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { config } from '../lib/config';
 import { useAuth } from '../contexts/AuthContext';
-import { redirectToCheckout } from '../services/payment';
+import { createCheckoutSession, pendingCheckout } from '../services/payment';
+import { useCheckoutVerification } from '../hooks/useCheckoutVerification';
 import { pricingCopy } from './pricing/copy';
 import './pricing/pricing.css';
 
@@ -19,10 +20,16 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
  const busy = useRef(false);
  const [processing, setProcessing] = useState(false);
  const [error, setError] = useState(false);
- const [timedOut, setTimedOut] = useState(false);
+
  const premium = Boolean(userProfile?.is_premium);
  const payment = new URLSearchParams(window.location.search).get('payment');
- const verifying = payment === 'success' && !premium;
+ const urlSessionId = new URLSearchParams(window.location.search).get('session_id');
+ const sessionId = urlSessionId || (session ? pendingCheckout(session.user.id) : null);
+ const verification = useCheckoutVerification(isOpen, sessionId, session?.access_token, refreshUserProfile);
+ const { status, checking, timedOut } = verification;
+ const verifying = Boolean(sessionId && session && (!status || status === 'pending'));
+ const blocked = verifying || status === 'disputed';
+
  const available = config.features.payment && config.features.cloudSync;
 
  useEffect(() => {
@@ -32,28 +39,20 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
   return () => { element?.close(); };
  }, [isOpen]);
 
- useEffect(() => {
-  if (!isOpen || !verifying || !session) return;
-  let cancelled = false;
-  const refresh = () => { void refreshUserProfile().catch(() => { /* keep pending; never infer payment from URL */ }); };
-  refresh();
-  const timer = window.setInterval(refresh, 3000);
-  const timeout = window.setTimeout(() => {
-   window.clearInterval(timer);
-   if (!cancelled) setTimedOut(true);
-  }, 60_000);
-  return () => { cancelled = true; window.clearInterval(timer); window.clearTimeout(timeout); };
- }, [isOpen, verifying, session, refreshUserProfile]);
 
  const pay = async () => {
-  if (busy.current || premium || (verifying && session) || !available) return;
+  if (busy.current || premium || blocked || !available) return;
   if (!session) {
    sessionStorage.setItem('pricing-return', '1');
    onUpgrade?.();
    return;
   }
   busy.current = true; setProcessing(true); setError(false);
-  try { await redirectToCheckout(session.access_token); }
+  try {
+   const result = await createCheckoutSession(session.access_token);
+   pendingCheckout(session.user.id, result.sessionId);
+   window.location.href = result.url;
+  }
   catch { setError(true); busy.current = false; setProcessing(false); }
  };
 
@@ -63,7 +62,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
   { Icon: TrendingUp, title: c.reports, note: c.reportsNote },
   { Icon: FileText, title: c.pdf, note: c.pdfNote },
  ];
- const label = premium ? c.active : !available ? c.unavailable : !session ? c.login : verifying ? c.pending
+ const label = premium ? c.active : !available ? c.unavailable : !session ? c.login : verifying ? c.pending : status === 'disputed' ? c.disputed
   : processing ? c.processing : c.buy;
 
  return (
@@ -92,12 +91,16 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
         <div className="pricing-perforation" aria-hidden="true" />
         <p className="pricing-included">{c.included}</p>
         <ul className="pricing-features">{features.map(({Icon, title, note}) => <li key={title}><Icon size={20} /><div><strong>{title}</strong><p>{note}</p></div></li>)}</ul>
-        <button className="pricing-buy" onClick={() => void pay()} disabled={!available || processing || premium || (verifying && Boolean(session))}>
-         <span>{label}</span>{processing || (verifying && !timedOut) ? <Loader2 className="pricing-spin" size={19} /> : premium ? <Check size={19} /> : <ArrowUpRight size={20} />}
+        <button className="pricing-buy" onClick={() => void pay()} disabled={!available || processing || premium || blocked}>
+         <span>{label}</span>{processing || checking ? <Loader2 className="pricing-spin" size={19} /> : premium ? <Check size={19} /> : <ArrowUpRight size={20} />}
         </button>
         <div aria-live="polite" className="pricing-feedback">
          {error && <p role="alert">{c.error}</p>}
          {verifying && <p>{timedOut ? c.waiting : c.pending}</p>}
+         {verification.error && <p role="alert">{c.verifyError}</p>}
+         {(timedOut || verification.error || status === 'disputed') && session && <button type="button" className="pricing-detail-link" onClick={verification.retry}>{c.checkAgain}</button>}
+         {status && ['failed', 'expired', 'refunded', 'disputed', 'lost', 'open'].includes(status) && <p>{c.paymentStates[status as keyof typeof c.paymentStates]}</p>}
+         {payment === 'success' && !sessionId && <p>{c.missingSession}</p>}
          {payment === 'cancelled' && !processing && <p>{c.cancelled}</p>}
         </div>
         <p className="pricing-safe"><ShieldCheck size={14} />{c.secure}</p>
