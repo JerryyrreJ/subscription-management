@@ -1,7 +1,8 @@
-import { createHash } from 'node:crypto';
 import { runtimeEnvironment, webHandler } from './_shared/webHandler';
 import type { Config } from '@netlify/functions';
 import Stripe from 'stripe';
+import { reservePremiumCheckout, type PremiumCheckoutStripe } from './_shared/premiumCheckout';
+import type { PaymentDatabase } from './_shared/paymentLifecycle';
 import type { Handler, HandlerEvent } from '@netlify/functions';
 import { authenticateRequest, type AuthClient } from './_shared/auth';
 import {
@@ -20,13 +21,8 @@ interface CheckoutSession {
   url: string | null;
 }
 
-export interface CheckoutStripeClient {
+export interface CheckoutStripeClient extends PremiumCheckoutStripe {
   prices: { retrieve(id: string): Promise<Pick<Stripe.Price, "active" | "currency" | "unit_amount" | "type" | "livemode">> };
-  checkout: {
-    sessions: {
-      create(params: Stripe.Checkout.SessionCreateParams, options?: Stripe.RequestOptions): Promise<CheckoutSession>;
-    };
-  };
 }
 
 interface CheckoutDependencies {
@@ -35,6 +31,7 @@ interface CheckoutDependencies {
   stripe: CheckoutStripeClient;
   createAuthClient(config: SupabasePublicConfig): AuthClient;
   createRequestId(): string;
+  database: PaymentDatabase | null;
   isPremium(userId: string): Promise<boolean>;
 }
 
@@ -46,6 +43,7 @@ const createDefaultDependencies = (): CheckoutDependencies => {
   return {
     stripeConfig,
     supabaseConfig,
+    database: supabaseConfig ? createSupabaseAdminClient(getSupabaseAdminConfig(env)) : null,
     stripe: new Stripe(stripeConfig.secretKey, {
       apiVersion: '2025-09-30.clover',
     }),
@@ -99,7 +97,7 @@ export const createCheckoutHandler = (
       }
     }
     const productType = isPremiumPurchase ? 'premium_lifetime' : 'support_donation';
-    const session = await dependencies.stripe.checkout.sessions.create({
+    const params: Stripe.Checkout.SessionCreateParams = {
       line_items: [{ price: dependencies.stripeConfig.priceId, quantity: 1 }],
       mode: 'payment',
       success_url: `${dependencies.stripeConfig.siteUrl}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
@@ -111,10 +109,14 @@ export const createCheckoutHandler = (
         productType,
         priceId: dependencies.stripeConfig.priceId,
       },
-    }, isPremiumPurchase ? {
-      // Repeated clicks/tabs within this window return the same checkout session.
-      idempotencyKey: 'premium:' + createHash('sha256').update([userId, dependencies.stripeConfig.priceId, Math.floor(Date.now() / 600_000)].join(':')).digest('hex'),
-    } : undefined);
+    };
+    let session: CheckoutSession;
+    if (isPremiumPurchase) {
+      if (!dependencies.database) throw new Error('Checkout database is unavailable');
+      session = await reservePremiumCheckout(userId, params, dependencies.stripe, dependencies.database);
+    } else {
+      session = await dependencies.stripe.checkout.sessions.create(params);
+    }
 
     if (!session.url) {
       throw new HttpError(502, 'checkout_url_missing', 'Stripe did not return a checkout URL');

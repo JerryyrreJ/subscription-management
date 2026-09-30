@@ -1,3 +1,4 @@
+import { paymentStripeFixture, paymentRpcFixture } from './payment-fixtures';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { HandlerEvent } from '@netlify/functions';
@@ -47,6 +48,7 @@ test('webhook rejects an invalid Stripe signature', async () => {
   stripeConfig,
   supabaseConfig: null,
   stripe: {
+   ...paymentStripeFixture,
    webhooks: { constructEvent: () => { throw new Error('bad signature'); } },
    checkout: { sessions: { listLineItems: async () => ({ data: [] }) } },
   },
@@ -69,6 +71,7 @@ test('webhook rejects a checkout using an unexpected price', async () => {
    secretKey: 'secret',
   },
   stripe: {
+   ...paymentStripeFixture,
    webhooks: { constructEvent: () => completedEvent() },
    checkout: { sessions: { listLineItems: async () => ({ data: [{ price: { id: 'price_other' } }] }) } },
   },
@@ -94,12 +97,13 @@ test('webhook sends trusted purchase data to the premium transaction RPC', async
    secretKey: 'secret',
   },
   stripe: {
+   ...paymentStripeFixture,
    webhooks: { constructEvent: () => completedEvent() },
    checkout: { sessions: { listLineItems: async () => ({ data: [{ price: { id: 'price_server' } }] }) } },
   },
   database: { rpc: async (_name, args) => {
-   rpcArgs = args;
-   return { data: true, error: null };
+   if (_name === 'complete_premium_purchase') rpcArgs = args;
+   return paymentRpcFixture(_name, args);
   } },
   createRequestId: () => 'request-3',
  }));
@@ -121,6 +125,7 @@ test('webhook returns 500 so Stripe retries when the premium transaction fails',
    secretKey: 'secret',
   },
   stripe: {
+   ...paymentStripeFixture,
    webhooks: { constructEvent: () => completedEvent() },
    checkout: { sessions: { listLineItems: async () => ({ data: [{ price: { id: 'price_server' } }] }) } },
   },
@@ -144,10 +149,11 @@ test('delayed payment is acknowledged unpaid, then fulfilled on async success', 
   stripeConfig,
   supabaseConfig: { url: 'https://supabase.test', publishableKey: 'p', secretKey: 's' },
   stripe: {
+   ...paymentStripeFixture,
    webhooks: { constructEvent: () => incoming },
    checkout: { sessions: { listLineItems: async () => ({ data: [{ price: { id: 'price_server' } }] }) } },
   },
-  database: { rpc: async () => { grants++; return { data: true, error: null }; } },
+  database: { rpc: async (name, args) => { if (name === 'complete_premium_purchase') grants++; return paymentRpcFixture(name, args); } },
   createRequestId: () => 'delayed-payment',
  }));
  assert.equal((await handler(event(), {} as never))?.statusCode, 200);
@@ -165,6 +171,7 @@ test('base64 encoded webhook body is decoded before signature verification', asy
  const handler = createStripeWebhookHandler(() => ({
   stripeConfig, supabaseConfig: null, database: null,
   stripe: {
+   ...paymentStripeFixture,
    webhooks: { constructEvent: body => {
     assert.equal(body, '{"original":"payload"}');
     return { ...completedEvent(), type: 'checkout.session.async_payment_failed' } as Stripe.Event;
@@ -186,10 +193,11 @@ test('modern Request adapter preserves Stripe signed bytes and rejects tampering
   stripeConfig,
   supabaseConfig: { url: 'https://supabase.test', publishableKey: 'p', secretKey: 's' },
   stripe: {
+   ...paymentStripeFixture,
    webhooks: stripe.webhooks,
    checkout: { sessions: { listLineItems: async () => ({ data: [{ price: { id: 'price_server' } }] }) } },
   },
-  database: { rpc: async () => { grants++; return { data: true, error: null }; } },
+  database: { rpc: async (name, args) => { if (name === 'complete_premium_purchase') grants++; return paymentRpcFixture(name, args); } },
   createRequestId: () => 'signed-request',
  })));
  const request = (body: string) => new Request('https://site.test/.netlify/functions/stripe-webhook', {

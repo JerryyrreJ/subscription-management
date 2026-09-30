@@ -1,3 +1,4 @@
+import { paymentStripeFixture, checkoutSessionsFixture, checkoutDatabase } from './payment-fixtures';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { HandlerEvent } from '@netlify/functions';
@@ -27,11 +28,13 @@ test('premium checkout requires a valid bearer token', async () => {
  let stripeCalled = false;
  const handler = createCheckoutHandler(() => ({
   stripeConfig,
+  database: checkoutDatabase(),
   supabaseConfig: { url: 'https://supabase.test', publishableKey: 'publishable' },
   isPremium: async () => false,
   stripe: {
+   ...paymentStripeFixture,
    prices: { retrieve: async () => ({ active: true, currency: "usd", unit_amount: 900, type: "one_time", livemode: false }) },
-   checkout: { sessions: { create: async () => {
+   checkout: { sessions: { ...checkoutSessionsFixture, create: async () => {
     stripeCalled = true;
     return { id: 'cs_test', url: 'https://checkout.test' };
    } } },
@@ -52,11 +55,13 @@ test('premium checkout ignores forged body identity and price', async () => {
  let checkoutParams: unknown;
  const handler = createCheckoutHandler(() => ({
   stripeConfig,
+  database: checkoutDatabase(),
   supabaseConfig: { url: 'https://supabase.test', publishableKey: 'publishable' },
   isPremium: async () => false,
   stripe: {
+   ...paymentStripeFixture,
    prices: { retrieve: async () => ({ active: true, currency: "usd", unit_amount: 900, type: "one_time", livemode: false }) },
-   checkout: { sessions: { create: async params => {
+   checkout: { sessions: { ...checkoutSessionsFixture, create: async params => {
     checkoutParams = params;
     return { id: 'cs_test', url: 'https://checkout.test' };
    } } },
@@ -92,11 +97,13 @@ test('self-hosted support checkout permits a guest without Supabase', async () =
  let checkoutParams: Stripe.Checkout.SessionCreateParams | undefined;
  const handler = createCheckoutHandler(() => ({
   stripeConfig,
+  database: checkoutDatabase(),
   supabaseConfig: null,
   isPremium: async () => false,
   stripe: {
+   ...paymentStripeFixture,
    prices: { retrieve: async () => ({ active: true, currency: "usd", unit_amount: 900, type: "one_time", livemode: false }) },
-   checkout: { sessions: { create: async params => {
+   checkout: { sessions: { ...checkoutSessionsFixture, create: async params => {
     checkoutParams = params;
     return { id: 'cs_support', url: 'https://checkout.test' };
    } } },
@@ -128,11 +135,13 @@ for (const [description, price] of [
   let called = false;
   const handler = createCheckoutHandler(() => ({
    stripeConfig,
+  database: checkoutDatabase(),
    supabaseConfig: { url: 'https://supabase.test', publishableKey: 'publishable' },
    isPremium: async () => false,
    stripe: {
+   ...paymentStripeFixture,
     prices: { retrieve: async () => Object.assign({ active: true, currency: 'usd', unit_amount: 900, type: 'one_time' as 'one_time' | 'recurring', livemode: false }, price) },
-    checkout: { sessions: { create: async () => { called = true; return { id: 'cs', url: 'https://checkout.test' }; } } },
+    checkout: { sessions: { ...checkoutSessionsFixture, create: async () => { called = true; return { id: 'cs', url: 'https://checkout.test' }; } } },
    },
    createAuthClient: () => ({ auth: { getUser: async () => ({ data: { user: authenticatedUser }, error: null }) } }),
    createRequestId: () => 'price-regression',
@@ -145,11 +154,13 @@ for (const [description, price] of [
 test('existing Premium account cannot buy it again', async () => {
  const handler = createCheckoutHandler(() => ({
   stripeConfig,
+  database: checkoutDatabase(),
   supabaseConfig: { url: 'https://supabase.test', publishableKey: 'publishable' },
   isPremium: async () => true,
   stripe: {
+   ...paymentStripeFixture,
    prices: { retrieve: async () => { throw new Error('must not reach Stripe'); } },
-   checkout: { sessions: { create: async () => { throw new Error('must not charge'); } } },
+   checkout: { sessions: { ...checkoutSessionsFixture, create: async () => { throw new Error('must not charge'); } } },
   },
   createAuthClient: () => ({ auth: { getUser: async () => ({ data: { user: authenticatedUser }, error: null }) } }),
   createRequestId: () => 'already-premium',
