@@ -4,10 +4,10 @@ export const BLOG_PATH = '/blog';
 export const ZH_BLOG_PATH = '/zh/blog';
 export const BLOG_INDEX_TITLE = 'Guides';
 export const BLOG_INDEX_DESCRIPTION =
-  'Practical guides for finding, reviewing, and tracking personal subscriptions — without linking your bank.';
+  'Guides to finding recurring charges, canceling unused subscriptions, and keeping track of renewal dates.';
 export const ZH_BLOG_INDEX_TITLE = '指南';
 export const ZH_BLOG_INDEX_DESCRIPTION =
-  '按扣款渠道盘点、关掉用不到的自动续费，并记下还要留的订阅——不用绑定银行卡。';
+  '从账单和支付平台查找订阅，取消不用的服务，记录下次扣款日期。';
 
 export function isZhLang(lang?: string | null): boolean {
   return Boolean(lang && lang.trim().toLowerCase().startsWith('zh'));

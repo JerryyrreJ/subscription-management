@@ -211,7 +211,7 @@ test('Chinese cancel guide is published, human-toned, and only cross-links the E
     /https:\/\/sub\.jerrylu\.xyz\/blog\/how-to-do-a-subscription-audit/
   );
   assert.match(source, /不会代你解约/);
-  assert.match(source, /不是银行爬取/);
+  assert.match(source, /不会自动读取支付账单/);
 
   const related = source.split('## 相关阅读')[1] ?? '';
   assert.match(related, /how-to-do-a-subscription-audit/);

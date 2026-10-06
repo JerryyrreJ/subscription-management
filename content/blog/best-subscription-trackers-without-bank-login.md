@@ -1,127 +1,104 @@
 ---
-title: "Best subscription trackers without linking your bank (2026)"
+title: "How to choose a subscription tracker without linking your bank"
 slug: best-subscription-trackers-without-bank-login
-description: "Compare bank-linked apps, spreadsheets, and local-first trackers. See when Bobby, Rocket Money, or a no-bank app like Subscription Manager fits — without hype."
+description: "Compare spreadsheets and manual subscription trackers, including reminders, currency support, and the work needed to keep your list current."
 date: 2026-09-21
 status: published
 lang: en
 canonical: https://sub.jerrylu.xyz/blog/best-subscription-trackers-without-bank-login
 ---
 
-If you want a subscription tracker without linking your bank, start with a manual inventory (statements + Apple + Google Play), then keep the living list in a local-first app. **[Subscription Manager](https://sub.jerrylu.xyz)** at https://sub.jerrylu.xyz stores data in the browser by default, supports multi-currency totals (CNY / HKD / USD and more), renewal reminders, and optional sync — no bank login, and you cancel with each provider yourself.
+If you want to track subscriptions without connecting a bank account, a spreadsheet or manual tracker can do the job. You enter the subscriptions yourself, then use the list to check spending and upcoming renewals.
 
-That’s the short answer. The rest of this page is how to choose among three real paths — bank-linked apps, a spreadsheet, or a local-first / manual tracker — without a fake #1 ranking.
+The main question is how much help you want after entering the data. A spreadsheet gives you control over the layout. A dedicated app can calculate totals and send reminders. Either way, you will need to check your statements occasionally for charges you have not added.
 
-Roundups you may have seen often name tools like **Bobby**, **ReSubs**, or **Rocket Money**. Treat those as category examples from current “best of” lists, not a scored matrix. Feature sets and pricing change; check each product’s own site before you commit.
+## What to expect from a tracker without bank access
 
-## What “without linking your bank” actually means
+These tools cannot discover subscriptions from your bank transactions. Start by checking your statements, Apple and Google Play accounts, payment wallets, and email receipts. The [subscription audit guide](https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit) walks through that process.
 
-It means the tracker does **not** connect to your bank or card via Plaid-style open banking to scrape transactions. You still pay merchants the usual way. You still cancel on Apple, Google Play, the merchant site, or your wallet’s auto-pay list.
+You also need to cancel subscriptions with the provider that bills you. Removing a row from a spreadsheet or tracker does not stop a payment.
 
-What you give up is automatic discovery. What you keep is control over who sees your account activity.
+## Spreadsheet or dedicated app?
 
-If you need the inventory steps first — statements, App Store, Play, email — use the [subscription audit how-to](https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit). This page is about picking the tool that holds the list afterward.
+| What you need | Spreadsheet | Manual tracker app |
+| --- | --- | --- |
+| A list of services and prices | Add your own columns | Usually has fields for price, cycle, and renewal date |
+| Renewal reminders | Set calendar alerts separately | Check which reminders the app supports and how they are delivered |
+| Multiple currencies | Add currency columns and conversion formulas | Check whether totals are separate by currency or converted |
+| Access on several devices | Depends on where you save the file | Depends on the app’s sync options |
+| A copy of your data | Save or export the file | Check export support before entering a long list |
+| New subscriptions | Add them yourself | Add them yourself, sometimes with help from receipt or screenshot entry |
 
-## Three approaches
+### When a spreadsheet is enough
 
-| Approach | How it finds subs | Privacy | Reminders | Multi-currency | Cancels for you? | Best when |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Bank-linked** (e.g. Rocket Money–class) | Reads transactions after you connect an account | Third party sees spend data | Often built-in | Varies; many US-centric | Some offer cancel / negotiate help | You want auto-detect and will accept bank access |
-| **Spreadsheet** | You type everything | You control the file | Weak unless you build them | Easy if you add a currency column | No | Short list; you hate new apps |
-| **Local-first / manual app** (e.g. Subscription Manager; Bobby-class privacy apps as peers) | You enter items (sometimes with assisted capture) | No bank login for the core model | App reminders | Strong fit if the app was built for it | No — you cancel with each provider | You want structure + reminders without Plaid |
+If you have a short list and already use a calendar for reminders, start with a spreadsheet. Record the service, amount, currency, billing cycle, next charge date, and payment channel.
 
-Examples above are **category peers**, not a feature-by-feature scorecard. Bobby-style apps are often discussed for privacy-minded Mac/iOS tracking; Rocket Money–class tools for bank-connected detection and savings workflows; ReSubs and similar names show up in mobile roundups. Confirm what each one does today on their site.
+It takes a little more setup if you want monthly equivalents or currency conversion, but you can arrange the information however you like. If you store the file online, review its sharing settings as you would for other financial records.
 
-### Bank-linked, in plain terms
+### When an app helps
 
-You connect an account (often through an aggregator). The app labels recurring merchants and may help you cancel or negotiate. Discovery is the win. The trade-off is obvious: another company sees transaction-level data. Cross-border banking and non-US currencies are hit-or-miss depending on the vendor — another reason some readers bounce to manual tools.
+An app is useful when updating dates, calculating totals, or setting separate calendar alerts becomes tedious. Before choosing one, try entering a monthly plan, an annual plan, and a free trial. Check whether the renewal dates and spending totals make sense to you.
 
-### Spreadsheet, in plain terms
+If you pay in several currencies, test that too. A monthly estimate in your preferred currency is useful for budgeting, but you should still be able to see the original amount due.
 
-Zero new vendor risk. Columns for name, amount, currency, cycle, next charge, and billing channel (card / Apple / Google / wallet) cover most people. Failures are human: forgotten rows, no reminder, three copies of the sheet. Fine for a dozen lines; annoying after that.
+### What about bank-linked apps?
 
-### Local-first / manual app, in plain terms
+Bank-linked apps can identify recurring payments in connected accounts. That can save time, especially if you do not know where to start, but it requires sharing transaction access. Coverage depends on the app, your bank, and your country.
 
-You still type (or paste from a screenshot assist). The app’s job is structure: next renewal, totals by currency, reminders that don’t depend on you opening a spreadsheet. No bank scrape means silent new charges only show up when you notice them on a statement — so a light monthly pass still matters.
+If you are comparing products such as Bobby or Rocket Money, check their current requirements, supported devices, pricing, and privacy policies. They serve different needs; a feature offered by one should not be assumed to exist in another.
 
-## How to choose
+## A few things to check before moving your list
 
-Work the list top-down. Stop at the first yes.
+- **Reminders:** Can the app notify you early enough to cancel? Does delivery require a paid plan or extra setup?
+- **Currencies:** Can you keep the original charge amount and see how converted totals are calculated?
+- **Storage:** Is your data saved on the device, in a cloud account, or both?
+- **Export:** Can you take your records with you if you stop using the app?
+- **Upkeep:** Is it easy to change a price, add a trial, or record a cancellation?
 
-**You need auto-detect from the bank.** Pick a bank-linked tool. Manual and local-first apps will not invent charges from a feed they never see.
-
-**Your list is short and you don’t want another account.** A spreadsheet is enough. Put amount, currency, cycle, next renewal, and where it bills. Calendar alerts cover the rest until the sheet gets messy.
-
-**You want reminders, a spend overview, and multi-currency without handing over bank credentials.** A local-first or manual tracker is the fit. You maintain the list; the app keeps dates and totals honest.
-
-**You bill in more than one currency or country.** Favor tools that treat currency as a first-class field. Many US bank-linked products optimize for a single domestic account picture; a manual ledger with explicit CNY / HKD / USD lines is often simpler than forcing a bad conversion.
-
-**You need someone to cancel Netflix or negotiate the bill for you.** That is a different product class. Subscription Manager does not do that — and neither do most no-bank ledgers.
-
-Quick filter: refuse bank login → spreadsheet or local-first. Need cancel-as-a-service → bank-linked (or a dedicated cancel service), not this guide’s soft CTA.
+No bank connection does not necessarily mean all data stays on your device. Cloud sync and receipt-processing features may send data to a server, so check those separately.
 
 ## Where Subscription Manager fits
 
-[Subscription Manager](https://sub.jerrylu.xyz) (sub.jerrylu.xyz — not the generic phrase “subscription manager” in search results, and not unrelated GitHub projects with similar names) is a personal ledger aimed at people who will keep a structured list without connecting a bank.
+[Subscription Manager](https://sub.jerrylu.xyz) is one option if you want a browser-based tracker. It stores records in the browser by default, with optional cloud sync for access on other devices.
 
-What it is built for:
+It supports multiple currencies, renewal reminders, and entry from screenshots or receipts. You can also access your records through the [REST API or MCP tools](https://sub.jerrylu.xyz/blog/manage-subscriptions-with-mcp).
 
-- Data stays **in the browser by default**, with optional sync if you want the list on more than one device  
-- **Multi-currency** spend overview (including CNY / HKD / USD-style mixes)  
-- Renewal and trial **reminders**  
-- Optional **AI-assisted entry** from a screenshot or receipt — helped typing, not a bank scrape  
-- For builders: a public API and MCP tools so Claude, Cursor, or another MCP client can query the same ledger — see the [API docs](https://sub.jerrylu.xyz/api) (this page is not an API tutorial)
+You maintain the subscription list yourself. The app does not discover bank charges, cancel services on your behalf, or negotiate bills. If you need those services, you will need a different tool.
 
-**Honest gaps**
+## Set up your list
 
-- No bank auto-detect  
-- No cancel-on-behalf  
-- No bill negotiation  
+1. Check statements, app stores, payment wallets, and renewal emails.
+2. Record each subscription’s amount, currency, billing cycle, payment channel, and next charge date.
+3. Cancel unused plans with the provider and save the confirmation.
+4. Set reminders for the plans you keep and any trials you have not decided on.
+5. Check for new subscriptions when you review your monthly statements.
 
-If those are non-negotiable, pick a bank-linked or cancel-focused tool instead of stretching this one.
-
-Compared with a blank spreadsheet, you get reminder plumbing and a spend view without designing the sheet yourself. Compared with bank-linked apps, you keep credentials off the table and accept that new charges only appear when you add them.
-
-Once you know you want the no-bank path, try the ledger at [https://sub.jerrylu.xyz](https://sub.jerrylu.xyz). The audit guide still works if your list is empty.
-
-## Quick start after you pick no-bank
-
-1. **Inventory** — statements, Apple, Google Play, PayPal/wallets, email renewals. ([Full audit steps](https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit).)  
-2. **Decide** — keep, cancel, or remind for each line.  
-3. **Cancel** on the provider that actually bills you; save a confirmation.  
-4. **Put keepers** into your spreadsheet or tracker (amount, currency, cycle, next date).  
-5. **Set reminders**, then re-check lightly each month for new trials.
-
-Chinese payment channels (WeChat / Alipay and friends) need their own pass; the [ZH auto-renew guide](https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew) covers that path.
+If you use WeChat Pay or Alipay, the [Chinese auto-renewal guide](https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew) covers those payment channels.
 
 ## FAQ
 
 ### What’s the best subscription tracker without linking my bank?
 
-There isn’t one universal winner. For privacy and structure, use a local-first or manual app after a DIY inventory; for a tiny list, a spreadsheet; for auto-detect, accept a bank-linked product. Subscription Manager at https://sub.jerrylu.xyz is built for the no-bank ledger case — reminders, multi-currency, optional sync — not for scanning your bank.
+Choose based on how you will use it. A spreadsheet works well for a short list with calendar reminders. A manual tracker is useful if you want renewal dates and spending totals together. Check device support, export options, and reminder delivery before moving all your records.
 
-### Is Rocket Money worth it if I care about privacy?
+### Can I find subscriptions without connecting my bank?
 
-It can be worth it if auto-detect and cancel/negotiate workflows matter more to you than keeping transaction data off a third-party connection. If bank login is a hard no, skip that class and use a spreadsheet or a no-bank app instead. Check Rocket Money’s current privacy and feature pages before deciding — this article does not rate their product.
+Yes. Review your statements yourself and check app-store accounts, payment wallets, and email receipts. Include annual charges, which may not appear on a recent monthly statement.
 
 ### Is a Google Sheet enough?
 
-Yes, for a handful of subscriptions, if you actually update it and set calendar reminders. It gets weak when you have many cycles, currencies, or devices. That’s usually when people move the keepers into a dedicated tracker.
+Yes, if you keep it current. Add columns for the amount, currency, billing cycle, next renewal, and payment channel, then set calendar reminders where needed.
 
 ### Does Subscription Manager cancel subscriptions for me?
 
-No. You cancel with Apple, Google, the merchant, or your wallet. The app tracks what you enter and can remind you before renewals.
+No. You cancel with Apple, Google, the merchant, or your payment wallet. The app tracks the records you enter and can remind you before renewals.
 
-### Local-first vs cloud sync — can I have both?
+### Can I use local storage and cloud sync?
 
-Often yes: start local in the browser, turn on optional sync when you need another device. Exact sync details live in the product; the point is you are not required to link a bank to use the core ledger.
+Subscription Manager stores records in your browser by default and offers optional cloud sync. You do not need to connect a bank account for either mode.
 
 ## Related reading
 
-- [How to do a subscription audit](https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit) — build the list without a bank feed  
-- [如何盘点并关掉用不到的自动续费](https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew) — WeChat / Alipay / Apple / Google by payment channel  
-- [API docs](https://sub.jerrylu.xyz/api) — scripts and MCP-compatible clients against the same ledger  
-
----
-
-Pick the path that matches your privacy bar and how much typing you’ll tolerate. If that’s a no-bank living list with reminders and multi-currency totals, open [Subscription Manager](https://sub.jerrylu.xyz) and load the keepers from your audit.
+- [How to do a subscription audit](https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit)
+- [如何盘点并关掉用不到的自动续费](https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew)
+- [Manage subscriptions through MCP and the REST API](https://sub.jerrylu.xyz/blog/manage-subscriptions-with-mcp)

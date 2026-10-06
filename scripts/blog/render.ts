@@ -44,14 +44,14 @@ function uiCopy(lang?: string | null): BlogUiCopy {
       guides: '指南',
       openApp: '打开应用',
       openAppFooter: `打开 ${SITE_NAME}`,
-      footerNote: `个人订阅追踪——取消订阅仍由你在各平台操作。站点：${host}`,
+      footerNote: `记录订阅与续费日期。取消订阅请到对应平台操作。${host}`,
       indexEyebrow: '指南',
-      indexTitle: '该留的留，该关的关，不用绑银行卡',
+      indexTitle: '整理订阅，查清每一笔续费',
       indexDescription: ZH_BLOG_INDEX_DESCRIPTION,
       otherLangLabel: 'English guides',
       otherLangHref: BLOG_PATH,
       draftBanner:
-        '<p class="draft-banner" role="note"><strong>草稿提纲。</strong> 此 URL 已公开可抓取，方便指南中心上线。下面的清单按「盘点 → 保留 / 取消 / 提醒」可独立使用。完稿后替换本文件，slug 保持不变。</p>',
+        '<p class="draft-banner" role="note"><strong>草稿提纲。</strong> 本文仍在整理中，部分内容可能会调整。</p>',
     };
   }
 
@@ -60,14 +60,14 @@ function uiCopy(lang?: string | null): BlogUiCopy {
     guides: 'Guides',
     openApp: 'Open app',
     openAppFooter: `Open ${SITE_NAME}`,
-    footerNote: `Personal subscription tracker — you stay in control of cancels. Canonical site: ${host}`,
+    footerNote: `Track subscriptions and renewal dates. Cancel services with the provider. ${host}`,
     indexEyebrow: 'Guides',
-    indexTitle: 'Keep / cancel / remind, without linking a bank',
+    indexTitle: 'Find your subscriptions and plan for renewals',
     indexDescription: BLOG_INDEX_DESCRIPTION,
     otherLangLabel: '中文指南',
     otherLangHref: ZH_BLOG_PATH,
     draftBanner:
-      '<p class="draft-banner" role="note"><strong>Draft outline.</strong> This URL is public and crawlable so the guide hub can ship. The checklist below follows the writer brief (inventory → keep / cancel / remind) and is usable on its own. Replace this file when the finished draft is ready; the slug stays the same.</p>',
+      '<p class="draft-banner" role="note"><strong>Draft outline.</strong> This article is still being written. Some details may change.</p>',
   };
 }
 
