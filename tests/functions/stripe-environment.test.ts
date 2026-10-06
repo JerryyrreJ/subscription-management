@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getStripeServerConfig } from '../../netlify/functions/_shared/env.ts';
+import { runtimeEnvironment } from '../../netlify/functions/_shared/webHandler.ts';
 
 const base = {
  STRIPE_SECRET_KEY: 'sk_test_example',
@@ -18,6 +19,23 @@ test('PR checkout returns to its own preview even with an inherited production U
 
 test('preview fails closed when its own URL is unavailable', () => {
  assert.throws(() => getStripeServerConfig({ ...base, CONTEXT: 'deploy-preview' }), /DEPLOY_PRIME_URL/);
+});
+
+test('modern Netlify Functions use request-scoped preview context without build variables', () => {
+ const previous = Object.getOwnPropertyDescriptor(globalThis, 'Netlify');
+ const env: Record<string, string> = { ...base, URL: 'https://production.example' };
+ Object.defineProperty(globalThis, 'Netlify', { configurable: true, value: {
+  env: { get: (key: string) => env[key] },
+  context: { deploy: { context: 'deploy-preview' }, url: new URL('https://deploy-preview-19--example.netlify.app/.netlify/functions/create-checkout-session') },
+ } });
+ try {
+  assert.equal(getStripeServerConfig(runtimeEnvironment).siteUrl, 'https://deploy-preview-19--example.netlify.app');
+  env.STRIPE_SECRET_KEY = 'sk_live_example';
+  assert.throws(() => getStripeServerConfig(runtimeEnvironment), /must use Stripe test/);
+ } finally {
+  if (previous) Object.defineProperty(globalThis, 'Netlify', previous);
+  else Reflect.deleteProperty(globalThis, 'Netlify');
+ }
 });
 
 test('live credentials are rejected in every non-production context', () => {

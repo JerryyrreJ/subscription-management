@@ -45,18 +45,16 @@ test('preview checkout: cancel, reuse, decline, pay, activate, refund', async ({
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.locator('button[type="submit"]').click();
-  const responsePromise = page.waitForResponse(r => r.url().endsWith('/create-checkout-session'));
   await page.getByRole('button', { name: 'Get lifetime Premium', exact: true }).click();
-  const response = await responsePromise;
-  expect(response.status()).toBe(200);
-  checkoutId = (await response.json()).sessionId;
+  await page.waitForURL('https://checkout.stripe.com/**');
+  // Read the navigation target; Chrome may discard a fetch body on navigation.
+  checkoutId = /\/(cs_test_[a-zA-Z0-9]+)/.exec(page.url())?.[1];
   expect(checkoutId).toMatch(/^cs_test_/);
   const session = await stripe.checkout.sessions.retrieve(checkoutId!);
   expect(session.livemode).toBe(false);
   expect(session.amount_total).toBe(900);
   expect(new URL(session.success_url!).origin).toBe(baseUrl);
   expect(new URL(session.cancel_url!).origin).toBe(baseUrl);
-  await page.waitForURL('https://checkout.stripe.com/**');
   await expect(page.getByText('Sandbox', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: /^Back to / }).click();
   await expect(page).toHaveURL(`${baseUrl}/?payment=cancelled`);
@@ -75,7 +73,7 @@ test('preview checkout: cancel, reuse, decline, pay, activate, refund', async ({
   await page.locator('#billingName').fill('Sandbox Test');
   await page.locator('#billingCountry').selectOption('HK');
   await page.locator('button[type="submit"]').click();
-  await expect(page.getByText(/Your card was declined/)).toBeVisible();
+  await expect(page.getByText(/card was declined/i)).toBeVisible();
   expect(await premium()).toBe(false);
   await page.locator('#cardNumber').fill('4242424242424242');
   await page.locator('button[type="submit"]').click();
