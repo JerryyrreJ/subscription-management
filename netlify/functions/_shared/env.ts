@@ -111,12 +111,44 @@ export const getOptionalSupabaseAdminConfig = (
 
 export const getStripeServerConfig = (
   env: Environment = process.env
-): StripeServerConfig => ({
-  secretKey: requiredValue('STRIPE_SECRET_KEY', env.STRIPE_SECRET_KEY),
-  webhookSecret: requiredValue('STRIPE_WEBHOOK_SECRET', env.STRIPE_WEBHOOK_SECRET),
-  priceId: requiredValue('STRIPE_PRICE_ID or VITE_STRIPE_PRICE_ID', env.STRIPE_PRICE_ID || env.VITE_STRIPE_PRICE_ID),
-  siteUrl: requiredValue('SITE_URL or URL', env.SITE_URL || env.URL || 'http://localhost:5173'),
-});
+): StripeServerConfig => {
+  const secretKey = requiredValue('STRIPE_SECRET_KEY', env.STRIPE_SECRET_KEY);
+  const keyMode = /^(sk|rk)_(test|live)_/.exec(secretKey)?.[2];
+  if (!keyMode) throw new Error('Invalid STRIPE_SECRET_KEY mode');
+  const mode = optionalValue(env.STRIPE_MODE);
+  if (mode && (mode !== 'test' && mode !== 'live')) {
+    throw new Error('STRIPE_MODE must be test or live');
+  }
+  if (mode && mode !== keyMode) throw new Error('STRIPE_MODE does not match STRIPE_SECRET_KEY');
+  const preview = env.CONTEXT === 'deploy-preview' || env.CONTEXT === 'branch-deploy';
+  if ((preview || env.CONTEXT === 'dev' || env.CONTEXT === 'dev-server') && keyMode === 'live') {
+    throw new Error('Non-production deployments must use Stripe test keys');
+  }
+  const publishableKey = optionalValue(env.VITE_STRIPE_PUBLISHABLE_KEY);
+  if (publishableKey && !publishableKey.startsWith(`pk_${keyMode}_`)) {
+    throw new Error('Stripe publishable and secret key modes do not match');
+  }
+  const supabaseUrl = optionalValue(env.SUPABASE_URL || env.VITE_SUPABASE_URL);
+  if (keyMode === 'test' && supabaseUrl && env.PRODUCTION_SUPABASE_URL &&
+    new URL(supabaseUrl).origin === new URL(env.PRODUCTION_SUPABASE_URL).origin) {
+    throw new Error('Stripe test payments must use an isolated Supabase project');
+  }
+  // Netlify URL always identifies the production site. Preview checkouts must
+  // return to their own deployment even when SITE_URL is inherited from live.
+  const siteUrl = preview
+    ? requiredValue('DEPLOY_PRIME_URL or DEPLOY_URL', env.DEPLOY_PRIME_URL || env.DEPLOY_URL)
+    : requiredValue('SITE_URL or URL', env.SITE_URL || env.URL || 'http://localhost:5173');
+  const parsed = new URL(siteUrl);
+  if (!['https:', 'http:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error('Invalid checkout return URL');
+  }
+  return {
+    secretKey,
+    webhookSecret: requiredValue('STRIPE_WEBHOOK_SECRET', env.STRIPE_WEBHOOK_SECRET),
+    priceId: requiredValue('STRIPE_PRICE_ID or VITE_STRIPE_PRICE_ID', env.STRIPE_PRICE_ID || env.VITE_STRIPE_PRICE_ID),
+    siteUrl: siteUrl.replace(/\/$/, ''),
+  };
+};
 
 export const getApiLimitsConfig = (
   env: Environment = process.env

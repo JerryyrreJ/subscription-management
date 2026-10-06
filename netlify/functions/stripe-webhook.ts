@@ -113,6 +113,10 @@ export const createStripeWebhookHandler = (
   }
 
   try {
+    const expectsLive = /^(sk|rk)_live_/.test(dependencies.stripeConfig.secretKey);
+    if (stripeEvent.livemode !== expectsLive) {
+      throw new HttpError(400, 'webhook_mode_mismatch', 'Webhook mode does not match this deployment');
+    }
     if (stripeEvent.type === 'checkout.session.completed' || stripeEvent.type === 'checkout.session.async_payment_succeeded') {
       await processCompletedCheckout(stripeEvent, dependencies, effectiveRequestId);
     } else if (adjustmentEvents.has(stripeEvent.type) && dependencies.database) {

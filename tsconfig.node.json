@@ -19,5 +19,5 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "scripts/blog/**/*.ts"]
+  "include": ["vite.config.ts", "scripts/blog/**/*.ts", "playwright.config.ts", "tests/e2e/**/*.ts"]
 }

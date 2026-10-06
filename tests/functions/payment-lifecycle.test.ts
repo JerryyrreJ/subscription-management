@@ -40,7 +40,7 @@ test('successful partial refunds on multiple pages sum to a full refund', async 
 test('refund webhook routes to reconciliation even before checkout fulfillment', async () => {
  const calls: string[] = [];
  const handler = createStripeWebhookHandler(() => ({ stripeConfig: config, supabaseConfig: { url: 'https://example.test', publishableKey: 'p', secretKey: 's' }, createRequestId: () => 'test',
-  stripe: { ...paymentStripeFixture, refunds: { list: async () => ({ data: [{ id: 're_1', amount: 900, status: 'succeeded' }], has_more: false }) }, checkout: { sessions: checkoutSessionsFixture }, webhooks: { constructEvent: () => ({ id: 'evt_old', type: 'refund.updated', data: { object: { payment_intent: 'pi_test' } } } as Stripe.Event) } },
+  stripe: { ...paymentStripeFixture, refunds: { list: async () => ({ data: [{ id: 're_1', amount: 900, status: 'succeeded' }], has_more: false }) }, checkout: { sessions: checkoutSessionsFixture }, webhooks: { constructEvent: () => ({ id: 'evt_old', livemode: false, type: 'refund.updated', data: { object: { payment_intent: 'pi_test' } } } as Stripe.Event) } },
   database: { rpc: async (n,a) => { calls.push(n); return paymentRpcFixture(n,a); } },
  }));
  const response = await handler({ httpMethod: 'POST', headers: { 'stripe-signature': 'fixture' }, body: '{}' } as never, {} as never);

@@ -104,6 +104,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
          {payment === 'cancelled' && !processing && <p>{c.cancelled}</p>}
         </div>
         <p className="pricing-safe"><ShieldCheck size={14} />{c.secure}</p>
+        {config.stripe.publishableKey.startsWith('pk_test_') && <p className="pricing-no-renew">{c.test}</p>}
         <p className="pricing-no-renew">{c.noRenew}</p>
        </article>
        <div className="pricing-stamp" aria-hidden="true">{c.stamp}</div>
