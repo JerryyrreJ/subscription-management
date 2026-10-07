@@ -48,6 +48,6 @@ lang: zh
 
 ## 软 CTA 规则
 
-- 在清单本身可独立完成之前，不要在导语里提 Subscription Manager。
-- CTA 链到 `https://app.steadyrenew.com/`。
+- 在清单本身可独立完成之前，不要在导语里提 SteadyRenew。
+- CTA 链到 `https://steadyrenew.com/app`。
 - 不要声称应用会从银行自动发现扣款、替用户取消商家，或代为议价。

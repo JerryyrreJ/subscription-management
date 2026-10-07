@@ -1,5 +1,6 @@
 export const MARKETING_ORIGIN = 'https://steadyrenew.com';
-export const APPLICATION_ORIGIN = 'https://app.steadyrenew.com';
+export const APPLICATION_ORIGIN = MARKETING_ORIGIN;
+export const APPLICATION_URL = `${APPLICATION_ORIGIN}/app`;
 export const DOCUMENTATION_ORIGIN = 'https://docs.steadyrenew.com';
 export const LEGACY_APPLICATION_ORIGINS = ['https://sub.jerrylu.xyz', 'https://sub.jerrylu.app'];
 

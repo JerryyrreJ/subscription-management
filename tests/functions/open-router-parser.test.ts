@@ -9,7 +9,7 @@ const config: AiConfig = {
   model: 'google/gemini-2.5-flash-lite',
   fallbackModels: ['google/gemini-2.5-flash'],
   openRouterSiteUrl: 'https://subs.example.test',
-  openRouterAppTitle: 'Subscription Manager',
+  openRouterAppTitle: 'SteadyRenew',
   freeMonthlyParses: 20,
   premiumMonthlyParses: 200,
   maxInputChars: 20000,
@@ -75,7 +75,7 @@ test('OpenRouter parser sends multimodal JSON-schema request with model fallback
     assert.equal(capturedUrl, 'https://openrouter.ai/api/v1/chat/completions');
     assert.equal(capturedHeaders.get('Authorization'), 'Bearer sk-or-test');
     assert.equal(capturedHeaders.get('HTTP-Referer'), 'https://subs.example.test');
-    assert.equal(capturedHeaders.get('X-Title'), 'Subscription Manager');
+    assert.equal(capturedHeaders.get('X-Title'), 'SteadyRenew');
     assert.deepEqual(capturedBody.models, [
       'google/gemini-2.5-flash-lite',
       'google/gemini-2.5-flash',

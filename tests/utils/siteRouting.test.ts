@@ -10,7 +10,7 @@ import {
   APP_ENTRY_URL,
 } from '../../scripts/blog/site.ts';
 import { buildPublicFiles } from '../../scripts/blog/generate.ts';
-import { APPLICATION_ORIGIN, LEGACY_APPLICATION_ORIGINS, marketingUrl, documentationUrl } from '../../src/utils/siteUrls.ts';
+import { APPLICATION_ORIGIN, APPLICATION_URL, LEGACY_APPLICATION_ORIGINS, marketingUrl, documentationUrl } from '../../src/utils/siteUrls.ts';
 
 const url = (path: string) => new URL(path, 'https://example.com');
 
@@ -23,11 +23,14 @@ test('the main domain shows marketing while app and pricing links open the app',
   assert.equal(isApplicationEntry(url('/pricing')), true);
 });
 
-test('legacy domains preserve access to local data and the new application host opens the app', () => {
-  for (const origin of [...LEGACY_APPLICATION_ORIGINS, APPLICATION_ORIGIN]) {
+test('legacy domains preserve local data access while the new origin separates landing and app by path', () => {
+  for (const origin of LEGACY_APPLICATION_ORIGINS) {
     assert.equal(isApplicationEntry(new URL(origin)), true);
   }
   assert.equal(isApplicationEntry(new URL('https://steadyrenew.com')), false);
+  assert.equal(APPLICATION_URL, 'https://steadyrenew.com/app');
+  assert.equal(isApplicationEntry(new URL(APPLICATION_URL), '/app'), true);
+  assert.equal(isApplicationEntry(new URL(APPLICATION_ORIGIN), '/app'), false);
   assert.equal(isApplicationEntry(new URL('https://steadyrenew.com/?payment=success')), true);
   assert.equal(marketingUrl('/zh/blog', APPLICATION_ORIGIN), 'https://steadyrenew.com/zh/blog');
   assert.equal(marketingUrl('/blog', 'https://preview.example.com'), 'https://preview.example.com/blog');

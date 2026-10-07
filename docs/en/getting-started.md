@@ -2,7 +2,7 @@
 
 [English](getting-started.md) | [简体中文](../zh-CN/getting-started.md)
 
-Subscription Manager is a Vite app built with React and TypeScript. The default local setup stores data in the browser and does not require a database account.
+SteadyRenew is a Vite app built with React and TypeScript. The default local setup stores data in the browser and does not require a database account.
 
 ## Requirements
 

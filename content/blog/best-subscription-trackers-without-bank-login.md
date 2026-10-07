@@ -57,9 +57,9 @@ If you are comparing products such as Bobby or Rocket Money, check their current
 
 No bank connection does not necessarily mean all data stays on your device. Cloud sync and receipt-processing features may send data to a server, so check those separately.
 
-## Where Subscription Manager fits
+## Where SteadyRenew fits
 
-[Subscription Manager](https://app.steadyrenew.com) is one option if you want a browser-based tracker. It stores records in the browser by default, with optional cloud sync for access on other devices.
+[SteadyRenew](https://steadyrenew.com/app) is one option if you want a browser-based tracker. It stores records in the browser by default, with optional cloud sync for access on other devices.
 
 It supports multiple currencies, renewal reminders, and entry from screenshots or receipts. You can also access your records through the [REST API or MCP tools](https://steadyrenew.com/blog/manage-subscriptions-with-mcp).
 
@@ -89,13 +89,13 @@ Yes. Review your statements yourself and check app-store accounts, payment walle
 
 Yes, if you keep it current. Add columns for the amount, currency, billing cycle, next renewal, and payment channel, then set calendar reminders where needed.
 
-### Does Subscription Manager cancel subscriptions for me?
+### Does SteadyRenew cancel subscriptions for me?
 
 No. You cancel with Apple, Google, the merchant, or your payment wallet. The app tracks the records you enter and can remind you before renewals.
 
 ### Can I use local storage and cloud sync?
 
-Subscription Manager stores records in your browser by default and offers optional cloud sync. You do not need to connect a bank account for either mode.
+SteadyRenew stores records in your browser by default and offers optional cloud sync. You do not need to connect a bank account for either mode.
 
 ## Related reading
 

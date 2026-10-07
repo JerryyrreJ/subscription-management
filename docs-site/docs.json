@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "name": "Subscription Manager",
+  "name": "SteadyRenew",
   "theme": "mint",
   "colors": {
     "primary": "#2563eb",
@@ -20,7 +20,7 @@
     "links": [
       {
         "label": "App",
-        "href": "https://app.steadyrenew.com"
+        "href": "https://steadyrenew.com/app"
       },
       {
         "label": "GitHub",

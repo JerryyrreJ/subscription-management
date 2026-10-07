@@ -1,6 +1,6 @@
 export const app = {
- title: '订阅管理器',
- documentTitle: '订阅管理器',
+ title: 'SteadyRenew',
+ documentTitle: 'SteadyRenew',
  loading: '加载中...',
  advancedReport: '高级报表',
  viewAdvancedReport: '查看高级报表',

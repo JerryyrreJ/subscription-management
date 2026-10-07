@@ -14,7 +14,7 @@ export function configurePublicSite(siteUrl?: string, appUrl?: string): void {
   CANONICAL_ORIGIN = url.origin;
   APP_ENTRY_URL = resolveAppUrl(appUrl);
 }
-export const SITE_NAME = 'Subscription Manager';
+export const SITE_NAME = 'SteadyRenew';
 export const BLOG_PATH = '/blog';
 export const ZH_BLOG_PATH = '/zh/blog';
 export const BLOG_INDEX_TITLE = 'Guides';

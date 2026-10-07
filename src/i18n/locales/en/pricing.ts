@@ -4,7 +4,7 @@ export const pricing = {
  paymentFailed: 'Failed to start payment process. Please try again.',
  badgeSupportOpenSource: 'Support Open Source',
  badgeMostPopular: 'Recommended',
- productName: 'Subscription Manager',
+ productName: 'SteadyRenew',
  heroTitleCloud: 'Get your subscriptions straight',
  heroTitleSupport: 'Support the project',
  heroSubtitleCloud: 'Basic subscription management stays free. Upgrade for less manual entry and clearer ongoing spend.',

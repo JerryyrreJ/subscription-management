@@ -6,26 +6,27 @@ const website = origin ? new URL(origin).origin : manifest.marketingOrigin;
 const app = origin ? new URL(origin).origin : manifest.applicationOrigin;
 const docs = origin ? null : manifest.documentationOrigin;
 const checks = [
-  [website + '/', 200, 'Subscription Manager'],
+  [website + '/', 200, 'SteadyRenew'],
   [website + '/blog', 200, 'https://steadyrenew.com/blog'],
   [website + '/zh/blog', 200, 'https://steadyrenew.com/zh/blog'],
   [website + '/blog/how-to-do-a-subscription-audit', 200, 'https://steadyrenew.com/blog/how-to-do-a-subscription-audit'],
   [website + '/sitemap.xml', 200, 'https://steadyrenew.com/'],
   [website + '/robots.txt', 200, 'https://steadyrenew.com/sitemap.xml'],
-  [app + '/', 200, 'Subscription Manager'],
-  [app + '/app', 200, 'Subscription Manager'],
-  [app + '/pricing', 200, 'Subscription Manager'],
+  [app + '/app', 200, 'SteadyRenew'],
+  [app + '/pricing', 200, 'SteadyRenew'],
   [app + '/agent/setup.md', 200, 'SUBSCRIPTION_MANAGER_BASE_URL'],
   [app + '/agent/openapi.yaml', 200, 'openapi:'],
   [app + '/api/v1/subscriptions', 401, 'error'],
   [app + '/.netlify/functions/stripe-webhook', 405, null],
   ...(docs ? [[docs + '/en', 200, null], [docs + '/zh-CN', 200, null]] : []),
   ...(!origin ? [
-    ...manifest.legacyApplicationOrigins.map(legacy => [legacy + '/', 200, 'Subscription Manager']),
+    ...manifest.legacyApplicationOrigins.map(legacy => [legacy + '/', 200, 'SteadyRenew']),
     ['https://sub.jerrylu.xyz/blog', 301, null, website + '/blog'],
     ['https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit', 301, null, website + '/blog/how-to-do-a-subscription-audit'],
     ['https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew', 301, null, website + '/zh/blog/how-to-cancel-auto-renew'],
     ['https://www.steadyrenew.com/', 301, null, website + '/'],
+    [manifest.applicationAliasOrigin + '/', 301, null, manifest.applicationUrl],
+    [manifest.applicationAliasOrigin + '/pricing', 301, null, app + '/pricing'],
   ] : []),
 ];
 const results = await Promise.all(checks.map(async ([url, expectedStatus, text, location]) => {

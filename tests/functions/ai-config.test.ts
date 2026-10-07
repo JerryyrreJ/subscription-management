@@ -6,7 +6,7 @@ test('AI config prefers OpenRouter when an OpenRouter key is present', () => {
   const config = getAiConfig({
     OPENROUTER_API_KEY: 'sk-or-test',
     SITE_URL: 'https://subs.example.test',
-    OPENROUTER_APP_TITLE: 'Subscription Manager',
+    OPENROUTER_APP_TITLE: 'SteadyRenew',
   });
 
   assert.equal(config.provider, 'openrouter');
@@ -14,7 +14,7 @@ test('AI config prefers OpenRouter when an OpenRouter key is present', () => {
   assert.equal(config.model, 'google/gemini-2.5-flash-lite');
   assert.deepEqual(config.fallbackModels, ['google/gemini-2.5-flash']);
   assert.equal(config.openRouterSiteUrl, 'https://subs.example.test');
-  assert.equal(config.openRouterAppTitle, 'Subscription Manager');
+  assert.equal(config.openRouterAppTitle, 'SteadyRenew');
   assert.equal(config.inputUsdPerMillion, 0.1);
   assert.equal(config.outputUsdPerMillion, 0.4);
 });

@@ -48,6 +48,6 @@ Rebuild (`npm run build`) emits `dist/blog/<slug>/index.html` or `dist/zh/blog/<
 
 ## Soft CTA rules
 
-- Do not mention Subscription Manager in the intro before the checklist works without the product.
-- Link CTAs to `https://app.steadyrenew.com/`.
+- Do not mention SteadyRenew in the intro before the checklist works without the product.
+- Link CTAs to `https://steadyrenew.com/app`.
 - Do not claim the app auto-detects charges from a bank, cancels merchants, or negotiates bills.

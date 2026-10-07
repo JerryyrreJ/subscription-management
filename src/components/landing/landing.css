@@ -266,7 +266,6 @@
   .landing-shell { width: calc(100% - 36px); }
   .landing-header { height: 74px; gap: 5px; }
   .landing-brand { font-size: 12px; gap: 3px; }
-  .landing-brand-last { display: none; }
   .landing-brand-mark { width: 24px; }
   .landing-header-actions { gap: 3px; }
   .landing-nav-cta { margin-left: 3px; gap: 7px; padding: 9px 10px; font-size: 10px; }

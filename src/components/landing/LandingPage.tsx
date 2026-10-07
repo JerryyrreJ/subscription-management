@@ -34,15 +34,14 @@ const samples = [
 const appUrl = resolveAppUrl(import.meta.env.VITE_APP_URL);
 const monthlyTotal = samples.reduce((sum, sample) => sum + sample.amount, 0);
 
-function Brand({ compact = false }: { compact?: boolean }) {
+function Brand() {
   return (
     <span className="landing-brand">
       <span className="landing-brand-mark">
         <Layers3 size={19} strokeWidth={1.7} />
       </span>
       <span>
-        Subscription
-        <span className={compact ? 'landing-brand-last' : ''}> Manager</span>
+        SteadyRenew
         <span className="landing-brand-dot">.</span>
       </span>
     </span>
@@ -214,8 +213,8 @@ export default function LandingPage() {
         {c.skip}
       </a>
       <header className="landing-header landing-shell">
-        <a href="/" aria-label="Subscription Manager">
-          <Brand compact />
+        <a href="/" aria-label="SteadyRenew">
+          <Brand />
         </a>
         <nav
           className="landing-nav"
@@ -409,7 +408,7 @@ export default function LandingPage() {
             <div className="landing-tools-visual">
               <div className="landing-tools-node">
                 <Layers3 size={30} strokeWidth={1.3} />
-                <span>Subscription Manager</span>
+                <span>SteadyRenew</span>
               </div>
               <div className="landing-tools-line" aria-hidden="true" />
               <div className="landing-tools-clients">
@@ -536,7 +535,7 @@ export default function LandingPage() {
       </main>
       <footer className="landing-footer landing-shell">
         <div>
-          <a href="/" aria-label="Subscription Manager">
+          <a href="/" aria-label="SteadyRenew">
             <Brand />
           </a>
           <p>{c.footer}</p>

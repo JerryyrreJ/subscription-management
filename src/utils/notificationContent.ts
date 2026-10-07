@@ -22,9 +22,9 @@ interface NotificationLocaleCopy {
 
 const NOTIFICATION_COPY: Record<SupportedLocale, NotificationLocaleCopy> = {
  en: {
-  appName: 'Subscription Manager',
+  appName: 'SteadyRenew',
   testTitle: 'Test Notification',
-  testBody: 'This is a test push from Subscription Manager',
+  testBody: 'This is a test push from SteadyRenew',
   reminderToday: '{{name}} renews today',
   reminderInDaysOne: '{{name}} renews in {{count}} day',
   reminderInDaysOther: '{{name}} renews in {{count}} days',
@@ -38,9 +38,9 @@ const NOTIFICATION_COPY: Record<SupportedLocale, NotificationLocaleCopy> = {
   customDaysOther: '{{count}} days',
  },
  'zh-CN': {
-  appName: '订阅管理器',
+  appName: 'SteadyRenew',
   testTitle: '测试通知',
-  testBody: '这是一条来自订阅管理器的测试推送',
+  testBody: '这是一条来自 SteadyRenew 的测试推送',
   reminderToday: '{{name}} 将于今天续费',
   reminderInDaysOne: '{{name}} 将于 {{count}} 天后续费',
   reminderInDaysOther: '{{name}} 将于 {{count}} 天后续费',

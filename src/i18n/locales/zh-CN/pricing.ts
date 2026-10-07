@@ -4,7 +4,7 @@ export const pricing = {
  paymentFailed: '无法启动支付流程，请稍后再试。',
  badgeSupportOpenSource: '支持开源',
  badgeMostPopular: '推荐',
- productName: '订阅管理器',
+ productName: 'SteadyRenew',
  heroTitleCloud: '把订阅理清楚',
  heroTitleSupport: '支持开源项目',
  heroSubtitleCloud: '基础订阅管理免费。升级是为了少手打录入，以及看清持续开销。',

@@ -1,6 +1,8 @@
 # SteadyRenew 域名迁移
 
-状态记录：2026-10-07（香港时间）。域名迁移与品牌命名分开：本分支仍使用 Subscription Manager，品牌名称待用户确认。
+状态记录：2026-10-07（香港时间）。用户已确认产品名为 **SteadyRenew**。本分支统一更新首页、应用、中英文文案、博客、文档、通知、PDF 署名和 MCP 显示名称。
+
+用户确认沿用同域路径结构：`steadyrenew.com/` 是首页，`steadyrenew.com/app` 是应用。已添加的 `app` 子域名仅作为跳转入口。
 
 ## 域名分工
 
@@ -8,7 +10,8 @@
 | --- | --- | --- |
 | `https://steadyrenew.com` | landing page | 现有 Netlify site |
 | `https://steadyrenew.com/blog`、`/zh/blog` | 英文、中文博客，保持文章 slug | 同一 Netlify site |
-| `https://app.steadyrenew.com` | 应用、登录、API/MCP 资源、付款返回、Stripe webhook | 同一 Netlify site |
+| `https://steadyrenew.com/app` | 应用与登录、付款返回；API/Functions 保持主域名原有路径 | 同一 Netlify site |
+| `https://app.steadyrenew.com` | 兼容入口，根路径 301 到主域名 `/app`，其他路径原样转到主域名 | 同一 Netlify site |
 | `https://docs.steadyrenew.com` | 文档，保持 `/en` 与 `/zh-CN` 路径 | 现有 Mintlify 项目 |
 | `https://sub.jerrylu.xyz` | 过渡期旧应用、旧认证回调、旧 API 客户端、本地数据导出 | 保留现有部署与 origin |
 
@@ -25,23 +28,28 @@
 - 旧博客路径准备了保留 slug 的 301；旧根路径、认证回调、API、webhook 没有全站重定向。
 - `netlify.toml` 配置生产构建域名；preview/branch 构建的应用入口保持 `/app`。
 - 本地 Stripe SDK 仅核实了测试账户；未更改测试 webhook、生产商品、账户信息或支付记录。
-- `npm run check` 通过：类型检查、lint、172 个工具测试、137 个 Functions 测试和生产构建；Mintlify 文档校验通过。三个迁移脚本的 Node 语法检查通过。
+- 用户已完成 Cloudflare Wrangler OAuth 登录，权限为账户、用户和域名读取。Wrangler 不提供 DNS 编辑 scope；用户已自行在 Dashboard 添加三个 DNS 记录；助手未保存 DNS 修改。公开 DNS 已确认根域名指向 Netlify，www/app CNAME 正确。
+- 已续签 Netlify 的现有证书，并通过证书查询与 HTTPS 请求确认覆盖 `steadyrenew.com`、`www.steadyrenew.com`、`app.steadyrenew.com` 和 `sub.jerrylu.xyz`。记录见 [`netlify-tls-preparation.json`](../../ops/steadyrenew/netlify-tls-preparation.json)。新域名目前仍提供旧生产版本，首页和 `/app` 的新路由需部署本分支后生效。
+- Mintlify CLI 已登录原组织和 `subscriptionmanager` 项目；CLI 没有域名管理命令，控制台域名绑定待完成。
+- 原 Supabase 生产项目已追加新域名和旧域名 `/app`、`/pricing` 回调，RP 显示名已改为 SteadyRenew。原 Site URL、RP ID、RP origins 与已有回调全部保留，记录见 [`supabase-auth-preparation.json`](../../ops/steadyrenew/supabase-auth-preparation.json)。修改前的 URL/RP 配置保存在本地忽略目录 `.netlify/steadyrenew/supabase-auth-before.json`。
+- 改名保留现有 localStorage key、API key 前缀、MCP 包名/下载地址/环境变量、仓库和托管项目标识，避免中断现有数据与客户端。Supabase 本地 RP 仅更新显示名称，RP ID 不变。文档中的历史截图及视频可能仍显示旧名。
+- `npm run check` 通过：类型检查、lint、172 个工具测试、137 个 Functions 测试和生产构建；Mintlify 文档校验通过。MCP 归档独立安装与 stdio 集成测试通过。三个迁移脚本的 Node 语法检查通过。
 
 ## 现有权限与待办
 
 | 服务 | 核实结果 | 后续需要 |
 | --- | --- | --- |
-| Cloudflare | 域名 nameserver 为 `ian.ns.cloudflare.com`、`tess.ns.cloudflare.com`；当前 DNS 未解析到网站。缓存 Wrangler 4.95.0 的 OAuth 刷新返回 400，未登录 | `steadyrenew.com` 的 Zone Read + DNS Edit API token，或用户在 Cloudflare Dashboard 操作。Wrangler 的 Workers 登录不能替代 DNS 写权限 |
-| Netlify | CLI 登录有效，域名 alias 已添加；生产 Secret 不可由 CLI/API读取 | DNS 与 TLS 就绪后设置 runtime 地址并执行正式部署 |
-| Mintlify | CLI 存在，但 `mint status` 未登录；旧文档 CNAME 为 `cname.mintlify.builders` | 登录现有 Mintlify 项目，添加新自定义域名，读取它给出的准确 DNS/验证记录 |
-| Supabase | CLI 可以列出原生产和 preview 项目，均健康 | 在原生产项目读取并合并 Auth 回调允许列表；Passkey RP 独立确认。不要用 `supabase config push` 将本地开发配置整体覆盖到生产 |
+| Cloudflare | 域名 nameserver 为 `ian.ns.cloudflare.com`、`tess.ns.cloudflare.com`；Wrangler OAuth 登录成功，用户已手动配置 DNS，根域名已解析，www/app CNAME 已验证 | TLS 已就绪，待 Mintlify 给出文档目标后由用户添加 docs DNS |
+| Netlify | CLI 登录有效，域名 alias、DNS、TLS 已就绪；生产 Secret 不可由 CLI/API读取 | 完成其他服务配置后设置 runtime 地址并执行正式部署 |
+| Mintlify | `mint status` 已确认登录原组织和 `subscriptionmanager` 项目；旧文档 CNAME 为 `cname.mintlify.builders` | 在现有 Mintlify 项目控制台添加新自定义域名，读取它给出的准确 DNS/验证记录 |
+| Supabase | 已通过 Management API 追加 Auth 回调，RP 显示名已改为 SteadyRenew | 正式切换时更新 Site URL 并验证登录；Passkey RP 独立处理，原 RP 暂时保留。不要用 `supabase config push` 将本地开发配置整体覆盖到生产 |
 | Stripe | 本地 `.env.local` 仅有 test key；生产 Netlify Secret 不可读 | 通过原生产 Stripe 账户的 Dashboard 或授权 API 核实当前 live webhook、业务网址、客户门户返回地址，以及任何已启用的支付域名配置 |
 
 不要将 API token、Stripe key、webhook secret 或 Supabase service key写入此文件、脚本或版本库。已有本地密钥不需要贴到聊天中。
 
 ## 1. Cloudflare DNS 与 TLS
 
-Netlify alias 已添加；下一步才是 DNS。计划使用 Cloudflare DNS-only，保留现有 nameserver。根域名使用 Cloudflare 的 CNAME flattening，指向 Netlify 官方负载均衡地址。
+Netlify alias 和以下三个 DNS 记录已完成，使用 Cloudflare DNS-only，保留现有 nameserver。文档域名仍待绑定。根域名使用 Cloudflare 的 CNAME flattening，指向 Netlify 官方负载均衡地址。
 
 | 类型 | 名称 | 内容 | Proxy |
 | --- | --- | --- | --- |
@@ -58,7 +66,7 @@ node scripts/migration/cloudflare-dns.mjs
 node scripts/migration/cloudflare-dns.mjs --apply
 ```
 
-完成后检查 DNS 和两个站点的 HTTPS 证书。Netlify 已有 Let's Encrypt 证书时，应使用其续签/添加域名流程；不要调用“创建证书”接口覆盖现有证书。确认证书覆盖新域名后才能切换链接和登录回调。
+三个 Netlify 域名 HTTPS 已验证。Netlify 已有 Let's Encrypt 证书时，使用其 `POST /api/v1/sites/{site_id}/ssl/renew` 续签接口；不要调用“创建证书”接口覆盖现有证书。文档域名 HTTPS 需在 Mintlify 绑定后独立验证。
 
 官方参考：
 
@@ -70,21 +78,21 @@ node scripts/migration/cloudflare-dns.mjs --apply
 
 生产项目继续使用 `uikhflwvhhgifvbuhebi`，preview 继续使用 `acoynfyopsgbcfhqhhiv`。不迁数据库，不新建用户，不重置 Premium 或 API key。
 
-先读取生产 Auth 当前配置并保存私密备份。在原 Redirect URLs/`uri_allow_list` 中追加以下地址，保留所有现有生产、preview、旧域名条目：
+已读取生产 Auth 配置并保存本地备份，以下地址已追加到原 Redirect URLs/`uri_allow_list`，保留了所有现有条目，同时补充旧 `sub.jerrylu.xyz` 的 `/app` 和 `/pricing` 回调：
 
 ```text
-https://app.steadyrenew.com/
-https://app.steadyrenew.com/app
-https://app.steadyrenew.com/app?auth=recovery
-https://app.steadyrenew.com/pricing
-https://app.steadyrenew.com/pricing?auth=recovery
+https://steadyrenew.com/
+https://steadyrenew.com/app
+https://steadyrenew.com/app?auth=recovery
+https://steadyrenew.com/pricing
+https://steadyrenew.com/pricing?auth=recovery
 ```
 
 本项目注册和 OAuth 默认回到 `/app`；找回密码会保留发起页面的 pathname 并添加 `auth=recovery`，因此 `/pricing` 的找回密码回调也要覆盖。可以使用 Supabase 支持的同域回调通配符，但不能删除已有允许项。原 OAuth 提供商若仍回调到同一个 Supabase 项目域名，一般不需要更换其 callback；需要检查提供商显示的应用主页、隐私政策/条款 URL 等品牌信息。
 
-等 HTTPS 验证后将 Supabase Site URL 改为 `https://app.steadyrenew.com/app`，依次验证注册确认邮件、密码登录、OAuth、找回密码、云同步、已有 Premium 和 API key。
+等 HTTPS 验证后将 Supabase Site URL 改为 `https://steadyrenew.com/app`，依次验证注册确认邮件、密码登录、OAuth、找回密码、云同步、已有 Premium 和 API key。
 
-**Passkey 不能随域名自动迁移。** `jerrylu.xyz`/`sub.jerrylu.xyz` 与 `steadyrenew.com` 是不同 RP 范围。过渡期不要直接修改已有 RP ID，不要删除旧凭证。在用户确认其他登录方式后，单独安排新 RP `steadyrenew.com` 与 origin `https://app.steadyrenew.com`，并由用户重新注册凭证。新域名 Passkey 在这一步验证完成前不能算迁移完成。
+**Passkey 不能随域名自动迁移。** `jerrylu.xyz`/`sub.jerrylu.xyz` 与 `steadyrenew.com` 是不同 RP 范围。过渡期不要直接修改已有 RP ID，不要删除旧凭证。在用户确认其他登录方式后，单独安排新 RP `steadyrenew.com` 与 origin `https://steadyrenew.com`，并由用户重新注册凭证。新域名 Passkey 在这一步验证完成前不能算迁移完成。
 
 仅存在浏览器本地的数据，用户在旧域名导出 JSON、在新域名导入；云端用户使用原账户重新登录。不要把旧应用根路径立即 301 到新域名，否则用户可能无法导出本地数据。不要将密码、session 或 refresh token 放在跨域 URL 中。
 
@@ -93,17 +101,18 @@ https://app.steadyrenew.com/pricing?auth=recovery
 生产构建的三个 `VITE_*` URL 已放入 `netlify.toml`。**Netlify 文件中的 build environment 不等于 Functions runtime environment**；正式切换时还需要在生产 Functions 环境设置：
 
 ```dotenv
-SITE_URL=https://app.steadyrenew.com
+SITE_URL=https://steadyrenew.com/app
 OPENROUTER_SITE_URL=https://steadyrenew.com
+OPENROUTER_APP_TITLE=SteadyRenew
 ```
 
 保持原 live Stripe 账户、`STRIPE_PRICE_ID`、webhook event 集合、API 版本、customer 和数据库权益不变。当前生产 Price ID 只做了配置读取，尚未获得 live API 权限核实其商品。
 
-先在生产 Stripe 核实当前 endpoint。待 `https://app.steadyrenew.com/.netlify/functions/stripe-webhook` 可用后，优先原地更新已有 endpoint URL；不要重复创建另一个 endpoint 或复制测试 signing secret。更新后通过 Stripe 投递记录和重试验证签名、订单及权益处理。若服务确实返回新 signing secret，先在正确生产环境保存，不能输出到日志。
+先在生产 Stripe 核实当前 endpoint。待 `https://steadyrenew.com/.netlify/functions/stripe-webhook` 可用后，优先原地更新已有 endpoint URL；不要重复创建另一个 endpoint 或复制测试 signing secret。更新后通过 Stripe 投递记录和重试验证签名、订单及权益处理。若服务确实返回新 signing secret，先在正确生产环境保存，不能输出到日志。
 
-Checkout 的 success/cancel URL 由 Functions 的 `SITE_URL` 生成，因此最终部署后新订单返回新应用域名。已有未完成 Checkout Session 可能仍使用旧 return URL，必须继续支持旧域名回调。复用中的 session 不应为了换域名强行清理或造成用户重复付款。
+Checkout 的 success/cancel URL 由 Functions 的 `SITE_URL` 生成，因此最终部署后新订单返回 `https://steadyrenew.com/app`。已有未完成 Checkout Session 可能仍使用旧 return URL，必须继续支持旧域名回调。复用中的 session 不应为了换域名强行清理或造成用户重复付款。
 
-Stripe Dashboard 的业务网址可更新为 `https://steadyrenew.com`。业务名称、商品显示名称、账单描述符和品牌图案等待命名确认后再改。只有实际使用了 Stripe Payment Method Domains/嵌入式 Checkout/自定义 Checkout 域名时才更新对应配置；本项目目前使用 Stripe 托管 Checkout，不假设需要新增这些服务。不要借迁移触发真实扣款。
+品牌名已确认：Stripe Dashboard 业务显示名称使用 `SteadyRenew`，Premium 商品显示名称使用 `SteadyRenew Premium`，业务网址使用 `https://steadyrenew.com`，在获得 live 账户权限后操作。法人名称、税务信息和收款账户不随产品改名修改。账单描述符需核实账户与 Stripe 限制后再更新。只有实际使用了 Stripe Payment Method Domains/嵌入式 Checkout/自定义 Checkout 域名时才更新对应配置；本项目目前使用 Stripe 托管 Checkout，不假设需要新增这些服务。不要借迁移触发真实扣款。
 
 测试账户中启用的 endpoint 当前是 `stripe-sandbox--subscription-management.netlify.app`，必须保留，不能改成生产应用域名。
 
@@ -123,7 +132,7 @@ Stripe Dashboard 的业务网址可更新为 `https://steadyrenew.com`。业务�
 2. 应用 Cloudflare DNS，验证 Netlify/Mintlify 域名所有权和 HTTPS。
 3. 追加并验证 Auth 回调；保留旧域名、现有 RP 和旧支付回调。
 4. 在生产 Functions 环境配置新 `SITE_URL`，发布迁移版本；确认新旧应用入口分别工作。
-5. 检查新首页、应用、博客、文档、登录和已有数据，之后修改 Netlify primary domain 为 `steadyrenew.com`，将旧域名保留为 alias。确认 `app` 不被自动重定向到主站。
+5. 检查新首页、应用、博客、文档、登录和已有数据，之后修改 Netlify primary domain 为 `steadyrenew.com`，将旧域名保留为 alias。确认主域名 `/` 展示首页、`/app` 展示应用，`app` 子域名根路径跳转到主域名 `/app`。
 6. 核实新 webhook 可达后更新原 Stripe endpoint URL，验证投递；不要删除沙盒 endpoint。
 7. 验证旧博客 301、旧应用 200、新 sitemap、新文档，并安排 Passkey 过渡的独立验收。
 

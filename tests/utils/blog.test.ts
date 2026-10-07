@@ -179,7 +179,7 @@ test('first post follows soft-CTA and claims rules from the writer brief', () =>
   const source = readFileSync(firstPostPath, 'utf8');
   const intro = source.split('## Before you start')[0] ?? '';
 
-  assert.equal(intro.includes('Subscription Manager'), false);
+  assert.equal(intro.includes('SteadyRenew'), false);
   assert.match(source, /does \*\*not\*\* connect to your bank/);
   assert.match(source, /cancel for you/);
   assert.match(source, /or negotiate bills/);
@@ -200,7 +200,7 @@ test('Chinese cancel guide is published, human-toned, and only cross-links the E
 
   assert.match(source, /^status: published$/m);
   assert.match(source, /^lang: zh$/m);
-  assert.equal(intro.includes('Subscription Manager'), false);
+  assert.equal(intro.includes('SteadyRenew'), false);
   assert.doesNotMatch(source, /截图留证/);
   assert.doesNotMatch(source, /Plaid/i);
   assert.doesNotMatch(source, /yearly-spend-explained\]\(/);

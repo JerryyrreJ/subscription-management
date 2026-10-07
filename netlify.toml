@@ -19,7 +19,7 @@
 # also be set in Netlify's production Functions environment during cutover.
 [context.production.environment]
   VITE_SITE_URL = "https://steadyrenew.com"
-  VITE_APP_URL = "https://app.steadyrenew.com/"
+  VITE_APP_URL = "/app"
   VITE_DOCS_URL = "https://docs.steadyrenew.com"
 
 # Preview application links must stay on the preview deployment.
@@ -57,6 +57,20 @@
 
 [[redirects]]
   from = "https://www.steadyrenew.com/*"
+  to = "https://steadyrenew.com/:splat"
+  status = 301
+  force = true
+
+# The product uses /app on the main origin. Keep the prepared subdomain as
+# an alias, forwarding its root to the app and preserving all other paths.
+[[redirects]]
+  from = "https://app.steadyrenew.com/"
+  to = "https://steadyrenew.com/app"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://app.steadyrenew.com/*"
   to = "https://steadyrenew.com/:splat"
   status = 301
   force = true

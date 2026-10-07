@@ -6,17 +6,19 @@
 
 ## 同域部署
 
+SteadyRenew 采用此结构：`steadyrenew.com/` 是首页，`steadyrenew.com/app` 是应用。`app.steadyrenew.com` 只作为跳转入口。
+
 在 Netlify 的构建环境中设置以下变量并重新构建：
 
 ```dotenv
 VITE_SITE_URL=https://example.com
 VITE_APP_URL=/app
-SITE_URL=https://example.com
+SITE_URL=https://example.com/app
 ```
 
 将 `example.com` 替换为实际域名。`VITE_SITE_URL` 同时更新首页分享信息、博客 canonical、sitemap 和 robots.txt；留空时使用 `steadyrenew.com`。`SITE_URL` 是现有付款后端使用的应用站点地址。实际迁移进度和切换顺序见 [域名迁移操作记录](../operations/steadyrenew-domain-migration.md)。
 
-## 使用应用子域名
+## 可选：自托管使用应用子域名
 
 ```dotenv
 VITE_SITE_URL=https://example.com

@@ -16,7 +16,7 @@ const stripeConfig = {
  secretKey: 'sk_test_server',
  webhookSecret: 'whsec_test',
  priceId: 'price_server',
- siteUrl: 'https://example.test',
+ siteUrl: 'https://example.test/app',
 };
 
 const authenticatedUser = {
@@ -81,8 +81,8 @@ test('premium checkout ignores forged body identity and price', async () => {
  assert.deepEqual(checkoutParams, {
   line_items: [{ price: 'price_server', quantity: 1 }],
   mode: 'payment',
-  success_url: 'https://example.test?payment=success&session_id={CHECKOUT_SESSION_ID}',
-  cancel_url: 'https://example.test?payment=cancelled',
+  success_url: 'https://example.test/app?payment=success&session_id={CHECKOUT_SESSION_ID}',
+  cancel_url: 'https://example.test/app?payment=cancelled',
   customer_email: 'owner@example.test',
   billing_address_collection: 'auto',
   metadata: {

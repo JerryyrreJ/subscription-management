@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](../zh-CN/README.md)
 
-These docs cover the public setup and operating surface for Subscription Manager. Development notes, implementation summaries, and older planning documents live in [`dev-docs/`](../../dev-docs/README.md).
+These docs cover the public setup and operating surface for SteadyRenew. Development notes, implementation summaries, and older planning documents live in [`dev-docs/`](../../dev-docs/README.md).
 
 ## Start Here
 

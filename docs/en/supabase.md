@@ -57,7 +57,7 @@ Passkey sign-in uses Supabase Auth WebAuthn. The app client opts in with `auth.e
 enabled = true
 
 [auth.webauthn]
-rp_display_name = "Subscription Management"
+rp_display_name = "SteadyRenew"
 rp_id = "127.0.0.1"
 rp_origins = ["http://127.0.0.1:5173"]
 ```
@@ -69,9 +69,9 @@ Open the app at `http://127.0.0.1:5173` so the browser origin matches `rp_id` / 
 In the Supabase Dashboard go to **Authentication → Passkeys**:
 
 1. Enable Passkey authentication.
-2. Set **Relying Party Display Name** (for example, `Subscription Management`).
+2. Set **Relying Party Display Name** (for example, `SteadyRenew`).
 3. Set a stable **Relying Party ID** to the bare domain that serves the app (for a new SteadyRenew setup, use `steadyrenew.com`; existing installations must keep their current RP ID until a passkey transition is planned).
-4. Set **Relying Party Origins** to the exact HTTPS origins users will use (up to 5). For new installations, include `https://app.steadyrenew.com`. Preserve existing origins during migration. Loopback HTTP is allowed only for local development.
+4. Set **Relying Party Origins** to the exact HTTPS origins users will use (up to 5). For new installations, include `https://steadyrenew.com`. Preserve existing origins during migration. Loopback HTTP is allowed only for local development.
 5. Confirm Site URL / Redirect URLs still cover OAuth and password reset; Passkeys themselves do not use redirects, but the browser origin must be listed in RP Origins.
 
 HTTPS is required outside loopback. Deploy Preview hostnames usually cannot share the same RP Origins list (limit 5), so Passkeys may be unavailable there.

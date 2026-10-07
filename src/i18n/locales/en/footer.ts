@@ -1,5 +1,5 @@
 export const footer = {
- copyright: 'Subscription Manager. Made by Jerry Lu',
+ copyright: 'SteadyRenew. Made by Jerry Lu',
  guides: 'Guides',
  version: 'Version {{version}}',
 };

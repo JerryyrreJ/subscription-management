@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2026-08-21",
-  "name": "Subscription Manager AI tool schema",
+  "name": "SteadyRenew AI tool schema",
   "sourceOpenApi": "api/openapi.yaml",
   "baseUrl": "https://your-site.example",
   "auth": {

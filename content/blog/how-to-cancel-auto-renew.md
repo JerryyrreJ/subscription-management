@@ -153,7 +153,7 @@ canonical: https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew
 
 ## 整理后，怎么继续记录
 
-订阅不多时，继续维护这张表、配合日历提醒就够了。如果想集中查看支出和续费日期，也可以把保留的项目记到 [Subscription Manager](https://app.steadyrenew.com)。它支持中文、多币种和续费提醒，不需要绑定银行。
+订阅不多时，继续维护这张表、配合日历提醒就够了。如果想集中查看支出和续费日期，也可以把保留的项目记到 [SteadyRenew](https://steadyrenew.com/app)。它支持中文、多币种和续费提醒，不需要绑定银行。
 
 录入时可以用截图或收据辅助填写，再核对金额和日期。取消订阅仍需到对应平台操作，应用不会代你解约，也不会自动读取支付账单。
 

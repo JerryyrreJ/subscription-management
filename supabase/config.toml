@@ -37,6 +37,6 @@ enable_confirmations = false
 enabled = true
 
 [auth.webauthn]
-rp_display_name = "Subscription Management"
+rp_display_name = "SteadyRenew"
 rp_id = "127.0.0.1"
 rp_origins = ["http://127.0.0.1:5173"]

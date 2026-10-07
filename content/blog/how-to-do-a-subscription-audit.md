@@ -145,7 +145,7 @@ After the first full pass:
 | Spreadsheet / notes | Simple to set up and easy to customize | You need to update the list and set reminders separately |
 | Manual tracker app | Renewal dates, reminders, and spending totals together | You need to add new subscriptions yourself |
 
-A spreadsheet is enough to complete the audit. If you also want renewal reminders and spending totals, [Subscription Manager](https://app.steadyrenew.com) supports multiple currencies, optional cloud sync, and entry from screenshots or receipts. There is no bank login required. It does **not** connect to your bank, cancel for you, or negotiate bills.
+A spreadsheet is enough to complete the audit. If you also want renewal reminders and spending totals, [SteadyRenew](https://steadyrenew.com/app) supports multiple currencies, optional cloud sync, and entry from screenshots or receipts. There is no bank login required. It does **not** connect to your bank, cancel for you, or negotiate bills.
 
 ## FAQ
 

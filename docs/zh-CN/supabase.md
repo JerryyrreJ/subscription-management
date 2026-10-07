@@ -57,7 +57,7 @@ Passkey 登录基于 Supabase Auth 的 WebAuthn。客户端需开启 `auth.exper
 enabled = true
 
 [auth.webauthn]
-rp_display_name = "Subscription Management"
+rp_display_name = "SteadyRenew"
 rp_id = "127.0.0.1"
 rp_origins = ["http://127.0.0.1:5173"]
 ```
@@ -69,9 +69,9 @@ rp_origins = ["http://127.0.0.1:5173"]
 在 Supabase Dashboard 打开 **Authentication → Passkeys**：
 
 1. 开启 Passkey authentication。
-2. 填写 **Relying Party Display Name**（例如 `Subscription Management`）。
+2. 填写 **Relying Party Display Name**（例如 `SteadyRenew`）。
 3. 设置稳定的 **Relying Party ID**（裸域名，不要带 scheme / port / path）。新建 SteadyRenew 配置可使用 `steadyrenew.com`；已有部署先保留当前 RP ID，单独规划通行密钥过渡。
-4. 填写 **Relying Party Origins**（最多 5 个），必须包含用户实际访问的 HTTPS 源，新建配置例如 `https://app.steadyrenew.com`，迁移期保留已有 origin。仅 loopback 允许使用 HTTP。
+4. 填写 **Relying Party Origins**（最多 5 个），必须包含用户实际访问的 HTTPS 源，新建配置例如 `https://steadyrenew.com`，迁移期保留已有 origin。仅 loopback 允许使用 HTTP。
 5. 确认 Site URL / Redirect URLs 仍覆盖 OAuth 与密码重置；Passkey 本身不依赖 redirect，但浏览器 origin 必须在 RP Origins 中。
 
 非 loopback 环境必须使用 HTTPS。Netlify Deploy Preview 主机名通常无法全部写入 RP Origins（上限 5），Preview 上 Passkey 可能不可用。

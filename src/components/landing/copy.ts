@@ -1,6 +1,6 @@
 export const landingCopy = {
   en: {
-    title: 'Subscription Manager — A little more clarity.',
+    title: 'SteadyRenew — A little more clarity.',
     description:
       'Keep subscriptions, recurring costs and renewal dates in one calm place. Start free, without connecting your bank.',
     skip: 'Skip to content',
@@ -134,7 +134,7 @@ export const landingCopy = {
     madeBy: 'Made by Jerry Lu',
   },
   'zh-CN': {
-    title: 'Subscription Manager — 每一笔订阅，心中有数。',
+    title: 'SteadyRenew — 每一笔订阅，心中有数。',
     description:
       '把订阅、持续开销和续费日期放在一处。免费开始，无需关联银行账户，让每一笔订阅都心中有数。',
     skip: '跳转到正文',

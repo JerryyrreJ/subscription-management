@@ -1,6 +1,6 @@
 export const app = {
- title: 'Subscription Manager',
- documentTitle: 'Subscription Manager',
+ title: 'SteadyRenew',
+ documentTitle: 'SteadyRenew',
  loading: 'Loading...',
  advancedReport: 'Advanced Report',
  viewAdvancedReport: 'View Advanced Report',

@@ -1,6 +1,8 @@
 {
   "marketingOrigin": "https://steadyrenew.com",
-  "applicationOrigin": "https://app.steadyrenew.com",
+  "applicationOrigin": "https://steadyrenew.com",
+  "applicationUrl": "https://steadyrenew.com/app",
+  "applicationAliasOrigin": "https://app.steadyrenew.com",
   "documentationOrigin": "https://docs.steadyrenew.com",
   "netlifySiteId": "af6fc8cd-fba6-4c61-a6ef-990a1e303054",
   "netlifySiteName": "subscription-management",
@@ -17,10 +19,10 @@
     "existingTarget": "cname.mintlify.builders",
     "status": "Confirm target and verification records in the existing Mintlify project before adding DNS."
   },
-  "productionRuntime": {"SITE_URL": "https://app.steadyrenew.com", "OPENROUTER_SITE_URL": "https://steadyrenew.com"},
-  "productionBuild": {"VITE_SITE_URL": "https://steadyrenew.com", "VITE_APP_URL": "https://app.steadyrenew.com/", "VITE_DOCS_URL": "https://docs.steadyrenew.com"},
+  "productionRuntime": {"SITE_URL": "https://steadyrenew.com/app", "OPENROUTER_SITE_URL": "https://steadyrenew.com", "OPENROUTER_APP_TITLE": "SteadyRenew"},
+  "productionBuild": {"VITE_SITE_URL": "https://steadyrenew.com", "VITE_APP_URL": "/app", "VITE_DOCS_URL": "https://docs.steadyrenew.com"},
   "productionSupabaseProject": "uikhflwvhhgifvbuhebi",
   "previewSupabaseProject": "acoynfyopsgbcfhqhhiv",
   "rollbackDeployId": "6ac60c2173a56900081c0bed",
-  "stripeWebhookTarget": "https://app.steadyrenew.com/.netlify/functions/stripe-webhook"
+  "stripeWebhookTarget": "https://steadyrenew.com/.netlify/functions/stripe-webhook"
 }

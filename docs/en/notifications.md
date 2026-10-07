@@ -2,15 +2,15 @@
 
 [English](notifications.md) | [简体中文](../zh-CN/notifications.md)
 
-Subscription Manager can send renewal and free-trial reminders through Bark. The hosted reminder flow uses a Netlify Scheduled Function and Supabase-backed notification settings.
+SteadyRenew can send renewal and free-trial reminders through Bark. The hosted reminder flow uses a Netlify Scheduled Function and Supabase-backed notification settings.
 
 ## Before You Start
 
-Bark is a free, open-source iOS push app. Subscription Manager sends reminders from its server, so you do not need to keep the web app open.
+Bark is a free, open-source iOS push app. SteadyRenew sends reminders from its server, so you do not need to keep the web app open.
 
 Before you start, you need:
 
-- A signed-in Subscription Manager account.
+- A signed-in SteadyRenew account.
 - [Bark](https://apps.apple.com/app/bark-customed-notifications/id1403753865) installed on an iPhone or iPad.
 - The push URL shown in Bark.
 - The number of days before renewal or trial end when you want to be reminded.
@@ -22,19 +22,19 @@ Before you start, you need:
 1. Download and open Bark on your iOS device.
 2. Tap **Service** at the bottom of Bark.
 3. On the Service page, tap the copy button next to any example push URL, such as `https://api.day.app/your_device_key/Body Text`.
-4. Keep the complete URL. Subscription Manager extracts the server URL and device key automatically.
+4. Keep the complete URL. SteadyRenew extracts the server URL and device key automatically.
 
 ![Bark Service page with an orange circle on the Copy URL button. Example URLs use the placeholder key your_device_key.](../../docs-site/images/guides/bark-guide-01-service-copy-url.webp)
 
 > Screenshots use redacted placeholders such as `your_device_key`. They are not real device keys. Copy the URL from Bark on your own device and paste that URL — do not reuse the example from the images.
 
-## Configure Subscription Manager
+## Configure SteadyRenew
 
-1. Sign in to Subscription Manager.
+1. Sign in to SteadyRenew.
 2. Open **Settings** → **Notifications**.
 3. Select the **Enable Bark push notifications** checkbox.
 
-![Subscription Manager notification settings with an orange circle around the Enable Bark push notifications checkbox](../../docs-site/images/guides/bark-guide-02-enable.webp)
+![SteadyRenew notification settings with an orange circle around the Enable Bark push notifications checkbox](../../docs-site/images/guides/bark-guide-02-enable.webp)
 
 4. Paste the complete Bark URL into the **Bark URL** field. Confirm the status shows **Valid**, then tap **Test Push**.
 
@@ -42,7 +42,7 @@ Before you start, you need:
 
 5. Confirm the test notification arrives on your iPhone.
 
-![iPhone home screen with a Bark test notification that reads This is a test push from Subscription Manager](../../docs-site/images/guides/bark-guide-04-test-received.jpg)
+![iPhone home screen with a Bark test notification from an earlier version that reads This is a test push from Subscription Manager](../../docs-site/images/guides/bark-guide-04-test-received.jpg)
 
 6. Choose how many days before renewal or trial end to send the reminder, then select **Save Settings**.
 
