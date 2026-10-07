@@ -13,7 +13,7 @@ export const settingsHub = {
   account: 'Account',
   categories: 'Categories',
   notifications: 'Notifications',
-  api: 'Developer API',
+  api: 'API & MCP',
  },
  profileFallback: 'User',
  generalTitle: 'General Settings',

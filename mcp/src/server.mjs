@@ -18,7 +18,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,14 +34,26 @@ if (!baseUrl || !apiKey) {
   process.exit(1);
 }
 
+const bundledSchemaPath = join(here, '..', 'schema', 'ai-tools.json');
 const schemaPath =
   process.env.SUBSCRIPTION_MANAGER_TOOLS_SCHEMA ||
-  join(here, '..', '..', 'docs-site', 'api', 'ai-tools.json');
+  (existsSync(bundledSchemaPath) ? bundledSchemaPath : join(here, '..', '..', 'docs-site', 'api', 'ai-tools.json'));
 
 const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
 const defs = schema.$defs ?? {};
 
-const normalizedBase = baseUrl.replace(/\/+$/, '');
+let normalizedBase;
+try {
+  const url = new URL(baseUrl);
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('Expected an HTTPS site origin (HTTP is allowed for localhost).');
+  }
+  normalizedBase = url.origin;
+} catch {
+  console.error('Invalid SUBSCRIPTION_MANAGER_BASE_URL. Use the HTTPS site origin without /api/v1; HTTP is allowed for localhost.');
+  process.exit(1);
+}
 
 // Resolve a top-level $ref so each tool's inputSchema has an object root, and
 // attach $defs so nested refs (dateOnly, subscriptionPatch) still resolve.
@@ -75,6 +87,11 @@ const tools = schema.tools.map((tool) => ({
   name: tool.name,
   description: describeTool(tool),
   inputSchema: buildInputSchema(tool),
+  annotations: {
+    readOnlyHint: tool.method === 'GET',
+    destructiveHint: tool.method !== 'GET' && tool.method !== 'POST',
+    openWorldHint: true,
+  },
 }));
 
 const toolByName = new Map(schema.tools.map((tool) => [tool.name, tool]));
@@ -134,9 +151,17 @@ const callTool = async (tool, args) => {
     method: request.method,
     headers,
     body: request.body !== undefined ? JSON.stringify(request.body) : undefined,
+    redirect: 'error',
+    signal: AbortSignal.timeout(30_000),
   });
 
   const text = await response.text();
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    return { ok: false, status: response.status, text: `Expected a JSON API response, received HTTP ${response.status}. Check the site URL and that Netlify Functions are deployed (locally use npm run dev:full).` };
+  }
+  try { JSON.parse(text); } catch {
+    return { ok: false, status: response.status, text: `Invalid JSON API response (HTTP ${response.status}).` };
+  }
   return { ok: response.ok, status: response.status, text };
 };
 

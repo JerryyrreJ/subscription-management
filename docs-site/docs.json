@@ -9,7 +9,12 @@
   },
   "favicon": "/favicon.svg",
   "contextual": {
-    "options": ["copy", "download-spec", "chatgpt", "claude"]
+    "options": [
+      "copy",
+      "download-spec",
+      "chatgpt",
+      "claude"
+    ]
   },
   "navbar": {
     "links": [
@@ -53,6 +58,7 @@
                   "en/user-guide/reminders",
                   "en/user-guide/import-export",
                   "en/user-guide/account-sync",
+                  "en/user-guide/agent-setup",
                   "en/user-guide/developer-api-keys",
                   "en/user-guide/faq"
                 ]
@@ -129,6 +135,7 @@
                   "zh-CN/user-guide/reminders",
                   "zh-CN/user-guide/import-export",
                   "zh-CN/user-guide/account-sync",
+                  "zh-CN/user-guide/agent-setup",
                   "zh-CN/user-guide/developer-api-keys",
                   "zh-CN/user-guide/faq"
                 ]

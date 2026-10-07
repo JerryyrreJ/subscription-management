@@ -7,14 +7,21 @@
   "bin": {
     "subscription-manager-mcp": "src/server.mjs"
   },
+  "files": [
+    "src/server.mjs",
+    "schema/ai-tools.json",
+    "README.md"
+  ],
   "scripts": {
+    "prepack": "node scripts/prepare.mjs",
     "start": "node src/server.mjs",
-    "check": "node --check src/server.mjs"
+    "check": "node --check src/server.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0"
+    "@modelcontextprotocol/sdk": "1.32.1"
   }
 }

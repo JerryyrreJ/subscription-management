@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Subscription Manager Public API
   version: 1.0.0
-  description: Public API for subscription CRUD automation through Developer API keys. The operation descriptions include AI-oriented task semantics, risk levels, and confirmation guidance for agent integrations.
+  description: Public API for cloud subscription CRUD automation through API keys created in Settings → API & MCP. Use Copy to Agent in the app for guided setup, or read /agent/setup.md on your application origin. A standalone local stdio MCP package is available at /downloads/subscription-manager-mcp.tgz on that same origin. The operation descriptions include AI-oriented task semantics, risk levels, and confirmation guidance for agent integrations.
 servers:
   - url: https://your-site.example
     description: Replace with your deployed Subscription Manager site URL.

@@ -130,6 +130,7 @@ AI 录入可以从一句话、一段粘贴的银行/信用卡账单，或一张�
 - [使用 Stripe 支付](docs/zh-CN/payments.md)
 - [AI 录入](docs-site/zh-CN/integrations/ai-capture.mdx)
 - [开放 API](docs/zh-CN/api.md)
+- [连接 Agent（复制给 Agent）](docs-site/zh-CN/user-guide/agent-setup.mdx)
 - [更新日志](CHANGELOG.md)
 
 ## 项目结构

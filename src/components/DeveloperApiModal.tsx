@@ -1,7 +1,8 @@
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Clipboard, Code2, KeyRound, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { AgentSetupCard } from './settings/AgentSetupCard';
 import {
  ApiKeyLimits,
  ApiKeyMetadata,
@@ -60,10 +61,13 @@ export function DeveloperApiModal({
  const [limits, setLimits] = useState<ApiKeyLimits | null>(null);
  const [newKeyName, setNewKeyName] = useState(defaultKeyName);
  const [createdApiKey, setCreatedApiKey] = useState<string | null>(null);
+ const [createdKeyId, setCreatedKeyId] = useState<string | null>(null);
+ const [keyAccess, setKeyAccess] = useState<'write' | 'read'>('write');
  const [copied, setCopied] = useState(false);
  const [loading, setLoading] = useState(false);
  const [submitting, setSubmitting] = useState(false);
  const [error, setError] = useState<string | null>(null);
+ const sessionEpoch = useRef(0);
 
  const loadKeys = useCallback(async () => {
   if (!accessToken) {
@@ -72,27 +76,42 @@ export function DeveloperApiModal({
 
   setLoading(true);
   setError(null);
+  const epoch = sessionEpoch.current;
 
   try {
    const result = await ApiKeyService.listApiKeys(accessToken);
+   if (epoch !== sessionEpoch.current) return;
    setKeys(result.keys);
    setLimits(result.limits);
   } catch (loadError) {
+   if (epoch !== sessionEpoch.current) return;
    setError(getErrorMessage(loadError, t('developerApi:loadFailed'), t));
   } finally {
-   setLoading(false);
+   if (epoch === sessionEpoch.current) setLoading(false);
   }
  }, [accessToken, t]);
 
  useEffect(() => {
+  sessionEpoch.current += 1;
+  setCreatedApiKey(null);
+  setCreatedKeyId(null);
+  setKeys([]);
+  setLimits(null);
+  setCopied(false);
+  setSubmitting(false);
   if (!isOpen) {
    return;
   }
 
-  setCreatedApiKey(null);
-  setCopied(false);
   void loadKeys();
+  return () => { sessionEpoch.current += 1; };
  }, [isOpen, accessToken, loadKeys]);
+
+ useEffect(() => {
+  if (!copied) return;
+  const timer = window.setTimeout(() => setCopied(false), 1800);
+  return () => window.clearTimeout(timer);
+ }, [copied]);
 
  if (!isOpen) {
   return null;
@@ -108,16 +127,20 @@ export function DeveloperApiModal({
   setError(null);
   setCreatedApiKey(null);
   setCopied(false);
+  const epoch = sessionEpoch.current;
 
   try {
-   const result = await ApiKeyService.createApiKey(accessToken, newKeyName);
+   const result = await ApiKeyService.createApiKey(accessToken, newKeyName, keyAccess === 'read' ? ['read'] : ['read', 'write']);
+   if (epoch !== sessionEpoch.current) return;
    setCreatedApiKey(result.apiKey);
+   setCreatedKeyId(result.key.id);
    setNewKeyName(defaultKeyName);
    await loadKeys();
   } catch (createError) {
+   if (epoch !== sessionEpoch.current) return;
    setError(getErrorMessage(createError, t('developerApi:createFailed'), t));
   } finally {
-   setSubmitting(false);
+   if (epoch === sessionEpoch.current) setSubmitting(false);
   }
  };
 
@@ -132,11 +155,15 @@ export function DeveloperApiModal({
   }
 
   setError(null);
+  const epoch = sessionEpoch.current;
 
   try {
    await ApiKeyService.revokeApiKey(accessToken, key.id);
+   if (epoch !== sessionEpoch.current) return;
+   if (key.id === createdKeyId) setCreatedApiKey(null);
    await loadKeys();
   } catch (revokeError) {
+   if (epoch !== sessionEpoch.current) return;
    setError(getErrorMessage(revokeError, t('developerApi:revokeFailed'), t));
   }
  };
@@ -146,9 +173,12 @@ export function DeveloperApiModal({
    return;
   }
 
-  await navigator.clipboard.writeText(createdApiKey);
-  setCopied(true);
-  window.setTimeout(() => setCopied(false), 1800);
+  try {
+   await navigator.clipboard.writeText(createdApiKey);
+   setCopied(true);
+  } catch {
+   setError(t('developerApi:copyFailed'));
+  }
  };
 
  const canCreateKey = Boolean(limits && keys.length < limits.activeKeys);
@@ -201,6 +231,7 @@ export function DeveloperApiModal({
       </div>
      ) : (
       <>
+       <AgentSetupCard key={createdKeyId && createdApiKey ? createdKeyId : 'no-key'} apiKey={createdApiKey} />
        {limits && (
         <div className="grid sm:grid-cols-3 gap-3">
          <div className="settings-card p-4">
@@ -264,6 +295,11 @@ export function DeveloperApiModal({
           {submitting ? t('developerApi:creating') : t('developerApi:createKey')}
          </button>
         </div>
+        <fieldset className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-xs app-theme-text-muted" disabled={submitting}>
+         <legend className="sr-only">{t('developerApi:permissions')}</legend>
+         <label className="inline-flex items-center gap-1.5"><input type="radio" name="key-access" checked={keyAccess === 'write'} onChange={() => setKeyAccess('write')} className="accent-emerald-700" />{t('developerApi:readWrite')}</label>
+         <label className="inline-flex items-center gap-1.5"><input type="radio" name="key-access" checked={keyAccess === 'read'} onChange={() => setKeyAccess('read')} className="accent-emerald-700" />{t('developerApi:readOnly')}</label>
+        </fieldset>
         {!canCreateKey && limits && (
          <p className="text-xs app-theme-text-muted mt-2">
           {t('developerApi:keyLimitReached', { count: limits.activeKeys })}
@@ -272,7 +308,7 @@ export function DeveloperApiModal({
        </div>
 
        {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-500/20 dark:bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+        <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-500/20 dark:bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
          {error}
         </div>
        )}
@@ -296,8 +332,9 @@ export function DeveloperApiModal({
             <div className="flex flex-wrap items-center gap-2">
              <p className="font-medium app-theme-text-primary">{key.name}</p>
              <code className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-300">
-              {key.keyPrefix}...
+             {key.keyPrefix}...
              </code>
+             <span className="text-xs app-theme-text-muted">{t(key.scopes.includes('write') ? 'developerApi:readWrite' : 'developerApi:readOnly')}</span>
             </div>
             <p className="text-xs app-theme-text-muted mt-1">
              {t('developerApi:createdAt', { date: formatDateTime(key.createdAt, t('developerApi:never')) })}
