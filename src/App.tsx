@@ -47,6 +47,7 @@ import {
 import { loadNotificationSettings, saveNotificationSettings } from './utils/notificationChecker';
 import { NotificationSettingsService } from './services/notificationSettingsService';
 import { Footer } from './components/Footer';
+import { LegacyDomainNotice } from './components/LegacyDomainNotice';
 import { config } from './lib/config';
 import { sortSubscriptions } from './utils/subscriptionSorting';
 import { GUEST_DATA_SCOPE, getUserDataScope, setActiveDataScope } from './utils/dataScope';
@@ -830,6 +831,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  <div className="min-h-screen pb-4 relative overflow-hidden transition-colors duration-300">
 <div className="px-4 py-8">
  <div className="max-w-7xl mx-auto space-y-8">
+ <LegacyDomainNotice onExport={handleExportData} />
  {/* 移动端优化的头部布局 */}
  <div className="sticky top-4 z-50 p-4 sm:px-6 sm:py-4 mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-[#fcfcfc]/80 dark:bg-[#1a1c1e]/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-800/50 rounded-3xl shadow-fey app-theme-topbar"> <div className="flex items-center gap-3">
  <h1 className="text-2xl sm:text-2xl font-semibold tracking-tight text-gray-900 dark:text-white app-theme-text-primary">

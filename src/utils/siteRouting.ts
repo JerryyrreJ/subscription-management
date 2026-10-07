@@ -1,6 +1,9 @@
+import { APPLICATION_ORIGIN, isLegacyApplicationOrigin } from './siteUrls';
+
 /** Keep existing payment and authentication return links in the application. */
 export function isApplicationEntry(url: URL, appUrl = '/app'): boolean {
   if (url.pathname !== '/') return true;
+  if (url.origin === APPLICATION_ORIGIN || isLegacyApplicationOrigin(url.origin)) return true;
 
   const query = url.searchParams;
   const hash = new URLSearchParams(url.hash.slice(1));

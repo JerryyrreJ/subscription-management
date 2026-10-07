@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Use online: [sub.jerrylu.xyz](https://sub.jerrylu.xyz)
+Use online: [steadyrenew.com](https://steadyrenew.com)
 
 Subscription Manager is a local-first web app for tracking recurring subscriptions. It supports multiple currencies, renewal reminders, analytics, import/export, and optional cloud sync.
 
@@ -154,11 +154,11 @@ dev-docs/            Development notes and archived implementation drafts
 
 ## Landing page
 
-The root URL `/` is the product landing page; the subscription app lives at `/app`. The page supports English, Simplified Chinese, light/dark themes and mobile layouts. Set `VITE_SITE_URL` for canonical metadata and `VITE_APP_URL` for the application entry (default `/app`, or an app subdomain). See the [domain configuration guide](docs/zh-CN/landing-page.md).
+The main domain serves the product landing page; the hosted application uses `app.steadyrenew.com`. Local and preview deployments use `/app`. The page supports English, Simplified Chinese, light/dark themes and mobile layouts. Set `VITE_SITE_URL` for canonical metadata and `VITE_APP_URL` for the application entry. See the [domain configuration guide](docs/zh-CN/landing-page.md) and [migration status](docs/operations/steadyrenew-domain-migration.md).
 
 ## Public guides
 
-`/blog` is a static content hub on the same domain as the app (`https://sub.jerrylu.xyz/blog`). Chinese guides use `/zh/blog`. Add a Markdown file to `content/blog/` — see [Public guides](docs/en/blog.md).
+`/blog` is a static content hub on the main website (`https://steadyrenew.com/blog`). Chinese guides use `/zh/blog`. Add a Markdown file to `content/blog/` — see [Public guides](docs/en/blog.md).
 
 ## License
 

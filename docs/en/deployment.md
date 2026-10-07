@@ -25,7 +25,7 @@ The production output is written to `dist/`.
 - SPA redirects to `index.html`
 - basic security headers
 
-Public guides are Markdown in `content/blog/`, compiled to `dist/blog/` and `dist/zh/blog/` during `vite build`. Canonical URLs, `robots.txt`, and `sitemap.xml` use `https://sub.jerrylu.xyz`. See [Public guides](blog.md).
+Public guides are Markdown in `content/blog/`, compiled to `dist/blog/` and `dist/zh/blog/` during `vite build`. Canonical URLs, `robots.txt`, and `sitemap.xml` use `https://steadyrenew.com`. See [Public guides](blog.md).
 
 ## Functions
 

@@ -1,6 +1,7 @@
 import { resolveAppUrl } from '../../src/utils/siteRouting.ts';
+import { MARKETING_ORIGIN } from '../../src/utils/siteUrls.ts';
 
-export const DEFAULT_SITE_ORIGIN = 'https://sub.jerrylu.xyz';
+export const DEFAULT_SITE_ORIGIN = MARKETING_ORIGIN;
 export let CANONICAL_ORIGIN = DEFAULT_SITE_ORIGIN;
 export let APP_ENTRY_URL = '/app';
 

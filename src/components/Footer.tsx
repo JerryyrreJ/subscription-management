@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { version } from '../../package.json';
+import { getMarketingUrl } from '../lib/site';
 
 export function Footer() {
  const { t, i18n } = useTranslation(['footer']);
  const currentYear = new Date().getFullYear();
- const guidesHref = i18n.language.toLowerCase().startsWith('zh') ? '/zh/blog' : '/blog';
+ const guidesHref = getMarketingUrl(i18n.language.toLowerCase().startsWith('zh') ? '/zh/blog' : '/blog');
 
  return (
  <>

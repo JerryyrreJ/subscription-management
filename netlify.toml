@@ -15,6 +15,52 @@
   # Node version
   NODE_VERSION = "22"
 
+# Public build settings for the new production domains. Runtime SITE_URL must
+# also be set in Netlify's production Functions environment during cutover.
+[context.production.environment]
+  VITE_SITE_URL = "https://steadyrenew.com"
+  VITE_APP_URL = "https://app.steadyrenew.com/"
+  VITE_DOCS_URL = "https://docs.steadyrenew.com"
+
+# Preview application links must stay on the preview deployment.
+[context.deploy-preview.environment]
+  VITE_APP_URL = "/app"
+
+[context.branch-deploy.environment]
+  VITE_APP_URL = "/app"
+
+# The old application origin stays available for local-data export, auth
+# callbacks, passkeys and existing API clients. Only public blog pages move.
+[[redirects]]
+  from = "https://sub.jerrylu.xyz/blog"
+  to = "https://steadyrenew.com/blog"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://sub.jerrylu.xyz/blog/*"
+  to = "https://steadyrenew.com/blog/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://sub.jerrylu.xyz/zh/blog"
+  to = "https://steadyrenew.com/zh/blog"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://sub.jerrylu.xyz/zh/blog/*"
+  to = "https://steadyrenew.com/zh/blog/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.steadyrenew.com/*"
+  to = "https://steadyrenew.com/:splat"
+  status = 301
+  force = true
+
 # Public API routes
 [[redirects]]
   from = "/api/v1/subscriptions"

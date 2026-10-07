@@ -5,7 +5,7 @@ description: "Find recurring charges in your statements and app-store accounts, 
 date: 2026-09-16
 status: published
 lang: en
-canonical: https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit
+canonical: https://steadyrenew.com/blog/how-to-do-a-subscription-audit
 ---
 
 It’s easy to lose track of subscriptions when some bill through a card, others through an app store, and a few renew only once a year. A subscription audit brings those charges into one list so you can see what you still use and what to cancel.
@@ -72,7 +72,7 @@ Treat email as a **hint**, not proof. Open the provider’s real site or app fro
 
 ### Optional: WeChat Pay / Alipay
 
-If you also pay via WeChat Pay or Alipay auto-renew, add those plans to the same list. The [Chinese auto-renewal guide](https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew) covers where to find them.
+If you also pay via WeChat Pay or Alipay auto-renew, add those plans to the same list. The [Chinese auto-renewal guide](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew) covers where to find them.
 
 ## Step 2: Put every plan on one list
 
@@ -145,7 +145,7 @@ After the first full pass:
 | Spreadsheet / notes | Simple to set up and easy to customize | You need to update the list and set reminders separately |
 | Manual tracker app | Renewal dates, reminders, and spending totals together | You need to add new subscriptions yourself |
 
-A spreadsheet is enough to complete the audit. If you also want renewal reminders and spending totals, [Subscription Manager](https://sub.jerrylu.xyz) supports multiple currencies, optional cloud sync, and entry from screenshots or receipts. There is no bank login required. It does **not** connect to your bank, cancel for you, or negotiate bills.
+A spreadsheet is enough to complete the audit. If you also want renewal reminders and spending totals, [Subscription Manager](https://app.steadyrenew.com) supports multiple currencies, optional cloud sync, and entry from screenshots or receipts. There is no bank login required. It does **not** connect to your bank, cancel for you, or negotiate bills.
 
 ## FAQ
 

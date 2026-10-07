@@ -70,8 +70,8 @@ In the Supabase Dashboard go to **Authentication → Passkeys**:
 
 1. Enable Passkey authentication.
 2. Set **Relying Party Display Name** (for example, `Subscription Management`).
-3. Set a stable **Relying Party ID** to the bare domain that serves the app (for production this is typically `sub.jerrylu.xyz` or `jerrylu.xyz` — pick one and keep it stable; changing RP ID invalidates every enrolled Passkey).
-4. Set **Relying Party Origins** to the exact HTTPS origins users will use (up to 5). Include `https://sub.jerrylu.xyz` for production. Loopback HTTP is allowed only for local development.
+3. Set a stable **Relying Party ID** to the bare domain that serves the app (for a new SteadyRenew setup, use `steadyrenew.com`; existing installations must keep their current RP ID until a passkey transition is planned).
+4. Set **Relying Party Origins** to the exact HTTPS origins users will use (up to 5). For new installations, include `https://app.steadyrenew.com`. Preserve existing origins during migration. Loopback HTTP is allowed only for local development.
 5. Confirm Site URL / Redirect URLs still cover OAuth and password reset; Passkeys themselves do not use redirects, but the browser origin must be listed in RP Origins.
 
 HTTPS is required outside loopback. Deploy Preview hostnames usually cannot share the same RP Origins list (limit 5), so Passkeys may be unavailable there.
@@ -82,3 +82,7 @@ HTTPS is required outside loopback. Deploy Preview hostnames usually cannot shar
 - Keep the service role key out of browser-exposed variables.
 - Store the service role key only in Netlify or another server environment.
 - The `delete-account` Function must use the server-side Secret Key for the Supabase Admin API; the browser submits only the current session access token.
+
+### Domain migration and existing passkeys
+
+An existing passkey enrolled for `sub.jerrylu.xyz` or `jerrylu.xyz` cannot authenticate on `steadyrenew.com`. Adding a redirect URL does not migrate its RP ID. Keep the current RP configuration and old app available until users have an alternate sign-in method. Configure and test the new RP only as a separate cutover step; users then enroll new passkeys themselves. See the [domain migration runbook](../operations/steadyrenew-domain-migration.md).

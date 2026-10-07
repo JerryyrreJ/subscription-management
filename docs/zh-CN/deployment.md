@@ -25,7 +25,7 @@ npm run build
 - SPA 请求重定向到 `index.html`
 - 基础安全响应头
 
-公开指南写在 `content/blog/` 的 Markdown 里，在 `vite build` 时编译到 `dist/blog/` 和 `dist/zh/blog/`。Canonical、`robots.txt` 和 `sitemap.xml` 使用 `https://sub.jerrylu.xyz`。详见[公开指南](blog.md)。
+公开指南写在 `content/blog/` 的 Markdown 里，在 `vite build` 时编译到 `dist/blog/` 和 `dist/zh/blog/`。Canonical、`robots.txt` 和 `sitemap.xml` 使用 `https://steadyrenew.com`。详见[公开指南](blog.md)。
 
 ## Functions
 

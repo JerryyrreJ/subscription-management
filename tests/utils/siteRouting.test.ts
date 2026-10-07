@@ -10,6 +10,7 @@ import {
   APP_ENTRY_URL,
 } from '../../scripts/blog/site.ts';
 import { buildPublicFiles } from '../../scripts/blog/generate.ts';
+import { APPLICATION_ORIGIN, LEGACY_APPLICATION_ORIGINS, marketingUrl, documentationUrl } from '../../src/utils/siteUrls.ts';
 
 const url = (path: string) => new URL(path, 'https://example.com');
 
@@ -20,6 +21,18 @@ test('the main domain shows marketing while app and pricing links open the app',
   assert.equal(isApplicationEntry(url('/app')), true);
   assert.equal(isApplicationEntry(url('/app/')), true);
   assert.equal(isApplicationEntry(url('/pricing')), true);
+});
+
+test('legacy domains preserve access to local data and the new application host opens the app', () => {
+  for (const origin of [...LEGACY_APPLICATION_ORIGINS, APPLICATION_ORIGIN]) {
+    assert.equal(isApplicationEntry(new URL(origin)), true);
+  }
+  assert.equal(isApplicationEntry(new URL('https://steadyrenew.com')), false);
+  assert.equal(isApplicationEntry(new URL('https://steadyrenew.com/?payment=success')), true);
+  assert.equal(marketingUrl('/zh/blog', APPLICATION_ORIGIN), 'https://steadyrenew.com/zh/blog');
+  assert.equal(marketingUrl('/blog', 'https://preview.example.com'), 'https://preview.example.com/blog');
+  assert.equal(documentationUrl('user-guide/reminders', 'zh-CN'), 'https://docs.steadyrenew.com/zh-CN/user-guide/reminders');
+  assert.equal(documentationUrl('user-guide/agent-setup', 'en'), 'https://docs.steadyrenew.com/en/user-guide/agent-setup');
 });
 
 test('legacy authentication and payment returns never land on marketing', () => {

@@ -14,7 +14,7 @@ VITE_APP_URL=/app
 SITE_URL=https://example.com
 ```
 
-将 `example.com` 替换为实际域名。`VITE_SITE_URL` 同时更新首页分享信息、博客 canonical、sitemap 和 robots.txt；留空时保留目前的 `sub.jerrylu.xyz`。`SITE_URL` 是现有付款后端使用的应用站点地址。
+将 `example.com` 替换为实际域名。`VITE_SITE_URL` 同时更新首页分享信息、博客 canonical、sitemap 和 robots.txt；留空时使用 `steadyrenew.com`。`SITE_URL` 是现有付款后端使用的应用站点地址。实际迁移进度和切换顺序见 [域名迁移操作记录](../operations/steadyrenew-domain-migration.md)。
 
 ## 使用应用子域名
 

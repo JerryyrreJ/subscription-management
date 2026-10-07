@@ -2,7 +2,7 @@
 
 [English](../en/blog.md) | [简体中文](blog.md)
 
-产品站点是 React SPA，但 `/blog` 是构建时从 Markdown **生成的静态 HTML**。爬虫拿到的是完整 HTML。Canonical 一律使用 `https://sub.jerrylu.xyz`（不要用 `*.netlify.app` 别名）。
+产品站点是 React SPA，但 `/blog` 是构建时从 Markdown **生成的静态 HTML**。爬虫拿到的是完整 HTML。Canonical 一律使用 `https://steadyrenew.com`（不要用 `*.netlify.app` 别名）。
 
 英文指南在 `/blog/…`。中文指南在 `/zh/blog/…`。英文不需要 `/en` 前缀。
 
@@ -49,5 +49,5 @@ lang: zh
 ## 软 CTA 规则
 
 - 在清单本身可独立完成之前，不要在导语里提 Subscription Manager。
-- CTA 链到 `https://sub.jerrylu.xyz/`（路径 `/`）。
+- CTA 链到 `https://app.steadyrenew.com/`。
 - 不要声称应用会从银行自动发现扣款、替用户取消商家，或代为议价。

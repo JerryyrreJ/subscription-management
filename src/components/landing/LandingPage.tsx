@@ -21,6 +21,7 @@ import { useAppLanguage } from '../../hooks/useAppLanguage';
 import type { Theme } from '../../types';
 import { resolveAppUrl } from '../../utils/siteRouting';
 import { landingCopy } from './copy';
+import { getDocumentationUrl } from '../../lib/site';
 import './landing.css';
 
 type Copy = typeof landingCopy.en;
@@ -187,7 +188,7 @@ export default function LandingPage() {
   const guidesUrl = language === 'zh-CN' ? '/zh/blog' : '/blog';
   const pricingUrl = new URL(appUrl, window.location.origin);
   pricingUrl.pathname = '/pricing';
-  const docsUrl = `https://github.com/JerryyrreJ/subscription-management/blob/main/docs/${language === 'zh-CN' ? 'zh-CN' : 'en'}/api.md`;
+  const docsUrl = getDocumentationUrl('user-guide/agent-setup', language);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');

@@ -5,7 +5,7 @@ description: "Compare spreadsheets and manual subscription trackers, including r
 date: 2026-09-21
 status: published
 lang: en
-canonical: https://sub.jerrylu.xyz/blog/best-subscription-trackers-without-bank-login
+canonical: https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login
 ---
 
 If you want to track subscriptions without connecting a bank account, a spreadsheet or manual tracker can do the job. You enter the subscriptions yourself, then use the list to check spending and upcoming renewals.
@@ -14,7 +14,7 @@ The main question is how much help you want after entering the data. A spreadshe
 
 ## What to expect from a tracker without bank access
 
-These tools cannot discover subscriptions from your bank transactions. Start by checking your statements, Apple and Google Play accounts, payment wallets, and email receipts. The [subscription audit guide](https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit) walks through that process.
+These tools cannot discover subscriptions from your bank transactions. Start by checking your statements, Apple and Google Play accounts, payment wallets, and email receipts. The [subscription audit guide](https://steadyrenew.com/blog/how-to-do-a-subscription-audit) walks through that process.
 
 You also need to cancel subscriptions with the provider that bills you. Removing a row from a spreadsheet or tracker does not stop a payment.
 
@@ -59,9 +59,9 @@ No bank connection does not necessarily mean all data stays on your device. Clou
 
 ## Where Subscription Manager fits
 
-[Subscription Manager](https://sub.jerrylu.xyz) is one option if you want a browser-based tracker. It stores records in the browser by default, with optional cloud sync for access on other devices.
+[Subscription Manager](https://app.steadyrenew.com) is one option if you want a browser-based tracker. It stores records in the browser by default, with optional cloud sync for access on other devices.
 
-It supports multiple currencies, renewal reminders, and entry from screenshots or receipts. You can also access your records through the [REST API or MCP tools](https://sub.jerrylu.xyz/blog/manage-subscriptions-with-mcp).
+It supports multiple currencies, renewal reminders, and entry from screenshots or receipts. You can also access your records through the [REST API or MCP tools](https://steadyrenew.com/blog/manage-subscriptions-with-mcp).
 
 You maintain the subscription list yourself. The app does not discover bank charges, cancel services on your behalf, or negotiate bills. If you need those services, you will need a different tool.
 
@@ -73,7 +73,7 @@ You maintain the subscription list yourself. The app does not discover bank char
 4. Set reminders for the plans you keep and any trials you have not decided on.
 5. Check for new subscriptions when you review your monthly statements.
 
-If you use WeChat Pay or Alipay, the [Chinese auto-renewal guide](https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew) covers those payment channels.
+If you use WeChat Pay or Alipay, the [Chinese auto-renewal guide](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew) covers those payment channels.
 
 ## FAQ
 
@@ -99,6 +99,6 @@ Subscription Manager stores records in your browser by default and offers option
 
 ## Related reading
 
-- [How to do a subscription audit](https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit)
-- [如何盘点并关掉用不到的自动续费](https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew)
-- [Manage subscriptions through MCP and the REST API](https://sub.jerrylu.xyz/blog/manage-subscriptions-with-mcp)
+- [How to do a subscription audit](https://steadyrenew.com/blog/how-to-do-a-subscription-audit)
+- [如何盘点并关掉用不到的自动续费](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew)
+- [Manage subscriptions through MCP and the REST API](https://steadyrenew.com/blog/manage-subscriptions-with-mcp)

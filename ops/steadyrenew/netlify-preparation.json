@@ -1,0 +1,24 @@
+{
+  "preparedAt": "2026-10-07T09:44:22.702Z",
+  "before": {
+    "siteId": "af6fc8cd-fba6-4c61-a6ef-990a1e303054",
+    "name": "subscription-management",
+    "primaryDomain": "sub.jerrylu.xyz",
+    "aliases": [
+      "sub.jerrylu.app"
+    ],
+    "publishedDeployId": "6ac60c2173a56900081c0bed"
+  },
+  "after": {
+    "siteId": "af6fc8cd-fba6-4c61-a6ef-990a1e303054",
+    "name": "subscription-management",
+    "primaryDomain": "sub.jerrylu.xyz",
+    "aliases": [
+      "sub.jerrylu.app",
+      "steadyrenew.com",
+      "www.steadyrenew.com",
+      "app.steadyrenew.com"
+    ],
+    "publishedDeployId": "6ac60c2173a56900081c0bed"
+  }
+}
