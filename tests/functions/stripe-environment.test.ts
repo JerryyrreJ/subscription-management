@@ -8,7 +8,7 @@ const base = {
  STRIPE_WEBHOOK_SECRET: 'whsec_example',
  STRIPE_PRICE_ID: 'price_example',
  VITE_STRIPE_PUBLISHABLE_KEY: 'pk_test_example',
- SITE_URL: 'https://production.example',
+ SITE_URL: 'https://production.example/app',
 };
 
 test('PR checkout returns to its own preview even with an inherited production URL', () => {

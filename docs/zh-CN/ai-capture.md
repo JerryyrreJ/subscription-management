@@ -32,7 +32,7 @@ AI_PROVIDER=openrouter
 AI_MODEL=google/gemini-2.5-flash-lite
 AI_FALLBACK_MODELS=google/gemini-2.5-flash
 OPENROUTER_SITE_URL=https://your-site.example
-OPENROUTER_APP_TITLE=Subscription Manager
+OPENROUTER_APP_TITLE=SteadyRenew
 AI_FREE_MONTHLY_PARSES=10
 AI_PREMIUM_MONTHLY_PARSES=300
 AI_MAX_INPUT_CHARS=20000
@@ -44,6 +44,6 @@ AI_OUTPUT_USD_PER_MTOK=0.4
 
 ## 隐私
 
-用户粘贴的文本或上传的截图只会为了本次识别发送给配置的模型供应商一次。Subscription Manager 不存储、不记录这些内容。数据库只保存每用户每月调用计数和工作区级月度聚合 token 计数。
+用户粘贴的文本或上传的截图只会为了本次识别发送给配置的模型供应商一次。SteadyRenew 不存储、不记录这些内容。数据库只保存每用户每月调用计数和工作区级月度聚合 token 计数。
 
 完整指南见 Mintlify 页面：`docs-site/zh-CN/integrations/ai-capture.mdx`。

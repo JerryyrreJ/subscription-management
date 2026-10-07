@@ -11,7 +11,7 @@ export function buildAgentSetupPrompt(options: {
  const mode = options.mode === 'mcp'
   ? (zh ? '优先配置本地 stdio MCP；若当前客户端不支持，但可以发送 HTTP 请求，则使用 API，并说明最终采用的方式。' : 'Prefer local stdio MCP. If this client cannot use it but can make HTTP requests, use the API and report the mode actually connected.')
   : (zh ? '直接使用 REST API，不需要安装 MCP。' : 'Use the REST API directly; no MCP installation is needed.');
- return zh ? `请帮我连接 Subscription Manager，让我可以用自然语言查询、新增、修改和删除云端订阅记录。
+ return zh ? `请帮我连接 SteadyRenew，让我可以用自然语言查询、新增、修改和删除云端订阅记录。
 
 网站地址：${origin}
 接入说明：${origin}/agent/setup.md
@@ -24,7 +24,7 @@ MCP 安装包：${origin}/downloads/subscription-manager-mcp.tgz
 3. MCP 方式请检查 Node.js 20+，下载安装包并在持久目录安装，将服务器合并到当前客户端配置，保留其他配置。网站地址使用 SUBSCRIPTION_MANAGER_BASE_URL=${origin}。
 4. 只查询一条订阅验证连接（MCP: list_subscriptions，limit=1；API: GET /api/v1/subscriptions?limit=1）。空列表也算成功。不要创建测试记录；只有实际调用成功才报告连接完成。如果需要重启客户端，说明尚待验证。
 5. 后续写操作先确认具体变更，删除前确认名称与 id；删除记录不等于向服务商退订。缺少必要信息时询问我，不要猜测。
-${options.apiKey ? `\nSUBSCRIPTION_MANAGER_API_KEY=${options.apiKey}\n` : ''}` : `Connect Subscription Manager so I can list, create, update, and delete my cloud subscription records using natural language.
+${options.apiKey ? `\nSUBSCRIPTION_MANAGER_API_KEY=${options.apiKey}\n` : ''}` : `Connect SteadyRenew so I can list, create, update, and delete my cloud subscription records using natural language.
 
 Site origin: ${origin}
 Setup guide: ${origin}/agent/setup.md

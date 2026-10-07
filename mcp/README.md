@@ -1,7 +1,9 @@
-# Subscription Manager MCP server
+# SteadyRenew MCP server
+
+SteadyRenew was previously called Subscription Manager. The package name, download URL, and `SUBSCRIPTION_MANAGER_*` environment variables retain their existing names so installed integrations keep working.
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server that lets MCP
-clients (Claude Desktop, Cursor, and others) operate a Subscription Manager
+clients (Claude Desktop, Cursor, and others) operate a SteadyRenew
 account through its public API.
 
 It loads the bundled `schema/ai-tools.json` (copied from `docs-site/api/ai-tools.json` when packaging) and exposes every tool defined

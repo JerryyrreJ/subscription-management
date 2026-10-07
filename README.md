@@ -1,21 +1,19 @@
-# Subscription Manager
+# SteadyRenew
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Use online: [sub.jerrylu.xyz](https://sub.jerrylu.xyz)
+Use online: [steadyrenew.com](https://steadyrenew.com)
 
-Subscription Manager is a local-first web app for tracking recurring subscriptions. It supports multiple currencies, renewal reminders, analytics, import/export, and optional cloud sync.
+SteadyRenew is a local-first web app for tracking recurring subscriptions. It supports multiple currencies, renewal reminders, analytics, import/export, and optional cloud sync.
 
 The app works without an account by storing data in the browser. Supabase, Stripe, Netlify Functions, and Bark notifications can be configured when you want hosted sync, payment, or server-side reminders.
 
-<p align="center">
-  <video src="docs-site/images/product/ai-add-subscription.mp4" width="100%" controls muted playsinline></video>
-</p>
+https://github.com/user-attachments/assets/02de5f6c-c381-4308-a8ac-2d792a2a0846
 
 <p align="center"><em>Add a subscription with AI Assist — type a sentence, review the draft, apply.</em></p>
 
 <p align="center">
-  <img src="docs-site/images/product/dashboard-overview.png" alt="Subscription Manager dashboard with demo subscription data" width="100%" />
+  <img src="docs-site/images/product/dashboard-overview.png" alt="SteadyRenew dashboard with demo subscription data" width="100%" />
 </p>
 
 <p align="center"><em>Dashboard overview with demo subscription data.</em></p>
@@ -65,8 +63,8 @@ The app works without an account by storing data in the browser. Supabase, Strip
 ### Run Locally
 
 ```bash
-git clone https://github.com/jerryyrrej/subscription-manager.git
-cd subscription-manager
+git clone https://github.com/JerryyrreJ/subscription-management.git
+cd subscription-management
 npm install
 npm run dev
 ```
@@ -152,9 +150,13 @@ docs-site/           Mintlify documentation site, split by language
 dev-docs/            Development notes and archived implementation drafts
 ```
 
+## Landing page
+
+The main domain serves the product landing page; the application lives at `/app` on the same origin (`https://steadyrenew.com/app` in production). The page supports English, Simplified Chinese, light/dark themes and mobile layouts. Set `VITE_SITE_URL` for canonical metadata and `VITE_APP_URL` for the application entry. See the [domain configuration guide](docs/zh-CN/landing-page.md) and [migration status](docs/operations/steadyrenew-domain-migration.md).
+
 ## Public guides
 
-`/blog` is a static content hub on the same domain as the app (`https://sub.jerrylu.xyz/blog`). Chinese guides use `/zh/blog`. Add a Markdown file to `content/blog/` — see [Public guides](docs/en/blog.md).
+`/blog` is a static content hub on the main website (`https://steadyrenew.com/blog`). Chinese guides use `/zh/blog`. Add a Markdown file to `content/blog/` — see [Public guides](docs/en/blog.md).
 
 ## License
 

@@ -5,13 +5,13 @@ description: "设置 Bark 续费提醒和每个订阅的通知开关。"
 
 # 续费提醒
 
-续费提醒可以在订阅再次扣费前提醒你。提醒由 Subscription Manager 的服务器自动发送，不需要一直打开网页应用。
+续费提醒可以在订阅再次扣费前提醒你。提醒由 SteadyRenew 的服务器自动发送，不需要一直打开网页应用。
 
 ## 配置前准备
 
 续费提醒使用免费、开源的 iOS 应用 Bark。你只需要准备：
 
-- 一个已登录的 Subscription Manager 账号。
+- 一个已登录的 SteadyRenew 账号。
 - 在 iPhone 或 iPad 上安装 [Bark](https://apps.apple.com/app/bark-customed-notifications/id1403753865)。
 - Bark 中显示的推送 URL。
 - 你希望提前收到提醒的天数。
@@ -25,7 +25,7 @@ Bark URL 中包含你的 device key。不要把它公开或发送给不信任的
 1. 在 iOS 设备上下载并打开 Bark。
 2. 点击 Bark 底部的 **Service**。
 3. 在 Service 页面，点击任意一条示例推送 URL 右侧的复制按钮，例如 `https://api.day.app/your_device_key/Body Text`。
-4. 保留完整 URL。Subscription Manager 会自动识别 server URL 和 device key。
+4. 保留完整 URL。SteadyRenew 会自动识别 server URL 和 device key。
 
 <Frame caption="Bark 的 Service 页面。橙色圆圈标出 Copy URL。图中的密钥是占位符 `your_device_key`。">
   <img
@@ -39,16 +39,16 @@ Bark URL 中包含你的 device key。不要把它公开或发送给不信任的
 截图中的 `your_device_key` 等是脱敏占位符，不是真实 device key。请从你自己的 Bark App 复制 URL 并粘贴，不要照抄图片里的示例。
 </Note>
 
-## 在 Subscription Manager 中配置
+## 在 SteadyRenew 中配置
 
-1. 登录 Subscription Manager。
+1. 登录 SteadyRenew。
 2. 打开 **设置** → **通知**。
 3. 勾选 **启用 Bark 推送通知**。
 
 <Frame caption="设置 → 通知。橙色圆圈标出启用 Bark 复选框。">
   <img
     src="/images/guides/bark-guide-02-enable.webp"
-    alt="Subscription Manager 通知设置页，橙色圆圈标出启用 Bark 推送通知复选框"
+    alt="SteadyRenew 通知设置页，橙色圆圈标出启用 Bark 推送通知复选框"
   />
 </Frame>
 
@@ -63,10 +63,10 @@ Bark URL 中包含你的 device key。不要把它公开或发送给不信任的
 
 5. 确认 iPhone 已收到测试通知。
 
-<Frame caption="iPhone 主屏幕上收到来自 Subscription Manager 的 Bark 测试通知。">
+<Frame caption="iPhone 主屏幕上收到来自 SteadyRenew 的 Bark 测试通知。">
   <img
     src="/images/guides/bark-guide-04-test-received.jpg"
-    alt="iPhone 主屏幕顶部显示 Bark 测试通知：This is a test push from Subscription Manager"
+    alt="iPhone 主屏幕顶部显示 旧版 Bark 测试通知：This is a test push from Subscription Manager"
     width="360"
   />
 </Frame>

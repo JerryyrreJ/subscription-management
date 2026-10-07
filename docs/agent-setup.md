@@ -1,4 +1,4 @@
-# Connect Subscription Manager to an agent
+# Connect SteadyRenew to an agent
 
 Use the **site origin supplied by the user**, including its port for local development, as `BASE_URL`. All paths below are relative to that origin. Do not use the example host in a schema as the user's host.
 

@@ -8,6 +8,7 @@ import { parseBarkUrl, updateBarkPushFromUrl } from '../utils/barkConfig';
 import { CustomSelect } from './CustomSelect';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppLanguage } from '../hooks/useAppLanguage';
+import { getDocumentationUrl } from '../lib/site';
 
 interface NotificationSettingsModalProps {
  isOpen: boolean;
@@ -36,9 +37,7 @@ export function NotificationSettingsModal({
  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
  const [barkUrl, setBarkUrl] = useState('');
 
- const reminderGuideUrl = language === 'zh-CN'
-  ? 'https://docs.sub.jerrylu.xyz/zh-CN/user-guide/reminders'
-  : 'https://docs.sub.jerrylu.xyz/en/user-guide/reminders';
+ const reminderGuideUrl = getDocumentationUrl('user-guide/reminders', language);
 
  // Handle Bark URL input change
  const handleBarkUrlChange = (url: string) => {

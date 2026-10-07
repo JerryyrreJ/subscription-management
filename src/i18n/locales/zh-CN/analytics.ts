@@ -78,7 +78,7 @@ export const analytics = {
  pdfAsOf: '截至 {{date}}',
  pdfBaseCurrency: '基准货币 {{currency}}',
  pdfScope: '{{subscriptions}} 项订阅 · {{currencies}} 种货币',
- pdfGeneratedBy: '由 Subscription Manager 生成',
+ pdfGeneratedBy: '由 SteadyRenew 生成',
  pdfFxNote: '汇率快照 {{pairs}}',
  pdfFxNoteWithDate: '汇率快照 {{date}}（{{pairs}}）',
  pdfFxNoneNote: '全部订阅均为基准货币，无需折算',

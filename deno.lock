@@ -11,29 +11,36 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@anthropic-ai/sdk@0.105",
         "npm:@eslint/js@^9.9.1",
-        "npm:@sparticuz/chromium@141",
-        "npm:@stripe/stripe-js@^8.1.0",
-        "npm:@supabase/supabase-js@^2.57.4",
+        "npm:@netlify/edge-functions@^4.0.2",
+        "npm:@netlify/functions@^5.1.2",
+        "npm:@playwright/test@^1.63.0",
+        "npm:@supabase/supabase-js@^2.116.0",
+        "npm:@types/node@22.19.21",
         "npm:@types/react-dom@^18.3.0",
         "npm:@types/react@^18.3.5",
-        "npm:@vitejs/plugin-react@^4.3.1",
+        "npm:@vitejs/plugin-react@^5.1.4",
         "npm:autoprefixer@^10.4.20",
         "npm:eslint-plugin-react-hooks@^5.1.0-rc.0",
         "npm:eslint-plugin-react-refresh@~0.4.11",
-        "npm:eslint@^9.9.1",
+        "npm:eslint@9.39.5",
         "npm:globals@^15.9.0",
+        "npm:i18next@^26.0.3",
         "npm:lucide-react@0.344",
-        "npm:playwright-core@^1.57.0",
-        "npm:postcss@^8.4.48",
+        "npm:postcss@^8.5.26",
+        "npm:react-countup@^6.5.3",
         "npm:react-dom@^18.3.1",
+        "npm:react-i18next@^17.0.2",
         "npm:react@^18.3.1",
         "npm:recharts@^3.2.1",
         "npm:stripe@^19.1.0",
         "npm:tailwindcss@^3.4.14",
-        "npm:typescript-eslint@^8.3.0",
+        "npm:tsx@^4.21.0",
+        "npm:typescript-eslint@8.61.0",
         "npm:typescript@^5.5.3",
-        "npm:vite@^5.4.2"
+        "npm:vite@^7.3.6",
+        "npm:zod@4.4.3"
       ]
     }
   }

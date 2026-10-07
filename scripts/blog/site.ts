@@ -1,5 +1,20 @@
-export const CANONICAL_ORIGIN = 'https://sub.jerrylu.xyz';
-export const SITE_NAME = 'Subscription Manager';
+import { resolveAppUrl } from '../../src/utils/siteRouting.ts';
+import { MARKETING_ORIGIN } from '../../src/utils/siteUrls.ts';
+
+export const DEFAULT_SITE_ORIGIN = MARKETING_ORIGIN;
+export let CANONICAL_ORIGIN = DEFAULT_SITE_ORIGIN;
+export let APP_ENTRY_URL = '/app';
+
+/** Configured once by Vite, shared by blog HTML, sitemap and robots.txt. */
+export function configurePublicSite(siteUrl?: string, appUrl?: string): void {
+  const url = new URL(siteUrl?.trim() || DEFAULT_SITE_ORIGIN);
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('VITE_SITE_URL must be an HTTP(S) origin without a path, query or credentials.');
+  }
+  CANONICAL_ORIGIN = url.origin;
+  APP_ENTRY_URL = resolveAppUrl(appUrl);
+}
+export const SITE_NAME = 'SteadyRenew';
 export const BLOG_PATH = '/blog';
 export const ZH_BLOG_PATH = '/zh/blog';
 export const BLOG_INDEX_TITLE = 'Guides';

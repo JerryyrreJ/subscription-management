@@ -1,6 +1,6 @@
 ---
 title: "配置说明"
-description: "Subscription Manager 的环境变量和功能开关，覆盖本地优先、托管、支付、提醒、AI 录入和开放 API 部署。"
+description: "SteadyRenew 的环境变量和功能开关，覆盖本地优先、托管、支付、提醒、AI 录入和开放 API 部署。"
 ---
 
 # 配置说明
@@ -21,6 +21,9 @@ description: "Subscription Manager 的环境变量和功能开关，覆盖本地
 | `STRIPE_SECRET_KEY` | 创建 Stripe checkout session | 仅服务端 |
 | `STRIPE_WEBHOOK_SECRET` | 校验 Stripe webhook | 仅服务端 |
 | `STRIPE_PRICE_ID` | 服务端允许购买的唯一 Stripe Price | 仅服务端 |
+| `VITE_SITE_URL` | 首页、博客和 canonical 域名 | 浏览器/构建 |
+| `VITE_APP_URL` | 应用入口；预览环境使用 `/app` | 浏览器/构建 |
+| `VITE_DOCS_URL` | 多语言文档站点域名 | 浏览器/构建 |
 | `SITE_URL` | Checkout 成功和取消回调地址 | 仅服务端 |
 | `URL` | Netlify function 回调 URL | Netlify 提供 |
 | `API_RATE_LIMIT_PER_MINUTE` | 两档相同，每账户每分钟请求数，默认 `60` | 仅服务端 |

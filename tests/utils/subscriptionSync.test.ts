@@ -7,6 +7,7 @@ import {
  chooseConflictWinner,
  mergePendingOperation,
  normalizeSubscription,
+ reconcileSubscriptionSync,
 } from '../../src/utils/subscriptionSync.ts';
 
 const createSubscription = (overrides: Partial<Subscription> = {}): Subscription => normalizeSubscription({
@@ -157,4 +158,85 @@ test('chooseConflictWinner prefers the newer timestamp', () => {
   chooseConflictWinner('2026-03-01T00:00:00.000Z', '2026-03-02T00:00:00.000Z'),
   'cloud'
  );
+});
+
+// Requests may finish after local queue entries have been compacted or removed.
+test('sync preserves a new offline create while acknowledging the submitted operations', () => {
+ const original = createSubscription();
+ const added = createSubscription({ id: 'sub-new', name: 'New subscription' });
+ const oldOp = createOperation({ type: 'create', subscription: original });
+ const newOp = createOperation({ id: 'op-new', type: 'create', subscriptionId: added.id, subscription: added });
+ const result = reconcileSubscriptionSync(
+  { subscriptions: [original], pendingOperations: [oldOp] },
+  { subscriptions: [original, added], pendingOperations: [oldOp, newOp] },
+  { subscriptions: [original], pendingOperations: [] }
+ );
+ assert.deepEqual(result.pendingOperations, [newOp]);
+ assert.deepEqual(new Set(result.subscriptions.map(sub => sub.id)), new Set([original.id, added.id]));
+});
+
+test('sync preserves edits compacted into the same operation ID and rebases them on the acknowledged write', () => {
+ const original = createSubscription();
+ const edited = createSubscription({ amount: 29 });
+ const oldOp = createOperation({ type: 'create', subscription: original });
+ const newOp = { ...oldOp, subscription: edited };
+ const cloud = { ...original, updatedAt: '2026-03-05T00:00:00.000Z' };
+ const result = reconcileSubscriptionSync(
+  { subscriptions: [original], pendingOperations: [oldOp] },
+  { subscriptions: [edited], pendingOperations: [newOp] },
+  { subscriptions: [cloud], pendingOperations: [] }
+ );
+ assert.equal(result.subscriptions[0].amount, 29);
+ assert.equal(result.pendingOperations[0].id, oldOp.id);
+ assert.equal(result.pendingOperations[0].baseUpdatedAt, cloud.updatedAt);
+});
+
+test('deleting a submitted create leaves a tombstone even if queue compaction removed both operations', () => {
+ const original = createSubscription();
+ const op = createOperation({ type: 'create', subscription: original });
+ const result = reconcileSubscriptionSync(
+  { subscriptions: [original], pendingOperations: [op] },
+  { subscriptions: [], pendingOperations: [] },
+  { subscriptions: [original], pendingOperations: [] }
+ );
+ assert.deepEqual(result.subscriptions, []);
+ assert.equal(result.pendingOperations.length, 1);
+ assert.equal(result.pendingOperations[0].type, 'delete');
+ assert.equal(result.pendingOperations[0].subscriptionId, original.id);
+});
+
+test('an older cloud snapshot cannot undo a successful foreground edit or deletion', () => {
+ const original = createSubscription();
+ for (const latest of [[], [createSubscription({ amount: 42 })]]) {
+  const result = reconcileSubscriptionSync(
+   { subscriptions: [original], pendingOperations: [] },
+   { subscriptions: latest, pendingOperations: [] },
+   { subscriptions: [original], pendingOperations: [] }
+  );
+  assert.deepEqual(result.subscriptions, latest);
+  assert.equal(result.pendingOperations.length, 1);
+ }
+});
+
+test('unchanged data accepts cloud changes and retains failed operations for retry', () => {
+ const original = createSubscription();
+ const op = createOperation({ subscription: original });
+ const snapshot = { subscriptions: [original], pendingOperations: [op] };
+ const failed = reconcileSubscriptionSync(snapshot, snapshot, snapshot);
+ assert.deepEqual(failed.pendingOperations, [op]);
+ const success = reconcileSubscriptionSync(snapshot, snapshot, {
+  subscriptions: [{ ...original, amount: 40 }], pendingOperations: []
+ });
+ assert.equal(success.subscriptions[0].amount, 40);
+ assert.deepEqual(success.pendingOperations, []);
+});
+
+test('failed uploads retain newly generated retry operations', () => {
+ const original = createSubscription();
+ const retry = createOperation({ type: 'create', subscription: original });
+ const snapshot = { subscriptions: [original], pendingOperations: [] };
+ const result = reconcileSubscriptionSync(snapshot, snapshot, {
+  subscriptions: [original], pendingOperations: [retry]
+ });
+ assert.deepEqual(result.pendingOperations, [retry]);
 });

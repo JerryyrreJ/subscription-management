@@ -5,7 +5,7 @@ description: "先别急着删 App。按微信、支付宝、Apple、Google 等�
 date: 2026-09-16
 status: published
 lang: zh
-canonical: https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew
+canonical: https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew
 ---
 
 卸载 App 后，订阅通常还会继续扣费。要停止续费，需要找到这笔订阅的扣款渠道，再按对应流程取消。
@@ -153,7 +153,7 @@ canonical: https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew
 
 ## 整理后，怎么继续记录
 
-订阅不多时，继续维护这张表、配合日历提醒就够了。如果想集中查看支出和续费日期，也可以把保留的项目记到 [Subscription Manager](https://sub.jerrylu.xyz)。它支持中文、多币种和续费提醒，不需要绑定银行。
+订阅不多时，继续维护这张表、配合日历提醒就够了。如果想集中查看支出和续费日期，也可以把保留的项目记到 [SteadyRenew](https://steadyrenew.com/app)。它支持中文、多币种和续费提醒，不需要绑定银行。
 
 录入时可以用截图或收据辅助填写，再核对金额和日期。取消订阅仍需到对应平台操作，应用不会代你解约，也不会自动读取支付账单。
 
@@ -189,4 +189,4 @@ Play → 付款与订阅 → 订阅 → 取消；或用网页管理。[官方说
 
 ## 相关阅读
 
-- [如何整理全部订阅（英文）](https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit)：从银行卡账单、Apple、Google Play、PayPal 和邮件中查找订阅。
+- [如何整理全部订阅（英文）](https://steadyrenew.com/blog/how-to-do-a-subscription-audit)：从银行卡账单、Apple、Google Play、PayPal 和邮件中查找订阅。

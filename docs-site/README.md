@@ -1,6 +1,6 @@
-# Subscription Manager Docs Site
+# SteadyRenew Docs Site
 
-This directory contains the Mintlify documentation site for Subscription Manager.
+This directory contains the Mintlify documentation site for SteadyRenew.
 
 ## Structure
 

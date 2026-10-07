@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Model Context Protocol server for the Subscription Manager public API.",
+  "description": "Model Context Protocol server for the SteadyRenew public API.",
   "bin": {
     "subscription-manager-mcp": "src/server.mjs"
   },

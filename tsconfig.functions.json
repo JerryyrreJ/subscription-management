@@ -17,6 +17,7 @@
   },
   "include": [
     "netlify/functions/**/*.ts",
+    "netlify/edge-functions/**/*.ts",
     "src/i18n/types.ts",
     "src/types.ts",
     "src/utils/barkPush.ts",

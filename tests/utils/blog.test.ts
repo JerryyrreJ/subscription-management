@@ -21,17 +21,17 @@ const firstPostPath = path.join(rootDir, 'content/blog/how-to-do-a-subscription-
 const zhPostPath = path.join(rootDir, 'content/blog/how-to-cancel-auto-renew.md');
 
 test('canonical URLs always use the custom domain, not a Netlify alias', () => {
-  assert.equal(CANONICAL_ORIGIN, 'https://sub.jerrylu.xyz');
-  assert.equal(canonicalUrl('/'), 'https://sub.jerrylu.xyz/');
-  assert.equal(canonicalUrl(BLOG_PATH), 'https://sub.jerrylu.xyz/blog');
-  assert.equal(canonicalUrl(ZH_BLOG_PATH), 'https://sub.jerrylu.xyz/zh/blog');
+  assert.equal(CANONICAL_ORIGIN, 'https://steadyrenew.com');
+  assert.equal(canonicalUrl('/'), 'https://steadyrenew.com/');
+  assert.equal(canonicalUrl(BLOG_PATH), 'https://steadyrenew.com/blog');
+  assert.equal(canonicalUrl(ZH_BLOG_PATH), 'https://steadyrenew.com/zh/blog');
   assert.equal(
     postCanonicalUrl('how-to-do-a-subscription-audit'),
-    'https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit'
+    'https://steadyrenew.com/blog/how-to-do-a-subscription-audit'
   );
   assert.equal(
     postCanonicalUrl('how-to-cancel-auto-renew', 'zh'),
-    'https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew'
+    'https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew'
   );
   assert.equal(
     postOutputPath('how-to-cancel-auto-renew', 'zh'),
@@ -126,15 +126,15 @@ test('public blog files list app and posts under the canonical host', () => {
 
   assert.equal(files['blog/how-to-cancel-auto-renew/index.html'], undefined);
 
-  assert.match(index, /rel="canonical" href="https:\/\/sub.jerrylu.xyz\/blog"/);
-  assert.match(zhIndex, /rel="canonical" href="https:\/\/sub.jerrylu.xyz\/zh\/blog"/);
+  assert.match(index, /rel="canonical" href="https:\/\/steadyrenew.com\/blog"/);
+  assert.match(zhIndex, /rel="canonical" href="https:\/\/steadyrenew.com\/zh\/blog"/);
   assert.match(
     article,
-    /rel="canonical" href="https:\/\/sub.jerrylu.xyz\/blog\/how-to-do-a-subscription-audit"/
+    /rel="canonical" href="https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit"/
   );
   assert.match(
     zhArticle,
-    /rel="canonical" href="https:\/\/sub.jerrylu.xyz\/zh\/blog\/how-to-cancel-auto-renew"/
+    /rel="canonical" href="https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew"/
   );
   assert.match(zhArticle, /<html lang="zh">/);
   assert.match(zhArticle, /href="\/zh\/blog"/);
@@ -158,28 +158,28 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.doesNotMatch(zhArticle, /hreflang=/);
   assert.doesNotMatch(article, /hreflang=/);
 
-  assert.match(sitemap, /<loc>https:\/\/sub.jerrylu.xyz\/<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/sub.jerrylu.xyz\/blog<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/sub.jerrylu.xyz\/zh\/blog<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog<\/loc>/);
   assert.match(
     sitemap,
-    /<loc>https:\/\/sub.jerrylu.xyz\/blog\/how-to-do-a-subscription-audit<\/loc>/
+    /<loc>https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit<\/loc>/
   );
   assert.match(
     sitemap,
-    /<loc>https:\/\/sub.jerrylu.xyz\/zh\/blog\/how-to-cancel-auto-renew<\/loc>/
+    /<loc>https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew<\/loc>/
   );
-  assert.match(robots, /Sitemap: https:\/\/sub.jerrylu.xyz\/sitemap.xml/);
+  assert.match(robots, /Sitemap: https:\/\/steadyrenew.com\/sitemap.xml/);
 
   const hrefs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
-  assert.ok(hrefs.every(url => url.startsWith('https://sub.jerrylu.xyz')));
+  assert.ok(hrefs.every(url => url.startsWith('https://steadyrenew.com')));
 });
 
 test('first post follows soft-CTA and claims rules from the writer brief', () => {
   const source = readFileSync(firstPostPath, 'utf8');
   const intro = source.split('## Before you start')[0] ?? '';
 
-  assert.equal(intro.includes('Subscription Manager'), false);
+  assert.equal(intro.includes('SteadyRenew'), false);
   assert.match(source, /does \*\*not\*\* connect to your bank/);
   assert.match(source, /cancel for you/);
   assert.match(source, /or negotiate bills/);
@@ -200,7 +200,7 @@ test('Chinese cancel guide is published, human-toned, and only cross-links the E
 
   assert.match(source, /^status: published$/m);
   assert.match(source, /^lang: zh$/m);
-  assert.equal(intro.includes('Subscription Manager'), false);
+  assert.equal(intro.includes('SteadyRenew'), false);
   assert.doesNotMatch(source, /截图留证/);
   assert.doesNotMatch(source, /Plaid/i);
   assert.doesNotMatch(source, /yearly-spend-explained\]\(/);
@@ -208,7 +208,7 @@ test('Chinese cancel guide is published, human-toned, and only cross-links the E
   assert.doesNotMatch(source, /href="[^"]*yearly-spend/);
   assert.match(
     source,
-    /https:\/\/sub\.jerrylu\.xyz\/blog\/how-to-do-a-subscription-audit/
+    /https:\/\/steadyrenew\.com\/blog\/how-to-do-a-subscription-audit/
   );
   assert.match(source, /不会代你解约/);
   assert.match(source, /不会自动读取支付账单/);

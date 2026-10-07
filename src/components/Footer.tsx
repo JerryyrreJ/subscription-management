@@ -1,10 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import { version } from '../../package.json';
+import { getMarketingUrl } from '../lib/site';
+import { WEBSITE_PATH } from '../utils/entryPreference';
 
 export function Footer() {
  const { t, i18n } = useTranslation(['footer']);
  const currentYear = new Date().getFullYear();
- const guidesHref = i18n.language.toLowerCase().startsWith('zh') ? '/zh/blog' : '/blog';
+ const guidesHref = getMarketingUrl(i18n.language.toLowerCase().startsWith('zh') ? '/zh/blog' : '/blog');
 
  return (
  <>
@@ -26,6 +28,13 @@ export function Footer() {
  </svg>
  </a>
  <br />
+ <a
+ href={getMarketingUrl(WEBSITE_PATH)}
+ className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+ >
+ {t('footer:website')}
+ </a>
+ <span className="text-[11px] app-theme-text-muted"> · </span>
  <a
  href={guidesHref}
  className="text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"

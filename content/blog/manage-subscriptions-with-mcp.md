@@ -1,25 +1,25 @@
 ---
-title: "Connect Subscription Manager to an MCP client"
+title: "Connect SteadyRenew to an MCP client"
 slug: manage-subscriptions-with-mcp
-description: "Set up the Subscription Manager MCP server to query subscriptions, review spending, and update reminders. Includes API key permissions and a sample configuration."
+description: "Set up the SteadyRenew MCP server to query subscriptions, review spending, and update reminders. Includes API key permissions and a sample configuration."
 date: 2026-09-17
 status: published
 lang: en
-canonical: https://sub.jerrylu.xyz/blog/manage-subscriptions-with-mcp
+canonical: https://steadyrenew.com/blog/manage-subscriptions-with-mcp
 ---
 
-If you keep your subscriptions in [Subscription Manager](https://sub.jerrylu.xyz), you can connect an MCP client to query those records. For example, you can ask which subscriptions renew in the next two weeks or how much you spend in each currency.
+If you keep your subscriptions in [SteadyRenew](https://steadyrenew.com/app), you can connect an MCP client to query those records. For example, you can ask which subscriptions renew in the next two weeks or how much you spend in each currency.
 
 The setup uses the MCP server included in this repository and a Developer API key. The server lets your client read subscription records and, with write permission, edit them. It does not access bank transactions or cancel services with merchants.
 
 **Setup overview**
 
-1. Create a Developer API key (`subm_…`) with `read` or `write` scope.  
-2. Set `SUBSCRIPTION_MANAGER_BASE_URL` and `SUBSCRIPTION_MANAGER_API_KEY`.  
-3. Point your MCP client at `mcp/src/server.mjs` with `node`.  
-4. Ask a read-only question first.  
+1. Create a Developer API key (`subm_…`) with `read` or `write` scope.
+2. Set `SUBSCRIPTION_MANAGER_BASE_URL` and `SUBSCRIPTION_MANAGER_API_KEY`.
+3. Point your MCP client at `mcp/src/server.mjs` with `node`.
+4. Ask a read-only question first.
 5. Configure Bark in the web app if you want push reminders.
-6. Use the [API docs](https://sub.jerrylu.xyz/api) and [AI tools schema](https://sub.jerrylu.xyz/api/ai-tools) when you need full detail.
+6. Use the [API docs](https://docs.steadyrenew.com/en/api/overview) and [AI tools schema](https://steadyrenew.com/agent/ai-tools.json) when you need full detail.
 
 ## How MCP connects to the API
 
@@ -31,10 +31,10 @@ The MCP server in the repo’s `mcp/` package proxies each tool call to `/api/v1
 
 ## What you’ll need
 
-- A signed-in [Subscription Manager](https://sub.jerrylu.xyz) account with some subscriptions already in the ledger (or add them in the web UI / via write tools later). If the list is empty, start with the [subscription audit how-to](/blog/how-to-do-a-subscription-audit).  
-- A Developer API key from the user menu → **Developer API** (the full key is shown once—store it like a password).  
-- Node.js 20+ to run the MCP server (see the package README for current install steps).  
-- An MCP client (Claude Desktop is the copy-paste example below; Cursor, Codex, OpenCode, and others use the same pattern).  
+- A signed-in [SteadyRenew](https://steadyrenew.com/app) account with some subscriptions already in the ledger (or add them in the web UI / via write tools later). If the list is empty, start with the [subscription audit how-to](/blog/how-to-do-a-subscription-audit).
+- A Developer API key from the user menu → **Developer API** (the full key is shown once—store it like a password).
+- Node.js 20+ to run the MCP server (see the package README for current install steps).
+- An MCP client (Claude Desktop is the copy-paste example below; Cursor, Codex, OpenCode, and others use the same pattern).
 - Optional: Bark already set up under **Settings → Notifications** if you want push reminders. The agent cannot set your Bark URL.
 
 ## Create a key (read vs write)
@@ -74,7 +74,7 @@ Environment variables:
 
 | Variable | Required | Example |
 | --- | --- | --- |
-| `SUBSCRIPTION_MANAGER_BASE_URL` | yes | `https://sub.jerrylu.xyz` |
+| `SUBSCRIPTION_MANAGER_BASE_URL` | yes | `https://steadyrenew.com` |
 | `SUBSCRIPTION_MANAGER_API_KEY` | yes | `subm_…` |
 
 ### Claude Desktop configuration
@@ -88,7 +88,7 @@ Add a server to `claude_desktop_config.json` (file location varies by OS—use C
       "command": "node",
       "args": ["/absolute/path/to/mcp/src/server.mjs"],
       "env": {
-        "SUBSCRIPTION_MANAGER_BASE_URL": "https://sub.jerrylu.xyz",
+        "SUBSCRIPTION_MANAGER_BASE_URL": "https://steadyrenew.com",
         "SUBSCRIPTION_MANAGER_API_KEY": "subm_your_key_here"
       }
     }
@@ -98,7 +98,7 @@ Add a server to `claude_desktop_config.json` (file location varies by OS—use C
 
 Restart Claude Desktop after saving. Use an absolute path to `server.mjs`.
 
-**Cursor:** same `command` / `args` / `env` trio—`node`, absolute path to `mcp/src/server.mjs`, plus the two env vars. Where you paste that in Cursor’s UI changes over time; follow Cursor’s current MCP docs and our [AI tools page](https://sub.jerrylu.xyz/api/ai-tools).
+**Cursor:** same `command` / `args` / `env` trio—`node`, absolute path to `mcp/src/server.mjs`, plus the two env vars. Where you paste that in Cursor’s UI changes over time; follow Cursor’s current MCP docs and our [AI tools page](https://steadyrenew.com/agent/ai-tools.json).
 
 More install detail: repo [`mcp/README.md`](https://github.com/JerryyrreJ/subscription-management/tree/main/mcp).
 
@@ -112,28 +112,28 @@ Tool names match the documented schema one-for-one. Write tools need a write-sco
 
 **Subscriptions**
 
-- `list_subscriptions` — filters include `status`, `category`, `period`, `q`, `expiringBefore`, `sort`  
-- `get_subscription`  
-- `create_subscription`  
-- `update_subscription`  
+- `list_subscriptions` — filters include `status`, `category`, `period`, `q`, `expiringBefore`, `sort`
+- `get_subscription`
+- `create_subscription`
+- `update_subscription`
 - `delete_subscription` — permanently removes the **tracked record** in your ledger
 
 **Reminders (global only)**
 
-- `get_notification_settings`  
+- `get_notification_settings`
 - `update_notification_settings` — writable fields only: `enabled` and `daysBefore` (`1` | `3` | `7` | `14`)
 
 **Analytics**
 
-- `get_spend_summary`  
-- `find_duplicate_subscriptions`  
+- `get_spend_summary`
+- `find_duplicate_subscriptions`
 - `get_optimization_suggestions` — suggestions for subscriptions to review
 
 **Audit**
 
 - `list_audit_log`
 
-Full parameter schemas: [https://sub.jerrylu.xyz/api/ai-tools](https://sub.jerrylu.xyz/api/ai-tools). REST reference: [https://sub.jerrylu.xyz/api](https://sub.jerrylu.xyz/api).
+Full parameter schemas: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json). REST reference: [https://docs.steadyrenew.com/en/api/overview](https://docs.steadyrenew.com/en/api/overview).
 
 ## Limits to keep in mind
 
@@ -149,35 +149,35 @@ Full parameter schemas: [https://sub.jerrylu.xyz/api/ai-tools](https://sub.jerry
 
 After the server shows up in your MCP client:
 
-- “List subscriptions expiring in the next 14 days.”  
-- “Summarize spend by currency and category.”  
-- “Find likely duplicate subscriptions.”  
-- “Turn global reminders on and set `daysBefore` to 3.” (needs write)  
+- “List subscriptions expiring in the next 14 days.”
+- “Summarize spend by currency and category.”
+- “Find likely duplicate subscriptions.”
+- “Turn global reminders on and set `daysBefore` to 3.” (needs write)
 - “Show recent API audit entries for subscription updates.”
 
-Bark URLs and test notifications are managed in the [web app](https://sub.jerrylu.xyz) under **Settings → Notifications**.
+Bark URLs and test notifications are managed in the [web app](https://steadyrenew.com/app) under **Settings → Notifications**.
 
 ## Prefer scripts? Use the same REST API
 
 Anything MCP can do, curl can do against `/api/v1` with the same bearer key and quotas.
 
 ```bash
-curl -sS https://sub.jerrylu.xyz/api/v1/subscriptions \
+curl -sS https://steadyrenew.com/api/v1/subscriptions \
   -H "Authorization: Bearer subm_your_key_here"
 ```
 
-- Docs: [https://sub.jerrylu.xyz/api](https://sub.jerrylu.xyz/api)  
-- Agent tool schema: [https://sub.jerrylu.xyz/api/ai-tools](https://sub.jerrylu.xyz/api/ai-tools)  
+- Docs: [https://docs.steadyrenew.com/en/api/overview](https://docs.steadyrenew.com/en/api/overview)
+- Agent tool schema: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json)
 - OpenAPI: linked from the API docs (`openapi.yaml`)
 
 Use MCP when you want an assistant in the loop. Use REST when you want a script, a cron job, or your own agent runtime.
 
 ## Reference links
 
-- Ledger: [https://sub.jerrylu.xyz](https://sub.jerrylu.xyz)  
-- API docs: [https://sub.jerrylu.xyz/api](https://sub.jerrylu.xyz/api)  
-- AI tools schema: [https://sub.jerrylu.xyz/api/ai-tools](https://sub.jerrylu.xyz/api/ai-tools)  
-- MCP package: [github.com/JerryyrreJ/subscription-management/tree/main/mcp](https://github.com/JerryyrreJ/subscription-management/tree/main/mcp)  
+- Ledger: [https://steadyrenew.com/app](https://steadyrenew.com/app)
+- API docs: [https://docs.steadyrenew.com/en/api/overview](https://docs.steadyrenew.com/en/api/overview)
+- AI tools schema: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json)
+- MCP package: [github.com/JerryyrreJ/subscription-management/tree/main/mcp](https://github.com/JerryyrreJ/subscription-management/tree/main/mcp)
 - Fill the list first: [How to do a subscription audit](/blog/how-to-do-a-subscription-audit)
 
 ## FAQ

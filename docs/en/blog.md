@@ -2,7 +2,7 @@
 
 [English](blog.md) | [简体中文](../zh-CN/blog.md)
 
-The product site is a React SPA, but `/blog` is a **static HTML content hub** generated at build time from Markdown. Crawlers receive real HTML. Canonical URLs always use `https://sub.jerrylu.xyz` (not a `*.netlify.app` alias).
+The product site is a React SPA, but `/blog` is a **static HTML content hub** generated at build time from Markdown. Crawlers receive real HTML. Canonical URLs always use `https://steadyrenew.com` (not a `*.netlify.app` alias).
 
 English guides live at `/blog/…`. Chinese guides live at `/zh/blog/…`. There is no `/en` prefix.
 
@@ -48,6 +48,6 @@ Rebuild (`npm run build`) emits `dist/blog/<slug>/index.html` or `dist/zh/blog/<
 
 ## Soft CTA rules
 
-- Do not mention Subscription Manager in the intro before the checklist works without the product.
-- Link CTAs to `https://sub.jerrylu.xyz/` (path `/`).
+- Do not mention SteadyRenew in the intro before the checklist works without the product.
+- Link CTAs to `https://steadyrenew.com/app`.
 - Do not claim the app auto-detects charges from a bank, cancels merchants, or negotiates bills.

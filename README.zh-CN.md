@@ -1,21 +1,19 @@
-# Subscription Manager
+# SteadyRenew
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-在线使用：[sub.jerrylu.xyz](https://sub.jerrylu.xyz)
+在线使用：[steadyrenew.com](https://steadyrenew.com)
 
-Subscription Manager 是一个本地优先的 Web 应用，用于跟踪周期性订阅。它支持多币种、续费提醒、数据分析、导入导出，以及可选的云同步。
+SteadyRenew 是一个本地优先的 Web 应用，用于跟踪周期性订阅。它支持多币种、续费提醒、数据分析、导入导出，以及可选的云同步。
 
 应用不需要账号也能使用，数据默认保存在浏览器中。如果需要托管同步、支付或服务端提醒，可以配置 Supabase、Stripe、Netlify Functions 和 Bark 通知。
 
-<p align="center">
-  <video src="docs-site/images/product/ai-add-subscription.mp4" width="100%" controls muted playsinline></video>
-</p>
+https://github.com/user-attachments/assets/02de5f6c-c381-4308-a8ac-2d792a2a0846
 
 <p align="center"><em>用 AI 助手一句话录入：说清要加的订阅，核对草稿，确认后写入。</em></p>
 
 <p align="center">
-  <img src="docs-site/images/product/dashboard-overview.png" alt="使用演示订阅数据的 Subscription Manager 仪表盘" width="100%" />
+  <img src="docs-site/images/product/dashboard-overview.png" alt="使用演示订阅数据的 SteadyRenew 仪表盘" width="100%" />
 </p>
 
 <p align="center"><em>使用演示订阅数据的仪表盘概览。</em></p>
@@ -65,8 +63,8 @@ Subscription Manager 是一个本地优先的 Web 应用，用于跟踪周期性
 ### 本地运行
 
 ```bash
-git clone https://github.com/jerryyrrej/subscription-manager.git
-cd subscription-manager
+git clone https://github.com/JerryyrreJ/subscription-management.git
+cd subscription-management
 npm install
 npm run dev
 ```
@@ -150,9 +148,13 @@ docs/                按语言拆分的公开文档
 dev-docs/            开发笔记和归档实现草稿
 ```
 
+## 产品首页
+
+主域名承载产品 landing page，应用位于同域的 `/app`（线上为 `https://steadyrenew.com/app`），本地与预览环境路径一致。支持中英文、深浅色主题和移动端。可通过 `VITE_SITE_URL` 与 `VITE_APP_URL` 设置主域名和应用入口，详见 [Landing page 与域名配置](docs/zh-CN/landing-page.md)及[迁移进度](docs/operations/steadyrenew-domain-migration.md)。
+
 ## 公开指南
 
-`/blog` 是与应用同域的静态内容中心（`https://sub.jerrylu.xyz/blog`）。中文指南在 `/zh/blog`。在 `content/blog/` 新增 Markdown 即可，见[公开指南](docs/zh-CN/blog.md)。
+`/blog` 是主站上的静态内容中心（`https://steadyrenew.com/blog`）。中文指南在 `/zh/blog`。在 `content/blog/` 新增 Markdown 即可，见[公开指南](docs/zh-CN/blog.md)。
 
 ## 许可证
 

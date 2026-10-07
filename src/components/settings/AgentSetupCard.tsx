@@ -3,6 +3,7 @@ import { ArrowUpRight, Check, Clipboard, Download, Loader2, PlugZap } from 'luci
 import { useTranslation } from 'react-i18next';
 import { ApiKeyService, ApiKeyServiceError } from '../../services/apiKeyService';
 import { buildAgentSetupPrompt, type AgentConnectionMode } from '../../utils/agentSetup';
+import { getDocumentationUrl } from '../../lib/site';
 
 export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
  const { t, i18n } = useTranslation('developerApi');
@@ -14,7 +15,7 @@ export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
  const [verificationError, setVerificationError] = useState('');
  const [showPrompt, setShowPrompt] = useState(false);
  const prompt = buildAgentSetupPrompt({ origin: window.location.origin, locale: i18n.language, mode, apiKey: includeKey ? apiKey ?? undefined : undefined });
- const guideUrl = `https://docs.sub.jerrylu.xyz/${i18n.language.startsWith('zh') ? 'zh-CN' : 'en'}/user-guide/agent-setup`;
+ const guideUrl = getDocumentationUrl('user-guide/agent-setup', i18n.language);
 
  useEffect(() => {
   setCopied(false);

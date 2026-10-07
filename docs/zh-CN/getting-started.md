@@ -2,7 +2,7 @@
 
 [English](../en/getting-started.md) | [简体中文](getting-started.md)
 
-Subscription Manager 是一个基于 React 和 TypeScript 的 Vite 应用。默认本地设置会把数据保存在浏览器里，不需要数据库账号。
+SteadyRenew 是一个基于 React 和 TypeScript 的 Vite 应用。默认本地设置会把数据保存在浏览器里，不需要数据库账号。
 
 ## 环境要求
 

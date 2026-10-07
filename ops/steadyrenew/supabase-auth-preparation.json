@@ -1,0 +1,20 @@
+{
+  "verifiedAt": "2026-10-07T10:43:42.548Z",
+  "projectRef": "uikhflwvhhgifvbuhebi",
+  "addedRedirectUrls": [
+    "https://steadyrenew.com/",
+    "https://steadyrenew.com/app",
+    "https://steadyrenew.com/app?auth=recovery",
+    "https://steadyrenew.com/pricing",
+    "https://steadyrenew.com/pricing?auth=recovery",
+    "https://sub.jerrylu.xyz/app",
+    "https://sub.jerrylu.xyz/app?auth=recovery",
+    "https://sub.jerrylu.xyz/pricing",
+    "https://sub.jerrylu.xyz/pricing?auth=recovery"
+  ],
+  "existingRedirectUrlsPreserved": true,
+  "siteUrl": "https://sub.jerrylu.xyz",
+  "relyingPartyId": "sub.jerrylu.xyz",
+  "relyingPartyOrigins": "https://sub.jerrylu.xyz",
+  "relyingPartyDisplayName": "SteadyRenew"
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// MCP server for the Subscription Manager public API.
+// MCP server for the SteadyRenew public API.
 //
 // Single source of truth: it loads docs-site/api/ai-tools.json and exposes every
 // tool there over the Model Context Protocol, proxying each call to the REST API
@@ -166,7 +166,7 @@ const callTool = async (tool, args) => {
 };
 
 const server = new Server(
-  { name: 'subscription-manager', version: schema.schemaVersion ?? '0.0.0' },
+  { name: 'subscription-manager', title: 'SteadyRenew', version: schema.schemaVersion ?? '0.0.0' },
   { capabilities: { tools: {} } }
 );
 
@@ -197,4 +197,4 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
-console.error(`Subscription Manager MCP server ready (${tools.length} tools, base ${normalizedBase}).`);
+console.error(`SteadyRenew MCP server ready (${tools.length} tools, base ${normalizedBase}).`);

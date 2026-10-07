@@ -69,7 +69,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
   <dialog ref={dialog} className="pricing-page" aria-labelledby="pricing-title" onCancel={e => { e.preventDefault(); onClose(); }}>
    <div className="pricing-shell">
     <header className="pricing-nav">
-     <button className="pricing-back" onClick={onClose} aria-label={c.back}><ArrowLeft size={17} /><span>Subscription Manager<span className="pricing-nav-dot">.</span></span></button>
+     <button className="pricing-back" onClick={onClose} aria-label={c.back}><ArrowLeft size={17} /><span>SteadyRenew<span className="pricing-nav-dot">.</span></span></button>
      <span className="pricing-nav-label">FREE & PREMIUM</span>
     </header>
     <main>
@@ -119,7 +119,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
      </section>
      <section className="pricing-faq"><div><p className="pricing-eyebrow">{c.faqLabel}</p><h2>{c.faqTitle}</h2></div><div>{c.faqs.map(([question, answer]) => <details key={question}><summary>{question}<Plus size={18} /></summary><p>{answer}</p></details>)}</div></section>
     </main>
-    <footer className="pricing-footer"><span>Subscription Manager.</span><p>{c.footer}</p><button onClick={onClose}>{c.back}<ArrowUpRight size={14} /></button></footer>
+    <footer className="pricing-footer"><span>SteadyRenew.</span><p>{c.footer}</p><button onClick={onClose}>{c.back}<ArrowUpRight size={14} /></button></footer>
    </div>
   </dialog>
  );

@@ -55,3 +55,9 @@ For a new environment, run `supabase start` and `npm run db:verify`. For an exis
 - Store the service role key only in Netlify or another server environment.
 - Public API calls run through trusted Netlify Functions and always filter data by the API key owner.
 - API key values are shown once and stored as SHA-256 hashes.
+
+## Moving to a new domain
+
+Add the new application origin and `/app` callback to Supabase Auth redirect URLs while retaining existing entries. Update Site URL only after the new domain serves HTTPS successfully. Reuse the existing Supabase project so accounts, cloud records and Premium entitlements stay together.
+
+Passkeys are bound to their original relying-party domain. An existing credential cannot be moved to an unrelated domain by changing redirect URLs. Keep the old relying-party configuration during the transition, confirm another sign-in method, then schedule the new RP configuration and user enrollment separately. Browser-only records need JSON export from the old site and import on the new site.

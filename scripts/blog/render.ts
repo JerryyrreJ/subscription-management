@@ -5,6 +5,7 @@ import {
   BLOG_INDEX_TITLE,
   BLOG_PATH,
   CANONICAL_ORIGIN,
+  APP_ENTRY_URL,
   SITE_NAME,
   ZH_BLOG_INDEX_DESCRIPTION,
   ZH_BLOG_INDEX_TITLE,
@@ -134,14 +135,14 @@ function layout(options: {
       </a>
       <nav aria-label="${escapeHtml(copy.guides)}">
         <a href="${guidesHref}"${options.canonical === canonicalUrl(guidesHref) ? ' aria-current="page"' : ''}>${escapeHtml(copy.guides)}</a>
-        <a class="button" href="/">${escapeHtml(copy.openApp)}</a>
+        <a class="button" href="${escapeHtml(APP_ENTRY_URL)}">${escapeHtml(copy.openApp)}</a>
       </nav>
     </header>
     <main id="content">
       ${options.content}
     </main>
     <footer class="site-footer">
-      <p><a href="${guidesHref}">${escapeHtml(copy.guides)}</a> · <a href="/">${escapeHtml(copy.openAppFooter)}</a></p>
+      <p><a href="${guidesHref}">${escapeHtml(copy.guides)}</a> · <a href="${escapeHtml(APP_ENTRY_URL)}">${escapeHtml(copy.openAppFooter)}</a></p>
       <p class="muted">${escapeHtml(copy.footerNote)}</p>
     </footer>
   </body>

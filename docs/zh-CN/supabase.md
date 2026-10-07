@@ -57,7 +57,7 @@ Passkey 登录基于 Supabase Auth 的 WebAuthn。客户端需开启 `auth.exper
 enabled = true
 
 [auth.webauthn]
-rp_display_name = "Subscription Management"
+rp_display_name = "SteadyRenew"
 rp_id = "127.0.0.1"
 rp_origins = ["http://127.0.0.1:5173"]
 ```
@@ -69,9 +69,9 @@ rp_origins = ["http://127.0.0.1:5173"]
 在 Supabase Dashboard 打开 **Authentication → Passkeys**：
 
 1. 开启 Passkey authentication。
-2. 填写 **Relying Party Display Name**（例如 `Subscription Management`）。
-3. 设置稳定的 **Relying Party ID**（裸域名，不要带 scheme / port / path）。生产环境通常为 `sub.jerrylu.xyz` 或 `jerrylu.xyz`——选定后不要轻易更改，改 RP ID 会使已注册 Passkey 全部失效。
-4. 填写 **Relying Party Origins**（最多 5 个），必须包含用户实际访问的 HTTPS 源，例如 `https://sub.jerrylu.xyz`。仅 loopback 允许使用 HTTP。
+2. 填写 **Relying Party Display Name**（例如 `SteadyRenew`）。
+3. 设置稳定的 **Relying Party ID**（裸域名，不要带 scheme / port / path）。新建 SteadyRenew 配置可使用 `steadyrenew.com`；已有部署先保留当前 RP ID，单独规划通行密钥过渡。
+4. 填写 **Relying Party Origins**（最多 5 个），必须包含用户实际访问的 HTTPS 源，新建配置例如 `https://steadyrenew.com`，迁移期保留已有 origin。仅 loopback 允许使用 HTTP。
 5. 确认 Site URL / Redirect URLs 仍覆盖 OAuth 与密码重置；Passkey 本身不依赖 redirect，但浏览器 origin 必须在 RP Origins 中。
 
 非 loopback 环境必须使用 HTTPS。Netlify Deploy Preview 主机名通常无法全部写入 RP Origins（上限 5），Preview 上 Passkey 可能不可用。
@@ -82,3 +82,7 @@ rp_origins = ["http://127.0.0.1:5173"]
 - 不要把 service role key 放进浏览器可见变量。
 - service role key 只应保存在 Netlify 或其他服务端环境中。
 - `delete-account` Function 必须使用服务端 Secret Key 调用 Supabase Admin API；客户端只能提交当前会话的 access token。
+
+### 换域名与已有通行密钥
+
+绑定 `sub.jerrylu.xyz` 或 `jerrylu.xyz` 的通行密钥不能直接在 `steadyrenew.com` 使用；添加 OAuth 回调地址不会迁移 RP ID。先保留旧 RP 配置和旧应用入口，让用户确认其他登录方式。新 RP 配置应作为单独步骤验证和切换，之后由用户自行注册新的通行密钥。见 [域名迁移操作记录](../operations/steadyrenew-domain-migration.md)。

@@ -21,6 +21,9 @@ The core app runs without environment variables. Add environment variables only 
 | `STRIPE_SECRET_KEY` | Stripe checkout session creation | Server only |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification | Server only |
 | `STRIPE_PRICE_ID` | The only Stripe Price accepted by the server | Server only |
+| `VITE_SITE_URL` | Public landing/blog origin and canonical URLs | Browser/build |
+| `VITE_APP_URL` | App entry URL; use `/app` for previews | Browser/build |
+| `VITE_DOCS_URL` | Localized documentation origin | Browser/build |
 | `SITE_URL` | Checkout success and cancellation URL | Server only |
 | `URL` | Netlify function callback URLs | Provided by Netlify |
 | `API_RATE_LIMIT_PER_MINUTE` | Both plans: requests per account per minute; default `60` | Server only |
