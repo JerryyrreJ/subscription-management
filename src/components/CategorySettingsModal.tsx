@@ -281,7 +281,7 @@ export function CategorySettingsModal({
       {isStandalone && (
         <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold app-theme-text-primary tracking-tight">
               {t('categorySettings:title')}
             </h2>
             <button
@@ -295,10 +295,10 @@ export function CategorySettingsModal({
       )}
 
       {/* Content */}
- <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-4">
+ <div className={isStandalone ? "flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-4" : "space-y-5"}>
  {/* Add New Category */}
- <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-4 space-y-3">
- <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+ <div className="settings-card space-y-3">
+ <h3 className="text-sm font-semibold app-theme-text-secondary">
  {t('categorySettings:addNewCategory')}
  </h3>
  <div className="flex gap-2">
@@ -314,12 +314,13 @@ export function CategorySettingsModal({
  handleAddCategory()
  }
  }}
+ aria-label={t('categorySettings:addNewCategory')}
  placeholder={t('categorySettings:addCategoryPlaceholder')}
- className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-[#1a1c1e] text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+ className="settings-input flex-1"
  />
  <button
  onClick={handleAddCategory}
- className="px-4 py-2 bg-emerald-600 dark:bg-emerald-500 text-white rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors text-sm flex items-center gap-1"
+ className="settings-button-primary shrink-0"
  >
  <Plus className="w-4 h-4"/>
  {t('categorySettings:add')}
@@ -331,17 +332,17 @@ export function CategorySettingsModal({
  </div>
 
  {/* Controls */}
- <div className="flex justify-between items-center">
+ <div className="flex flex-wrap gap-3 justify-between items-center">
  <button
  onClick={() => setShowHidden(!showHidden)}
- className="text-sm text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:text-emerald-300 dark:hover:text-zinc-700 dark:hover:text-zinc-300 font-medium transition-colors flex items-center gap-1"
+ className="text-sm app-theme-text-secondary hover:underline font-medium transition-colors flex items-center gap-1"
  >
  {showHidden ? <Eye className="w-4 h-4"/> : <EyeOff className="w-4 h-4"/>}
  {showHidden ? t('categorySettings:hideHidden') : t('categorySettings:showHidden')}
  </button>
  <button
  onClick={handleRestoreDefaults}
- className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-medium transition-colors flex items-center gap-1"
+ className="text-sm app-theme-text-muted hover:text-gray-800 dark:hover:text-gray-200 font-medium transition-colors flex items-center gap-1"
  >
  <RotateCcw className="w-4 h-4"/>
  {t('categorySettings:restoreDefaults')}
@@ -350,7 +351,7 @@ export function CategorySettingsModal({
 
  {/* Categories List */}
  <div className="space-y-2">
- <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+ <h3 className="text-sm font-semibold app-theme-text-secondary">
  {t('categorySettings:categoriesCount', { count: displayedCategories.length })}
  </h3>
  <div className="space-y-1">
@@ -363,21 +364,9 @@ export function CategorySettingsModal({
  onDragLeave={handleDragLeave}
  onDrop={(e) => handleDrop(e, index)}
  onDragEnd={handleDragEnd}
- className={`flex items-center gap-2 p-3 rounded-2xl border transition-all ${
- category.isHidden
- ? 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 opacity-60'
- : 'bg-white dark:bg-[#1a1c1e] border-gray-200 dark:border-gray-700 hover:border-zinc-300 dark:hover:border-emerald-600 dark:border-emerald-500'
- } ${
- draggedIndex === index
- ? 'opacity-50 cursor-grabbing'
- : category.isHidden
- ? 'cursor-default'
- : 'cursor-grab'
- } ${
- dragOverIndex === index && draggedIndex !== index
- ? 'border-emerald-500 dark:border-emerald-400 dark:border-zinc-500 shadow-fey'
- : ''
- }`}
+ data-hidden={category.isHidden || undefined}
+ data-drag-over={dragOverIndex === index && draggedIndex !== index || undefined}
+ className={`settings-category-row ${draggedIndex === index ? 'opacity-50 cursor-grabbing' : category.isHidden ? 'cursor-default' : 'cursor-grab'}`}
  >
  {/* Drag handle */}
  <div className={`flex items-center justify-center ${
@@ -387,17 +376,17 @@ export function CategorySettingsModal({
  </div>
 
  {/* Category name */}
- <div className="flex-1 flex items-center gap-2">
- <span className="text-sm text-gray-900 dark:text-white">
+ <div className="min-w-0 flex-1 flex flex-wrap items-center gap-2 break-words">
+ <span className="text-sm app-theme-text-primary">
  {getCategoryDisplayName(category.name, t)}
  </span>
  {category.isBuiltIn && (
- <span className="text-xs px-2 py-0.5 bg-[#e5e7eb] dark:bg-[#2a2d31] dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg">
+ <span className="text-xs px-2 py-0.5 app-theme-chip">
  {t('categorySettings:builtIn')}
  </span>
  )}
  {category.isHidden && (
- <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-lg">
+ <span className="text-xs px-2 py-0.5 app-theme-chip">
  {t('categorySettings:hidden')}
  </span>
  )}
@@ -430,7 +419,7 @@ export function CategorySettingsModal({
  </div>
 
  {/* Info */}
- <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1 bg-[#f4f5f7] dark:bg-[#202225] dark:bg-zinc-800/20 p-3 rounded-2xl">
+ <div className="settings-inset text-xs app-theme-text-muted space-y-1 p-3">
  <p>• {t('categorySettings:infoDrag')}</p>
  <p>• {t('categorySettings:infoBuiltIn')}</p>
  <p>• {t('categorySettings:infoCustom')}</p>
@@ -453,13 +442,13 @@ export function CategorySettingsModal({
 
   if (!isStandalone) {
     return (
-      <div className="h-full flex flex-col max-w-2xl">
+      <div className="settings-page">
         {!isStandalone && (
-          <div className="mb-6 px-4 sm:px-6 pt-2">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
+          <div className="settings-page-heading">
+            <h2 className="text-xl font-semibold app-theme-text-primary mb-1">
               {t('categorySettings:title')}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm app-theme-text-muted">
               {t('settingsHub:categorySubtitle')}
             </p>
           </div>

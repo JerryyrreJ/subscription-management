@@ -1,6 +1,13 @@
 export const settingsHub = {
  title: '设置',
+ loadingDescription: '正在准备你的偏好设置…',
  close: '关闭设置',
+ subtitle: '按你的习惯，管理每一处细节。',
+ appearanceTitle: '外观',
+ appearanceDescription: '选择适合你的浅色或深色界面。',
+ lightTheme: '浅色',
+ darkTheme: '深色',
+ preferencesSaved: '语言与外观偏好会自动保存。',
  tabs: {
   general: '通用',
   account: '账号',
@@ -10,7 +17,7 @@ export const settingsHub = {
  },
  profileFallback: '用户',
  generalTitle: '通用设置',
- generalSubtitle: '管理语言偏好和本地数据。',
+ generalSubtitle: '管理语言、外观和本地数据。',
  languageTitle: '语言',
  languageDescription: '选择你的界面显示语言。',
  dataManagementTitle: '数据管理',

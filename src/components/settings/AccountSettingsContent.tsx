@@ -124,39 +124,40 @@ export function AccountSettingsContent({
   const passwordsMatch = Boolean(password && confirmPassword && password === confirmPassword);
 
   return (
-    <div className="space-y-8 max-w-2xl">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
+    <div className="settings-page">
+      <div className="settings-page-heading">
+        <h2 className="text-xl font-semibold app-theme-text-primary mb-1">
           {t('settingsHub:accountTitle')}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm app-theme-text-muted">
           {t('settingsHub:accountSubtitle')}
         </p>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Nickname Section */}
-        <section className="bg-white dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
-              <User className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+        <section className="settings-card">
+          <div className="settings-section-heading">
+            <div className="settings-section-icon">
+              <User className="w-5 h-5" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('accountModals:editNicknameTitle')}</h3>
+            <h3 className="text-sm font-semibold app-theme-text-primary">{t('accountModals:editNicknameTitle')}</h3>
           </div>
           
           <form onSubmit={handleUpdateNickname} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="settings-nickname" className="block text-sm font-medium app-theme-text-secondary mb-2">
                 {t('accountModals:displayNameLabel')}
               </label>
               <input
+                id="settings-nickname"
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 placeholder={t('accountModals:displayNamePlaceholder')}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                className="settings-input"
               />
-              <p className="text-xs text-gray-500 mt-2">{t('accountModals:displayNameHint')}</p>
+              <p className="text-xs app-theme-text-muted mt-2">{t('accountModals:displayNameHint')}</p>
             </div>
             {errorState.type === 'nickname' && (
               <p className="text-sm text-red-500 flex items-center gap-1"><AlertCircle className="w-4 h-4"/> {errorState.error}</p>
@@ -165,7 +166,7 @@ export function AccountSettingsContent({
               <button
                 type="submit"
                 disabled={loadingState.loading || !nickname.trim() || nickname === userNickname}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl font-medium transition-colors flex items-center gap-2"
+                className="settings-button-primary"
               >
                 {successState.type === 'nickname' ? <><Check className="w-4 h-4"/> {t('settingsHub:saved')}</> : t('settingsHub:saveChanges')}
               </button>
@@ -174,37 +175,39 @@ export function AccountSettingsContent({
         </section>
 
         {/* Email Section */}
-        <section className="bg-white dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
-              <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+        <section className="settings-card">
+          <div className="settings-section-heading">
+            <div className="settings-section-icon">
+              <Mail className="w-5 h-5" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('accountModals:updateEmailTitle')}</h3>
+            <h3 className="text-sm font-semibold app-theme-text-primary">{t('accountModals:updateEmailTitle')}</h3>
           </div>
           
           <form onSubmit={handleUpdateEmail} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('accountModals:currentEmailLabel')}
+                <label htmlFor="settings-current-email" className="block text-sm font-medium app-theme-text-secondary mb-2">
+                {t('accountModals:currentEmailLabel')}
                 </label>
                 <input
+                id="settings-current-email"
                   type="email"
                   value={userEmail}
                   disabled
-                  className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                  className="settings-input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('accountModals:newEmailLabel')}
+                <label htmlFor="settings-new-email" className="block text-sm font-medium app-theme-text-secondary mb-2">
+                {t('accountModals:newEmailLabel')}
                 </label>
                 <input
+                id="settings-new-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('accountModals:newEmailPlaceholder')}
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                  className="settings-input"
                 />
               </div>
             </div>
@@ -218,7 +221,7 @@ export function AccountSettingsContent({
               <button
                 type="submit"
                 disabled={loadingState.loading || !email.trim() || email === userEmail}
-                className="px-5 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-50 rounded-xl font-medium transition-colors"
+                className="settings-button-primary"
               >
                 {t('accountModals:updateEmail')}
               </button>
@@ -229,55 +232,57 @@ export function AccountSettingsContent({
         <PasskeySettingsSection />
 
         {/* Password Section */}
-        <section className="bg-white dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center">
-              <Lock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+        <section className="settings-card">
+          <div className="settings-section-heading">
+            <div className="settings-section-icon">
+              <Lock className="w-5 h-5" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('accountModals:updatePasswordTitle')}</h3>
+            <h3 className="text-sm font-semibold app-theme-text-primary">{t('accountModals:updatePasswordTitle')}</h3>
           </div>
           
           <form onSubmit={handleUpdatePassword} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="settings-new-password" className="block text-sm font-medium app-theme-text-secondary mb-2">
                 {t('accountModals:newPasswordLabel')}
               </label>
               <input
+                id="settings-new-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('accountModals:newPasswordPlaceholder')}
                 minLength={8}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                className="settings-input"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="settings-confirm-password" className="block text-sm font-medium app-theme-text-secondary mb-2">
                 {t('accountModals:confirmNewPasswordLabel')}
               </label>
               <input
+                id="settings-confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={t('accountModals:confirmNewPasswordPlaceholder')}
                 minLength={8}
-                className="w-full px-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                className="settings-input"
               />
             </div>
 
             <div className="bg-gray-50 dark:bg-white/5 border border-gray-200/60 dark:border-white/10 rounded-xl p-4">
-              <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">{t('accountModals:passwordRequirementsTitle')}</p>
+              <p className="text-xs font-medium app-theme-text-secondary mb-2">{t('accountModals:passwordRequirementsTitle')}</p>
               <ul className="space-y-1 text-xs">
-                <li className={`flex items-center gap-2 ${password.length >= 8 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                <li className={`flex items-center gap-2 ${password.length >= 8 ? 'text-emerald-600 dark:text-emerald-400' : 'app-theme-text-muted'}`}>
                   <div className={`w-1.5 h-1.5 rounded-full ${password.length >= 8 ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                   {t('accountModals:passwordRuleLength')}
                 </li>
-                <li className={`flex items-center gap-2 ${/(?=.*[a-z])(?=.*[A-Z])/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                <li className={`flex items-center gap-2 ${/(?=.*[a-z])(?=.*[A-Z])/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'app-theme-text-muted'}`}>
                   <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*[a-z])(?=.*[A-Z])/.test(password) ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                   {t('accountModals:passwordRuleCase')}
                 </li>
-                <li className={`flex items-center gap-2 ${/(?=.*\d)/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                <li className={`flex items-center gap-2 ${/(?=.*\d)/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'app-theme-text-muted'}`}>
                   <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*\d)/.test(password) ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                   {t('accountModals:passwordRuleNumber')}
                 </li>
@@ -296,7 +301,7 @@ export function AccountSettingsContent({
               <button
                 type="submit"
                 disabled={loadingState.loading || !password || !confirmPassword || Boolean(passwordValidation) || !passwordsMatch}
-                className="px-5 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-50 rounded-xl font-medium transition-colors flex items-center gap-2"
+                className="settings-button-primary"
               >
                 {successState.type === 'password' ? <><Check className="w-4 h-4"/> {t('settingsHub:updated')}</> : t('accountModals:updatePassword')}
               </button>
@@ -305,17 +310,17 @@ export function AccountSettingsContent({
         </section>
 
         {/* Danger Zone */}
-        <section className="overflow-hidden rounded-2xl border border-red-200/80 bg-gradient-to-br from-red-50/80 to-white dark:border-red-900/50 dark:from-red-950/20 dark:to-white/[0.025]">
-          <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <section className="settings-danger">
+          <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300">
+              <div className="settings-section-icon">
                 <Trash2 className="h-5 w-5" />
               </div>
               <div>
                 <h3 className="text-lg font-medium text-gray-950 dark:text-white">
                   {t('accountModals:dangerZoneTitle')}
                 </h3>
-                <p className="mt-1 max-w-lg text-sm leading-6 text-gray-600 dark:text-gray-400">
+                <p className="mt-1 max-w-lg text-sm leading-6 app-theme-text-muted">
                   {t('accountModals:dangerZoneDescription')}
                 </p>
               </div>

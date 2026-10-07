@@ -1,4 +1,10 @@
 export const userMenu = {
+ accountMenu: 'Account menu',
+ localAccount: 'Local workspace',
+ localDescription: 'Data saved on this device',
+ premiumAccount: 'Premium',
+ premiumDescription: 'AI capture, reports & more',
+ premiumActiveDescription: 'Your Premium benefits are active',
  neverSynced: 'Never synced',
  syncedSecondsAgo: 'Synced {{count}}s ago',
  syncedMinutesAgo: 'Synced {{count}}m ago',

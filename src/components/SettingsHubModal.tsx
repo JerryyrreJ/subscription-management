@@ -1,13 +1,14 @@
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, User, Settings, Folder, Bell, Code2 } from 'lucide-react';
+import { X, User, Settings, Folder, Bell, Code2, SlidersHorizontal } from 'lucide-react';
 import { AccountSettingsContent } from './settings/AccountSettingsContent';
 import { GeneralSettingsContent } from './settings/GeneralSettingsContent';
 import { CategorySettingsModal } from './CategorySettingsModal';
 import { NotificationSettingsModal } from './NotificationSettingsModal';
 import { DeveloperApiModal } from './DeveloperApiModal';
-import { CloudMutationResult, ReminderSettings, Subscription } from '../types';
+import { PremiumEntry } from './settings/PremiumEntry';
+import { CloudMutationResult, ReminderSettings, Subscription, Theme } from '../types';
 import { Category } from '../utils/categories';
 
 export type SettingsTab = 'general' | 'account' | 'categories' | 'notifications' | 'api';
@@ -26,7 +27,7 @@ interface SettingsHubModalProps {
   
   // User/Auth
   user: { email?: string } | null;
-  userProfile: { nickname?: string } | null;
+  userProfile: { nickname?: string; is_premium?: boolean } | null;
   accessToken?: string;
   onOpenAuth: () => void;
   
@@ -36,6 +37,10 @@ interface SettingsHubModalProps {
   onUpdatePassword: (newPassword: string) => Promise<void>;
   onDeleteAccount: () => Promise<void>;
   
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
+  onPricingClick: () => void;
+
   // General Callbacks
   onExportData: () => void;
   onImportData: () => void;
@@ -63,6 +68,9 @@ export function SettingsHubModal({
   onUpdateEmail,
   onUpdatePassword,
   onDeleteAccount,
+  theme,
+  onThemeChange,
+  onPricingClick,
   onExportData,
   onImportData,
   subscriptions,
@@ -73,8 +81,24 @@ export function SettingsHubModal({
   onSaveNotificationSettings
 }: SettingsHubModalProps) {
  useModalScrollLock(isOpen);
-  const { t } = useTranslation(['settingsHub']);
+  const { t } = useTranslation(['settingsHub', 'userMenu']);
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    return () => { if (previousFocus?.isConnected) previousFocus.focus(); };
+  }, [isOpen]);
+
+  useEffect(() => {
+    contentRef.current?.scrollTo(0, 0);
+    panelRef.current?.querySelector('[role="tab"][aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeTab, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -97,73 +121,72 @@ export function SettingsHubModal({
 
   return (
     <div
-      className="fixed inset-0 mobile-modal-viewport bg-black/40 backdrop-blur-2xl flex items-center justify-center z-[100] p-2 sm:p-6 transition-all duration-300"
-      onClick={onClose}
+      className="settings-overlay fixed inset-0 mobile-modal-viewport z-[100]"
+      onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}
+      onKeyDown={event => {
+        // Child confirmation dialogs handle their own keyboard interaction.
+        if ((event.target as HTMLElement).closest('.mobile-modal-viewport') !== event.currentTarget) return;
+        if (document.querySelector('[aria-modal="true"]:not([data-settings-dialog])')) return;
+        if (event.key === 'Escape' && !event.defaultPrevented) { event.stopPropagation(); onClose(); }
+        if (event.key !== 'Tab') return;
+        const items = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]') ?? [])
+          .filter(item => item.getClientRects().length > 0 && item.tabIndex >= 0);
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }}
     >
-      <div 
-        className="bg-[#fcfcfc]/95 dark:bg-[#0a0a0a]/95 backdrop-blur-3xl rounded-3xl sm:rounded-[2rem] shadow-apple-xl border border-gray-200/50 dark:border-white/10 w-full max-w-6xl h-[calc(var(--app-viewport-height,100dvh)*0.92)] sm:h-[calc(var(--app-viewport-height,100dvh)*0.85)] flex flex-col sm:flex-row overflow-hidden animate-scale-in"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Sidebar */}
-        <div className="w-full sm:w-72 flex-shrink-0 bg-gray-50/50 dark:bg-white/[0.02] border-b sm:border-b sm:border-b-transparent sm:border-r border-gray-200/50 dark:border-white/10 flex flex-col">
-          <div className="p-4 sm:p-6 pb-2 sm:pb-4">
-            <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
-              {t('settingsHub:title')}
-            </h2>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="settings-title" data-settings-dialog className="settings-shell">
+        <header className="settings-header">
+          <div className="settings-section-icon"><SlidersHorizontal size={19} aria-hidden="true" /></div>
+          <div className="min-w-0 flex-1">
+            <h2 id="settings-title" className="text-lg font-semibold tracking-tight">{t('settingsHub:title')}</h2>
+            <p className="text-xs app-theme-text-muted mt-0.5">{t('settingsHub:subtitle')}</p>
           </div>
-          <div className="flex sm:block sm:flex-1 overflow-x-auto sm:overflow-y-auto px-3 pb-3 sm:pb-0 gap-2 sm:space-y-1">
-            {visibleTabs.map(tab => {
-              const Icon = tab.icon;
-              const isActive = selectedTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as SettingsTab)}
-                  className={`shrink-0 sm:w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    isActive 
-                      ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm border border-gray-200/50 dark:border-white/5' 
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-200 border border-transparent'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : ''}`} />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-          
-          {/* User Profile Summary at bottom of sidebar */}
-          {user && (
-            <div className="hidden sm:flex p-4 m-3 mt-auto bg-white dark:bg-white/5 rounded-2xl border border-gray-200/50 dark:border-white/10 items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-bold text-xs uppercase">
-                {userProfile?.nickname?.[0] || user.email?.[0] || 'U'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {userProfile?.nickname || t('settingsHub:profileFallback')}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {user.email}
-                </p>
+          <button ref={closeRef} type="button" onClick={onClose} aria-label={t('settingsHub:close')} className="settings-icon-button app-theme-chip">
+            <X size={18} aria-hidden="true" />
+          </button>
+        </header>
+        <div className="settings-body">
+          <aside className="settings-sidebar">
+            <div className="settings-nav" role="tablist" aria-label={t('settingsHub:title')}
+              onKeyDown={event => {
+                if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                const current = visibleTabs.findIndex(tab => tab.id === selectedTab);
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? visibleTabs.length - 1
+                  : (current + (['ArrowDown', 'ArrowRight'].includes(event.key) ? 1 : -1) + visibleTabs.length) % visibleTabs.length;
+                setActiveTab(visibleTabs[next].id);
+                event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+              }}>
+              {visibleTabs.map(tab => {
+                const Icon = tab.icon;
+                return (
+                  <button key={tab.id} type="button" role="tab" id={`settings-tab-${tab.id}`}
+                    aria-selected={selectedTab === tab.id} aria-controls="settings-content" tabIndex={selectedTab === tab.id ? 0 : -1}
+                    onClick={() => setActiveTab(tab.id)} className="settings-nav-item">
+                    <Icon size={17} aria-hidden="true" />{tab.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="settings-sidebar-bottom">
+              <PremiumEntry isPremium={userProfile?.is_premium} onClick={onPricingClick} />
+              <div className="settings-profile-summary">
+                <div className="settings-avatar" aria-hidden="true">{user ? (userProfile?.nickname?.[0] || user.email?.[0] || 'U').toUpperCase() : <User size={16} />}</div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{user ? userProfile?.nickname || t('settingsHub:profileFallback') : t('userMenu:localAccount')}</p>
+                  <p className="truncate text-xs app-theme-text-muted mt-0.5">{user?.email || t('userMenu:localDescription')}</p>
+                </div>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-transparent">
-          <div className="flex justify-end p-3 sm:p-6 pb-0">
-            <button
-              onClick={onClose}
-              aria-label={t('settingsHub:close')}
-              className="p-2 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-10 pb-8 sm:pb-10">
+          </aside>
+          <div ref={contentRef} id="settings-content" role="tabpanel" aria-labelledby={`settings-tab-${selectedTab}`} tabIndex={0} className="settings-content">
             {selectedTab === 'general' && (
-              <GeneralSettingsContent 
+              <GeneralSettingsContent
+                theme={theme}
+                onThemeChange={onThemeChange}
                 onExportData={onExportData} 
                 onImportData={onImportData} 
               />

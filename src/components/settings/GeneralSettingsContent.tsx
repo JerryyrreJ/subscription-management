@@ -1,92 +1,63 @@
-import { Download, Upload, Globe } from 'lucide-react';
+import { Check, Download, Upload, Globe, Moon, Sun, Monitor } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppLanguage } from '../../hooks/useAppLanguage';
 import { LANGUAGE_LABELS, SUPPORTED_LOCALES } from '../../i18n/types';
+import { Theme } from '../../types';
 
 interface GeneralSettingsContentProps {
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
   onExportData: () => void;
   onImportData: () => void;
 }
 
-export function GeneralSettingsContent({ onExportData, onImportData }: GeneralSettingsContentProps) {
+export function GeneralSettingsContent({ theme, onThemeChange, onExportData, onImportData }: GeneralSettingsContentProps) {
   const { t } = useTranslation(['userMenu', 'settingsHub']);
   const { language, setLanguage } = useAppLanguage();
-
   return (
-    <div className="space-y-8 max-w-2xl">
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-          {t('settingsHub:generalTitle')}
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {t('settingsHub:generalSubtitle')}
-        </p>
+    <div className="settings-page">
+      <div className="settings-page-heading">
+        <h2>{t('settingsHub:generalTitle')}</h2>
+        <p>{t('settingsHub:generalSubtitle')}</p>
       </div>
-
-      <div className="space-y-6">
-        {/* Language Selection */}
-        <section className="bg-white dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center">
-              <Globe className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('settingsHub:languageTitle')}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('settingsHub:languageDescription')}</p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            {SUPPORTED_LOCALES.map(locale => {
-              const isActive = language === locale;
-              return (
-                <button
-                  key={locale}
-                  type="button"
-                  onClick={() => void setLanguage(locale)}
-                  className={`px-4 py-4 rounded-xl border text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300 shadow-sm'
-                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-[#1a1c1e] dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800'
-                  }`}
-                >
-                  {LANGUAGE_LABELS[locale]}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Data Management */}
-        <section className="bg-white dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-              <Download className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{t('settingsHub:dataManagementTitle')}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{t('settingsHub:dataManagementDescription')}</p>
-            </div>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-4">
-            <button
-              onClick={onExportData}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium transition-colors"
-            >
-              <Download className="w-4 h-4"/>
-              {t('userMenu:exportData')}
+      <section className="settings-card">
+        <div className="settings-section-heading">
+          <div className="settings-section-icon"><Globe size={18} aria-hidden="true" /></div>
+          <div><h3>{t('settingsHub:languageTitle')}</h3><p>{t('settingsHub:languageDescription')}</p></div>
+        </div>
+        <div className="settings-options" role="group" aria-label={t('settingsHub:languageTitle')}>
+          {SUPPORTED_LOCALES.map(locale => (
+            <button key={locale} type="button" lang={locale} aria-pressed={language === locale} onClick={() => void setLanguage(locale)} className="settings-option">
+              {LANGUAGE_LABELS[locale]}<Check size={16} aria-hidden="true" className={language === locale ? '' : 'invisible'} />
             </button>
-            <button
-              onClick={onImportData}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium transition-colors"
-            >
-              <Upload className="w-4 h-4"/>
-              {t('userMenu:importData')}
+          ))}
+        </div>
+      </section>
+      <section className="settings-card">
+        <div className="settings-section-heading">
+          <div className="settings-section-icon"><Monitor size={18} aria-hidden="true" /></div>
+          <div><h3>{t('settingsHub:appearanceTitle')}</h3><p>{t('settingsHub:appearanceDescription')}</p></div>
+        </div>
+        <div className="settings-options" role="group" aria-label={t('settingsHub:appearanceTitle')}>
+          {(['light', 'dark'] as const).map(value => (
+            <button key={value} type="button" aria-pressed={theme === value} onClick={() => onThemeChange(value)} className="settings-option">
+              <span className="flex items-center gap-2">{value === 'light' ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}{t(`settingsHub:${value}Theme`)}</span>
+              <Check size={16} aria-hidden="true" className={theme === value ? '' : 'invisible'} />
             </button>
-          </div>
-        </section>
-      </div>
+          ))}
+        </div>
+      </section>
+      <section className="settings-card">
+        <div className="settings-section-heading">
+          <div className="settings-section-icon"><Download size={18} aria-hidden="true" /></div>
+          <div><h3>{t('settingsHub:dataManagementTitle')}</h3><p>{t('settingsHub:dataManagementDescription')}</p></div>
+        </div>
+        <div className="settings-data-actions">
+          <button type="button" onClick={onExportData} className="settings-button"><Download size={16} aria-hidden="true" />{t('userMenu:exportData')}</button>
+          <button type="button" onClick={onImportData} className="settings-button"><Upload size={16} aria-hidden="true" />{t('userMenu:importData')}</button>
+        </div>
+      </section>
+      <p className="settings-footnote"><Check size={13} aria-hidden="true" />{t('settingsHub:preferencesSaved')}</p>
     </div>
   );
 }

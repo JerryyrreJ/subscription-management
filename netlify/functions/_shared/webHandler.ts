@@ -1,4 +1,4 @@
-import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
+import type { Context, Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 
 // Retain the independently testable handlers while exposing the Request/Response
 // entrypoint used by current Netlify Functions. Preserve webhook bytes as text.
@@ -33,7 +33,18 @@ export const webHandler = (handler: Handler) => async (request: Request): Promis
 // scripts and injected unit-test environments.
 export const runtimeEnvironment: NodeJS.ProcessEnv = new Proxy({}, {
   get: (_target, key: string) => {
-    const runtime = globalThis as typeof globalThis & { Netlify?: { env: { get(name: string): string | undefined } } };
+    const runtime = globalThis as typeof globalThis & { Netlify?: {
+      env: { get(name: string): string | undefined };
+      context?: Pick<Context, 'deploy' | 'url'> | null;
+    } };
+    // CONTEXT / DEPLOY_PRIME_URL are build variables, not runtime env vars.
+    // Modern Functions expose authoritative, request-scoped deployment details.
+    const context = runtime.Netlify?.context;
+    if (key === 'CONTEXT' && context) return context.deploy.context;
+    if (key === 'DEPLOY_PRIME_URL' && context &&
+      ['deploy-preview', 'branch-deploy'].includes(context.deploy.context)) {
+      return context.url.origin;
+    }
     return runtime.Netlify?.env.get(key) ?? process.env[key];
   },
 });

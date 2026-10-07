@@ -21,6 +21,7 @@ const event = (): HandlerEvent => ({
 
 const completedEvent = (): Stripe.Event => ({
  id: 'evt_test',
+ livemode: false,
  type: 'checkout.session.completed',
  data: {
   object: {
@@ -42,6 +43,23 @@ const completedEvent = (): Stripe.Event => ({
   },
  },
 } as unknown as Stripe.Event);
+
+test('webhook rejects a live event on a test deployment before database access', async () => {
+ const handler = createStripeWebhookHandler(() => ({
+  stripeConfig,
+  supabaseConfig: null,
+  stripe: {
+   ...paymentStripeFixture,
+   webhooks: { constructEvent: () => ({ ...completedEvent(), livemode: true }) },
+   checkout: { sessions: { listLineItems: async () => { throw new Error('must not read payment'); } } },
+  },
+  database: null,
+  createRequestId: () => 'request-mode',
+ }));
+ const response = await handler(event(), {} as never);
+ assert.equal(response?.statusCode, 400);
+ assert.match(response?.body || '', /webhook_mode_mismatch/);
+});
 
 test('webhook rejects an invalid Stripe signature', async () => {
  const handler = createStripeWebhookHandler(() => ({

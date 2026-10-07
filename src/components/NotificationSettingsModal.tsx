@@ -139,14 +139,14 @@ export function NotificationSettingsModal({
  if (!isOpen) return null;
 
   const content = (
-  <div className="flex min-h-full flex-col">
+  <div className={isStandalone ? "flex min-h-full flex-col" : "settings-page"}>
   {isStandalone && (
   <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-[#1a1c1e] z-10">
   <div className="flex items-center gap-3">
   <div className="w-10 h-10 rounded-full bg-[#e5e7eb] dark:bg-[#2a2d31] dark:bg-zinc-800/50 flex items-center justify-center">
   <Bell className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400"/>
   </div>
-  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+  <h2 className="text-xl font-semibold app-theme-text-primary">
   {t('notificationSettings:title')}
   </h2>
   </div>
@@ -160,28 +160,28 @@ export function NotificationSettingsModal({
   )}
 
   {!isStandalone && (
-    <div className="px-6 pt-2 pb-4">
-      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
+    <div className="settings-page-heading">
+      <h2 className="text-xl font-semibold app-theme-text-primary mb-1">
         {t('notificationSettings:title')}
       </h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400">
+      <p className="text-sm app-theme-text-muted">
         {t('settingsHub:notificationSubtitle')}
       </p>
     </div>
   )}
 
  {/* Content */}
- <div className="p-6 space-y-6">
+ <div className={isStandalone ? "p-6 space-y-6" : "space-y-5"}>
  {/* 未登录引导 */}
  {!user && (
- <div className="flex overflow-hidden rounded-2xl border border-zinc-200 bg-[#f4f5f7] dark:border-zinc-700 dark:bg-[#202225]">
+ <div className="settings-inset flex overflow-hidden">
  <div className="w-0.5 shrink-0 bg-emerald-500 dark:bg-emerald-400" aria-hidden="true" />
  <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
  <div className="min-w-0">
- <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+ <p className="text-sm leading-relaxed app-theme-text-secondary">
  {t('notificationSettings:loginGuide')}
  </p>
- <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+ <p className="mt-1 text-xs leading-relaxed app-theme-text-muted">
  {t('notificationSettings:loginGuideHint')}
  </p>
  </div>
@@ -191,7 +191,7 @@ export function NotificationSettingsModal({
  onClose();
  onOpenAuth();
  }}
- className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
+ className="settings-button-primary shrink-0"
  >
  <LogIn className="w-4 h-4"/>
  {t('notificationSettings:loginToEnable')}
@@ -202,18 +202,18 @@ export function NotificationSettingsModal({
  )}
 
  {/* 全局提示 */}
- <div className="bg-[#f4f5f7] dark:bg-[#202225] dark:bg-zinc-800/20 border border-zinc-200 dark:border-zinc-800 dark:border-zinc-700 dark:border-zinc-700 rounded-2xl p-4">
- <p className="text-sm text-emerald-600 dark:text-emerald-300">
+ <div className="settings-card">
+ <p className="text-sm leading-relaxed app-theme-text-secondary">
  <strong>{t('notificationSettings:noteTitle')}</strong> {t('notificationSettings:noteBody')}
  </p>
  </div>
 
  {/* Bark Push */}
  <div>
- <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+ <h3 className="text-sm font-semibold app-theme-text-primary mb-2">
  {t('notificationSettings:barkSectionTitle')}
  </h3>
- <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+ <p className="text-sm app-theme-text-muted mb-4">
  {t('notificationSettings:barkSectionDescription')}
  </p>
 
@@ -222,23 +222,23 @@ export function NotificationSettingsModal({
  href={reminderGuideUrl}
  target="_blank"
  rel="noopener noreferrer"
- className="group mb-4 flex items-center gap-3 rounded-2xl border border-gray-200 bg-white/70 px-4 py-3.5 transition-all hover:border-emerald-300 hover:bg-emerald-50/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:border-white/10 dark:bg-white/[0.035] dark:hover:border-emerald-500/40 dark:hover:bg-emerald-500/[0.07]"
+ className="settings-card settings-guide-link mb-4 flex items-center gap-3"
  >
- <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+ <span className="settings-section-icon">
  <BookOpen className="h-[18px] w-[18px]" />
  </span>
  <span className="min-w-0 flex-1">
- <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+ <span className="block text-sm font-medium app-theme-text-primary">
  {t('notificationSettings:setupGuide')}
  </span>
- <span className="mt-0.5 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+ <span className="mt-0.5 block text-xs leading-relaxed app-theme-text-muted">
  {t('notificationSettings:setupGuideDescription')}
  </span>
  </span>
- <ExternalLink className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-emerald-600 dark:group-hover:text-emerald-400" />
+ <ExternalLink className="h-4 w-4 shrink-0 app-theme-text-muted" />
  </a>
 
- <div className="bg-gray-50 dark:bg-gray-700/50 rounded-2xl p-4 space-y-4">
+ <div className="settings-inset p-4 space-y-4">
  <label className={`flex items-center gap-3 ${requiresLogin ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
  <input
  type="checkbox"
@@ -253,7 +253,7 @@ export function NotificationSettingsModal({
  })}
  className="w-4 h-4 text-emerald-700 dark:text-emerald-400 border-gray-300 rounded-lg focus:ring-emerald-500"
  />
- <span className="text-sm text-gray-700 dark:text-gray-300">
+ <span className="text-sm app-theme-text-secondary">
  {t('notificationSettings:enableBark')}
  </span>
  </label>
@@ -261,7 +261,7 @@ export function NotificationSettingsModal({
  {localSettings.barkPush.enabled && (
  <div className="space-y-3 ml-7">
  <div>
- <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+ <label className="block text-sm font-medium app-theme-text-secondary mb-1">
  {t('notificationSettings:barkUrlLabel')}
  </label>
  <input
@@ -270,9 +270,9 @@ export function NotificationSettingsModal({
  disabled={requiresLogin}
  onChange={(e) => handleBarkUrlChange(e.target.value)}
  placeholder={t('notificationSettings:barkUrlPlaceholder')}
- className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono text-sm disabled:cursor-not-allowed disabled:opacity-60"
+ className="settings-input font-mono disabled:opacity-60"
  />
- <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+ <p className="mt-1 text-xs app-theme-text-muted">
  📋 {t('notificationSettings:barkUrlHint')}
  </p>
  {barkUrl && parseBarkUrl(barkUrl).valid && (
@@ -287,8 +287,8 @@ export function NotificationSettingsModal({
  )}
  </div>
 
- <div className="flex items-center gap-2">
- <span className="text-sm text-gray-700 dark:text-gray-300">{t('notificationSettings:remindMe')}</span>
+ <div className="flex flex-wrap items-center gap-2">
+ <span className="text-sm app-theme-text-secondary">{t('notificationSettings:remindMe')}</span>
  <div className="w-48">
   <CustomSelect
   value={localSettings.barkPush.daysBefore.toString()}
@@ -310,14 +310,14 @@ export function NotificationSettingsModal({
  <button
  onClick={handleTestBark}
  disabled={requiresLogin || isTesting || !localSettings.barkPush.serverUrl || !localSettings.barkPush.deviceKey}
- className="flex items-center gap-2 px-4 py-2 bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 disabled:bg-gray-400 text-white rounded-2xl transition-colors disabled:cursor-not-allowed"
+ className="settings-button-primary"
  >
  <Send className="w-4 h-4"/>
  {isTesting ? t('notificationSettings:sending') : t('notificationSettings:testPush')}
  </button>
 
  {requiresLogin && (
- <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+ <p className="mt-3 text-sm app-theme-text-muted">
   {t('notificationSettings:signInFirstHint')}
  </p>
  )}
@@ -344,22 +344,21 @@ export function NotificationSettingsModal({
  </div>
  </div>
 
-  <div className={`flex gap-3 border-t border-gray-200 dark:border-white/10 mt-auto ${
-  isStandalone
-  ? 'sticky bottom-0 z-10 bg-white p-6 dark:bg-[#1a1c1e]'
-  : 'mx-6 mt-8 bg-transparent px-0 pb-2 pt-6'
-  }`}>
+  <div className={isStandalone
+  ? 'sticky bottom-0 z-10 flex gap-3 border-t border-gray-200 dark:border-white/10 mt-auto bg-white p-6 dark:bg-[#1a1c1e]'
+  : 'settings-panel-footer'
+  }>
   {isStandalone && (
   <button
   onClick={onClose}
-  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 app-theme-text-secondary rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
   >
   {t('notificationSettings:cancel')}
   </button>
   )}
   <button
   onClick={handleSave}
-  className="flex-1 px-4 py-2.5 rounded-2xl font-medium transition-colors bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white"
+  className="settings-button-primary ml-auto"
   >
   {user ? (
   t('notificationSettings:saveSettings')
