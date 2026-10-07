@@ -30,7 +30,7 @@ export interface SupabaseSubscription {
 }
 
 export class SubscriptionService {
- private static async getAuthenticatedUserId(): Promise<string> {
+ private static async getAuthenticatedUserId(expectedUserId?: string): Promise<string> {
  if (!supabase) {
  throw new Error('Cloud sync not available')
  }
@@ -45,16 +45,20 @@ export class SubscriptionService {
  throw new Error('User not authenticated')
  }
 
+ if (expectedUserId && user.id !== expectedUserId) {
+ throw new Error('Authenticated user changed during subscription operation')
+ }
+
  return user.id
  }
 
  // 获取云端数据
- static async getSubscriptions(): Promise<Subscription[]> {
+ static async getSubscriptions(expectedUserId?: string): Promise<Subscription[]> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
- const userId = await this.getAuthenticatedUserId()
+ const userId = await this.getAuthenticatedUserId(expectedUserId)
 
  const { data, error } = await scopeSubscriptionQueryToUser(
   supabase
@@ -73,14 +77,14 @@ export class SubscriptionService {
  }
 
  // 创建订阅
- static async createSubscription(subscription: Subscription | Omit<Subscription, 'id'>): Promise<Subscription> {
+ static async createSubscription(subscription: Subscription | Omit<Subscription, 'id'>, expectedUserId?: string): Promise<Subscription> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
  const supabaseData = this.transformToSupabase(subscription)
 
- const userId = await this.getAuthenticatedUserId()
+ const userId = await this.getAuthenticatedUserId(expectedUserId)
  console.log('Creating subscription for user:', userId)
 
  const insertPayload = {
@@ -104,12 +108,12 @@ export class SubscriptionService {
  }
 
  // 更新订阅
- static async updateSubscription(subscription: Subscription): Promise<Subscription> {
+ static async updateSubscription(subscription: Subscription, expectedUserId?: string): Promise<Subscription> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
- const userId = await this.getAuthenticatedUserId()
+ const userId = await this.getAuthenticatedUserId(expectedUserId)
  const supabaseData = this.transformToSupabase(subscription)
 
  const { data, error } = await scopeSubscriptionQueryToUserAndId(
@@ -131,12 +135,12 @@ export class SubscriptionService {
  }
 
  // 删除订阅
- static async deleteSubscription(id: string): Promise<void> {
+ static async deleteSubscription(id: string, expectedUserId?: string): Promise<void> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
- const userId = await this.getAuthenticatedUserId()
+ const userId = await this.getAuthenticatedUserId(expectedUserId)
  const { error } = await scopeSubscriptionQueryToUserAndId(
   supabase
  .from('subscriptions')
@@ -154,19 +158,21 @@ export class SubscriptionService {
  // 批量同步 - 纯下载模式（云端为准）
  static async syncSubscriptions(
  localSubscriptions: Subscription[],
- pendingOperations: PendingSyncOperation[] = []
+ pendingOperations: PendingSyncOperation[] = [],
+ expectedUserId?: string
  ): Promise<SyncSubscriptionsResult> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
  try {
- let cloudSubscriptions = await this.getSubscriptions()
+ const userId = await this.getAuthenticatedUserId(expectedUserId)
+ let cloudSubscriptions = await this.getSubscriptions(userId)
  const remainingOperations: PendingSyncOperation[] = []
 
  for (const operation of sortPendingOperations(pendingOperations)) {
  try {
- const operationResult = await this.applyPendingOperation(operation, cloudSubscriptions)
+ const operationResult = await this.applyPendingOperation(operation, cloudSubscriptions, userId)
  cloudSubscriptions = operationResult.cloudSubscriptions
  if (!operationResult.applied && operationResult.keepPending) {
  remainingOperations.push(operation)
@@ -177,7 +183,7 @@ export class SubscriptionService {
  }
  }
 
- const refreshedCloudSubscriptions = await this.getSubscriptions()
+ const refreshedCloudSubscriptions = await this.getSubscriptions(userId)
  const resolvedSubscriptions = applyPendingOperationsToSubscriptions(
  refreshedCloudSubscriptions,
  remainingOperations
@@ -201,16 +207,16 @@ export class SubscriptionService {
  }
 
  // 批量上传本地数据到云端（带去重检查）
- static async uploadLocalSubscriptions(subscriptions: Subscription[]): Promise<UploadLocalSubscriptionsResult> {
+ static async uploadLocalSubscriptions(subscriptions: Subscription[], expectedUserId?: string): Promise<UploadLocalSubscriptionsResult> {
  if (!config.hasSupabaseConfig || !supabase) {
  throw new Error('Cloud sync not available')
  }
 
  try {
- await this.getAuthenticatedUserId()
+ const userId = await this.getAuthenticatedUserId(expectedUserId)
 
  // 1. 获取云端现有数据进行去重检查
- const cloudSubscriptions = await this.getSubscriptions()
+ const cloudSubscriptions = await this.getSubscriptions(userId)
 
  // 2. 仅按订阅ID去重，允许不同订阅拥有相同内容
  const cloudIds = new Set(cloudSubscriptions.map(s => s.id))
@@ -231,7 +237,7 @@ export class SubscriptionService {
  const failedSubscriptions: Subscription[] = []
  const uploadPromises = subsToUpload.map(async (sub) => {
  try {
-  return await this.createSubscription(sub)
+  return await this.createSubscription(sub, userId)
  } catch (error) {
   console.error(`Failed to upload subscription ${sub.name}:`, error)
  failedSubscriptions.push(sub)
@@ -337,7 +343,8 @@ export class SubscriptionService {
 
  private static async applyPendingOperation(
  operation: PendingSyncOperation,
- cloudSubscriptions: Subscription[]
+ cloudSubscriptions: Subscription[],
+ userId: string
  ): Promise<{ applied: boolean; keepPending: boolean; cloudSubscriptions: Subscription[] }> {
  const normalizedCloudSubscriptions = cloudSubscriptions.map(subscription => normalizeSubscription(subscription))
  const cloudSubscription = normalizedCloudSubscriptions.find(
@@ -355,7 +362,7 @@ export class SubscriptionService {
  }
 
  if (!cloudSubscription) {
- const createdSubscription = await this.createSubscription(operation.subscription)
+ const createdSubscription = await this.createSubscription(operation.subscription, userId)
  return {
  applied: true,
  keepPending: false,
@@ -378,7 +385,7 @@ export class SubscriptionService {
  ...cloudSubscription,
  ...operation.subscription,
  id: operation.subscriptionId
- })
+ }, userId)
 
  return {
  applied: true,
@@ -399,7 +406,7 @@ export class SubscriptionService {
  }
 
  if (!cloudSubscription) {
- const createdSubscription = await this.createSubscription(operation.subscription)
+ const createdSubscription = await this.createSubscription(operation.subscription, userId)
  return {
  applied: true,
  keepPending: false,
@@ -421,7 +428,7 @@ export class SubscriptionService {
  const updatedSubscription = await this.updateSubscription({
  ...cloudSubscription,
  ...operation.subscription
- })
+ }, userId)
 
  return {
  applied: true,
@@ -449,7 +456,7 @@ export class SubscriptionService {
  }
  }
 
- await this.deleteSubscription(operation.subscriptionId)
+ await this.deleteSubscription(operation.subscriptionId, userId)
 
  return {
  applied: true,

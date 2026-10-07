@@ -27,6 +27,7 @@ import type { SettingsTab } from './components/SettingsHubModal';
 import type { UndoableAiAction } from './components/AiCaptureModal';
 import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
+import { useInitialAccountSync } from './hooks/useInitialAccountSync';
 import { useCategorySync } from './hooks/useCategorySync';
 import { loadSubscriptions } from './utils/storage';
 import { loadCategories } from './utils/categories';
@@ -83,7 +84,6 @@ const PricingModal = lazy(() =>
  import('./components/PricingModal').then(module => ({ default: module.PricingModal }))
 );
 
-const initialSyncTaskGate = createScopedTaskGate<string>();
 const exchangeRateTaskGate = createScopedTaskGate<'exchange-rates'>();
 const EXCHANGE_RATE_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -149,7 +149,6 @@ export function App() {
  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
  const [isSettingsHubOpen, setIsSettingsHubOpen] = useState(false);
  const [settingsHubTab, setSettingsHubTab] = useState<SettingsTab>('general');
- const [hasInitialSync, setHasInitialSync] = useState(false);
  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
  const [importPreviewData, setImportPreviewData] = useState<ExportData | null>(null);
@@ -273,7 +272,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  updateCategoriesOrder
  } = useCategorySync(appUser, () => {
  // 类别变更时触发UI更新
- setSubscriptions([...subscriptions]);
+ setSubscriptions(current => [...current]);
  });
 
  // 获取筛选后的订阅列表
@@ -406,20 +405,12 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  localStorage.setItem('theme', theme);
  }, [theme]);
 
- // 用户登录后的数据同步 - 只执行一次
- useEffect(() => {
- if (loading || !appUser || !appSession?.access_token || hasInitialSync) return; // 如果认证未完成、用户未登录、会话未就绪或已经同步过，直接返回
-
- // 标记开始同步，防止重复
- setHasInitialSync(true);
+ // Initialize once per ready account, independently of incidental renders.
+ useInitialAccountSync(appUser?.id, !loading && Boolean(appSession?.access_token), async isCurrentTask => {
+ if (!appUser) return;
  const syncScope = getUserDataScope(appUser.id);
- const taskToken = initialSyncTaskGate.claim(syncScope);
- let cancelled = false;
-
- const isCurrentTask = () => !cancelled && initialSyncTaskGate.isCurrent(syncScope, taskToken);
 
  // 首次登录同步策略：云端为准
- const performInitialSync = async () => {
  try {
  console.log('User logged in, checking cloud data...');
  claimLocalDataOwnership(appUser.id, getUserDataScope(appUser.id));
@@ -469,6 +460,8 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  // 同步失败，保持本地数据不变
  }
 
+ if (!isCurrentTask()) return;
+
  // 3. 同步通知设置
  try {
  const cloudNotificationSettings = await NotificationSettingsService.getSettings();
@@ -493,30 +486,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  } catch (error) {
  console.error('Failed to perform initial sync:', error);
  }
- };
-
- performInitialSync();
- return () => {
- cancelled = true;
- initialSyncTaskGate.release(syncScope, taskToken);
- };
- }, [
- hasInitialSync,
- loading,
- appSession,
- appUser,
- syncCategories,
- syncSubscriptions,
- uploadLocalCategories,
- uploadLocalData
- ]); // 依赖认证状态，确保作用域切换后再同步
-
- // 重置同步状态当用户登出时
- useEffect(() => {
- if (!appUser) {
- setHasInitialSync(false);
- }
- }, [appUser]);
+ });
 
  const handleAddSubscription = async (subscription: Subscription) => {
  try {
@@ -609,7 +579,6 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setActiveDataScope(GUEST_DATA_SCOPE);
  setSubscriptions(loadSubscriptions(GUEST_DATA_SCOPE));
  setNotificationSettings(loadNotificationSettings(GUEST_DATA_SCOPE));
- setHasInitialSync(false);
  setSelectedSubscription(null);
  setSelectedCategory(null);
  setUndoAction(null);

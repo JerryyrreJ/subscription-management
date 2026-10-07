@@ -1,9 +1,8 @@
-import { Dispatch, SetStateAction, useState, useCallback, useRef } from 'react'
+import { Dispatch, SetStateAction, useState, useCallback, useRef, useLayoutEffect } from 'react'
 import { User } from '@supabase/supabase-js'
-import { PendingSyncOperation, Subscription } from '../types'
+import { PendingSyncOperation, Subscription, SyncSubscriptionsResult } from '../types'
 import { SubscriptionService } from '../services/subscriptionService'
 import {
- clearPendingSyncOperations,
  enqueuePendingSyncOperation,
  loadLocalDataOwner,
  loadPendingSyncOperations,
@@ -12,10 +11,11 @@ import {
  saveSubscriptions
 } from '../utils/storage'
 import { config } from '../lib/config'
-import { buildPendingCreateOperations } from '../utils/subscriptionSync'
+import { buildPendingCreateOperations, reconcileSubscriptionSync } from '../utils/subscriptionSync'
 import { createSubscriptionRecord, updateSubscriptionRecord } from '../utils/subscriptionDomain'
 import { DataScope, GUEST_DATA_SCOPE, getUserDataScope } from '../utils/dataScope'
 import { createScopedTaskGate } from '../utils/scopedTaskGate'
+import { useAccountTaskGuard } from './useAccountTaskGuard'
 import {
  claimLocalDataOwnership,
  refreshLocalDataOwnership,
@@ -36,11 +36,16 @@ interface UseSyncReturn {
 }
 
 const subscriptionCloudTaskGate = createScopedTaskGate<DataScope>()
+const readLocalState = (scope: DataScope): SyncSubscriptionsResult => ({
+ subscriptions: loadSubscriptions(scope),
+ pendingOperations: loadPendingSyncOperations(scope),
+})
 
-const resolveUserScope = (user: User | null): DataScope =>
- resolveCurrentLocalDataScope(user?.id)
-
-const resolveCloudTargetScope = (user: User): DataScope => getUserDataScope(user.id)
+interface CloudTask {
+ owner: () => boolean
+ kind: 'sync' | 'upload'
+ promise: Promise<Subscription[]>
+}
 
 export function useSubscriptionSync(
  user: User | null,
@@ -48,372 +53,221 @@ export function useSubscriptionSync(
 ): UseSyncReturn {
  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
- const activeCloudTaskRef = useRef<Promise<Subscription[]> | null>(null)
+ const activeCloudTaskRef = useRef<CloudTask | null>(null)
  const statusResetTimeoutRef = useRef<number | null>(null)
+ const isCurrentAccount = useAccountTaskGuard(user?.id)
+
+ useLayoutEffect(() => {
+  setSyncStatus('idle')
+  setLastSyncTime(null)
+  return () => {
+   if (statusResetTimeoutRef.current !== null) window.clearTimeout(statusResetTimeoutRef.current)
+  }
+ }, [isCurrentAccount])
 
  const scheduleStatusReset = useCallback((nextStatus: SyncStatus, delayMs: number) => {
+  if (!isCurrentAccount()) return
   setSyncStatus(nextStatus)
-
-  if (statusResetTimeoutRef.current) {
-   window.clearTimeout(statusResetTimeoutRef.current)
-  }
-
+  if (statusResetTimeoutRef.current !== null) window.clearTimeout(statusResetTimeoutRef.current)
   statusResetTimeoutRef.current = window.setTimeout(() => {
-   setSyncStatus('idle')
+   if (isCurrentAccount()) setSyncStatus('idle')
    statusResetTimeoutRef.current = null
   }, delayMs)
- }, [])
+ }, [isCurrentAccount])
+
+ // Persist outside React state updaters so request completion can always read the
+ // latest local state, even before React has committed a foreground edit.
+ const persistSubscriptions = useCallback((scope: DataScope, subscriptions: Subscription[]) => {
+  saveSubscriptions(subscriptions, scope)
+  if (!isCurrentAccount()) return
+  setSubscriptions(subscriptions)
+  if (user) {
+   claimLocalDataOwnership(user.id, scope)
+  } else {
+   const owner = loadLocalDataOwner(GUEST_DATA_SCOPE)
+   if (owner) refreshLocalDataOwnership(owner.userId, GUEST_DATA_SCOPE)
+  }
+ }, [isCurrentAccount, setSubscriptions, user])
 
  const runCloudTask = useCallback(async (
-  task: () => Promise<Subscription[]>,
-  fallback: () => Subscription[]
+  scope: DataScope,
+  kind: CloudTask['kind'],
+  task: () => Promise<SyncSubscriptionsResult>
  ): Promise<Subscription[]> => {
-  if (activeCloudTaskRef.current) {
-   return activeCloudTaskRef.current
+  let existing = activeCloudTaskRef.current
+  while (existing?.owner === isCurrentAccount) {
+   if (kind === 'sync') return existing.promise
+   // An upload carries a specific payload; a running download cannot satisfy it.
+   await existing.promise
+   existing = activeCloudTaskRef.current
   }
+  if (!isCurrentAccount()) return loadSubscriptions(scope)
 
-  const activeTask = (async () => {
-   setSyncStatus('syncing')
+  const token = subscriptionCloudTaskGate.claim(scope)
+  const isCurrent = () => isCurrentAccount() && subscriptionCloudTaskGate.isCurrent(scope, token)
+  const activeTask: CloudTask = {
+   owner: isCurrentAccount,
+   kind,
+   promise: Promise.resolve().then(async () => {
+    try {
+     if (!isCurrent()) return loadSubscriptions(scope)
+     setSyncStatus('syncing')
+     const snapshot = readLocalState(scope)
+     const result = await task()
+     if (!isCurrent()) return loadSubscriptions(scope)
 
-   try {
-    const result = await task()
-    setLastSyncTime(new Date())
-    scheduleStatusReset('success', 3000)
-    return result
-   } catch (error) {
-    console.error('Cloud subscription task failed:', error)
-    scheduleStatusReset('error', 5000)
-    return fallback()
-   } finally {
-    activeCloudTaskRef.current = null
-   }
-  })()
-
+     const reconciled = reconcileSubscriptionSync(snapshot, readLocalState(scope), result)
+     savePendingSyncOperations(reconciled.pendingOperations, scope)
+     persistSubscriptions(scope, reconciled.subscriptions)
+     setLastSyncTime(new Date())
+     scheduleStatusReset(reconciled.pendingOperations.length ? 'error' : 'success', 3000)
+     return reconciled.subscriptions
+    } catch (error) {
+     console.error('Cloud subscription task failed:', error)
+     if (isCurrent()) scheduleStatusReset('error', 5000)
+     return loadSubscriptions(scope)
+    } finally {
+     subscriptionCloudTaskGate.release(scope, token)
+     if (activeCloudTaskRef.current === activeTask) activeCloudTaskRef.current = null
+    }
+   })
+  }
   activeCloudTaskRef.current = activeTask
-  return activeTask
- }, [scheduleStatusReset])
+  return activeTask.promise
+ }, [isCurrentAccount, persistSubscriptions, scheduleStatusReset])
 
- const queueOperation = useCallback((operation: Omit<PendingSyncOperation, 'id'>): PendingSyncOperation[] => {
- const scope = resolveUserScope(user)
- const pendingOperation: PendingSyncOperation = {
- id: crypto.randomUUID(),
- ...operation
- }
-
- return enqueuePendingSyncOperation(pendingOperation, scope)
- }, [user])
-
- const refreshOwnedGuestData = useCallback(() => {
-  if (user) {
-   return;
-  }
-
-  const owner = loadLocalDataOwner(GUEST_DATA_SCOPE);
-  if (owner) {
-   refreshLocalDataOwnership(owner.userId, GUEST_DATA_SCOPE);
-  }
- }, [user])
-
- const removeQueuedOperations = useCallback((subscriptionId: string) => {
- const scope = resolveUserScope(user)
- const remainingOperations = loadPendingSyncOperations(scope).filter(
- operation => operation.subscriptionId !== subscriptionId
- )
- savePendingSyncOperations(remainingOperations, scope)
- }, [user])
-
- // 同步订阅数据
  const syncSubscriptions = useCallback(async (): Promise<Subscription[]> => {
-  const scope = user ? resolveCloudTargetScope(user) : resolveUserScope(user)
+  const scope = user ? getUserDataScope(user.id) : resolveCurrentLocalDataScope(undefined)
+  if (!config.features.cloudSync || !user) return loadSubscriptions(scope)
+  return runCloudTask(scope, 'sync', () => {
+   const current = readLocalState(scope)
+   return SubscriptionService.syncSubscriptions(current.subscriptions, current.pendingOperations, user.id)
+  })
+ }, [runCloudTask, user])
 
-  if (!config.features.cloudSync || !user) {
-   console.log('Sync skipped:', { cloudSync: config.features.cloudSync, user: !!user })
-   return loadSubscriptions(scope)
-  }
-
-  if (activeCloudTaskRef.current) {
-   console.log('Sync joined existing cloud task')
-   return activeCloudTaskRef.current
-  }
-
-  console.log('Starting sync for user:', user.email)
-  const taskToken = subscriptionCloudTaskGate.claim(scope)
-  return runCloudTask(async () => {
-   const currentSubscriptions = loadSubscriptions(scope)
-   const pendingOperations = loadPendingSyncOperations(scope)
-   const syncResult = await SubscriptionService.syncSubscriptions(
-    currentSubscriptions,
-    pendingOperations
-   )
-
-   if (!subscriptionCloudTaskGate.isCurrent(scope, taskToken)) {
-    return loadSubscriptions(scope)
+ const uploadLocalData = useCallback(async (subscriptions: Subscription[]): Promise<Subscription[]> => {
+  if (!config.features.cloudSync || !user || subscriptions.length === 0) return subscriptions
+  const scope = getUserDataScope(user.id)
+  return runCloudTask(scope, 'upload', async () => {
+   const before = loadPendingSyncOperations(scope)
+   const result = await SubscriptionService.uploadLocalSubscriptions(subscriptions, user.id)
+   const uploadedIds = new Set(result.uploadedSubscriptions.map(sub => sub.id))
+   const pending = before.filter(op => op.type !== 'create' || !uploadedIds.has(op.subscriptionId))
+   const pendingIds = new Set(pending.map(op => op.subscriptionId))
+   return {
+    subscriptions: result.mergedLocalState,
+    pendingOperations: [...pending, ...buildPendingCreateOperations(
+     result.failedSubscriptions.filter(sub => !pendingIds.has(sub.id))
+    )],
    }
+  })
+ }, [runCloudTask, user])
 
-   setSubscriptions(syncResult.subscriptions)
-   saveSubscriptions(syncResult.subscriptions, scope)
-   savePendingSyncOperations(syncResult.pendingOperations, scope)
-   claimLocalDataOwnership(user.id, scope)
+ const queueOperation = (scope: DataScope, operation: Omit<PendingSyncOperation, 'id'>) => {
+  enqueuePendingSyncOperation({ id: crypto.randomUUID(), ...operation }, scope)
+ }
 
-   return syncResult.subscriptions
-  }, () => loadSubscriptions(scope))
- }, [runCloudTask, user, setSubscriptions])
+ const acknowledgeOperations = (scope: DataScope, submitted: PendingSyncOperation[]) => {
+  const fingerprints = new Set(submitted.map(op => JSON.stringify(op)))
+  savePendingSyncOperations(loadPendingSyncOperations(scope).filter(op =>
+   !fingerprints.has(JSON.stringify(op))
+  ), scope)
+ }
 
- // 上传本地数据到云端（用户首次登录时）
- const uploadLocalData = useCallback(async (localSubscriptions: Subscription[]): Promise<Subscription[]> => {
-  const scope = user ? resolveCloudTargetScope(user) : resolveUserScope(user)
-
-  if (!config.features.cloudSync || !user || localSubscriptions.length === 0) {
-   return localSubscriptions
-  }
-
-  if (activeCloudTaskRef.current) {
-   console.log('Upload joined existing cloud task')
-   return activeCloudTaskRef.current
-  }
-
- console.log('Uploading local data to cloud...')
- const taskToken = subscriptionCloudTaskGate.claim(scope)
- return runCloudTask(async () => {
-   const uploadResult = await SubscriptionService.uploadLocalSubscriptions(localSubscriptions)
-   const pendingOperations = buildPendingCreateOperations(uploadResult.failedSubscriptions)
-
-   if (!subscriptionCloudTaskGate.isCurrent(scope, taskToken)) {
-    return loadSubscriptions(scope)
-   }
-
-   setSubscriptions(uploadResult.mergedLocalState)
-   saveSubscriptions(uploadResult.mergedLocalState, scope)
-   claimLocalDataOwnership(user.id, scope)
-
-   if (pendingOperations.length > 0) {
-    savePendingSyncOperations(pendingOperations, scope)
-   } else {
-    clearPendingSyncOperations(scope)
-   }
-
-   return uploadResult.mergedLocalState
-  }, () => localSubscriptions)
- }, [runCloudTask, user, setSubscriptions])
-
- // 创建订阅（自动同步）
  const createSubscription = useCallback(async (subscription: Subscription | Omit<Subscription, 'id'>): Promise<Subscription> => {
- const scope = resolveUserScope(user)
- const normalizedSubscription = createSubscriptionRecord(subscription, {
- id: 'id' in subscription ? subscription.id : undefined,
- createdAt: subscription.createdAt,
- })
+  const scope = resolveCurrentLocalDataScope(user?.id)
+  const normalized = createSubscriptionRecord(subscription, {
+   id: 'id' in subscription ? subscription.id : undefined,
+   createdAt: subscription.createdAt,
+  })
+  const submitted = loadPendingSyncOperations(scope).filter(op => op.subscriptionId === normalized.id)
+  let saved = normalized
+  let cloudSynced = false
+  if (config.features.cloudSync && user) {
+   try {
+    saved = await SubscriptionService.createSubscription(normalized, user.id)
+    cloudSynced = true
+   } catch (error) {
+    console.error('Failed to save subscription online:', error)
+   }
+  }
+  if (cloudSynced) {
+   acknowledgeOperations(scope, submitted)
+   if (isCurrentAccount()) setLastSyncTime(new Date())
+  } else {
+   queueOperation(scope, { type: 'create', subscriptionId: saved.id, subscription: saved,
+    queuedAt: saved.updatedAt || new Date().toISOString() })
+  }
+  persistSubscriptions(scope, [...loadSubscriptions(scope).filter(sub => sub.id !== saved.id), saved])
+  return saved
+ }, [isCurrentAccount, persistSubscriptions, user])
 
- if (config.features.cloudSync && user) {
- try {
- // 在线模式：直接保存到云端
- const newSubscription = await SubscriptionService.createSubscription(normalizedSubscription)
- // 使用函数式更新，避免依赖陈旧的 subscriptions 状态
- setSubscriptions(prev => {
- const updated = [...prev, newSubscription]
- saveSubscriptions(updated, scope)
- if (user) {
-  claimLocalDataOwnership(user.id, scope)
- } else {
-  refreshOwnedGuestData()
- }
- return updated
- })
- removeQueuedOperations(newSubscription.id)
- setLastSyncTime(new Date())
- return newSubscription
- } catch (error) {
- console.error('Failed to save subscription online:', error)
- // 降级到离线模式
- setSubscriptions(prev => {
- const updated = [...prev, normalizedSubscription]
- saveSubscriptions(updated, scope)
- refreshOwnedGuestData()
- return updated
- })
- queueOperation({
- type: 'create',
- subscriptionId: normalizedSubscription.id,
- subscription: normalizedSubscription,
- queuedAt: normalizedSubscription.updatedAt || new Date().toISOString()
- })
- return normalizedSubscription
- }
- } else {
- // 离线模式：只保存到本地
- setSubscriptions(prev => {
- const updated = [...prev, normalizedSubscription]
- saveSubscriptions(updated, scope)
- refreshOwnedGuestData()
- return updated
- })
- queueOperation({
- type: 'create',
- subscriptionId: normalizedSubscription.id,
- subscription: normalizedSubscription,
- queuedAt: normalizedSubscription.updatedAt || new Date().toISOString()
- })
- return normalizedSubscription
- }
- }, [queueOperation, refreshOwnedGuestData, removeQueuedOperations, user, setSubscriptions])
-
- // 更新订阅（自动同步）
  const updateSubscription = useCallback(async (subscription: Subscription): Promise<Subscription> => {
- const scope = resolveUserScope(user)
- const currentSubscriptions = loadSubscriptions(scope)
- const existingSubscription = currentSubscriptions.find(sub => sub.id === subscription.id)
- const normalizedSubscription = updateSubscriptionRecord(
- existingSubscription || subscription,
- { ...existingSubscription, ...subscription }
- )
+  const scope = resolveCurrentLocalDataScope(user?.id)
+  const existing = loadSubscriptions(scope).find(sub => sub.id === subscription.id)
+  const normalized = updateSubscriptionRecord(existing || subscription, { ...existing, ...subscription })
+  const submitted = loadPendingSyncOperations(scope).filter(op => op.subscriptionId === normalized.id)
+  let saved = normalized
+  let cloudSynced = false
+  if (config.features.cloudSync && user) {
+   try {
+    saved = await SubscriptionService.updateSubscription(normalized, user.id)
+    cloudSynced = true
+   } catch (error) {
+    console.error('Failed to update subscription online:', error)
+   }
+  }
+  if (cloudSynced) {
+   acknowledgeOperations(scope, submitted)
+   if (isCurrentAccount()) setLastSyncTime(new Date())
+  } else {
+   queueOperation(scope, { type: 'update', subscriptionId: saved.id, subscription: saved,
+    baseUpdatedAt: existing?.updatedAt, queuedAt: saved.updatedAt || new Date().toISOString() })
+  }
+  persistSubscriptions(scope, loadSubscriptions(scope).map(sub => sub.id === saved.id ? saved : sub))
+  return saved
+ }, [isCurrentAccount, persistSubscriptions, user])
 
- if (config.features.cloudSync && user) {
- try {
- // 在线模式：同步到云端
- const updatedSubscription = await SubscriptionService.updateSubscription(normalizedSubscription)
- // 使用函数式更新，避免依赖陈旧的 subscriptions 状态
- setSubscriptions(prev => {
- const updated = prev.map(sub =>
- sub.id === updatedSubscription.id ? updatedSubscription : sub
- )
- saveSubscriptions(updated, scope)
- if (user) {
-  claimLocalDataOwnership(user.id, scope)
- } else {
-  refreshOwnedGuestData()
- }
- return updated
- })
- removeQueuedOperations(updatedSubscription.id)
- setLastSyncTime(new Date())
- return updatedSubscription
- } catch (error) {
- console.error('Failed to update subscription online:', error)
- // 降级到离线模式
- setSubscriptions(prev => {
- const updated = prev.map(sub =>
- sub.id === normalizedSubscription.id ? normalizedSubscription : sub
- )
- saveSubscriptions(updated, scope)
- refreshOwnedGuestData()
- return updated
- })
- queueOperation({
- type: 'update',
- subscriptionId: normalizedSubscription.id,
- subscription: normalizedSubscription,
- baseUpdatedAt: existingSubscription?.updatedAt,
- queuedAt: normalizedSubscription.updatedAt || new Date().toISOString()
- })
- return normalizedSubscription
- }
- } else {
- // 离线模式：只更新本地
- setSubscriptions(prev => {
- const updated = prev.map(sub =>
- sub.id === normalizedSubscription.id ? normalizedSubscription : sub
- )
- saveSubscriptions(updated, scope)
- refreshOwnedGuestData()
- return updated
- })
- queueOperation({
- type: 'update',
- subscriptionId: normalizedSubscription.id,
- subscription: normalizedSubscription,
- baseUpdatedAt: existingSubscription?.updatedAt,
- queuedAt: normalizedSubscription.updatedAt || new Date().toISOString()
- })
- return normalizedSubscription
- }
- }, [queueOperation, refreshOwnedGuestData, removeQueuedOperations, user, setSubscriptions])
-
- const updateSubscriptionsBatch = useCallback(async (updatedSubscriptions: Subscription[]): Promise<Subscription[]> => {
- const scope = resolveUserScope(user)
- const currentSubscriptions = loadSubscriptions(scope)
- const currentSubscriptionMap = new Map(currentSubscriptions.map(subscription => [subscription.id, subscription]))
- const changedSubscriptions = updatedSubscriptions.filter(updatedSubscription => {
- const currentSubscription = currentSubscriptionMap.get(updatedSubscription.id)
-
- if (!currentSubscription) {
- return true
- }
-
- return JSON.stringify(currentSubscription) !== JSON.stringify(updatedSubscription)
- })
-
- if (changedSubscriptions.length === 0) {
- return currentSubscriptions
- }
-
- await Promise.all(changedSubscriptions.map(subscription => updateSubscription(subscription)))
- return loadSubscriptions(scope)
+ const updateSubscriptionsBatch = useCallback(async (subscriptions: Subscription[]): Promise<Subscription[]> => {
+  const scope = resolveCurrentLocalDataScope(user?.id)
+  const current = new Map(loadSubscriptions(scope).map(sub => [sub.id, sub]))
+  await Promise.all(subscriptions.filter(sub => JSON.stringify(current.get(sub.id)) !== JSON.stringify(sub))
+   .map(sub => updateSubscription(sub)))
+  return loadSubscriptions(scope)
  }, [updateSubscription, user])
 
- // 删除订阅（自动同步）
  const deleteSubscription = useCallback(async (id: string): Promise<void> => {
- const scope = resolveUserScope(user)
- const currentSubscriptions = loadSubscriptions(scope)
- const existingSubscription = currentSubscriptions.find(subscription => subscription.id === id)
-
- if (config.features.cloudSync && user) {
- try {
- // 在线模式：从云端删除
- await SubscriptionService.deleteSubscription(id)
- // 使用函数式更新，避免依赖陈旧的 subscriptions 状态
- setSubscriptions(prev => {
- const updated = prev.filter(s => s.id !== id)
- saveSubscriptions(updated, scope)
- if (user) {
-  claimLocalDataOwnership(user.id, scope)
- } else {
-  refreshOwnedGuestData()
- }
- return updated
- })
- removeQueuedOperations(id)
- setLastSyncTime(new Date())
- } catch (error) {
- console.error('Failed to delete subscription online:', error)
- // 降级到离线模式：使用函数式更新
- setSubscriptions(prev => {
- const updated = prev.filter(s => s.id !== id)
- saveSubscriptions(updated, scope)
- refreshOwnedGuestData()
- return updated
- })
- queueOperation({
- type: 'delete',
- subscriptionId: id,
- baseUpdatedAt: existingSubscription?.updatedAt,
- queuedAt: new Date().toISOString()
- })
- }
- } else {
- // 离线模式：只从本地删除，使用函数式更新
- setSubscriptions(prev => {
- const updated = prev.filter(s => s.id !== id)
- saveSubscriptions(updated, scope)
- refreshOwnedGuestData()
- return updated
- })
- queueOperation({
- type: 'delete',
- subscriptionId: id,
- baseUpdatedAt: existingSubscription?.updatedAt,
- queuedAt: new Date().toISOString()
- })
- }
- }, [queueOperation, refreshOwnedGuestData, removeQueuedOperations, user, setSubscriptions])
+  const scope = resolveCurrentLocalDataScope(user?.id)
+  const existing = loadSubscriptions(scope).find(sub => sub.id === id)
+  const submitted = loadPendingSyncOperations(scope).filter(op => op.subscriptionId === id)
+  let cloudSynced = false
+  if (config.features.cloudSync && user) {
+   try {
+    await SubscriptionService.deleteSubscription(id, user.id)
+    cloudSynced = true
+   } catch (error) {
+    console.error('Failed to delete subscription online:', error)
+   }
+  }
+  if (cloudSynced) {
+   acknowledgeOperations(scope, submitted)
+   if (isCurrentAccount()) setLastSyncTime(new Date())
+  }
+  const hasConcurrentSync = activeCloudTaskRef.current?.owner === isCurrentAccount
+  if (!cloudSynced || hasConcurrentSync) {
+   if (hasConcurrentSync) {
+    // Keep a tombstone even for create -> delete pairs absent from both local
+    // snapshots: the running request might already have read/created the row.
+    savePendingSyncOperations(loadPendingSyncOperations(scope).filter(op => op.subscriptionId !== id), scope)
+   }
+   queueOperation(scope, { type: 'delete', subscriptionId: id,
+    baseUpdatedAt: existing?.updatedAt, queuedAt: new Date().toISOString() })
+  }
+  persistSubscriptions(scope, loadSubscriptions(scope).filter(sub => sub.id !== id))
+ }, [isCurrentAccount, persistSubscriptions, user])
 
  return {
- syncStatus,
- lastSyncTime,
- syncSubscriptions,
- uploadLocalData,
- createSubscription,
- updateSubscription,
- updateSubscriptionsBatch,
- deleteSubscription
+  syncStatus, lastSyncTime, syncSubscriptions, uploadLocalData,
+  createSubscription, updateSubscription, updateSubscriptionsBatch, deleteSubscription
  }
 }
