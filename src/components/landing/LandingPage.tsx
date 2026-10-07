@@ -22,6 +22,7 @@ import type { Theme } from '../../types';
 import { resolveAppUrl } from '../../utils/siteRouting';
 import { landingCopy } from './copy';
 import { getDocumentationUrl } from '../../lib/site';
+import { WEBSITE_PATH } from '../../utils/entryPreference';
 import './landing.css';
 
 type Copy = typeof landingCopy.en;
@@ -213,7 +214,7 @@ export default function LandingPage() {
         {c.skip}
       </a>
       <header className="landing-header landing-shell">
-        <a href="/" aria-label="SteadyRenew">
+        <a href={WEBSITE_PATH} aria-label="SteadyRenew">
           <Brand />
         </a>
         <nav
@@ -535,7 +536,7 @@ export default function LandingPage() {
       </main>
       <footer className="landing-footer landing-shell">
         <div>
-          <a href="/" aria-label="SteadyRenew">
+          <a href={WEBSITE_PATH} aria-label="SteadyRenew">
             <Brand />
           </a>
           <p>{c.footer}</p>

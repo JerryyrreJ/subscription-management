@@ -8,7 +8,8 @@
 
 | 地址 | 用途 | 平台 |
 | --- | --- | --- |
-| `https://steadyrenew.com` | landing page | 现有 Netlify site |
+| `https://steadyrenew.com` | 新访客看首页，已使用应用的浏览器直接进入 `/app` | 现有 Netlify site |
+| `https://steadyrenew.com/about` | 始终可主动访问的官网首页 | 同一 Netlify site |
 | `https://steadyrenew.com/blog`、`/zh/blog` | 英文、中文博客，保持文章 slug | 同一 Netlify site |
 | `https://steadyrenew.com/app` | 应用与登录、付款返回；API/Functions 保持主域名原有路径 | 同一 Netlify site |
 | `https://app.steadyrenew.com` | 兼容入口，根路径 301 到主域名 `/app`，其他路径原样转到主域名 | 同一 Netlify site |
@@ -34,6 +35,30 @@
 - 原 Supabase 生产项目已追加新域名和旧域名 `/app`、`/pricing` 回调，RP 显示名已改为 SteadyRenew。原 Site URL、RP ID、RP origins 与已有回调全部保留，记录见 [`supabase-auth-preparation.json`](../../ops/steadyrenew/supabase-auth-preparation.json)。修改前的 URL/RP 配置保存在本地忽略目录 `.netlify/steadyrenew/supabase-auth-before.json`。
 - 改名保留现有 localStorage key、API key 前缀、MCP 包名/下载地址/环境变量、仓库和托管项目标识，避免中断现有数据与客户端。Supabase 本地 RP 仅更新显示名称，RP ID 不变。文档中的历史截图及视频可能仍显示旧名。
 - `npm run check` 通过：类型检查、lint、172 个工具测试、137 个 Functions 测试和生产构建；Mintlify 文档校验通过。MCP 归档独立安装与 stdio 集成测试通过。三个迁移脚本的 Node 语法检查通过。
+- 根路径智能入口已实现并在本地 Netlify Edge 与浏览器验证，见下节；新增检查后 `npm run check` 通过 175 个工具测试、145 个 Functions/Edge 测试、类型检查、lint 和生产构建。该功能随迁移版本发布，当前线上尚未生效。
+
+## 根路径智能入口
+
+`netlify/edge-functions/smart-entry.ts` 在服务器端处理入口，使用非敏感 Cookie `steadyrenew_entry=app` 记录浏览器曾打开过应用。Cookie 有效期一年，作用于当前 host 的 `/`，使用 `SameSite=Lax`，HTTPS 下增加 `Secure`。它不包含账户信息，不是登录凭据，不参与 API 授权。
+
+- 新访客访问 `/` 仍显示首页。访问 `/app` 或 `/pricing` 的成功 HTML 响应会写入偏好，匿名使用也适用。
+- 带偏好访问 `/` 时，Edge 直接返回 **307** 到同域 `/app`，保留查询参数；不会请求或返回首页 HTML。`Location` 不覆盖 fragment，浏览器仍能保留 OAuth hash。
+- 登录及付款的旧根路径回调也会进入应用，API、webhook、博客与静态资源不经过这项偏好跳转。
+- `/about` 保留官网访问入口，应用页脚的「查看官网 / Visit website」指向这里。访问官网不会清除应用偏好；带认证回调的链接仍由应用处理。
+- 动态入口响应设置 `Cache-Control: private, no-store`、CDN `no-store` 和 `Vary: Cookie`，不使用永久重定向。Edge 不因 HEAD、预取、错误或非 HTML 响应写入偏好。
+
+现有 Supabase 登录状态保存在浏览器存储中，Edge 无法读取。对于上线前已经在同一 origin 使用过应用、尚无此 Cookie 的浏览器，入口脚本会先检查已有本地数据或 Supabase 存储 key 是否存在，直接选择应用代码并补写偏好，不先加载或渲染首页。第一次桥接仍需要入口脚本，后续根路径访问才是纯 HTTP 跳转。跨域迁移仍遵循下文的数据导出/登录流程；该偏好不会搬运旧域名的账户状态或数据。
+
+本地实际验证：无 Cookie 的 `/` 返回 200；访问 `/app` 设置 Cookie；再次访问 `/?utm_source=bookmark` 返回 307、`Location: /app?utm_source=bookmark` 和零字节响应正文；带 Cookie 的 `/about` 返回 200；仅带偏好访问 API 仍返回 401。浏览器验证了首页 → Open App → 根地址直接进入应用 → 查看官网，以及跳转前后查询参数、fragment 保留。
+
+部署后可用以下只读请求复核（也可将 origin 换成本地 Netlify Dev 地址）：
+
+```bash
+curl -sS -D - -o /dev/null https://steadyrenew.com/
+curl -sS -D - -o /dev/null https://steadyrenew.com/app
+curl -sS -D - -o /dev/null --cookie 'steadyrenew_entry=app' 'https://steadyrenew.com/?utm_source=bookmark'
+curl -sS -D - -o /dev/null --cookie 'steadyrenew_entry=app' https://steadyrenew.com/about
+```
 
 ## 现有权限与待办
 
@@ -132,7 +157,7 @@ Checkout 的 success/cancel URL 由 Functions 的 `SITE_URL` 生成，因此最�
 2. 应用 Cloudflare DNS，验证 Netlify/Mintlify 域名所有权和 HTTPS。
 3. 追加并验证 Auth 回调；保留旧域名、现有 RP 和旧支付回调。
 4. 在生产 Functions 环境配置新 `SITE_URL`，发布迁移版本；确认新旧应用入口分别工作。
-5. 检查新首页、应用、博客、文档、登录和已有数据，之后修改 Netlify primary domain 为 `steadyrenew.com`，将旧域名保留为 alias。确认主域名 `/` 展示首页、`/app` 展示应用，`app` 子域名根路径跳转到主域名 `/app`。
+5. 检查新首页、应用、博客、文档、登录和已有数据，之后修改 Netlify primary domain 为 `steadyrenew.com`，将旧域名保留为 alias。确认主域名 `/` 对新访客展示首页、对带应用偏好的浏览器返回 307 到 `/app`，`/about` 保留官网入口，`/app` 展示应用，`app` 子域名根路径跳转到主域名 `/app`。
 6. 核实新 webhook 可达后更新原 Stripe endpoint URL，验证投递；不要删除沙盒 endpoint。
 7. 验证旧博客 301、旧应用 200、新 sitemap、新文档，并安排 Passkey 过渡的独立验收。
 

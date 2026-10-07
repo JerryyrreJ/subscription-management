@@ -1,11 +1,13 @@
 import { Suspense, lazy } from 'react';
 import { isApplicationEntry, resolveAppUrl } from './utils/siteRouting';
+import { rememberApplicationEntry, shouldOpenApplication } from './lib/entryPreference';
 
 const appUrl = resolveAppUrl(import.meta.env.VITE_APP_URL);
 const applicationEntry = isApplicationEntry(
   new URL(window.location.href),
   appUrl,
-);
+) || (window.location.pathname === '/' && shouldOpenApplication());
+if (applicationEntry) rememberApplicationEntry();
 // Preserve legacy auth/payment links and keep reloads in the app after cleanup.
 if (applicationEntry && window.location.pathname === '/') {
   window.history.replaceState(

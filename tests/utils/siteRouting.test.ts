@@ -21,6 +21,9 @@ test('the main domain shows marketing while app and pricing links open the app',
   assert.equal(isApplicationEntry(url('/app')), true);
   assert.equal(isApplicationEntry(url('/app/')), true);
   assert.equal(isApplicationEntry(url('/pricing')), true);
+  assert.equal(isApplicationEntry(url('/about')), false);
+  assert.equal(isApplicationEntry(url('/about/')), false);
+  assert.equal(isApplicationEntry(url('/about#pricing')), false);
 });
 
 test('legacy domains preserve local data access while the new origin separates landing and app by path', () => {

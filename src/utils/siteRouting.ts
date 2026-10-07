@@ -1,13 +1,10 @@
-import { isLegacyApplicationOrigin } from './siteUrls';
+import { isLegacyApplicationOrigin } from './siteUrls.ts';
+import { WEBSITE_PATH } from './entryPreference.ts';
 
-/** Keep existing payment and authentication return links in the application. */
-export function isApplicationEntry(url: URL, appUrl = '/app'): boolean {
-  if (url.pathname !== '/') return true;
-  if (isLegacyApplicationOrigin(url.origin)) return true;
-
+export function hasApplicationCallback(url: URL): boolean {
   const query = url.searchParams;
   const hash = new URLSearchParams(url.hash.slice(1));
-  if (
+  return (
     [
       'payment',
       'session_id',
@@ -23,9 +20,15 @@ export function isApplicationEntry(url: URL, appUrl = '/app'): boolean {
       'error',
       'error_description',
     ].some((key) => hash.has(key))
-  ) {
-    return true;
-  }
+  );
+}
+
+/** Keep existing payment and authentication return links in the application. */
+export function isApplicationEntry(url: URL, appUrl = '/app'): boolean {
+  if (hasApplicationCallback(url)) return true;
+  if (url.pathname === WEBSITE_PATH || url.pathname === `${WEBSITE_PATH}/`) return false;
+  if (url.pathname !== '/') return true;
+  if (isLegacyApplicationOrigin(url.origin)) return true;
 
   // One build can serve the marketing domain and a dedicated app subdomain.
   const destination = new URL(appUrl, url.origin);

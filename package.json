@@ -40,6 +40,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@netlify/edge-functions": "^4.0.2",
     "@playwright/test": "^1.63.0",
     "@types/node": "22.19.21",
     "@types/react": "^18.3.5",
