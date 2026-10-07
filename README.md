@@ -152,6 +152,10 @@ docs-site/           Mintlify documentation site, split by language
 dev-docs/            Development notes and archived implementation drafts
 ```
 
+## Landing page
+
+The root URL `/` is the product landing page; the subscription app lives at `/app`. The page supports English, Simplified Chinese, light/dark themes and mobile layouts. Set `VITE_SITE_URL` for canonical metadata and `VITE_APP_URL` for the application entry (default `/app`, or an app subdomain). See the [domain configuration guide](docs/zh-CN/landing-page.md).
+
 ## Public guides
 
 `/blog` is a static content hub on the same domain as the app (`https://sub.jerrylu.xyz/blog`). Chinese guides use `/zh/blog`. Add a Markdown file to `content/blog/` — see [Public guides](docs/en/blog.md).

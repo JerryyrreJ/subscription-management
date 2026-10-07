@@ -188,7 +188,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  const closePricing = () => {
   setIsPricingModalOpen(false);
   const url = new URL(window.location.href);
-  if (url.pathname === '/pricing') url.pathname = '/';
+  if (url.pathname === '/pricing') url.pathname = '/app';
   url.searchParams.delete('payment');
   url.searchParams.delete('session_id');
   if (url.hash === '#pricing-compare') url.hash = '';

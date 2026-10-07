@@ -35,6 +35,10 @@ body {
   background: var(--app-canvas);
   transition: background-color .2s ease;
 }
+.entry-loading { min-height: 100dvh; display: grid; place-items: center; }
+.entry-loading span { width: 28px; height: 28px; border: 2px solid var(--app-border); border-top-color: #458168; border-radius: 50%; animation: entry-spin .8s linear infinite; }
+@keyframes entry-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .entry-loading span { animation: none; } }
 .app-theme-topbar,
 .app-theme-panel,
 .app-theme-card {

@@ -150,6 +150,10 @@ docs/                按语言拆分的公开文档
 dev-docs/            开发笔记和归档实现草稿
 ```
 
+## 产品首页
+
+根路径 `/` 是产品 landing page，订阅管理应用位于 `/app`。支持中英文、深浅色主题和移动端。可通过 `VITE_SITE_URL` 与 `VITE_APP_URL` 设置新主域名和应用子域名，详见 [Landing page 与域名配置](docs/zh-CN/landing-page.md)。
+
 ## 公开指南
 
 `/blog` 是与应用同域的静态内容中心（`https://sub.jerrylu.xyz/blog`）。中文指南在 `/zh/blog`。在 `content/blog/` 新增 Markdown 即可，见[公开指南](docs/zh-CN/blog.md)。

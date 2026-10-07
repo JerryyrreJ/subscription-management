@@ -351,7 +351,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  email,
  password,
  options: {
- emailRedirectTo: window.location.origin,
+ emailRedirectTo: new URL('/app', window.location.origin).toString(),
  data: {
  nickname: nickname || 'User'
  }
@@ -382,7 +382,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  const result = await supabase.auth.signInWithOAuth({
  provider,
  options: {
- redirectTo: window.location.origin
+ redirectTo: new URL('/app', window.location.origin).toString()
  }
  })
  return result

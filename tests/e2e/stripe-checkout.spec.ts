@@ -57,7 +57,7 @@ test('preview checkout: cancel, reuse, decline, pay, activate, refund', async ({
   expect(new URL(session.cancel_url!).origin).toBe(baseUrl);
   await expect(page.getByText('Sandbox', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: /^Back to / }).click();
-  await expect(page).toHaveURL(`${baseUrl}/?payment=cancelled`);
+  await expect(page).toHaveURL(`${baseUrl}/app?payment=cancelled`);
   await expect.poll(premium).toBe(false);
   // Cancelling/reopening must return the same reserved session, never a new charge.
   const retry = await request.post(`${baseUrl}/.netlify/functions/create-checkout-session`, { headers, data: {} });
