@@ -23,25 +23,26 @@ Do not use API keys in public browser code or shared prompts.
 
 1. Sign in.
 2. Open **Settings**.
-3. Go to **Developer API**.
+3. Go to **API & MCP**.
 4. Enter a key name.
-5. Create the key.
-6. Copy the full key immediately.
+5. Choose read/write or read-only permissions.
+6. Create the key.
+7. Copy the full key immediately, then use [Copy to Agent](/en/user-guide/agent-setup) to connect.
 
 The full key is shown only once. After that, the app only shows the key prefix.
 
 ## Revoke a key
 
-Open **Settings** > **Developer API** and revoke any key you no longer use. Revoking a key stops future API requests that use it.
+Open **Settings** > **API & MCP** and revoke any key you no longer use. Revoking a key stops future API requests that use it.
 
 ## Limits
 
-All signed-in users can create API keys. The server keeps shared abuse rate limits; Premium may raise internal ceilings, but those numbers are not a marketing differentiator on the pricing page. The Developer API screen shows your current plan, active key count, and hourly request limit.
+All signed-in users can create API keys. Defaults on both plans are 5 active keys and 60 requests per minute per account, shared across keys. The API & MCP screen shows your current plan and deployment limits.
 
 ## Safety tips
 
 - Use one key per integration.
 - Revoke keys that are no longer needed.
 - Rotate a key if it may have appeared in logs, screenshots, or prompts.
-- Prefer read-only keys for analysis-only agents when your deployment supports scoped key creation.
+- Choose read-only permissions for agents that only query or analyze data.
 

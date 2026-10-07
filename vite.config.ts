@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { blogPlugin } from './scripts/blog/plugin';
+import { agentAssetsPlugin } from './scripts/agent-assets';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -8,7 +9,7 @@ export default defineConfig({
     host: true, // 或者使用 '0.0.0.0'
     port: 5173
   },
-  plugins: [react(), blogPlugin()],
+  plugins: [react(), blogPlugin(), agentAssetsPlugin()],
   build: {
     rollupOptions: {
       output: {

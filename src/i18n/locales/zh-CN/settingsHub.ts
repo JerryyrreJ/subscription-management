@@ -13,7 +13,7 @@ export const settingsHub = {
   account: '账号',
   categories: '分类',
   notifications: '通知',
-  api: '开发者 API',
+  api: 'API & MCP',
  },
  profileFallback: '用户',
  generalTitle: '通用设置',

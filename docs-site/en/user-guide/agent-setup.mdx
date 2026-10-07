@@ -1,0 +1,79 @@
+---
+title: "Connect your agent"
+description: "Copy setup instructions to your agent and connect MCP or the API to manage subscriptions naturally."
+---
+
+## Connect in three steps
+
+<Steps>
+  <Step title="Create a key">
+    Sign in and open **Settings → API & MCP**. Create a separate key for your agent.
+    Choose **Read & write** to list, create, update, and delete subscriptions, or **Read only** for viewing and analysis.
+    The full key is shown only once. Save it privately.
+  </Step>
+  <Step title="Copy to Agent">
+    Choose **MCP · recommended** or **API only**, then click **Copy to Agent** at the top of the page.
+    Paste the instructions into an agent that can configure local tools or make HTTP requests.
+    By default the instructions contain no key; the agent guides you to supply it privately.
+    After creating a key, you can explicitly choose to include it in this copy. Paste that text only into an agent you trust.
+    Use **Preview instructions** to inspect the exact text.
+  </Step>
+  <Step title="Verify the connection">
+    The agent reads one subscription to verify access, without creating test records. An empty list also means success.
+    **Test API connection** on the settings page checks your key and API only; the agent must still test its own connection.
+    If the client needs a restart, ask the agent to query again afterward.
+  </Step>
+</Steps>
+
+After connecting, try:
+
+- “List all my subscriptions.”
+- “Add a subscription costing $20 per month.” (The agent asks for the name, renewal date, and other required details.)
+- “Change Netflix to $25.”
+- “Delete a duplicate subscription record.”
+
+The agent should confirm specific changes before writes, and the name and id before deletion. Deleting a tracking record does not cancel a service with its provider.
+
+## Choose MCP or API
+
+| Method | When to use it | What the agent does |
+| --- | --- | --- |
+| MCP (recommended) | Your client supports local stdio MCP servers | Checks Node.js 20+, downloads and installs the package, merges client configuration, and verifies a tool call |
+| API | Your agent can make authenticated HTTP requests | Reads the API contract, configures a private key, and verifies a query; no MCP installation required |
+
+**Download MCP** provides a standalone npm `.tgz` package containing the server and tool definitions. It ships with your website; no repository clone or public npm release is needed. Clients that only accept remote MCP URLs cannot use the package download URL as a server endpoint. There is currently no hosted remote MCP endpoint.
+
+If the agent cannot run local tools or make HTTP requests, a prompt alone cannot complete the connection.
+
+## Existing keys, self-hosting, and local data
+
+- Reuse an existing private key with the instructions; there is no need to create a key for every connection.
+- The app cannot recover a full key from an old prefix. If lost, create a replacement and revoke the old key.
+- The settings page uses the current website origin, including for self-hosted instances. Do not use the documentation host as the API host.
+- Only the current account’s cloud subscriptions are available. Sync browser-only records to that account first.
+- Defaults are 5 active keys and 60 requests per minute per account, shared across keys. The settings page shows your deployment’s actual limits.
+
+## Troubleshooting
+
+| Symptom | What to do |
+| --- | --- |
+| 401 / invalid key | Check the full key, revocation status, and site origin |
+| 403 `insufficient_scope` | A read-only key cannot write; use a read/write key for changes |
+| 403 on some analytics | Inspect the Premium entitlement error; core CRUD remains available on Free |
+| 429 | Wait for the response’s `Retry-After` interval |
+| HTML instead of JSON | Check API deployment; local development for this app requires `npm run dev:full` |
+| Configuration exists but MCP tools are unavailable | Check absolute Node and server paths, reload the client, then verify an actual tool call |
+| Clipboard access fails | Expand the preview and select and copy the text manually |
+
+Bark credentials, test pushes, timezone, language, and category catalog management remain in the web app. See [reminders](/en/user-guide/reminders) and [AI tool usage](/en/api/ai-tools).
+
+## Machine-readable entry points
+
+These paths are hosted on the **application website**:
+
+- `/agent/setup.md`: installation, configuration, verification, and recovery.
+- `/agent/ai-tools.json`: tool and parameter definitions.
+- `/agent/openapi.yaml`: the public API contract.
+- `/downloads/subscription-manager-mcp.tgz`: standalone MCP package.
+
+These public files contain no account keys. The settings page supplies the actual site origin in the generated prompt.

@@ -1,4 +1,15 @@
 /* Account surfaces use the same palette and geometry as the dashboard. */
+.agent-setup-card { display: flex; flex-direction: column; gap: 16px; border-color: var(--settings-accent) !important; }
+.agent-setup-icon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px; background: var(--settings-accent-soft); color: var(--settings-accent); }
+.agent-setup-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: .13em; text-transform: uppercase; color: var(--settings-accent); }
+.agent-setup-steps { display: flex; flex-wrap: wrap; gap: 12px 20px; padding: 14px 0; border-block: 1px solid var(--app-border); }
+.agent-setup-steps li { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--app-secondary); }
+.agent-setup-steps li span { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--settings-accent-soft); color: var(--settings-accent); font-size: 10px; font-weight: 600; }
+.agent-mode-option { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border: 1px solid var(--app-border); border-radius: 8px; font-size: 12px; color: var(--app-secondary); cursor: pointer; }
+.agent-mode-option:has(input:checked) { border-color: var(--settings-accent); background: var(--settings-accent-soft); color: var(--settings-accent); }
+.agent-mode-option input { accent-color: var(--settings-accent); }
+.agent-setup-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding-top: 14px; border-top: 1px solid var(--app-border); font-size: 12px; color: var(--app-secondary); }
+.agent-setup-footer :is(a, button):hover { color: var(--settings-accent); text-decoration: underline; }
 :root {
   --settings-accent: #24704d;
   --settings-accent-soft: #eaf2eb;

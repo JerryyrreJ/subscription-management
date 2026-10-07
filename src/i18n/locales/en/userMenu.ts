@@ -17,7 +17,7 @@ export const userMenu = {
  editNickname: 'Edit Nickname',
  changeEmail: 'Change Email',
  changePassword: 'Change Password',
- developerApi: 'Developer API',
+ developerApi: 'API & MCP',
  exportData: 'Export Data',
  importData: 'Import Data',
  notificationSettings: 'Notification Settings',

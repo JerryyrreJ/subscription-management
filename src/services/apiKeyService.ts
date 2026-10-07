@@ -5,6 +5,7 @@ export interface ApiKeyMetadata {
  createdAt: string;
  lastUsedAt: string | null;
  revokedAt: string | null;
+ scopes: ('read' | 'write')[];
 }
 
 export interface ApiKeyLimits {
@@ -90,6 +91,7 @@ const isApiKeyMetadata = (value: unknown): value is ApiKeyMetadata => {
   typeof value.name === 'string' &&
   typeof value.keyPrefix === 'string' &&
   typeof value.createdAt === 'string' &&
+  Array.isArray(value.scopes) && value.scopes.includes('read') && value.scopes.every(scope => scope === 'read' || scope === 'write') &&
   (typeof value.lastUsedAt === 'string' || value.lastUsedAt === null) &&
   (typeof value.revokedAt === 'string' || value.revokedAt === null);
 };
@@ -154,17 +156,29 @@ export class ApiKeyService {
   return parseListResponse(await parseApiResponse(response));
  }
 
- static async createApiKey(accessToken: string, name: string): Promise<ApiKeyCreateResponse> {
+ static async createApiKey(accessToken: string, name: string, scopes: ('read' | 'write')[] = ['read', 'write']): Promise<ApiKeyCreateResponse> {
   const response = await fetch(API_KEYS_ENDPOINT, {
    method: 'POST',
    headers: {
     ...authHeaders(accessToken),
     'Content-Type': 'application/json',
    },
-   body: JSON.stringify({ name }),
+   body: JSON.stringify({ name, scopes }),
   });
 
   return parseCreateResponse(await parseApiResponse(response));
+ }
+
+ static async verifyConnection(apiKey: string): Promise<void> {
+  const response = await fetch('/api/v1/subscriptions?limit=1', {
+   headers: authHeaders(apiKey),
+   redirect: 'error',
+   signal: AbortSignal.timeout(15_000),
+  });
+  const body = await parseApiResponse(response);
+  if (!isRecord(body) || !Array.isArray(body.data) || !isRecord(body.pagination)) {
+   throw new ApiKeyServiceError('invalid_api_response', 'Developer API returned an invalid subscription response');
+  }
  }
 
  static async revokeApiKey(accessToken: string, id: string): Promise<void> {

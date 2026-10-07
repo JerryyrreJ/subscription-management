@@ -131,6 +131,7 @@ AI capture can start from a sentence, a pasted bank/credit-card statement, or a 
 - [Payments with Stripe](docs/en/payments.md)
 - [AI capture](docs-site/en/integrations/ai-capture.mdx)
 - [Public API](docs/en/api.md)
+- [Connect your agent (Copy to Agent)](docs-site/en/user-guide/agent-setup.mdx)
 - [Changelog](CHANGELOG.md)
 
 ## Project Structure

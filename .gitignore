@@ -62,6 +62,8 @@ _temp/
 supabase/.branches/
 supabase/.temp/
 *.tmp
+mcp/schema/
+mcp/*.tgz
 *.temp
 *.swp
 *.swo
