@@ -1,4 +1,10 @@
 export const userMenu = {
+ accountMenu: '用户菜单',
+ localAccount: '本地空间',
+ localDescription: '数据保存在当前设备',
+ premiumAccount: 'Premium 会员',
+ premiumDescription: 'AI 录入、进阶报表与更多功能',
+ premiumActiveDescription: '你的高级功能已开通',
  neverSynced: '从未同步',
  syncedSecondsAgo: '{{count}} 秒前已同步',
  syncedMinutesAgo: '{{count}} 分钟前已同步',
@@ -18,6 +24,6 @@ export const userMenu = {
  categorySettings: '分类设置',
  languageSectionTitle: '语言',
  viewPricing: '查看定价',
- upgradeToPremium: '升级到高级版',
+ upgradeToPremium: '开通 Premium',
  signOut: '退出登录',
 };

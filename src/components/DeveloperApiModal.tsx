@@ -154,7 +154,7 @@ export function DeveloperApiModal({
  const canCreateKey = Boolean(limits && keys.length < limits.activeKeys);
 
   const content = (
-  <div className="flex flex-col h-full">
+  <div className={isStandalone ? "flex flex-col h-full" : "settings-page"}>
     {isStandalone && (
       <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-[#1a1c1e]/95 backdrop-blur-xl rounded-t-3xl">
         <div className="flex items-center gap-3">
@@ -162,8 +162,8 @@ export function DeveloperApiModal({
             <Code2 className="w-5 h-5 text-emerald-600 dark:text-emerald-300"/>
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('developerApi:title')}</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t('developerApi:subtitle')}</p>
+            <h2 className="text-xl font-semibold app-theme-text-primary">{t('developerApi:title')}</h2>
+            <p className="text-sm app-theme-text-muted">{t('developerApi:subtitle')}</p>
           </div>
         </div>
         <button
@@ -177,17 +177,17 @@ export function DeveloperApiModal({
     )}
 
     {!isStandalone && (
-      <div className="px-6 pt-2 pb-4">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
+      <div className="settings-page-heading">
+        <h2 className="text-xl font-semibold app-theme-text-primary mb-1">
           {t('developerApi:title')}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm app-theme-text-muted">
           {t('developerApi:subtitle')}
         </p>
       </div>
     )}
 
-    <div className="p-6 space-y-6">
+    <div className={isStandalone ? "p-6 space-y-6" : "space-y-5"}>
      {!accessToken ? (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-500/20 dark:bg-amber-500/10 p-4">
        <p className="text-sm text-amber-900 dark:text-amber-200 mb-3">{t('developerApi:loginRequired')}</p>
@@ -203,19 +203,19 @@ export function DeveloperApiModal({
       <>
        {limits && (
         <div className="grid sm:grid-cols-3 gap-3">
-         <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-4">
-          <p className="text-xs uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">{t('developerApi:plan')}</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">
+         <div className="settings-card p-4">
+          <p className="text-xs uppercase tracking-[0.16em] app-theme-text-muted">{t('developerApi:plan')}</p>
+          <p className="mt-2 text-lg font-semibold app-theme-text-primary">
            {limits.plan === 'premium' ? t('developerApi:premium') : t('developerApi:free')}
           </p>
          </div>
-         <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-4">
-          <p className="text-xs uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">{t('developerApi:activeKeys')}</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{keys.length}/{limits.activeKeys}</p>
+         <div className="settings-card p-4">
+          <p className="text-xs uppercase tracking-[0.16em] app-theme-text-muted">{t('developerApi:activeKeys')}</p>
+          <p className="mt-2 text-lg font-semibold app-theme-text-primary">{keys.length}/{limits.activeKeys}</p>
          </div>
-         <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-4">
-          <p className="text-xs uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">{t('developerApi:requests')}</p>
-          <p className="mt-2 text-lg font-semibold text-gray-900 dark:text-white">{limits.requestsPerMinute}/min</p>
+         <div className="settings-card p-4">
+          <p className="text-xs uppercase tracking-[0.16em] app-theme-text-muted">{t('developerApi:requests')}</p>
+          <p className="mt-2 text-lg font-semibold app-theme-text-primary">{limits.requestsPerMinute}/min</p>
          </div>
         </div>
        )}
@@ -236,35 +236,36 @@ export function DeveloperApiModal({
            {copied ? t('developerApi:copied') : t('developerApi:copy')}
           </button>
          </div>
-         <code className="mt-3 block w-full overflow-x-auto rounded-xl bg-white dark:bg-gray-950 px-3 py-2 text-xs text-gray-800 dark:text-gray-200">
+         <code className="mt-3 block w-full overflow-x-auto rounded-xl bg-white dark:bg-gray-950 px-3 py-2 text-xs app-theme-text-primary">
           {createdApiKey}
          </code>
         </div>
        )}
 
-       <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-        <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
+       <div className="settings-card">
+        <label htmlFor="settings-api-key-name" className="block text-sm font-medium app-theme-text-primary mb-2">
          {t('developerApi:keyName')}
         </label>
         <div className="flex flex-col sm:flex-row gap-3">
          <input
+          id="settings-api-key-name"
           value={newKeyName}
           onChange={event => setNewKeyName(event.target.value)}
           maxLength={80}
           disabled={!canCreateKey || submitting}
-          className="flex-1 px-4 py-3 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+          className="settings-input flex-1"
          />
          <button
           type="button"
           disabled={!canCreateKey || submitting}
           onClick={handleCreate}
-          className="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium transition-colors"
+          className="settings-button-primary"
          >
           {submitting ? t('developerApi:creating') : t('developerApi:createKey')}
          </button>
         </div>
         {!canCreateKey && limits && (
-         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+         <p className="text-xs app-theme-text-muted mt-2">
           {t('developerApi:keyLimitReached', { count: limits.activeKeys })}
          </p>
         )}
@@ -277,28 +278,28 @@ export function DeveloperApiModal({
        )}
 
        <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('developerApi:keys')}</h3>
+        <h3 className="text-sm font-semibold app-theme-text-primary">{t('developerApi:keys')}</h3>
         {loading ? (
-         <div className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{t('developerApi:loading')}</div>
+         <div className="py-8 text-center text-sm app-theme-text-muted">{t('developerApi:loading')}</div>
         ) : keys.length === 0 ? (
-         <div className="rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 py-8 text-center">
+         <div className="settings-inset py-8 text-center">
           <KeyRound className="w-8 h-8 mx-auto text-gray-400 mb-2"/>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('developerApi:noKeys')}</p>
+          <p className="text-sm app-theme-text-muted">{t('developerApi:noKeys')}</p>
          </div>
         ) : (
          keys.map(key => (
           <div
            key={key.id}
-           className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-gray-200 dark:border-gray-700 p-4"
+           className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 settings-card"
           >
            <div>
-            <div className="flex items-center gap-2">
-             <p className="font-medium text-gray-900 dark:text-white">{key.name}</p>
+            <div className="flex flex-wrap items-center gap-2">
+             <p className="font-medium app-theme-text-primary">{key.name}</p>
              <code className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-xs text-gray-600 dark:text-gray-300">
               {key.keyPrefix}...
              </code>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs app-theme-text-muted mt-1">
              {t('developerApi:createdAt', { date: formatDateTime(key.createdAt, t('developerApi:never')) })}
              {' · '}
              {t('developerApi:lastUsedAt', { date: formatDateTime(key.lastUsedAt, t('developerApi:never')) })}

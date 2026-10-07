@@ -171,17 +171,17 @@ export function PasskeySettingsSection() {
   }
 
   return (
-    <section className="rounded-2xl border border-gray-200/50 bg-white p-6 dark:border-white/10 dark:bg-white/5">
+    <section className="settings-card">
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-500/10">
-            <Fingerprint className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+          <div className="settings-section-icon">
+            <Fingerprint className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            <h3 className="text-sm font-semibold app-theme-text-primary">
               {t('accountModals:passkeyTitle')}
             </h3>
-            <p className="mt-1 max-w-xl text-sm leading-6 text-gray-500 dark:text-gray-400">
+            <p className="mt-1 max-w-xl text-sm leading-6 app-theme-text-muted">
               {t('accountModals:passkeyDescription')}
             </p>
           </div>
@@ -191,7 +191,7 @@ export function PasskeySettingsSection() {
           type="button"
           onClick={handleRegister}
           disabled={actionLoading || loading || !supported}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-teal-500 dark:hover:bg-teal-600"
+          className="settings-button-primary shrink-0"
         >
           {actionLoading ? (
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -229,12 +229,12 @@ export function PasskeySettingsSection() {
           {t('accountModals:passkeyLoading')}
         </div>
       ) : passkeys.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/80 px-4 py-8 text-center dark:border-white/10 dark:bg-white/[0.03]">
-          <Fingerprint className="mx-auto h-8 w-8 text-teal-500/70 dark:text-teal-400/70" />
-          <p className="mt-3 text-sm font-medium text-gray-800 dark:text-gray-200">
+        <div className="settings-inset px-4 py-6 text-center">
+          <Fingerprint className="mx-auto h-8 w-8 app-theme-text-muted" />
+          <p className="mt-3 text-sm font-medium app-theme-text-primary">
             {t('accountModals:passkeyEmptyTitle')}
           </p>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm app-theme-text-muted">
             {t('accountModals:passkeyEmptyBody')}
           </p>
         </div>
@@ -249,11 +249,11 @@ export function PasskeySettingsSection() {
             return (
               <li
                 key={passkey.id}
-                className="rounded-xl border border-gray-200/70 bg-gray-50/60 p-4 dark:border-white/10 dark:bg-white/[0.03]"
+                className="settings-inset p-4"
               >
                 {isEditing ? (
                   <div className="space-y-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-medium app-theme-text-secondary">
                       {t('accountModals:passkeyNameLabel')}
                     </label>
                     <input
@@ -262,7 +262,7 @@ export function PasskeySettingsSection() {
                       onChange={(e) => setEditingName(e.target.value)}
                       maxLength={120}
                       disabled={actionLoading}
-                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-teal-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                      className="settings-input"
                       placeholder={t('accountModals:passkeyNamePlaceholder')}
                     />
                     <div className="flex flex-wrap justify-end gap-2">
@@ -290,10 +290,10 @@ export function PasskeySettingsSection() {
                 ) : (
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                      <p className="truncate text-sm font-medium app-theme-text-primary">
                         {passkey.friendly_name || t('accountModals:passkeyUnnamed')}
                       </p>
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      <p className="mt-1 text-xs app-theme-text-muted">
                         {created && t('accountModals:passkeyCreatedAt', { date: created })}
                         {created && lastUsed ? ' · ' : null}
                         {lastUsed && t('accountModals:passkeyLastUsedAt', { date: lastUsed })}

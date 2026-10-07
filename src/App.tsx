@@ -19,6 +19,8 @@ import { SubscriptionDetailsModal } from './components/SubscriptionDetailsModal'
 import { EditSubscriptionModal } from './components/EditSubscriptionModal';
 import { Dashboard } from './components/Dashboard';
 import { SubscriptionCard } from './components/SubscriptionCard';
+import './styles/settings.css';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { ThemeToggle } from './components/ThemeToggle';
 import { UserMenu } from './components/UserMenu';
 import type { SettingsTab } from './components/SettingsHubModal';
@@ -130,7 +132,11 @@ export function App() {
  } = useAuth();
  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
- const [theme, setTheme] = useState<Theme>('light');
+ const [theme, setTheme] = useState<Theme>(() => {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+ });
  const [sortConfig, setSortConfig] = useState<SortConfig>({
  sortBy: 'nextPaymentDate',
  sortOrder: 'asc'
@@ -283,16 +289,6 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setExchangeRatesUpdatedAt(result.updatedAt ?? null);
  setExchangeRatesStale(Boolean(result.stale));
  setExchangeRateError(result.error);
- }, []);
-
- // 初始化数据和主题
- useEffect(() => {
- const savedTheme = localStorage.getItem('theme') as Theme | null;
- if (savedTheme) {
- setTheme(savedTheme);
- } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
- setTheme('dark');
- }
  }, []);
 
  const refreshExchangeRates = useCallback(async (currency: Currency) => {
@@ -847,9 +843,6 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  >
  <BarChart3 className="w-4 h-4"/>
  <span className="hidden sm:inline">{t('app:advancedReport')}</span>
- {!canUseAdvancedReport && (
-  <span className="hidden sm:inline text-xs text-amber-700 dark:text-amber-400">{t('app:premiumBadge')}</span>
- )}
  </button>
  )}
  </div>
@@ -883,7 +876,10 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  />
  )}
 
+ <div className="ml-auto flex items-center gap-2">
+ <LanguageSwitcher />
  <ThemeToggle theme={theme} onToggle={toggleTheme} />
+ </div>
  </div>
  </div>
 
@@ -1011,7 +1007,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  fallback={(
   <LazyModalFallback
    title={t('settingsHub:title')}
-   description={t('app:loadingNotificationSettingsDescription')}
+   description={t('settingsHub:loadingDescription')}
    onClose={() => setIsSettingsHubOpen(false)}
   />
  )}
@@ -1019,6 +1015,12 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   <SettingsHubModal
   isOpen={isSettingsHubOpen}
   onClose={() => setIsSettingsHubOpen(false)}
+  theme={theme}
+  onThemeChange={setTheme}
+  onPricingClick={() => {
+   setIsSettingsHubOpen(false);
+   setIsPricingModalOpen(true);
+  }}
   activeTab={settingsHubTab}
   user={appUser}
   userProfile={appUser ? userProfile : null}

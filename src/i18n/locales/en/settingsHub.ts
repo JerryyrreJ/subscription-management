@@ -1,6 +1,13 @@
 export const settingsHub = {
  title: 'Settings',
+ loadingDescription: 'Preparing your preferences…',
  close: 'Close settings',
+ subtitle: 'Make it feel like your own.',
+ appearanceTitle: 'Appearance',
+ appearanceDescription: 'Choose a light or dark workspace.',
+ lightTheme: 'Light',
+ darkTheme: 'Dark',
+ preferencesSaved: 'Language and appearance are saved automatically.',
  tabs: {
   general: 'General',
   account: 'Account',
@@ -10,7 +17,7 @@ export const settingsHub = {
  },
  profileFallback: 'User',
  generalTitle: 'General Settings',
- generalSubtitle: 'Manage language preferences and local data.',
+ generalSubtitle: 'Manage your language, appearance, and local data.',
  languageTitle: 'Language',
  languageDescription: 'Choose your preferred display language.',
  dataManagementTitle: 'Data Management',
