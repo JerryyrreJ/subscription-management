@@ -13,7 +13,7 @@
 | `https://steadyrenew.com/blog`、`/zh/blog` | 英文、中文博客，保持文章 slug | 同一 Netlify site |
 | `https://steadyrenew.com/app` | 应用与登录、付款返回；API/Functions 保持主域名原有路径 | 同一 Netlify site |
 | `https://app.steadyrenew.com` | 兼容入口，根路径 301 到主域名 `/app`，其他路径原样转到主域名 | 同一 Netlify site |
-| `https://docs.steadyrenew.com` | 文档，保持 `/en` 与 `/zh-CN` 路径 | 现有 Mintlify 项目 |
+| `https://steadyrenew.com/docs` | 文档，保留 `/docs/en` 与 `/docs/zh-CN` 路径 | Netlify Edge Function 转发至现有 Mintlify 项目 |
 | `https://sub.jerrylu.xyz` | 过渡期旧应用、旧认证回调、旧 API 客户端、本地数据导出 | 保留现有部署与 origin |
 
 结构化配置见 [`ops/steadyrenew/domains.json`](../../ops/steadyrenew/domains.json)。
@@ -143,7 +143,7 @@ Checkout 的 success/cancel URL 由 Functions 的 `SITE_URL` 生成，因此最�
 
 ## 4. Mintlify 与博客
 
-在已有 Mintlify 项目中添加 `docs.steadyrenew.com`，而不是新建空项目。使用项目界面给出的 CNAME 和验证记录，不能只复制旧 CNAME 就当作完成。
+在已有 Mintlify 项目 `subscriptionmanager` 中设置 `steadyrenew.com/docs`。主域名 DNS 保持指向 Netlify，只添加 Mintlify 后台提供的 TXT 验证记录，不添加 `@ → cname.mintlify.builders`。`netlify/edge-functions/docs-proxy.ts` 将 `/docs`、`/docs/*` 与验证路径转发到 `subscriptionmanager.mintlify.site`。
 
 保留旧 `docs.sub.jerrylu.xyz` 的过渡访问；确认新域名所有 `/en`、`/zh-CN` 和 API 页面正常后，配置旧文档域名到新文档域名的保留路径 301。旧域名现有 CNAME 指向 Mintlify，Netlify 的 redirect 规则无法控制它，应在 Mintlify 支持的域名重定向功能或旧域名所在 Cloudflare zone 中处理。
 

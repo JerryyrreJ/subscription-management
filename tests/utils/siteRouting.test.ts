@@ -14,13 +14,15 @@ import { APPLICATION_ORIGIN, APPLICATION_URL, LEGACY_APPLICATION_ORIGINS, market
 
 const url = (path: string) => new URL(path, 'https://example.com');
 
-test('the main domain shows marketing while app and pricing links open the app', () => {
+test('public home and pricing routes show marketing while app links open the app', () => {
   assert.equal(isApplicationEntry(url('/')), false);
   assert.equal(isApplicationEntry(url('/#pricing')), false);
   assert.equal(isApplicationEntry(url('/?utm_source=guide')), false);
   assert.equal(isApplicationEntry(url('/app')), true);
   assert.equal(isApplicationEntry(url('/app/')), true);
-  assert.equal(isApplicationEntry(url('/pricing')), true);
+  for (const path of ['/zh', '/zh/', '/pricing', '/pricing/', '/zh/pricing', '/zh/pricing/']) {
+    assert.equal(isApplicationEntry(url(path)), false, path);
+  }
   assert.equal(isApplicationEntry(url('/about')), false);
   assert.equal(isApplicationEntry(url('/about/')), false);
   assert.equal(isApplicationEntry(url('/about#pricing')), false);
@@ -37,8 +39,14 @@ test('legacy domains preserve local data access while the new origin separates l
   assert.equal(isApplicationEntry(new URL('https://steadyrenew.com/?payment=success')), true);
   assert.equal(marketingUrl('/zh/blog', APPLICATION_ORIGIN), 'https://steadyrenew.com/zh/blog');
   assert.equal(marketingUrl('/blog', 'https://preview.example.com'), 'https://preview.example.com/blog');
-  assert.equal(documentationUrl('user-guide/reminders', 'zh-CN'), 'https://docs.steadyrenew.com/zh-CN/user-guide/reminders');
-  assert.equal(documentationUrl('user-guide/agent-setup', 'en'), 'https://docs.steadyrenew.com/en/user-guide/agent-setup');
+  assert.equal(documentationUrl('user-guide/reminders', 'zh-CN'), 'https://steadyrenew.com/docs/zh-CN/user-guide/reminders');
+  assert.equal(documentationUrl('user-guide/agent-setup', 'en'), 'https://steadyrenew.com/docs/en/user-guide/agent-setup');
+});
+
+test('documentation links preserve a configured base path and trailing slash', () => {
+  assert.equal(documentationUrl('/user-guide/agent-setup', 'zh-Hans', 'https://example.com/docs/'), 'https://example.com/docs/zh-CN/user-guide/agent-setup');
+  assert.equal(documentationUrl('index', 'en-US', 'https://example.com/help/docs'), 'https://example.com/help/docs/en/index');
+  assert.equal(documentationUrl('index', 'en', 'https://docs.example.com'), 'https://docs.example.com/en/index');
 });
 
 test('legacy authentication and payment returns never land on marketing', () => {
@@ -52,6 +60,8 @@ test('legacy authentication and payment returns never land on marketing', () => 
     '/#error=access_denied',
     '/?payment=success&session_id=example',
     '/?payment=cancelled',
+    '/pricing?payment=success',
+    '/zh/pricing?code=example',
   ]) {
     assert.equal(isApplicationEntry(url(path)), true, path);
   }
@@ -88,6 +98,11 @@ test('a configured marketing domain updates blog metadata, sitemap and app links
     );
     assert.match(files['sitemap.xml'], /<loc>https:\/\/example.com\/<\/loc>/);
     assert.match(files['robots.txt'], /https:\/\/example.com\/sitemap.xml/);
+    assert.ok(files['robots.txt'].includes('Sitemap: https://example.com/docs/sitemap.xml'));
+    for (const path of ['/zh', '/pricing', '/zh/pricing']) {
+      assert.ok(files['sitemap.xml'].includes(`<loc>https://example.com${path}</loc>`));
+    }
+    assert.ok(!files['sitemap.xml'].includes('<loc>https://example.com/app</loc>'));
     assert.throws(() => configurePublicSite('https://example.com/subpath'));
   } finally {
     configurePublicSite();

@@ -164,7 +164,7 @@ export function App() {
   }
   setIsPricingModalOpen(true);
  };
- const [isPricingModalOpen, setIsPricingModalOpen] = useState(() => window.location.pathname === "/pricing" || new URLSearchParams(window.location.search).has("payment"));
+ const [isPricingModalOpen, setIsPricingModalOpen] = useState(() => window.location.pathname === "/pricing" || (new URLSearchParams(window.location.search).has("payment") || new URLSearchParams(window.location.search).get("pricing") === "1"));
  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
 const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');

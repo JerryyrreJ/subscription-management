@@ -30,8 +30,8 @@ test('new visitors and crawlers receive the landing without a preference cookie'
   }
 });
 
-test('direct app and pricing visits remember guests as well as signed-in users', async () => {
-  for (const path of ['/app', '/app/', '/pricing', '/pricing/']) {
+test('direct app visits remember guests as well as signed-in users', async () => {
+  for (const path of ['/app', '/app/']) {
     const response = await smartEntry(new Request(`https://steadyrenew.com${path}`), { next });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('set-cookie'), `${cookie}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`);
@@ -41,7 +41,7 @@ test('direct app and pricing visits remember guests as well as signed-in users',
 });
 
 test('visiting the website explicitly bypasses the redirect without forgetting the app preference', async () => {
-  for (const path of ['/about', '/about/']) {
+  for (const path of ['/about', '/about/', '/zh', '/zh/', '/pricing', '/pricing/', '/zh/pricing', '/zh/pricing/']) {
     const response = await smartEntry(new Request(`https://steadyrenew.com${path}`, { headers: { Cookie: cookie } }), { next });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('location'), null);

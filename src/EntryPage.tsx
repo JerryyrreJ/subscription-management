@@ -1,4 +1,6 @@
 import { Suspense, lazy } from 'react';
+import { getPublicPage } from './utils/publicPages';
+import i18n from './i18n';
 import { isApplicationEntry, resolveAppUrl } from './utils/siteRouting';
 import { rememberApplicationEntry, shouldOpenApplication } from './lib/entryPreference';
 
@@ -7,7 +9,12 @@ const applicationEntry = isApplicationEntry(
   new URL(window.location.href),
   appUrl,
 ) || (window.location.pathname === '/' && shouldOpenApplication());
-if (applicationEntry) rememberApplicationEntry();
+const publicPage = getPublicPage(window.location.pathname);
+if (!applicationEntry && publicPage) void i18n.changeLanguage(publicPage.locale);
+if (applicationEntry) {
+  rememberApplicationEntry();
+  document.querySelector('meta[name="robots"]')?.setAttribute('content', 'noindex, follow');
+}
 // Preserve legacy auth/payment links and keep reloads in the app after cleanup.
 if (applicationEntry && window.location.pathname === '/') {
   window.history.replaceState(
@@ -29,7 +36,7 @@ export function EntryPage() {
         </div>
       }
     >
-      <Page />
+      <Page pricingOnly={publicPage?.kind === 'pricing'} />
     </Suspense>
   );
 }

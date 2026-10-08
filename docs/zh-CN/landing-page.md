@@ -2,7 +2,7 @@
 
 `/` 展示产品首页，`/app` 打开订阅管理工具，`/pricing` 保留现有 Premium 页面。原来的付款返回、OAuth 和密码重置链接仍进入应用，并保留参数。指南继续位于 `/blog` 和 `/zh/blog`。
 
-首页支持中英文、深浅色主题、移动端和月／年示例切换。示例数据仅用于展示，不写入用户记录。应用按需加载，访问首页不会初始化 Supabase 登录或订阅同步。
+首页支持中英文、深浅色主题和移动端。产品预览使用实际 `/app` 页面截图，标注示例数据，点击可查看大图。示例数据不写入用户记录。应用按需加载，访问首页不会初始化 Supabase 登录或订阅同步。
 
 ## 同域部署
 
@@ -39,3 +39,22 @@ npm run dev
 ```
 
 打开终端给出的地址查看首页，追加 `/app` 查看应用。布局与交互由 `src/components/landing/LandingPage.tsx` 和 `landing.css` 管理；文案在同目录的 `copy.ts` 中。
+
+## 产品截图与品牌
+
+首页复用 `public/icon.png`，字体、颜色和卡片样式沿用应用。Blog、Docs 入口集中放在页脚。连接图展示 SteadyRenew → MCP → Claude / ChatGPT / Gemini，API 在说明中单独介绍。
+
+应用界面更新后，启动 `npm run dev`，运行 `node scripts/capture-landing.mjs`。脚本在隔离浏览器中添加四笔示例记录，使用实际页面和控件，生成中英文、深浅色四张截图。可用 `CAPTURE_ORIGIN` 指定本地服务器地址。
+
+文档链接基址为 `https://steadyrenew.com/docs`，通过 `VITE_DOCS_URL` 可覆盖；URL 拼接保留 `/docs` 路径。文档由 `netlify/edge-functions/docs-proxy.ts` 在 SPA fallback 之前转发至 `subscriptionmanager.mintlify.site`，保留 `/docs` 前缀、查询参数及 HTTP 方法，并禁用代理缓存。`/.well-known/vercel/*` 也转发用于域名验证；根路径的其他机器可读文件继续由应用提供。
+
+文案参考 [Google 的语气指南](https://developers.google.com/style/tone)：使用直接、具体的表达，减少口号和不提供信息的修饰。
+
+
+## 公开页面 SEO
+
+构建时通过 `scripts/prerender.ts` 渲染实际 LandingPage 组件，直接输出首页与价格页正文。
+英文地址为 `/`、`/pricing`，中文地址为 `/zh`、`/zh/pricing`；每页有独立标题、描述和 canonical，并通过 hreflang 互相对应。
+`/about` 保留为可绕过应用偏好的主页入口，canonical 指向 `/`。
+`/app` 与其他 SPA 路径使用独立的 noindex HTML 外壳。
+主 sitemap 包含公开页面与博客；robots.txt 同时声明主 sitemap 和 `/docs/sitemap.xml`。
