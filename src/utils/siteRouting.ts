@@ -1,5 +1,5 @@
 import { isLegacyApplicationOrigin } from './siteUrls.ts';
-import { WEBSITE_PATH } from './entryPreference.ts';
+import { getPublicPage } from './publicPages.ts';
 
 export function hasApplicationCallback(url: URL): boolean {
   const query = url.searchParams;
@@ -26,7 +26,7 @@ export function hasApplicationCallback(url: URL): boolean {
 /** Keep existing payment and authentication return links in the application. */
 export function isApplicationEntry(url: URL, appUrl = '/app'): boolean {
   if (hasApplicationCallback(url)) return true;
-  if (url.pathname === WEBSITE_PATH || url.pathname === `${WEBSITE_PATH}/`) return false;
+  if (url.pathname !== '/' && getPublicPage(url.pathname)) return false;
   if (url.pathname !== '/') return true;
   if (isLegacyApplicationOrigin(url.origin)) return true;
 

@@ -19,7 +19,7 @@ The setup uses the MCP server included in this repository and a Developer API ke
 3. Point your MCP client at `mcp/src/server.mjs` with `node`.
 4. Ask a read-only question first.
 5. Configure Bark in the web app if you want push reminders.
-6. Use the [API docs](https://docs.steadyrenew.com/en/api/overview) and [AI tools schema](https://steadyrenew.com/agent/ai-tools.json) when you need full detail.
+6. Use the [API docs](https://steadyrenew.com/docs/en/api/overview) and [AI tools schema](https://steadyrenew.com/agent/ai-tools.json) when you need full detail.
 
 ## How MCP connects to the API
 
@@ -133,7 +133,7 @@ Tool names match the documented schema one-for-one. Write tools need a write-sco
 
 - `list_audit_log`
 
-Full parameter schemas: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json). REST reference: [https://docs.steadyrenew.com/en/api/overview](https://docs.steadyrenew.com/en/api/overview).
+Full parameter schemas: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json). REST reference: [https://steadyrenew.com/docs/en/api/overview](https://steadyrenew.com/docs/en/api/overview).
 
 ## Limits to keep in mind
 
@@ -166,7 +166,7 @@ curl -sS https://steadyrenew.com/api/v1/subscriptions \
   -H "Authorization: Bearer subm_your_key_here"
 ```
 
-- Docs: [https://docs.steadyrenew.com/en/api/overview](https://docs.steadyrenew.com/en/api/overview)
+- Docs: [https://steadyrenew.com/docs/en/api/overview](https://steadyrenew.com/docs/en/api/overview)
 - Agent tool schema: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json)
 - OpenAPI: linked from the API docs (`openapi.yaml`)
 
@@ -175,7 +175,7 @@ Use MCP when you want an assistant in the loop. Use REST when you want a script,
 ## Reference links
 
 - Ledger: [https://steadyrenew.com/app](https://steadyrenew.com/app)
-- API docs: [https://docs.steadyrenew.com/en/api/overview](https://docs.steadyrenew.com/en/api/overview)
+- API docs: [https://steadyrenew.com/docs/en/api/overview](https://steadyrenew.com/docs/en/api/overview)
 - AI tools schema: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json)
 - MCP package: [github.com/JerryyrreJ/subscription-management/tree/main/mcp](https://github.com/JerryyrreJ/subscription-management/tree/main/mcp)
 - Fill the list first: [How to do a subscription audit](/blog/how-to-do-a-subscription-audit)

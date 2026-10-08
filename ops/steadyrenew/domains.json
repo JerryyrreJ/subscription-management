@@ -3,7 +3,7 @@
   "applicationOrigin": "https://steadyrenew.com",
   "applicationUrl": "https://steadyrenew.com/app",
   "applicationAliasOrigin": "https://app.steadyrenew.com",
-  "documentationOrigin": "https://docs.steadyrenew.com",
+  "documentationOrigin": "https://steadyrenew.com/docs",
   "netlifySiteId": "af6fc8cd-fba6-4c61-a6ef-990a1e303054",
   "netlifySiteName": "subscription-management",
   "netlifyAliases": ["steadyrenew.com", "www.steadyrenew.com", "app.steadyrenew.com"],
@@ -13,14 +13,13 @@
     {"type": "CNAME", "name": "www.steadyrenew.com", "content": "subscription-management.netlify.app", "proxied": false, "ttl": 1},
     {"type": "CNAME", "name": "app.steadyrenew.com", "content": "subscription-management.netlify.app", "proxied": false, "ttl": 1}
   ],
-  "docsDns": {
-    "name": "docs.steadyrenew.com",
-    "type": "CNAME",
-    "existingTarget": "cname.mintlify.builders",
-    "status": "Confirm target and verification records in the existing Mintlify project before adding DNS."
+  "docsProxy": {
+    "publicUrl": "https://steadyrenew.com/docs",
+    "upstreamOrigin": "https://subscriptionmanager.mintlify.site",
+    "status": "Netlify Edge Function proxies /docs; use only the TXT verification record supplied by Mintlify."
   },
   "productionRuntime": {"SITE_URL": "https://steadyrenew.com/app", "OPENROUTER_SITE_URL": "https://steadyrenew.com", "OPENROUTER_APP_TITLE": "SteadyRenew"},
-  "productionBuild": {"VITE_SITE_URL": "https://steadyrenew.com", "VITE_APP_URL": "/app", "VITE_DOCS_URL": "https://docs.steadyrenew.com"},
+  "productionBuild": {"VITE_SITE_URL": "https://steadyrenew.com", "VITE_APP_URL": "/app", "VITE_DOCS_URL": "https://steadyrenew.com/docs"},
   "productionSupabaseProject": "uikhflwvhhgifvbuhebi",
   "previewSupabaseProject": "acoynfyopsgbcfhqhhiv",
   "rollbackDeployId": "6ac60c2173a56900081c0bed",

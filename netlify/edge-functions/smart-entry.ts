@@ -2,7 +2,7 @@ import type { Config, Context } from '@netlify/edge-functions';
 import { applicationEntryCookie, prefersApplication } from '../../src/utils/entryPreference.ts';
 import { hasApplicationCallback } from '../../src/utils/siteRouting.ts';
 
-const applicationPaths = new Set(['/app', '/app/', '/pricing', '/pricing/']);
+const applicationPaths = new Set(['/app', '/app/']);
 const entryPaths = new Set(['/', '/about', '/about/', ...applicationPaths]);
 
 function privateResponse(response: Response): Response {

@@ -284,12 +284,16 @@ export function renderRobotsTxt(): string {
 Allow: /
 
 Sitemap: ${CANONICAL_ORIGIN}/sitemap.xml
+Sitemap: ${CANONICAL_ORIGIN}/docs/sitemap.xml
 `;
 }
 
 export function renderSitemap(posts: BlogPost[], generatedAt: string = new Date().toISOString().slice(0, 10)): string {
   const urls = [
-    { loc: canonicalUrl('/'), lastmod: generatedAt },
+    { loc: canonicalUrl('/'), lastmod: undefined },
+    { loc: canonicalUrl('/zh'), lastmod: undefined },
+    { loc: canonicalUrl('/pricing'), lastmod: undefined },
+    { loc: canonicalUrl('/zh/pricing'), lastmod: undefined },
     { loc: canonicalUrl(BLOG_PATH), lastmod: generatedAt },
     { loc: canonicalUrl(ZH_BLOG_PATH), lastmod: generatedAt },
     ...posts.map(post => ({
@@ -301,7 +305,7 @@ export function renderSitemap(posts: BlogPost[], generatedAt: string = new Date(
   const entries = urls
     .map(url => `  <url>
     <loc>${escapeHtml(url.loc)}</loc>
-    <lastmod>${escapeHtml(url.lastmod)}</lastmod>
+    ${url.lastmod ? `<lastmod>${escapeHtml(url.lastmod)}</lastmod>` : ''}
   </url>`)
     .join('\n');
 

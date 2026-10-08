@@ -20,7 +20,7 @@
 [context.production.environment]
   VITE_SITE_URL = "https://steadyrenew.com"
   VITE_APP_URL = "/app"
-  VITE_DOCS_URL = "https://docs.steadyrenew.com"
+  VITE_DOCS_URL = "https://steadyrenew.com/docs"
 
 # Preview application links must stay on the preview deployment.
 [context.deploy-preview.environment]
@@ -129,10 +129,34 @@
   to = "/zh/blog/:splat/index.html"
   status = 200
 
+# /docs and /.well-known/vercel/* are served by netlify/edge-functions/docs-proxy.ts
+# before these redirects. The main domain remains on Netlify.
+
+# Public HTML is generated at build time; only application paths use the SPA shell.
+[[redirects]]
+  from = "/about"
+  to = "/about/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/zh"
+  to = "/zh/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/pricing"
+  to = "/pricing/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/zh/pricing"
+  to = "/zh/pricing/index.html"
+  status = 200
+
 # Redirect rules for SPA
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to = "/app/index.html"
   status = 200
 
 # Headers for security

@@ -36,3 +36,13 @@ mint validate
 Create a Mintlify project at `https://mintlify.com/start`, connect this repository, and set the documentation path to `docs-site`.
 
 Do not move the files back into the root unless you also update the Mintlify project path.
+
+## Production subpath
+
+The public documentation URL is `https://steadyrenew.com/docs`. In Mintlify Domain setup, keep `steadyrenew.com/docs` as the custom domain and base path. The repository directory remains `docs-site`.
+
+Keep the root DNS record pointed at Netlify. Add Mintlify's TXT verification records as displayed in its dashboard; do not replace the root CNAME with Mintlify's target.
+
+`netlify/edge-functions/docs-proxy.ts` forwards `/docs`, `/docs/*`, and `/.well-known/vercel/*` to `https://subscriptionmanager.mintlify.site`, ahead of the SPA fallback. It preserves request bodies, status codes, and query strings, rewrites upstream documentation redirects to the public path, and disables intermediary caching. These are public docs: app cookies and authorization headers are not forwarded. Private Mintlify authentication would require a separate design.
+
+After deploying the Netlify site, verify both language pages, CSS/JS loading, search, `/docs/llms.txt`, and a missing-page 404. Source: [Mintlify reverse proxy guide](https://www.mintlify.com/docs/deploy/reverse-proxy).

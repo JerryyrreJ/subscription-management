@@ -5,13 +5,9 @@ import {
   ArrowUpRight,
   Bell,
   Check,
-  ChevronDown,
   Cloud,
-  Code2,
-  CreditCard,
   Download,
   Globe2,
-  Layers3,
   Moon,
   Plus,
   Sparkles,
@@ -22,162 +18,32 @@ import type { Theme } from '../../types';
 import { resolveAppUrl } from '../../utils/siteRouting';
 import { landingCopy } from './copy';
 import { getDocumentationUrl } from '../../lib/site';
-import { WEBSITE_PATH } from '../../utils/entryPreference';
+import { MARKETING_ORIGIN } from '../../utils/siteUrls';
 import './landing.css';
 
 type Copy = typeof landingCopy.en;
-const samples = [
-  { name: 'Netflix', symbol: 'N', amount: 15.49, className: 'netflix' },
-  { name: 'Spotify', symbol: '≋', amount: 10.99, className: 'spotify' },
-  { name: 'iCloud+', symbol: 'cloud', amount: 2.99, className: 'icloud' },
-  { name: 'Notion', symbol: 'N', amount: 10, className: 'notion' },
-];
 const appUrl = resolveAppUrl(import.meta.env.VITE_APP_URL);
-const monthlyTotal = samples.reduce((sum, sample) => sum + sample.amount, 0);
 
 function Brand() {
-  return (
-    <span className="landing-brand">
-      <span className="landing-brand-mark">
-        <Layers3 size={19} strokeWidth={1.7} />
-      </span>
-      <span>
-        SteadyRenew
-        <span className="landing-brand-dot">.</span>
-      </span>
-    </span>
-  );
+  return <span className="landing-brand"><img src="/icon.png" alt="" width="32" height="32" />SteadyRenew</span>;
 }
 
-function ProductPreview({ c }: { c: Copy }) {
-  const [yearly, setYearly] = useState(false);
+function ProductPreview({ c, language, theme }: { c: Copy; language: string; theme: Theme }) {
   return (
-    <figure className="landing-preview" aria-label={c.preview}>
-      <div className="landing-preview-topline">
-        <span>
-          <span className="landing-status-dot" />
-          {c.preview}
-        </span>
-        <span>{c.example}</span>
-      </div>
-      <div className="landing-preview-window">
-        <div className="landing-preview-toolbar">
-          <Brand />
-          <span className="landing-preview-avatar" aria-hidden="true">
-            J
-          </span>
-        </div>
-        <div className="landing-demo-overview">
-          <div className="landing-demo-total">
-            <div className="landing-demo-total-header">
-              <span>
-                <CreditCard size={15} />
-                {c.overview}
-              </span>
-              <div
-                className="landing-period"
-                role="group"
-                aria-label={c.period}
-              >
-                <button
-                  type="button"
-                  aria-pressed={!yearly}
-                  onClick={() => setYearly(false)}
-                >
-                  {c.monthly}
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={yearly}
-                  onClick={() => setYearly(true)}
-                >
-                  {c.yearly}
-                </button>
-              </div>
-            </div>
-            <p>{yearly ? c.yearTotal : c.monthTotal}</p>
-            <div className="landing-demo-amount" aria-live="polite">
-              <span>$</span>
-              {(monthlyTotal * (yearly ? 12 : 1)).toFixed(2)}
-              <small>USD</small>
-            </div>
-            <span className="landing-demo-active">
-              <span className="landing-status-dot" />
-              {c.active}
-            </span>
-          </div>
-          <div className="landing-demo-upcoming">
-            <span className="landing-micro-label">
-              <Bell size={13} />
-              {c.next}
-            </span>
-            <div className="landing-upcoming-row">
-              <span className="landing-service-icon spotify">≋</span>
-              <div>
-                <strong>Spotify</strong>
-                <span>{c.tomorrow}</span>
-              </div>
-              <b>$10.99</b>
-            </div>
-            <div className="landing-upcoming-row">
-              <span className="landing-service-icon icloud">
-                <Cloud size={19} />
-              </span>
-              <div>
-                <strong>iCloud+</strong>
-                <span>{c.inFive}</span>
-              </div>
-              <b>$2.99</b>
-            </div>
-          </div>
-        </div>
-        <div className="landing-demo-list-heading">
-          <h3>{c.subscriptions}</h3>
-          <span>
-            {c.all}
-            <ChevronDown size={12} />
-          </span>
-        </div>
-        <div className="landing-demo-cards">
-          {samples.map((sample, index) => (
-            <div className="landing-demo-card" key={sample.name}>
-              <div className="landing-demo-card-top">
-                <span className={`landing-service-icon ${sample.className}`}>
-                  {sample.symbol === 'cloud' ? (
-                    <Cloud size={22} />
-                  ) : (
-                    sample.symbol
-                  )}
-                </span>
-                <span className="landing-demo-category">
-                  {c.categories[index]}
-                </span>
-              </div>
-              <h4>{sample.name}</h4>
-              <p className="landing-demo-card-price">
-                ${(sample.amount * (yearly ? 12 : 1)).toFixed(2)}
-                <span>{yearly ? c.perYear : c.perMonth}</span>
-              </p>
-              <div className="landing-demo-card-date">
-                <span>{c.renews}</span>
-                <span>{c.dates[index]}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <figcaption>
-        <span>{c.previewNote}</span>
-        <span>{c.previewAside}</span>
-      </figcaption>
+    <figure className="landing-preview">
+      <a href={`/product-${language}-${theme}.jpg`} target="_blank" rel="noreferrer" aria-label={c.previewZoom}>
+        <img className="landing-product-image" src={`/product-${language}-${theme}.jpg`} alt={c.previewAlt} width="1440" height="860" fetchPriority="high" />
+      </a>
+      <figcaption>{c.example}</figcaption>
     </figure>
   );
 }
 
-export default function LandingPage() {
-  const { language, setLanguage } = useAppLanguage();
+export default function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean } = {}) {
+  const { language } = useAppLanguage();
   const c = landingCopy[language];
   const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'light';
     const saved = localStorage.getItem('theme');
     return saved === 'dark' || saved === 'light'
       ? saved
@@ -186,8 +52,11 @@ export default function LandingPage() {
         : 'light';
   });
   const guidesUrl = language === 'zh-CN' ? '/zh/blog' : '/blog';
-  const pricingUrl = new URL(appUrl, window.location.origin);
-  pricingUrl.pathname = '/pricing';
+  const homeUrl = language === 'zh-CN' ? '/zh' : '/about';
+  const publicPricingUrl = language === 'zh-CN' ? '/zh/pricing' : '/pricing';
+  const pricingUrl = new URL(appUrl, typeof window === 'undefined' ? MARKETING_ORIGIN : window.location.origin);
+  pricingUrl.searchParams.set('pricing', '1');
+  const PriceHeading = pricingOnly ? 'h1' : 'h2';
   const docsUrl = getDocumentationUrl('user-guide/agent-setup', language);
 
   useEffect(() => {
@@ -196,17 +65,17 @@ export default function LandingPage() {
   }, [theme]);
 
   useEffect(() => {
-    document.title = c.title;
+    document.title = pricingOnly ? `${c.pricing} — SteadyRenew` : c.title;
     document
       .querySelector('meta[name="description"]')
-      ?.setAttribute('content', c.description);
+      ?.setAttribute('content', pricingOnly ? c.priceIntro : c.description);
     document
       .querySelector('meta[property="og:title"]')
-      ?.setAttribute('content', c.title);
+      ?.setAttribute('content', pricingOnly ? `${c.pricing} — SteadyRenew` : c.title);
     document
       .querySelector('meta[property="og:description"]')
-      ?.setAttribute('content', c.description);
-  }, [c]);
+      ?.setAttribute('content', pricingOnly ? c.priceIntro : c.description);
+  }, [c, pricingOnly]);
 
   return (
     <div className="landing-page" lang={language}>
@@ -214,31 +83,28 @@ export default function LandingPage() {
         {c.skip}
       </a>
       <header className="landing-header landing-shell">
-        <a href={WEBSITE_PATH} aria-label="SteadyRenew">
+        <a href={homeUrl} aria-label="SteadyRenew">
           <Brand />
         </a>
         <nav
           className="landing-nav"
           aria-label={language === 'zh-CN' ? '主导航' : 'Main navigation'}
         >
-          <a href="#features">{c.features}</a>
-          <a href="#pricing">{c.pricing}</a>
-          <a href={guidesUrl}>{c.guides}</a>
+          <a href={pricingOnly ? `${homeUrl}#features` : '#features'}>{c.features}</a>
+          <a href={publicPricingUrl}>{c.pricing}</a>
+          <a href={getDocumentationUrl("index", language)}>{c.docs}</a>
         </nav>
         <div className="landing-header-actions">
-          <button
+          <a
             className="landing-icon-button landing-language"
-            type="button"
-            onClick={() =>
-              void setLanguage(language === 'zh-CN' ? 'en' : 'zh-CN')
-            }
+            href={language === 'zh-CN' ? (pricingOnly ? '/pricing' : '/about') : (pricingOnly ? '/zh/pricing' : '/zh')}
             aria-label={
               language === 'zh-CN' ? 'Switch to English' : '切换到简体中文'
             }
           >
             <Globe2 size={15} />
             <span>{language === 'zh-CN' ? 'EN' : '中'}</span>
-          </button>
+          </a>
           <button
             className="landing-icon-button"
             type="button"
@@ -262,6 +128,7 @@ export default function LandingPage() {
         </div>
       </header>
       <main id="main">
+        {!pricingOnly && <>
         <section
           className="landing-hero landing-shell"
           aria-labelledby="hero-title"
@@ -289,7 +156,7 @@ export default function LandingPage() {
           <p className="landing-reassurance">{c.reassurance}</p>
         </section>
         <div id="preview" className="landing-shell">
-          <ProductPreview c={c} />
+          <ProductPreview c={c} language={language} theme={theme} />
         </div>
         <div className="landing-benefits landing-shell">
           {c.benefits.map((benefit) => (
@@ -317,58 +184,15 @@ export default function LandingPage() {
           </div>
           <div className="landing-feature-grid">
             <article className="landing-feature-card">
-              <div className="landing-feature-art landing-reminder-art">
-                <div className="landing-reminder-orbit" aria-hidden="true" />
-                <div className="landing-reminder">
-                  <div className="landing-reminder-meta">
-                    <span>
-                      <span className="landing-notification-icon">
-                        <Layers3 size={12} />
-                      </span>
-                      {c.reminderApp}
-                    </span>
-                    <span>{c.reminderTime}</span>
-                  </div>
-                  <strong>{c.reminderExample}</strong>
-                  <p>{c.reminderDetail}</p>
-                </div>
-                <span className="landing-bell-badge" aria-hidden="true">
-                  <Bell size={21} strokeWidth={1.5} />
-                </span>
-              </div>
+              <Bell className="landing-feature-icon" size={24} aria-hidden="true" />
               <div className="landing-feature-copy">
-                <span className="landing-feature-index">01 — REMIND</span>
                 <h3>{c.reminderTitle}</h3>
                 <p>{c.reminderBody}</p>
               </div>
             </article>
             <article className="landing-feature-card">
-              <div className="landing-feature-art landing-capture-art">
-                <div className="landing-capture-prompt">
-                  <Sparkles size={15} />
-                  <span>{c.capturePrompt}</span>
-                </div>
-                <span
-                  className="landing-capture-connector"
-                  aria-hidden="true"
-                />
-                <div className="landing-capture-draft">
-                  <div>
-                    <span className="landing-service-icon netflix">N</span>
-                    <span>
-                      <strong>Netflix</strong>
-                      <small>{c.captureField}</small>
-                    </span>
-                    <b>$15.49</b>
-                  </div>
-                  <p>
-                    <Check size={12} />
-                    {c.captureDraft}
-                  </p>
-                </div>
-              </div>
+              <Sparkles className="landing-feature-icon" size={24} aria-hidden="true" />
               <div className="landing-feature-copy">
-                <span className="landing-feature-index">02 — CAPTURE</span>
                 <h3>{c.captureTitle}</h3>
                 <p>{c.captureBody}</p>
               </div>
@@ -406,29 +230,21 @@ export default function LandingPage() {
                 <ArrowUpRight size={15} />
               </a>
             </div>
-            <div className="landing-tools-visual">
-              <div className="landing-tools-node">
-                <Layers3 size={30} strokeWidth={1.3} />
-                <span>SteadyRenew</span>
-              </div>
+            <div className="landing-tools-visual" role="img" aria-label={c.toolsDiagram}>
+              <div className="landing-tools-node"><Brand /></div>
+              <div className="landing-tools-line" aria-hidden="true" />
+              <div className="landing-tools-protocol">MCP</div>
               <div className="landing-tools-line" aria-hidden="true" />
               <div className="landing-tools-clients">
-                <span>
-                  <Sparkles size={16} />
-                  Claude
-                </span>
-                <span>
-                  <Code2 size={16} />
-                  Codex
-                </span>
-                <span>
-                  <span className="landing-mcp-symbol">⌘</span>MCP
-                </span>
+                <span>Claude</span>
+                <span>ChatGPT</span>
+                <span>Gemini</span>
               </div>
               <p>{c.toolsNote}</p>
             </div>
           </div>
         </section>
+        </>}
         <section
           id="pricing"
           className="landing-pricing landing-shell"
@@ -436,18 +252,17 @@ export default function LandingPage() {
         >
           <div className="landing-centered-heading">
             <p className="landing-eyebrow">{c.priceLabel}</p>
-            <h2 id="pricing-title">
+            <PriceHeading id="pricing-title">
               {c.priceTitle}
               <br />
               <em>{c.priceAccent}</em>
-            </h2>
+            </PriceHeading>
             <p>{c.priceIntro}</p>
           </div>
           <div className="landing-plans">
             <article className="landing-plan">
               <div className="landing-plan-title">
                 <h3>{c.free}</h3>
-                <span>THE ESSENTIALS</span>
               </div>
               <p>{c.freeSubtitle}</p>
               <div className="landing-price">
@@ -474,7 +289,6 @@ export default function LandingPage() {
             <article className="landing-plan landing-plan-premium">
               <div className="landing-plan-title">
                 <h3>Premium</h3>
-                <span>THE LIFETIME PASS</span>
               </div>
               <p>{c.premium}</p>
               <div className="landing-price">
@@ -490,7 +304,7 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <a className="landing-button" href={pricingUrl.toString()}>
+              <a className="landing-button" href={pricingOnly ? pricingUrl.toString() : publicPricingUrl}>
                 {c.priceLink}
                 <ArrowUpRight size={16} />
               </a>
@@ -519,9 +333,6 @@ export default function LandingPage() {
           </div>
         </section>
         <section className="landing-closing landing-shell">
-          <span className="landing-closing-mark" aria-hidden="true">
-            <Layers3 size={25} strokeWidth={1.3} />
-          </span>
           <h2>
             {c.closing}
             <br />
@@ -536,7 +347,7 @@ export default function LandingPage() {
       </main>
       <footer className="landing-footer landing-shell">
         <div>
-          <a href={WEBSITE_PATH} aria-label="SteadyRenew">
+          <a href={homeUrl} aria-label="SteadyRenew">
             <Brand />
           </a>
           <p>{c.footer}</p>
@@ -546,6 +357,7 @@ export default function LandingPage() {
             aria-label={language === 'zh-CN' ? '页脚导航' : 'Footer navigation'}
           >
             <a href={guidesUrl}>{c.guides}</a>
+            <a href={getDocumentationUrl("index", language)}>{c.docs}</a>
             <a
               href="https://github.com/JerryyrreJ/subscription-management"
               target="_blank"
