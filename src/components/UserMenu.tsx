@@ -53,9 +53,19 @@ export function UserMenu({ user, userProfile, syncStatus, lastSyncTime, onOpenSe
       className="relative"
       ref={menuRef}
       onBlur={event => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
+        // Touch browsers can blur a focused button without focusing the tapped
+        // button. A null relatedTarget is not evidence of leaving the menu;
+        // unmounting here would discard the click that follows the blur.
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
       }}
       onKeyDown={event => {
+        if (event.key === 'Tab' && isOpen) {
+          // Let native Tab navigation finish before checking focus, including
+          // when it leaves the document and relatedTarget is null.
+          requestAnimationFrame(() => {
+            if (!menuRef.current?.contains(document.activeElement)) setIsOpen(false);
+          });
+        }
         if (event.key === 'Escape' && isOpen) {
           event.stopPropagation();
           setIsOpen(false);
