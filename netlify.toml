@@ -29,8 +29,9 @@
 [context.branch-deploy.environment]
   VITE_APP_URL = "/app"
 
-# The old application origin stays available for local-data export, auth
-# callbacks, passkeys and existing API clients. Only public blog pages move.
+# The old host moves entirely onto the apex domain. Each rule names
+# sub.jerrylu.xyz, so steadyrenew.com is not redirected. Blog rules stay
+# above the catch-all and keep the targets that already 301 correctly.
 [[redirects]]
   from = "https://sub.jerrylu.xyz/blog"
   to = "https://steadyrenew.com/blog"
@@ -52,6 +53,62 @@
 [[redirects]]
   from = "https://sub.jerrylu.xyz/zh/blog/*"
   to = "https://steadyrenew.com/zh/blog/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://sub.jerrylu.xyz/"
+  to = "https://steadyrenew.com/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://sub.jerrylu.xyz/"
+  to = "https://steadyrenew.com/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://sub.jerrylu.xyz/*"
+  to = "https://steadyrenew.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://sub.jerrylu.xyz/*"
+  to = "https://steadyrenew.com/:splat"
+  status = 301
+  force = true
+
+# www and plain HTTP land on https://steadyrenew.com. Netlify Force HTTPS
+# already answers port 80 when the connection reaches the load balancer.
+[[redirects]]
+  from = "http://www.steadyrenew.com/"
+  to = "https://steadyrenew.com/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://www.steadyrenew.com/*"
+  to = "https://steadyrenew.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://steadyrenew.com/"
+  to = "https://steadyrenew.com/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://steadyrenew.com/*"
+  to = "https://steadyrenew.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.steadyrenew.com/"
+  to = "https://steadyrenew.com/"
   status = 301
   force = true
 
@@ -167,6 +224,11 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+[[headers]]
+  for = "/llms.txt"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
 
 # Specific headers for Stripe webhook endpoint
 [[headers]]

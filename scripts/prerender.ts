@@ -6,6 +6,7 @@ import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { publicPages } from '../src/utils/publicPages.ts';
 import { landingCopy } from '../src/components/landing/copy.ts';
+import { jsonLdScript, marketingStructuredData } from '../src/utils/structuredData.ts';
 
 const root = process.cwd();
 const out = path.join(root, 'dist');
@@ -40,12 +41,16 @@ try {
     const copy = landingCopy[page.locale];
     const pricing = page.kind === 'pricing';
     const html = renderToString(createElement(LandingPage, { pricingOnly: pricing }));
-    const en = pricing ? '/pricing' : '/';
-    const zh = pricing ? '/zh/pricing' : '/zh';
+    const en = pricing ? '/pricing/' : '/';
+    const zh = pricing ? '/zh/pricing/' : '/zh/';
     const alternates = `<link rel="alternate" hreflang="en" href="${origin}${en}" />\n<link rel="alternate" hreflang="zh-CN" href="${origin}${zh}" />\n<link rel="alternate" hreflang="x-default" href="${origin}${en}" />`;
+    const structured = route === '/about' ? '' : `${jsonLdScript(marketingStructuredData({
+      description: pricing ? copy.priceIntro : copy.description,
+      inLanguage: page.locale,
+    }))}\n`;
     const result = head(template, pricing ? `${copy.pricing} — SteadyRenew` : copy.title, pricing ? copy.priceIntro : copy.description, origin + page.canonicalPath, page.locale, true)
       .replace('<div id="root"></div>', `<div id="root">${html}</div>`)
-      .replace('</head>', `${alternates}\n<link rel="stylesheet" href="/assets/${css[0]}" />\n</head>`);
+      .replace('</head>', `${alternates}\n${structured}<link rel="stylesheet" href="/assets/${css[0]}" />\n</head>`);
     const destination = path.join(out, route, 'index.html');
     await mkdir(path.dirname(destination), { recursive: true });
     await writeFile(destination, result);

@@ -5,6 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractFaqs, markdownToHtml, parseFrontmatter, toFrontmatter } from '../../scripts/blog/markdown.ts';
 import { buildPublicFiles } from '../../scripts/blog/generate.ts';
+import { postLanguageAlternates, renderBlogPost } from '../../scripts/blog/render.ts';
+import type { BlogPost } from '../../scripts/blog/posts.ts';
 import { loadPosts } from '../../scripts/blog/posts.ts';
 import {
   BLOG_PATH,
@@ -23,15 +25,15 @@ const zhPostPath = path.join(rootDir, 'content/blog/how-to-cancel-auto-renew.md'
 test('canonical URLs always use the custom domain, not a Netlify alias', () => {
   assert.equal(CANONICAL_ORIGIN, 'https://steadyrenew.com');
   assert.equal(canonicalUrl('/'), 'https://steadyrenew.com/');
-  assert.equal(canonicalUrl(BLOG_PATH), 'https://steadyrenew.com/blog');
-  assert.equal(canonicalUrl(ZH_BLOG_PATH), 'https://steadyrenew.com/zh/blog');
+  assert.equal(canonicalUrl(BLOG_PATH), 'https://steadyrenew.com/blog/');
+  assert.equal(canonicalUrl(ZH_BLOG_PATH), 'https://steadyrenew.com/zh/blog/');
   assert.equal(
     postCanonicalUrl('how-to-do-a-subscription-audit'),
-    'https://steadyrenew.com/blog/how-to-do-a-subscription-audit'
+    'https://steadyrenew.com/blog/how-to-do-a-subscription-audit/'
   );
   assert.equal(
     postCanonicalUrl('how-to-cancel-auto-renew', 'zh'),
-    'https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew'
+    'https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/'
   );
   assert.equal(
     postOutputPath('how-to-cancel-auto-renew', 'zh'),
@@ -126,18 +128,22 @@ test('public blog files list app and posts under the canonical host', () => {
 
   assert.equal(files['blog/how-to-cancel-auto-renew/index.html'], undefined);
 
-  assert.match(index, /rel="canonical" href="https:\/\/steadyrenew.com\/blog"/);
-  assert.match(zhIndex, /rel="canonical" href="https:\/\/steadyrenew.com\/zh\/blog"/);
+  assert.match(index, /rel="canonical" href="https:\/\/steadyrenew.com\/blog\/"/);
+  assert.match(zhIndex, /rel="canonical" href="https:\/\/steadyrenew.com\/zh\/blog\/"/);
   assert.match(
     article,
-    /rel="canonical" href="https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit"/
+    /rel="canonical" href="https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit\/"/
   );
   assert.match(
     zhArticle,
-    /rel="canonical" href="https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew"/
+    /rel="canonical" href="https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew\/"/
   );
+  assert.match(index, /hreflang="en" href="https:\/\/steadyrenew.com\/blog\/"/);
+  assert.match(index, /hreflang="zh-CN" href="https:\/\/steadyrenew.com\/zh\/blog\/"/);
+  assert.match(index, /hreflang="x-default" href="https:\/\/steadyrenew.com\/blog\/"/);
+  assert.match(zhIndex, /hreflang="en" href="https:\/\/steadyrenew.com\/blog\/"/);
   assert.match(zhArticle, /<html lang="zh">/);
-  assert.match(zhArticle, /href="\/zh\/blog"/);
+  assert.match(zhArticle, /href="\/zh\/blog\/"/);
   assert.doesNotMatch(index, /Draft outline/);
   assert.doesNotMatch(article, /Draft outline/);
   assert.doesNotMatch(zhIndex, /草稿提纲/);
@@ -145,7 +151,7 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.doesNotMatch(index, /如何盘点并关掉用不到的自动续费/);
   assert.doesNotMatch(zhIndex, /How to do a subscription audit/);
   assert.match(zhIndex, /如何盘点并关掉用不到的自动续费/);
-  assert.match(zhIndex, /href="\/zh\/blog\/how-to-cancel-auto-renew"/);
+  assert.match(zhIndex, /href="\/zh\/blog\/how-to-cancel-auto-renew\/"/);
   assert.match(article, /https:\/\/support.apple.com\/118428/);
   assert.match(article, /https:\/\/support.google.com\/googleplay\/answer\/7018481/);
   assert.match(article, /consumer.ftc.gov/);
@@ -159,20 +165,45 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.doesNotMatch(article, /hreflang=/);
 
   assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog\/<\/loc>/);
   assert.match(
     sitemap,
-    /<loc>https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit<\/loc>/
+    /<loc>https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit\/<\/loc>/
   );
   assert.match(
     sitemap,
-    /<loc>https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew<\/loc>/
+    /<loc>https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew\/<\/loc>/
   );
   assert.match(robots, /Sitemap: https:\/\/steadyrenew.com\/sitemap.xml/);
 
   const hrefs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
-  assert.ok(hrefs.every(url => url.startsWith('https://steadyrenew.com')));
+  assert.ok(hrefs.every(url => url.startsWith('https://steadyrenew.com') && url.endsWith('/')));
+});
+
+function pairedPost(lang: string, status: BlogPost['status'] = 'published', slug = 'shared-guide'): BlogPost {
+  return {
+    title: lang,
+    slug,
+    description: 'Desc',
+    date: '2026-01-02',
+    status,
+    lang,
+    bodyHtml: '<p>Body</p>',
+    faqs: [],
+    sourcePath: 'memory',
+  };
+}
+
+test('blog hreflang is emitted only for a published translation of the same slug', () => {
+  const en = pairedPost('en');
+  const zh = pairedPost('zh');
+  const paired = renderBlogPost(en, postLanguageAlternates(en, [en, zh]));
+  assert.match(paired, /hreflang="zh-CN" href="https:\/\/steadyrenew.com\/zh\/blog\/shared-guide\/"/);
+  assert.match(paired, /hreflang="en" href="https:\/\/steadyrenew.com\/blog\/shared-guide\/"/);
+  assert.doesNotMatch(renderBlogPost(en, postLanguageAlternates(en, [en])), /hreflang=/);
+  assert.doesNotMatch(renderBlogPost(en, postLanguageAlternates(en, [en, pairedPost('zh', 'draft')])), /hreflang=/);
+  assert.doesNotMatch(renderBlogPost(en, postLanguageAlternates(en, [en, pairedPost('zh', 'published', 'other-guide')])), /hreflang=/);
 });
 
 test('first post follows soft-CTA and claims rules from the writer brief', () => {

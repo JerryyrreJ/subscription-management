@@ -32,13 +32,15 @@ export function blogPath(lang?: string | null): string {
   return isZhLang(lang) ? ZH_BLOG_PATH : BLOG_PATH;
 }
 
-export function canonicalUrl(pathname: string): string {
-  if (pathname === '/') {
-    return `${CANONICAL_ORIGIN}/`;
-  }
-
+/** Public HTML URLs use a trailing slash, matching the server's 301. */
+export function publicPath(pathname: string): string {
+  if (pathname === '/' || pathname === '') return '/';
   const normalized = pathname.startsWith('/') ? pathname : `/${pathname}`;
-  return `${CANONICAL_ORIGIN}${normalized.replace(/\/+$/, '')}`;
+  return normalized.endsWith('/') ? normalized : `${normalized}/`;
+}
+
+export function canonicalUrl(pathname: string): string {
+  return `${CANONICAL_ORIGIN}${publicPath(pathname)}`;
 }
 
 export function postPath(slug: string, lang?: string | null): string {

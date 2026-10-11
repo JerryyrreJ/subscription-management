@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { BlogPost } from './posts.ts';
-import { renderBlogIndex, renderBlogPost, renderRobotsTxt, renderSitemap } from './render.ts';
+import { postLanguageAlternates, renderBlogIndex, renderBlogPost, renderRobotsTxt, renderSitemap } from './render.ts';
 import { isZhLang, postOutputPath } from './site.ts';
 
 export type GeneratedFile = {
@@ -18,7 +18,7 @@ export function buildPublicFiles(posts: BlogPost[], generatedAt = new Date().toI
     { filePath: 'zh/blog/index.html', contents: renderBlogIndex(zhPosts, 'zh') },
     ...posts.map(post => ({
       filePath: postOutputPath(post.slug, post.lang),
-      contents: renderBlogPost(post),
+      contents: renderBlogPost(post, postLanguageAlternates(post, posts)),
     })),
     { filePath: 'sitemap.xml', contents: renderSitemap(posts, generatedAt) },
     { filePath: 'robots.txt', contents: renderRobotsTxt() },
