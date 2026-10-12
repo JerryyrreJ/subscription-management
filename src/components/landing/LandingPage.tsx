@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAppLanguage } from '../../hooks/useAppLanguage';
 import type { Theme } from '../../types';
+import { FREE_PRICE_USD, PREMIUM_PRICE_USD } from '../../utils/pricingFacts';
 import { resolveAppUrl } from '../../utils/siteRouting';
 import { landingCopy } from './copy';
 import { getDocumentationUrl } from '../../lib/site';
@@ -267,7 +268,7 @@ export default function LandingPage({ pricingOnly = false }: { pricingOnly?: boo
               <p>{c.freeSubtitle}</p>
               <div className="landing-price">
                 <span>$</span>
-                <strong>0</strong>
+                <strong>{FREE_PRICE_USD}</strong>
                 <span>{c.forever}</span>
               </div>
               <ul>
@@ -293,7 +294,7 @@ export default function LandingPage({ pricingOnly = false }: { pricingOnly?: boo
               <p>{c.premium}</p>
               <div className="landing-price">
                 <span>$</span>
-                <strong>9</strong>
+                <strong>{PREMIUM_PRICE_USD}</strong>
                 <span>{c.once}</span>
               </div>
               <ul>

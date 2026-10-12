@@ -6,6 +6,7 @@ import { config } from '../lib/config';
 import { useAuth } from '../contexts/AuthContext';
 import { createCheckoutSession, pendingCheckout } from '../services/payment';
 import { useCheckoutVerification } from '../hooks/useCheckoutVerification';
+import { FREE_PRICE_USD, PREMIUM_PRICE_USD } from '../utils/pricingFacts';
 import { pricingCopy } from './pricing/copy';
 import './pricing/pricing.css';
 
@@ -87,7 +88,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
         <div className="pricing-pass-top"><span>{c.pass}</span><Sparkles size={19} /></div>
         <div className="pricing-pass-heading"><h2>Premium</h2><span className="pricing-pill">LIFETIME</span></div>
         <p className="pricing-pass-intro">{c.premiumIntro}</p>
-        <div className="pricing-price"><span className="pricing-dollar">$</span><strong>9</strong><span>{c.once}</span></div>
+        <div className="pricing-price"><span className="pricing-dollar">$</span><strong>{PREMIUM_PRICE_USD}</strong><span>{c.once}</span></div>
         <div className="pricing-perforation" aria-hidden="true" />
         <p className="pricing-included">{c.included}</p>
         <ul className="pricing-features">{features.map(({Icon, title, note}) => <li key={title}><Icon size={20} /><div><strong>{title}</strong><p>{note}</p></div></li>)}</ul>
@@ -112,7 +113,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
      </section>
      <section id="pricing-compare" className="pricing-comparison">
       <div className="pricing-section-heading"><p className="pricing-eyebrow">{c.detailLabel}</p><h2>{c.detailTitle}</h2><p>{c.detailIntro}</p></div>
-      <div className="pricing-table-wrap"><table><thead><tr><th scope="col">{c.capability}</th><th scope="col">Free <small>$0</small></th><th scope="col">Premium <small>$9</small></th></tr></thead><tbody>
+      <div className="pricing-table-wrap"><table><thead><tr><th scope="col">{c.capability}</th><th scope="col">Free <small>${`$${FREE_PRICE_USD}`}</small></th><th scope="col">Premium <small>${`$${PREMIUM_PRICE_USD}`}</small></th></tr></thead><tbody>
        {c.rows.map((row, index) => <tr key={row}><th scope="row">{row}</th><td>{index === 0 ? c.unlimited : index === 5 ? c.api : index === 6 ? '10' : index === 7 ? c.no : <><Check size={17} aria-hidden="true" /><span className="pricing-sr">{c.yes}</span></>}</td><td>{index === 0 ? c.unlimited : index === 5 ? c.api : index === 6 ? '300' : <><Check size={17} aria-hidden="true" /><span className="pricing-sr">{c.yes}</span></>}</td></tr>)}
       </tbody></table></div>
       <div className="pricing-smallprint"><p>{c.limits}</p><p>{c.quota}</p></div>

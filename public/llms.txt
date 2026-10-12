@@ -1,0 +1,48 @@
+# SteadyRenew
+
+> SteadyRenew is a personal subscription tracker for recurring costs and renewal dates. You add records yourself or from a screenshot; it does not connect to a bank.
+
+Free includes unlimited subscriptions, cloud sync, Bark renewal reminders, multi-currency totals, JSON import and export, 10 AI captures a month, and API and MCP access. Premium is a one-time $9 USD purchase (not a recurring fee) and raises AI captures to 300 a month, with advanced spending reports and PDF download.
+
+## Main pages
+
+- [Home](https://steadyrenew.com/): English homepage
+- [首页](https://steadyrenew.com/zh/): Chinese homepage
+- [Pricing](https://steadyrenew.com/pricing/): Free ($0) and Premium ($9 USD, paid once)
+- [价格](https://steadyrenew.com/zh/pricing/): Chinese pricing
+- [Guides](https://steadyrenew.com/blog/): English guides
+- [指南](https://steadyrenew.com/zh/blog/): Chinese guides
+- [App](https://steadyrenew.com/app): Subscription list, reminders, and account
+
+## Guides
+
+- [How to do a subscription audit](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/)
+- [How to choose a subscription tracker without linking your bank](https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/)
+- [Connect SteadyRenew to an MCP client](https://steadyrenew.com/blog/manage-subscriptions-with-mcp/)
+- [如何盘点并关掉用不到的自动续费](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/)
+
+## API and MCP
+
+- [API overview](https://steadyrenew.com/docs/en/api/overview): Subscriptions, notification settings, analytics, and audit
+- [API authentication](https://steadyrenew.com/docs/en/api/authentication): Bearer API keys
+- [Subscriptions API](https://steadyrenew.com/docs/en/api/subscriptions)
+- [MCP setup](https://steadyrenew.com/docs/en/user-guide/agent-setup): Local MCP client configuration
+- [Developer API keys](https://steadyrenew.com/docs/en/user-guide/developer-api-keys)
+- [中文 API 概览](https://steadyrenew.com/docs/zh-CN/api/overview)
+- [中文 MCP 接入](https://steadyrenew.com/docs/zh-CN/user-guide/agent-setup)
+- [Agent setup prompt](https://steadyrenew.com/agent/setup.md)
+- [OpenAPI description](https://steadyrenew.com/agent/openapi.yaml)
+- [MCP package](https://steadyrenew.com/downloads/subscription-manager-mcp.tgz): Downloadable local stdio server. There is no hosted remote MCP endpoint.
+
+API routes on this site:
+
+- `GET` `POST` https://steadyrenew.com/api/v1/subscriptions
+- `GET` `PATCH` https://steadyrenew.com/api/v1/notification-settings
+- `GET` https://steadyrenew.com/api/v1/analytics/summary
+- `GET` https://steadyrenew.com/api/v1/analytics/duplicates
+- `GET` https://steadyrenew.com/api/v1/analytics/optimizations
+- `GET` https://steadyrenew.com/api/v1/audit
+
+## Project
+
+- [Source](https://github.com/JerryyrreJ/subscription-management)

@@ -94,12 +94,12 @@ test('a configured marketing domain updates blog metadata, sitemap and app links
     );
     assert.match(
       files['blog/index.html'],
-      /rel="canonical" href="https:\/\/example.com\/blog"/,
+      /rel="canonical" href="https:\/\/example.com\/blog\/"/,
     );
     assert.match(files['sitemap.xml'], /<loc>https:\/\/example.com\/<\/loc>/);
     assert.match(files['robots.txt'], /https:\/\/example.com\/sitemap.xml/);
     assert.ok(files['robots.txt'].includes('Sitemap: https://example.com/docs/sitemap.xml'));
-    for (const path of ['/zh', '/pricing', '/zh/pricing']) {
+    for (const path of ['/zh/', '/pricing/', '/zh/pricing/']) {
       assert.ok(files['sitemap.xml'].includes(`<loc>https://example.com${path}</loc>`));
     }
     assert.ok(!files['sitemap.xml'].includes('<loc>https://example.com/app</loc>'));

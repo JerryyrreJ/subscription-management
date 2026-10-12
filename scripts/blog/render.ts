@@ -15,6 +15,7 @@ import {
   isZhLang,
   postCanonicalUrl,
   postPath,
+  publicPath,
 } from './site.ts';
 
 type BlogUiLang = 'en' | 'zh';
@@ -86,6 +87,40 @@ function formatDate(isoDate: string, lang?: string | null): string {
   }).format(date);
 }
 
+export type LanguageAlternate = { hreflang: string; href: string };
+
+export function languagePairAlternates(enHref: string, zhHref: string): LanguageAlternate[] {
+  return [
+    { hreflang: 'en', href: enHref },
+    { hreflang: 'zh-CN', href: zhHref },
+    { hreflang: 'x-default', href: enHref },
+  ];
+}
+
+/** hreflang only when a published post shares the slug in the other language. */
+export function postLanguageAlternates(post: BlogPost, posts: BlogPost[]): LanguageAlternate[] | null {
+  if (post.status !== 'published') return null;
+  const counterpart = posts.find(other =>
+    other.slug === post.slug &&
+    other.status === 'published' &&
+    isZhLang(other.lang) !== isZhLang(post.lang)
+  );
+  if (!counterpart) return null;
+  const en = isZhLang(post.lang) ? counterpart : post;
+  const zh = isZhLang(post.lang) ? post : counterpart;
+  return languagePairAlternates(
+    postCanonicalUrl(en.slug, en.lang),
+    postCanonicalUrl(zh.slug, zh.lang),
+  );
+}
+
+function alternateLinks(alternates?: LanguageAlternate[] | null): string {
+  if (!alternates?.length) return '';
+  return alternates
+    .map(item => `<link rel="alternate" hreflang="${escapeHtml(item.hreflang)}" href="${escapeHtml(item.href)}" />`)
+    .join('\n    ');
+}
+
 function layout(options: {
   title: string;
   description: string;
@@ -93,13 +128,14 @@ function layout(options: {
   lang?: string;
   type?: 'website' | 'article';
   jsonLd?: unknown[];
+  alternates?: LanguageAlternate[] | null;
   bodyClass?: string;
   content: string;
 }): string {
   const lang = options.lang ?? 'en';
   const type = options.type ?? 'website';
   const copy = uiCopy(lang);
-  const guidesHref = blogPath(lang);
+  const guidesHref = publicPath(blogPath(lang));
   const jsonLdBlocks = (options.jsonLd ?? [])
     .map(block => `<script type="application/ld+json">${jsonLd(block)}</script>`)
     .join('\n    ');
@@ -112,6 +148,7 @@ function layout(options: {
     <title>${escapeHtml(options.title)}</title>
     <meta name="description" content="${escapeHtml(options.description)}" />
     <link rel="canonical" href="${escapeHtml(options.canonical)}" />
+    ${alternateLinks(options.alternates)}
     <meta name="robots" content="index,follow" />
     <meta property="og:site_name" content="${escapeHtml(SITE_NAME)}" />
     <meta property="og:type" content="${type}" />
@@ -157,7 +194,7 @@ export function renderBlogIndex(posts: BlogPost[], lang: string = 'en'): string 
   const pageTitle = uiLang(lang) === 'zh' ? ZH_BLOG_INDEX_TITLE : BLOG_INDEX_TITLE;
   const items = posts
     .map(post => {
-      const href = postPath(post.slug, post.lang);
+      const href = publicPath(postPath(post.slug, post.lang));
       const badge = post.status === 'draft'
         ? `<span class="badge">${uiLang(lang) === 'zh' ? '草稿提纲' : 'Draft outline'}</span>`
         : '';
@@ -176,6 +213,7 @@ export function renderBlogIndex(posts: BlogPost[], lang: string = 'en'): string 
     description: copy.indexDescription,
     canonical,
     lang: uiLang(lang),
+    alternates: languagePairAlternates(canonicalUrl(BLOG_PATH), canonicalUrl(ZH_BLOG_PATH)),
     jsonLd: [
       {
         '@context': 'https://schema.org',
@@ -196,7 +234,7 @@ export function renderBlogIndex(posts: BlogPost[], lang: string = 'en'): string 
         <p class="eyebrow">${escapeHtml(copy.indexEyebrow)}</p>
         <h1>${escapeHtml(copy.indexTitle)}</h1>
         <p class="lede">${escapeHtml(copy.indexDescription)}</p>
-        <p class="muted"><a href="${copy.otherLangHref}">${escapeHtml(copy.otherLangLabel)}</a></p>
+        <p class="muted"><a href="${publicPath(copy.otherLangHref)}">${escapeHtml(copy.otherLangLabel)}</a></p>
       </header>
       <ol class="post-list">
         ${items}
@@ -225,10 +263,10 @@ function faqJsonLd(canonical: string, faqs: FaqItem[]): Record<string, unknown> 
   };
 }
 
-export function renderBlogPost(post: BlogPost): string {
+export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] | null = null): string {
   const canonical = postCanonicalUrl(post.slug, post.lang);
   const copy = uiCopy(post.lang);
-  const indexPath = blogPath(post.lang);
+  const indexPath = publicPath(blogPath(post.lang));
   const draftNotice = post.status === 'draft' ? copy.draftBanner : '';
 
   const jsonLd = [
@@ -262,6 +300,7 @@ export function renderBlogPost(post: BlogPost): string {
     lang: post.lang,
     type: 'article',
     jsonLd,
+    alternates,
     bodyClass: 'blog-body article-body',
     content: `
       <article class="article">

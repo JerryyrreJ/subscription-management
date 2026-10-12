@@ -87,6 +87,23 @@ test('API, webhook, blog, assets and non-navigation methods pass through untouch
   }
 });
 
+test('the legacy host redirects to the same path on the marketing origin', async () => {
+  const home = await smartEntry(new Request('https://sub.jerrylu.xyz/?utm_source=bookmark', { headers: { Cookie: cookie } }), {
+    next: async () => { throw new Error('legacy host must not render'); },
+  });
+  assert.equal(home.status, 301);
+  assert.equal(home.headers.get('location'), 'https://steadyrenew.com/?utm_source=bookmark');
+
+  const app = await smartEntry(new Request('https://sub.jerrylu.xyz/app/?pricing=1'), {
+    next: async () => { throw new Error('legacy host must not render'); },
+  });
+  assert.equal(app.status, 301);
+  assert.equal(app.headers.get('location'), 'https://steadyrenew.com/app/?pricing=1');
+
+  const current = await smartEntry(new Request('https://steadyrenew.com/'), { next });
+  assert.equal(current.status, 200);
+});
+
 test('local HTTP can remember entry without a Secure cookie, and redirects stay on the request origin', async () => {
   const response = await smartEntry(new Request('http://localhost:8888/app'), { next });
   assert.equal(response.headers.get('set-cookie')?.includes('Secure'), false);

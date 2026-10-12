@@ -15,6 +15,7 @@ import {
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent, maskEmail } from './_shared/logging';
 import { createSupabaseAdminClient, createSupabaseAuthClient } from './_shared/supabase';
+import { PREMIUM_PRICE_CURRENCY, PREMIUM_UNIT_AMOUNT_CENTS } from '../../src/utils/pricingFacts';
 
 interface CheckoutSession {
   id: string;
@@ -92,7 +93,7 @@ export const createCheckoutHandler = (
     if (isPremiumPurchase) {
       const price = await dependencies.stripe.prices.retrieve(dependencies.stripeConfig.priceId);
       const expectsLive = dependencies.stripeConfig.secretKey.startsWith('sk_live_') || dependencies.stripeConfig.secretKey.startsWith('rk_live_');
-      if (!price.active || price.type !== 'one_time' || price.currency !== 'usd' || price.unit_amount !== 900 || price.livemode !== expectsLive) {
+      if (!price.active || price.type !== 'one_time' || price.currency !== PREMIUM_PRICE_CURRENCY || price.unit_amount !== PREMIUM_UNIT_AMOUNT_CENTS || price.livemode !== expectsLive) {
         throw new HttpError(503, 'invalid_premium_price', 'Premium checkout is temporarily unavailable');
       }
     }
