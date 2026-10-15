@@ -19,7 +19,7 @@ description: "复制一段说明，让 Agent 帮你配置 MCP 或 API，用自�
   </Step>
   <Step title="验证连接">
     Agent 会读取一条订阅验证连接，不会创建测试数据。没有订阅的空列表也表示成功。
-    页面上的 **测试 API 连接** 只能验证密钥和 API；Agent 仍需完成自己的连接测试。
+    **测试 API 连接** 始终位于 **设置 → API & MCP**。刚创建密钥时会直接测试该密钥；离开页面后，把已保存的密钥粘贴到按钮旁的输入框。它只验证密钥和 API；Agent 仍需完成自己的连接测试。
     如果客户端需要重启，重启后让 Agent 再查询一次。
   </Step>
 </Steps>
@@ -37,10 +37,10 @@ description: "复制一段说明，让 Agent 帮你配置 MCP 或 API，用自�
 
 | 方式 | 适用情况 | Agent 需要做什么 |
 | --- | --- | --- |
-| MCP（推荐） | 客户端支持本地 stdio MCP 服务器 | 检查 Node.js 20+，下载安装包，安装并合并配置，然后调用工具验证 |
+| MCP（推荐） | 客户端支持本地 stdio MCP 服务器 | 检查 Node.js 20+，在空目录下载并安装，合并配置，然后调用工具验证 |
 | API | Agent 可以发送带密钥的 HTTP 请求 | 读取 API 定义，保存私有密钥并验证查询；无需安装 MCP |
 
-**下载 MCP** 提供独立的 npm `.tgz` 安装包，内含服务器与工具定义。它随当前网站发布，无需克隆源码或等待 npm 公共包发布。只支持远程 MCP URL 的客户端不能把下载地址作为 MCP 服务地址；当前没有托管的远程 MCP 端点。
+**下载 MCP** 提供独立的 npm `.tgz` 安装包，内含服务器与工具定义。它随当前网站发布，无需克隆源码或等待 npm 公共包发布。请在空目录用 npm 10 或更高版本安装。npm 9.2 在已有项目或 workspace 里会报 `Tracker "idealTree" already exists`；此时解压安装包，在 `package/` 目录执行 `bun install --ignore-scripts`。服务器仍需要环境变量 `SUBSCRIPTION_MANAGER_BASE_URL` 和 `SUBSCRIPTION_MANAGER_API_KEY`。只支持远程 MCP URL 的客户端不能把下载地址作为 MCP 服务地址；当前没有托管的远程 MCP 端点。
 
 如果 Agent 既不能运行本地工具，也不能调用 HTTP 接口，仅复制提示词还不足以完成连接。
 
@@ -62,6 +62,7 @@ description: "复制一段说明，让 Agent 帮你配置 MCP 或 API，用自�
 | 429 | 等待响应中的 `Retry-After` 指定时间后重试 |
 | 返回网页而不是 JSON | 检查 API 部署；本项目本地调试需使用 `npm run dev:full` |
 | MCP 配置已写入但工具不可用 | 检查 Node 路径与服务器绝对路径，重载客户端后调用工具验证 |
+| 安装 MCP 时出现 `Tracker "idealTree" already exists` | 在空目录使用 npm 10+，或解压 `.tgz` 后用 bun 安装 |
 | 剪贴板不可用 | 展开预览并手动选中复制 |
 
 Bark 地址、测试推送、时区、语言与分类目录仍在网页中管理。详见[提醒指南](/zh-CN/user-guide/reminders)和 [AI 工具说明](/zh-CN/api/ai-tools)。

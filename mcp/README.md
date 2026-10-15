@@ -43,15 +43,28 @@ The instructions use that website's origin and can optionally include a newly
 created key. The public guide is served at `/agent/setup.md`.
 
 Download `/downloads/subscription-manager-mcp.tgz` from your website, then install
-it in a persistent private directory:
+it in an empty persistent private directory. Do not install it inside this
+repository, another npm project, or a workspace:
 
 ```bash
 npm install --ignore-scripts ./subscription-manager-mcp.tgz
 ```
 
+Use npm 10 or newer (current Node.js 20 releases include it). npm 9.2 fails in an
+existing project with `Tracker "idealTree" already exists`. Unpack and use bun
+when that happens:
+
+```bash
+tar -xzf subscription-manager-mcp.tgz
+cd package
+bun install --ignore-scripts
+```
+
 Configure a local stdio MCP client to run Node with the absolute path to
-`node_modules/subscription-manager-mcp/src/server.mjs`. The archive includes its
-tool schema; no repository checkout is needed. Node.js 20+ is required. This is a
+`node_modules/subscription-manager-mcp/src/server.mjs` (or `package/src/server.mjs`
+after the bun unpack). The archive includes its tool schema; no repository
+checkout is needed. Node.js 20+ is required, along with
+`SUBSCRIPTION_MANAGER_BASE_URL` and `SUBSCRIPTION_MANAGER_API_KEY`. This is a
 downloadable local server, not a hosted remote MCP endpoint. Direct API access is
 available for agents that can make HTTP requests but cannot run local servers.
 

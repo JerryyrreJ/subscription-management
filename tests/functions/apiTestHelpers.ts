@@ -10,6 +10,7 @@ export interface QueryState {
   table: string;
   operation: 'select' | 'insert' | 'update' | 'delete';
   filters: Record<string, unknown>;
+  columns?: string;
   payload?: unknown;
   order?: { column: string; ascending: boolean };
 }
@@ -27,7 +28,8 @@ class FakeQueryBuilder implements PromiseLike<QueryResult> {
     };
   }
 
-  select(): this {
+  select(columns?: string): this {
+    this.state.columns = columns;
     this.state.operation = this.state.operation === 'select' ? 'select' : this.state.operation;
     return this;
   }

@@ -9,6 +9,7 @@ test('agent setup uses the current deployment, with no credential by default', (
  assert.ok(!prompt.includes('sub.jerrylu.xyz'));
  assert.ok(!prompt.includes('SUBSCRIPTION_MANAGER_API_KEY='));
  assert.ok(prompt.includes('stdio MCP'));
+ assert.ok(prompt.includes('idealTree'));
 });
 
 test('API-only setup and explicit key inclusion are supported in both languages', () => {
@@ -18,5 +19,6 @@ test('API-only setup and explicit key inclusion are supported in both languages'
   assert.ok(prompt.includes('SUBSCRIPTION_MANAGER_API_KEY=subm_example.private'));
   assert.ok(prompt.includes('http://localhost:8888/agent/openapi.yaml'));
   assert.ok(prompt.includes('GET /api/v1/subscriptions?limit=1'));
+  assert.ok(prompt.includes('idealTree'));
  }
 });
