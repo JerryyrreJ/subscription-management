@@ -13,7 +13,9 @@ export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
  const [copyError, setCopyError] = useState(false);
  const [verification, setVerification] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
  const [verificationError, setVerificationError] = useState('');
+ const [pastedKey, setPastedKey] = useState('');
  const [showPrompt, setShowPrompt] = useState(false);
+ const keyToTest = apiKey?.trim() || pastedKey.trim() || null;
  const prompt = buildAgentSetupPrompt({ origin: window.location.origin, locale: i18n.language, mode, apiKey: includeKey ? apiKey ?? undefined : undefined });
  const guideUrl = getDocumentationUrl('user-guide/agent-setup', i18n.language);
 
@@ -38,10 +40,10 @@ export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
   }
  };
  const verify = async () => {
-  if (!apiKey) return;
+  if (!keyToTest) return;
   setVerification('pending');
   try {
-   await ApiKeyService.verifyConnection(apiKey);
+   await ApiKeyService.verifyConnection(keyToTest);
    setVerification('success');
   } catch (error) {
    setVerification('error');
@@ -92,13 +94,32 @@ export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
     {copyError && t('agentCopyFailed')}
    </div>
    {showPrompt && <textarea id="agent-prompt-preview" aria-label={t('agentPreview')} className="settings-input w-full text-xs leading-relaxed font-mono" rows={10} readOnly value={prompt} onFocus={event => event.currentTarget.select()} />}
+   {!apiKey && (
+    <label className="block text-xs app-theme-text-muted leading-relaxed" htmlFor="agent-verify-key">
+     {t('agentVerifyKey')}
+     <input
+      id="agent-verify-key"
+      type="password"
+      autoComplete="off"
+      spellCheck={false}
+      className="settings-input w-full mt-1 font-mono"
+      value={pastedKey}
+      placeholder={t('agentVerifyKeyPlaceholder')}
+      onChange={event => {
+       setPastedKey(event.target.value);
+       setVerification('idle');
+       setVerificationError('');
+      }}
+     />
+    </label>
+   )}
    <div className="agent-setup-footer">
     <a href={guideUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1">{t('agentGuide')}<ArrowUpRight size={14} aria-hidden="true" /></a>
     <a href="/downloads/subscription-manager-mcp.tgz" download className="inline-flex items-center gap-1"><Download size={14} aria-hidden="true" />{t('agentDownload')}</a>
-    {apiKey && <button type="button" onClick={() => void verify()} disabled={verification === 'pending'} className="inline-flex items-center gap-1 disabled:opacity-50">
+    <button type="button" data-testid="test-api-connection" onClick={() => void verify()} disabled={!keyToTest || verification === 'pending'} className="inline-flex items-center gap-1 disabled:opacity-50">
      {verification === 'pending' && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
      {t('agentVerify')}
-    </button>}
+    </button>
    </div>
    <p aria-live="polite" className={`text-xs leading-relaxed ${verification === 'error' ? 'text-red-600 dark:text-red-300' : 'app-theme-text-muted'}`}>
     {verification === 'success' ? t('agentVerified') : verification === 'error' ? verificationError : t('agentCloudOnly')}

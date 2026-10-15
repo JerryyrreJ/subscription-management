@@ -21,7 +21,7 @@ MCP 安装包：${origin}/downloads/subscription-manager-mcp.tgz
 
 1. 先阅读接入说明与工具定义。${mode}
 2. ${options.apiKey ? '本次授权使用的 API Key 见下方；仅保存到私有配置或环境变量，不要回显、写入日志或提交到仓库。' : '从我的私有环境或客户端密钥设置读取 SUBSCRIPTION_MANAGER_API_KEY；如果没有，请引导我在网站「设置 → API & MCP」创建并私下提供。不要把密钥前缀当作完整密钥。'}
-3. MCP 方式请检查 Node.js 20+，下载安装包并在持久目录安装，将服务器合并到当前客户端配置，保留其他配置。网站地址使用 SUBSCRIPTION_MANAGER_BASE_URL=${origin}。
+3. MCP 方式请检查 Node.js 20+，在空目录安装下载的安装包（不要装进已有 npm 项目或 workspace）。npm 10+ 可直接 npm install；npm 9.2 会报 Tracker "idealTree" already exists，此时解压安装包并用 bun install。将服务器合并到当前客户端配置，保留其他配置。网站地址使用 SUBSCRIPTION_MANAGER_BASE_URL=${origin}，密钥使用 SUBSCRIPTION_MANAGER_API_KEY。
 4. 只查询一条订阅验证连接（MCP: list_subscriptions，limit=1；API: GET /api/v1/subscriptions?limit=1）。空列表也算成功。不要创建测试记录；只有实际调用成功才报告连接完成。如果需要重启客户端，说明尚待验证。
 5. 后续写操作先确认具体变更，删除前确认名称与 id；删除记录不等于向服务商退订。缺少必要信息时询问我，不要猜测。
 ${options.apiKey ? `\nSUBSCRIPTION_MANAGER_API_KEY=${options.apiKey}\n` : ''}` : `Connect SteadyRenew so I can list, create, update, and delete my cloud subscription records using natural language.
@@ -34,7 +34,7 @@ MCP package: ${origin}/downloads/subscription-manager-mcp.tgz
 
 1. Read the setup guide and tool definitions first. ${mode}
 2. ${options.apiKey ? 'The API key authorized for this connection is below. Store it only in private configuration or environment variables; never echo, log, or commit it.' : 'Read SUBSCRIPTION_MANAGER_API_KEY from my private environment or client secret settings. If unavailable, guide me to create one in Settings → API & MCP and provide it privately. A key prefix is not a complete key.'}
-3. For MCP, check Node.js 20+, download and install the package in a persistent directory, and merge the server into this client’s configuration while preserving existing settings. Set SUBSCRIPTION_MANAGER_BASE_URL=${origin}.
+3. For MCP, check Node.js 20+ and install the downloaded package in an empty directory, not inside an existing npm project or workspace. npm 10+ can npm install it; npm 9.2 fails with Tracker "idealTree" already exists — unpack the archive and bun install in that case. Merge the server into this client’s configuration while preserving existing settings. Set SUBSCRIPTION_MANAGER_BASE_URL=${origin} and SUBSCRIPTION_MANAGER_API_KEY.
 4. Verify by reading one subscription (MCP: list_subscriptions with limit=1; API: GET /api/v1/subscriptions?limit=1). An empty list succeeds. Do not create sample records. Only report a verified connection after a successful call; if a client restart is needed, report verification as pending.
 5. Confirm specific changes before writes and the name/id before deletion. Deleting a record does not cancel a provider’s service. Ask for missing information instead of guessing.
 ${options.apiKey ? `\nSUBSCRIPTION_MANAGER_API_KEY=${options.apiKey}\n` : ''}`;

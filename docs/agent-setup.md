@@ -12,13 +12,21 @@ Read `/agent/ai-tools.json` and `/agent/openapi.yaml` for the API contract. Avai
 
 ## 2. MCP (preferred when the client supports local stdio servers)
 
-Requires Node.js 20 or newer and npm. Download `/downloads/subscription-manager-mcp.tgz` from `BASE_URL` to a private persistent integration directory. This is a standalone npm package with its tool schema included; cloning the app repository is unnecessary. Install the downloaded file in that directory:
+Requires Node.js 20 or newer. Download `/downloads/subscription-manager-mcp.tgz` from `BASE_URL` to a private persistent integration directory. This is a standalone npm package with its tool schema included; cloning the app repository is unnecessary. Install the downloaded file in an **empty directory** (not inside this repository, another npm project, or a workspace):
 
 ```sh
 npm install --ignore-scripts ./subscription-manager-mcp.tgz
 ```
 
-Use the installed `node_modules/subscription-manager-mcp/src/server.mjs` as the server. Resolve its **absolute path** and the absolute path to Node. Merge a server named `subscription-manager` into the client's existing configuration using the client's supported format; preserve unrelated servers. JSON clients commonly accept:
+Use npm 10 or newer, which current Node.js 20 releases include. npm 9.2 fails in an existing project or workspace with `Tracker "idealTree" already exists`. If that happens, unpack the archive and install its dependencies with bun instead:
+
+```sh
+tar -xzf subscription-manager-mcp.tgz
+cd package
+bun install --ignore-scripts
+```
+
+The npm install path is `node_modules/subscription-manager-mcp/src/server.mjs`. The unpacked bun path is `package/src/server.mjs`. Use that file as the server. Resolve its **absolute path** and the absolute path to Node. Merge a server named `subscription-manager` into the client's existing configuration using the client's supported format; preserve unrelated servers. JSON clients commonly accept:
 
 ```json
 {
@@ -67,6 +75,7 @@ Verify HTTP 200 and a JSON object with a `data` array and pagination. An empty a
 - 403 on advanced analytics: inspect the error; some features require Premium. Basic CRUD remains available on Free.
 - 429: respect `Retry-After` before retrying. The default shared account limit is 60 requests per minute and 5 active keys; deployments may override limits.
 - HTML instead of JSON: check the origin and Functions deployment. For this project's local development use `npm run dev:full`, since Vite alone does not serve API functions.
+- `Tracker "idealTree" already exists` while installing the MCP package: leave the app repository, install in an empty directory with npm 10+, or unpack the archive and run `bun install --ignore-scripts` inside `package/`.
 - Validation errors: use `field`, `suggestedFix`, `allowedValues`, and `writableFields` to correct the request, then confirm a materially changed write again.
 - Connection works but records are missing: verify the account, host, pagination, and cloud sync; local-only records are not exposed.
 
