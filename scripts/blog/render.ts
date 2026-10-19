@@ -145,6 +145,7 @@ function layout(options: {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="msvalidate.01" content="42D1BD359B3222254C205F07088F0FE9" />
     <title>${escapeHtml(options.title)}</title>
     <meta name="description" content="${escapeHtml(options.description)}" />
     <link rel="canonical" href="${escapeHtml(options.canonical)}" />

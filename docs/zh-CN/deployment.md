@@ -27,6 +27,8 @@ npm run build
 
 公开指南写在 `content/blog/` 的 Markdown 里，在 `vite build` 时编译到 `dist/blog/` 和 `dist/zh/blog/`。Canonical、`robots.txt` 和 `sitemap.xml` 使用 `https://steadyrenew.com`。详见[公开指南](blog.md)。
 
+Bing Webmaster 验证文件是 `/BingSiteAuth.xml`，主 HTML 壳和博客壳上还有 `msvalidate.01` meta 标签。IndexNow 密钥文件是 `/16274743d7549a346d2cf33abbd2d73d.txt`。`npm run indexnow` 从构建产物里的 sitemap 收集 URL（本地没有对应文件时改为请求线上 sitemap）。Netlify 在生产部署成功后运行该脚本；失败只会记日志，不会让部署失败。SPA 回退没有 `force`，这两个文件也设置了明确的 `Content-Type`，重定向和 edge functions 不会替换它们。
+
 ## Functions
 
 Netlify Functions 用于：
