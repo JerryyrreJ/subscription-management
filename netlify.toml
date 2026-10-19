@@ -245,9 +245,10 @@
   [headers.values]
     Content-Type = "text/plain; charset=utf-8"
 
-# Submit IndexNow after a successful production deploy. The plugin never
-# fails the build; see netlify/plugins/indexnow.
-[[context.production.plugins]]
+# Top-level so every deploy context loads the plugin. Deploy-context plugin
+# tables are not reliably applied. The plugin itself submits only when
+# CONTEXT=production, and a failure never fails the build.
+[[plugins]]
   package = "./netlify/plugins/indexnow"
 
 # Specific headers for Stripe webhook endpoint
