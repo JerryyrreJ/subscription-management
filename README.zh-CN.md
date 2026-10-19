@@ -86,6 +86,7 @@ npm run dev                 # 启动 Vite 开发服务器
 npm run dev:full            # 启动 Netlify 本地开发环境
 npm run build               # 生产构建
 npm run preview             # 预览生产构建
+npm run indexnow            # 把 sitemap URL 提交给 IndexNow
 npm run lint                # 运行 ESLint
 npm run typecheck           # 运行前端和 Functions TypeScript 检查
 npm run test                # 运行工具函数测试
@@ -151,6 +152,12 @@ dev-docs/            开发笔记和归档实现草稿
 ## 产品首页
 
 主域名承载产品 landing page，应用位于同域的 `/app`（线上为 `https://steadyrenew.com/app`），本地与预览环境路径一致。支持中英文、深浅色主题和移动端。可通过 `VITE_SITE_URL` 与 `VITE_APP_URL` 设置主域名和应用入口，详见 [Landing page 与域名配置](docs/zh-CN/landing-page.md)及[迁移进度](docs/operations/steadyrenew-domain-migration.md)。
+
+## 搜索引擎
+
+Bing Webmaster 通过 `public/BingSiteAuth.xml`（线上路径 `/BingSiteAuth.xml`）以及 `index.html` 里的 `msvalidate.01` meta 标签验证。预渲染的营销页复用这个 HTML 壳。博客 HTML 壳也包含同一标签。文档页由 Mintlify 反向代理，仓库里没有单独的文档 HTML 壳。
+
+IndexNow 使用密钥文件 `public/16274743d7549a346d2cf33abbd2d73d.txt`。`npm run indexnow` 会读取已构建的 `dist/sitemap.xml` 和 `dist/docs/sitemap.xml`（没有这些文件时改为请求 `https://steadyrenew.com/sitemap.xml` 和 `https://steadyrenew.com/docs/sitemap.xml`），再把 URL POST 到 IndexNow。生产环境的 Netlify 部署会在 `onSuccess` 里运行同一脚本。非生产环境会跳过；提交失败不会让部署失败。SPA 回退没有 `force`，这两个验证文件仍按静态文件返回。
 
 ## 公开指南
 

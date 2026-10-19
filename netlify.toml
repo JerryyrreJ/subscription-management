@@ -210,7 +210,10 @@
   to = "/zh/pricing/index.html"
   status = 200
 
-# Redirect rules for SPA
+# SPA fallback for application routes. This rule is not forced, so files
+# published in dist/ — including /BingSiteAuth.xml and the IndexNow key
+# file — are served as static assets (200) instead of the app shell.
+# smart-entry and docs-proxy do not match those two paths.
 [[redirects]]
   from = "/*"
   to = "/app/index.html"
@@ -229,6 +232,23 @@
   for = "/llms.txt"
   [headers.values]
     Content-Type = "text/plain; charset=utf-8"
+
+# Explicit types so nosniff does not block Bing or IndexNow from reading
+# the verification files. These paths are static files, not rewrites.
+[[headers]]
+  for = "/BingSiteAuth.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+
+[[headers]]
+  for = "/16274743d7549a346d2cf33abbd2d73d.txt"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+
+# Submit IndexNow after a successful production deploy. The plugin never
+# fails the build; see netlify/plugins/indexnow.
+[[context.production.plugins]]
+  package = "./netlify/plugins/indexnow"
 
 # Specific headers for Stripe webhook endpoint
 [[headers]]
