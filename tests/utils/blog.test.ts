@@ -110,7 +110,8 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.ok(zhPost);
   assert.equal(zhPost.status, 'published');
   assert.equal(zhPost.lang, 'zh');
-  assert.ok(zhPost.faqs.length >= 7);
+  assert.match(zhPost.title, /^自动扣费在哪里看、怎么关/);
+  assert.equal(zhPost.faqs.length, 0);
 
   const index = files['blog/index.html'];
   const zhIndex = files['zh/blog/index.html'];
@@ -148,9 +149,9 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.doesNotMatch(article, /Draft outline/);
   assert.doesNotMatch(zhIndex, /草稿提纲/);
   assert.doesNotMatch(zhArticle, /草稿提纲/);
-  assert.doesNotMatch(index, /如何盘点并关掉用不到的自动续费/);
+  assert.doesNotMatch(index, /自动扣费在哪里看、怎么关/);
   assert.doesNotMatch(zhIndex, /How to do a subscription audit/);
-  assert.match(zhIndex, /如何盘点并关掉用不到的自动续费/);
+  assert.match(zhIndex, /自动扣费在哪里看、怎么关/);
   assert.match(zhIndex, /href="\/zh\/blog\/how-to-cancel-auto-renew\/"/);
   assert.match(article, /https:\/\/support.apple.com\/118428/);
   assert.match(article, /https:\/\/support.google.com\/googleplay\/answer\/7018481/);
@@ -227,10 +228,11 @@ test('first post follows soft-CTA and claims rules from the writer brief', () =>
 
 test('Chinese cancel guide is published, human-toned, and only cross-links the EN audit', () => {
   const source = readFileSync(zhPostPath, 'utf8');
-  const intro = source.split('## 钱到底从哪个渠道扣')[0] ?? '';
+  const intro = source.split('## 取消后怎么确认')[0] ?? '';
 
   assert.match(source, /^status: published$/m);
   assert.match(source, /^lang: zh$/m);
+  assert.match(source, /^canonical: https:\/\/steadyrenew\.com\/zh\/blog\/how-to-cancel-auto-renew\/$/m);
   assert.equal(intro.includes('SteadyRenew'), false);
   assert.doesNotMatch(source, /截图留证/);
   assert.doesNotMatch(source, /Plaid/i);
@@ -241,8 +243,8 @@ test('Chinese cancel guide is published, human-toned, and only cross-links the E
     source,
     /https:\/\/steadyrenew\.com\/blog\/how-to-do-a-subscription-audit/
   );
-  assert.match(source, /不会代你解约/);
-  assert.match(source, /不会自动读取支付账单/);
+  assert.match(source, /不会替你取消订阅/);
+  assert.match(source, /不读取你的账单/);
 
   const related = source.split('## 相关阅读')[1] ?? '';
   assert.match(related, /how-to-do-a-subscription-audit/);
