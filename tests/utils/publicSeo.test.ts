@@ -43,6 +43,11 @@ test('llms.txt is plain text and only links to pages that exist in this repo', (
   const toml = readFileSync(path.join(root, 'netlify.toml'), 'utf8');
   assert.match(body, /^# SteadyRenew\n/);
   assert.match(body, /does not connect to a bank/);
+  assert.match(
+    body,
+    /\[自动扣费在哪里看、怎么关？微信 \/ 支付宝 \/ Apple \/ Google 入口速查（2026）\]\(https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew\/\)/
+  );
+  assert.doesNotMatch(body, /如何盘点并关掉用不到的自动续费/);
   assert.doesNotMatch(body, /<html|noindex|sub\.jerrylu\.xyz/);
   for (const url of [
     'https://steadyrenew.com/',

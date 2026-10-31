@@ -269,6 +269,7 @@ export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] |
   const copy = uiCopy(post.lang);
   const indexPath = publicPath(blogPath(post.lang));
   const draftNotice = post.status === 'draft' ? copy.draftBanner : '';
+  const documentTitle = post.seoTitle?.trim() || post.title;
 
   const jsonLd = [
     {
@@ -295,7 +296,7 @@ export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] |
   ].filter((block): block is Record<string, unknown> => Boolean(block));
 
   return layout({
-    title: `${post.title} · ${SITE_NAME}`,
+    title: `${documentTitle} · ${SITE_NAME}`,
     description: post.description,
     canonical,
     lang: post.lang,

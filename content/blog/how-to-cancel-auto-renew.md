@@ -1,9 +1,11 @@
 ---
 title: "自动扣费在哪里看、怎么关？微信 / 支付宝 / Apple / Google 入口速查（2026）"
+seoTitle: "微信/支付宝/Apple/Google 自动扣费怎么关？入口速查"
 slug: how-to-cancel-auto-renew
 description: "自动扣费在哪看：微信在支付设置→自动续费，支付宝在免密支付/自动扣款，Apple 在设置→订阅，Google Play 在付款和订阅。按渠道一次查全，不用的当场关。"
 status: published
 date: 2026-09-16
+updated: 2026-10-26
 lang: zh
 canonical: https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/
 ---

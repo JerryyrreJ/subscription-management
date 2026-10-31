@@ -187,7 +187,10 @@
   status = 200
 
 # /docs and /.well-known/vercel/* are served by netlify/edge-functions/docs-proxy.ts
-# before these redirects. The main domain remains on Netlify.
+# before these redirects. Edge Functions run first and a returned response
+# skips redirect rules, so sub.jerrylu.xyz/docs/* is 301'd inside that
+# function. Reordering the host redirect here cannot catch those paths.
+# The main domain remains on Netlify.
 
 # Public HTML is generated at build time; only application paths use the SPA shell.
 [[redirects]]

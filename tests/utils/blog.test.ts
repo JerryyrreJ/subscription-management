@@ -111,6 +111,9 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.equal(zhPost.status, 'published');
   assert.equal(zhPost.lang, 'zh');
   assert.match(zhPost.title, /^自动扣费在哪里看、怎么关/);
+  assert.equal(zhPost.seoTitle, '微信/支付宝/Apple/Google 自动扣费怎么关？入口速查');
+  assert.equal(zhPost.date, '2026-09-16');
+  assert.equal(zhPost.updated, '2026-10-26');
   assert.equal(zhPost.faqs.length, 0);
 
   const index = files['blog/index.html'];
@@ -145,6 +148,19 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.match(zhIndex, /hreflang="en" href="https:\/\/steadyrenew.com\/blog\/"/);
   assert.match(zhArticle, /<html lang="zh">/);
   assert.match(zhArticle, /href="\/zh\/blog\/"/);
+  assert.match(zhArticle, /<title>微信\/支付宝\/Apple\/Google 自动扣费怎么关？入口速查 · SteadyRenew<\/title>/);
+  assert.match(zhArticle, /property="og:title" content="微信\/支付宝\/Apple\/Google 自动扣费怎么关？入口速查 · SteadyRenew"/);
+  assert.match(zhArticle, /name="twitter:title" content="微信\/支付宝\/Apple\/Google 自动扣费怎么关？入口速查 · SteadyRenew"/);
+  assert.match(zhArticle, /<h1>自动扣费在哪里看、怎么关？微信 \/ 支付宝 \/ Apple \/ Google 入口速查（2026）<\/h1>/);
+  assert.match(zhArticle, /"headline":"自动扣费在哪里看、怎么关？微信 \/ 支付宝 \/ Apple \/ Google 入口速查（2026）"/);
+  assert.match(zhArticle, /"datePublished":"2026-09-16"/);
+  assert.match(zhArticle, /"dateModified":"2026-10-26"/);
+  assert.match(zhArticle, /2026年9月16日/);
+  assert.doesNotMatch(zhArticle, /2026年10月26日/);
+  assert.match(
+    article,
+    /<title>How to do a subscription audit \(keep \/ cancel \/ remind\) · SteadyRenew<\/title>/
+  );
   assert.doesNotMatch(index, /Draft outline/);
   assert.doesNotMatch(article, /Draft outline/);
   assert.doesNotMatch(zhIndex, /草稿提纲/);
@@ -174,7 +190,7 @@ test('public blog files list app and posts under the canonical host', () => {
   );
   assert.match(
     sitemap,
-    /<loc>https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew\/<\/loc>/
+    /<loc>https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew\/<\/loc>\s*<lastmod>2026-10-26<\/lastmod>/
   );
   assert.match(robots, /Sitemap: https:\/\/steadyrenew.com\/sitemap.xml/);
 

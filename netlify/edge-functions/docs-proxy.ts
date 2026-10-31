@@ -1,11 +1,30 @@
 import type { Config, Context } from '@netlify/edge-functions';
+import { MARKETING_ORIGIN } from '../../src/utils/siteUrls.ts';
 
 const upstreamOrigin = 'https://subscriptionmanager.mintlify.site';
+const LEGACY_HOST = 'sub.jerrylu.xyz';
 const isDocsPath = (path: string) => path === '/docs' || path.startsWith('/docs/') || path.startsWith('/.well-known/vercel/');
+const isPublicDocsPath = (path: string) => path === '/docs' || path.startsWith('/docs/');
+
+/**
+ * Edge Functions run before redirect rules and end the chain when they
+ * return a response. The host redirect in netlify.toml never sees /docs/*,
+ * so the old host has to 301 here, before the Mintlify proxy.
+ */
+function redirectLegacyDocs(url: URL): Response | null {
+  if (url.hostname !== LEGACY_HOST || !isPublicDocsPath(url.pathname)) return null;
+  const destination = new URL(`${url.pathname}${url.search}`, MARKETING_ORIGIN);
+  return new Response(null, {
+    status: 301,
+    headers: { Location: destination.toString() },
+  });
+}
 
 /** Public documentation only; application routes and credentials stay on Netlify. */
 export default async function docsProxy(request: Request, context: Pick<Context, 'next' | 'ip'>): Promise<Response> {
   const incoming = new URL(request.url);
+  const legacy = redirectLegacyDocs(incoming);
+  if (legacy) return legacy;
   if (!isDocsPath(incoming.pathname)) return context.next();
 
   const target = new URL(upstreamOrigin);

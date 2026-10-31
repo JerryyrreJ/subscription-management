@@ -2,6 +2,8 @@ export type BlogStatus = 'draft' | 'published';
 
 export type BlogFrontmatter = {
   title: string;
+  /** Document title for <title>, og:title, and twitter:title. Falls back to title. */
+  seoTitle?: string;
   slug: string;
   description: string;
   date: string;
@@ -60,6 +62,7 @@ export function toFrontmatter(data: Record<string, string>): BlogFrontmatter {
 
   return {
     title: data.title,
+    seoTitle: data.seoTitle?.trim() || undefined,
     slug: data.slug,
     description: data.description,
     date: data.date,
