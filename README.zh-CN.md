@@ -8,9 +8,13 @@ SteadyRenew 是一个本地优先的 Web 应用，用于跟踪周期性订阅。
 
 应用不需要账号也能使用，数据默认保存在浏览器中。如果需要托管同步、支付或服务端提醒，可以配置 Supabase、Stripe、Netlify Functions 和 Bark 通知。
 
-https://github.com/user-attachments/assets/02de5f6c-c381-4308-a8ac-2d792a2a0846
+https://github.com/user-attachments/assets/a7bb1549-0076-4aa8-a8d8-4a6d5ba0e17c
 
 <p align="center"><em>用 AI 助手一句话录入：说清要加的订阅，核对草稿，确认后写入。</em></p>
+
+https://github.com/user-attachments/assets/08f934dc-0460-4085-a0ba-f2d5193de3d1
+
+<p align="center"><em>手动录入订阅：填好表单，保存后即可在仪表盘看到新卡片。</em></p>
 
 <p align="center">
   <img src="docs-site/images/product/dashboard-overview.png" alt="使用演示订阅数据的 SteadyRenew 仪表盘" width="100%" />

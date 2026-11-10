@@ -8,9 +8,13 @@ SteadyRenew is a local-first web app for tracking recurring subscriptions. It su
 
 The app works without an account by storing data in the browser. Supabase, Stripe, Netlify Functions, and Bark notifications can be configured when you want hosted sync, payment, or server-side reminders.
 
-https://github.com/user-attachments/assets/02de5f6c-c381-4308-a8ac-2d792a2a0846
+https://github.com/user-attachments/assets/a7bb1549-0076-4aa8-a8d8-4a6d5ba0e17c
 
 <p align="center"><em>Add a subscription with AI Assist — type a sentence, review the draft, apply.</em></p>
+
+https://github.com/user-attachments/assets/08f934dc-0460-4085-a0ba-f2d5193de3d1
+
+<p align="center"><em>Add a subscription manually — fill in the form, save, and see it appear.</em></p>
 
 <p align="center">
   <img src="docs-site/images/product/dashboard-overview.png" alt="SteadyRenew dashboard with demo subscription data" width="100%" />
