@@ -145,6 +145,7 @@ function layout(options: {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="msvalidate.01" content="42D1BD359B3222254C205F07088F0FE9" />
     <title>${escapeHtml(options.title)}</title>
     <meta name="description" content="${escapeHtml(options.description)}" />
     <link rel="canonical" href="${escapeHtml(options.canonical)}" />
@@ -268,6 +269,7 @@ export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] |
   const copy = uiCopy(post.lang);
   const indexPath = publicPath(blogPath(post.lang));
   const draftNotice = post.status === 'draft' ? copy.draftBanner : '';
+  const documentTitle = post.seoTitle?.trim() || post.title;
 
   const jsonLd = [
     {
@@ -294,7 +296,7 @@ export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] |
   ].filter((block): block is Record<string, unknown> => Boolean(block));
 
   return layout({
-    title: `${post.title} · ${SITE_NAME}`,
+    title: `${documentTitle} · ${SITE_NAME}`,
     description: post.description,
     canonical,
     lang: post.lang,

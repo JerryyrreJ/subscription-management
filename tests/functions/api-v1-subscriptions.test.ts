@@ -139,6 +139,75 @@ test('lists subscriptions for the API key owner and includes rate limit headers'
   assert.equal(body.data[0].nextPaymentDate, '2026-07-01');
 });
 
+test('lists subscriptions when optional columns from later migrations are absent', async () => {
+  const legacyRow = {
+    id: subscriptionRow.id,
+    user_id: userId,
+    name: 'Netflix',
+    category: 'Streaming',
+    amount: '15.99',
+    currency: 'USD',
+    period: 'monthly',
+    last_payment_date: '2026-06-01',
+    next_payment_date: '2026-07-01',
+    custom_date: null,
+    notification_enabled: true,
+    status: 'paused',
+    created_at: '2026-06-16T00:00:00.000Z',
+    updated_at: '2026-06-16T00:00:00.000Z',
+  };
+  const database = createDatabase((state: QueryState) => {
+    const columns = state.columns ?? '';
+    const namesMissingColumns = columns !== '*'
+      && /billing_anchor_day|is_trial|trial_ends_on/.test(columns);
+    if (namesMissingColumns) {
+      return {
+        data: null,
+        error: { message: 'column subscriptions.billing_anchor_day does not exist' },
+      };
+    }
+
+    assert.equal(state.filters.user_id, userId);
+    return { data: [legacyRow], error: null };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-legacy-schema',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+  const body = parseJsonResponse<{
+    data: Array<{
+      id: string;
+      name: string;
+      amount: number;
+      nextPaymentDate: string;
+      status: string;
+      isTrial: boolean;
+      billingAnchorDay?: number;
+      trialEndsOn?: string;
+    }>;
+    pagination: { limit: number; offset: number; hasMore: boolean };
+  }>(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(body.data[0].id, legacyRow.id);
+  assert.equal(body.data[0].name, 'Netflix');
+  assert.equal(body.data[0].amount, 15.99);
+  assert.equal(body.data[0].nextPaymentDate, '2026-07-01');
+  assert.equal(body.data[0].status, 'paused');
+  assert.equal(body.data[0].isTrial, false);
+  assert.equal(body.data[0].billingAnchorDay, undefined);
+  assert.equal(body.data[0].trialEndsOn, undefined);
+  assert.deepEqual(body.pagination, { limit: 50, offset: 0, hasMore: false });
+});
+
 test('responds to subscription API preflight requests with CORS headers', async () => {
   const handler = createSubscriptionsApiHandler(() => {
     throw new Error('Dependencies should not be created for preflight requests');

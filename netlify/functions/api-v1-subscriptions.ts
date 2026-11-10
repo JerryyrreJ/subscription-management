@@ -43,25 +43,12 @@ interface SubscriptionsApiDependencies {
   now(): Date;
 }
 
-const SUBSCRIPTION_COLUMNS = [
-  'id',
-  'user_id',
-  'name',
-  'category',
-  'amount',
-  'currency',
-  'period',
-  'last_payment_date',
-  'next_payment_date',
-  'billing_anchor_day',
-  'custom_date',
-  'notification_enabled',
-  'is_trial',
-  'trial_ends_on',
-  'status',
-  'created_at',
-  'updated_at',
-].join(', ');
+// Name every column only in the mapper, not in the PostgREST select list.
+// Production can lag migrations that add billing_anchor_day, is_trial, and
+// trial_ends_on. Selecting a missing column returns 42703, which this handler
+// would otherwise surface as HTTP 500, while the web app's select('*') still
+// loads the same rows. Optional fields are defaulted in toApiSubscription.
+const SUBSCRIPTION_COLUMNS = '*';
 
 const allowedSubscriptionFields = new Set([
   'name',
@@ -298,10 +285,10 @@ const toApiSubscription = (row: SubscriptionRow) => ({
   nextPaymentDate: row.next_payment_date,
   billingAnchorDay: row.billing_anchor_day ?? undefined,
   customDate: row.custom_date ?? undefined,
-  notificationEnabled: row.notification_enabled,
+  notificationEnabled: row.notification_enabled ?? true,
   isTrial: Boolean(row.is_trial),
   trialEndsOn: row.trial_ends_on ?? undefined,
-  status: row.status,
+  status: row.status ?? 'active',
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });

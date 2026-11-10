@@ -187,7 +187,10 @@
   status = 200
 
 # /docs and /.well-known/vercel/* are served by netlify/edge-functions/docs-proxy.ts
-# before these redirects. The main domain remains on Netlify.
+# before these redirects. Edge Functions run first and a returned response
+# skips redirect rules, so sub.jerrylu.xyz/docs/* is 301'd inside that
+# function. Reordering the host redirect here cannot catch those paths.
+# The main domain remains on Netlify.
 
 # Public HTML is generated at build time; only application paths use the SPA shell.
 [[redirects]]
@@ -210,7 +213,10 @@
   to = "/zh/pricing/index.html"
   status = 200
 
-# Redirect rules for SPA
+# SPA fallback for application routes. This rule is not forced, so files
+# published in dist/ — including /BingSiteAuth.xml and the IndexNow key
+# file — are served as static assets (200) instead of the app shell.
+# smart-entry and docs-proxy do not match those two paths.
 [[redirects]]
   from = "/*"
   to = "/app/index.html"
@@ -229,6 +235,24 @@
   for = "/llms.txt"
   [headers.values]
     Content-Type = "text/plain; charset=utf-8"
+
+# Explicit types so nosniff does not block Bing or IndexNow from reading
+# the verification files. These paths are static files, not rewrites.
+[[headers]]
+  for = "/BingSiteAuth.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+
+[[headers]]
+  for = "/16274743d7549a346d2cf33abbd2d73d.txt"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+
+# Top-level so every deploy context loads the plugin. Deploy-context plugin
+# tables are not reliably applied. The plugin itself submits only when
+# CONTEXT=production, and a failure never fails the build.
+[[plugins]]
+  package = "./netlify/plugins/indexnow"
 
 # Specific headers for Stripe webhook endpoint
 [[headers]]

@@ -54,6 +54,31 @@ test('preserves errors and streaming content, disables caching, and keeps docs r
   assert.equal(await missing.text(), 'Not found');
 });
 
+test('legacy host docs 301 to the same path before the upstream proxy', async t => {
+  let fetched = false;
+  t.mock.method(globalThis, 'fetch', async () => {
+    fetched = true;
+    return new Response('docs', { headers: { 'Content-Type': 'text/html' } });
+  });
+
+  const page = await docsProxy(new Request('https://sub.jerrylu.xyz/docs/en/api/overview?x=1'), context);
+  assert.equal(page.status, 301);
+  assert.equal(page.headers.get('location'), 'https://steadyrenew.com/docs/en/api/overview?x=1');
+  assert.equal(fetched, false);
+
+  const root = await docsProxy(new Request('http://sub.jerrylu.xyz/docs'), context);
+  assert.equal(root.status, 301);
+  assert.equal(root.headers.get('location'), 'https://steadyrenew.com/docs');
+
+  const current = await docsProxy(new Request('https://steadyrenew.com/docs/en/api/overview'), context);
+  assert.equal(current.status, 200);
+  assert.equal(await current.text(), 'docs');
+  assert.equal(fetched, true);
+
+  const verification = await docsProxy(new Request('https://sub.jerrylu.xyz/.well-known/vercel/challenge'), context);
+  assert.equal(await verification.text(), 'docs');
+});
+
 test('upstream outage returns 502 instead of the application', async t => {
   t.mock.method(globalThis, 'fetch', async () => { throw new Error('network error'); });
   const response = await docsProxy(new Request('https://steadyrenew.com/docs'), context);

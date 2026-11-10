@@ -86,6 +86,7 @@ npm run dev                 # Start the Vite development server
 npm run dev:full            # Start Netlify local development
 npm run build               # Build for production
 npm run preview             # Preview the production build
+npm run indexnow            # Submit sitemap URLs to IndexNow
 npm run lint                # Run ESLint
 npm run typecheck           # Run app and Functions TypeScript checks
 npm run test                # Run utility tests
@@ -153,6 +154,12 @@ dev-docs/            Development notes and archived implementation drafts
 ## Landing page
 
 The main domain serves the product landing page; the application lives at `/app` on the same origin (`https://steadyrenew.com/app` in production). The page supports English, Simplified Chinese, light/dark themes and mobile layouts. Set `VITE_SITE_URL` for canonical metadata and `VITE_APP_URL` for the application entry. See the [domain configuration guide](docs/zh-CN/landing-page.md) and [migration status](docs/operations/steadyrenew-domain-migration.md).
+
+## Search engines
+
+Bing Webmaster Tools is verified with `public/BingSiteAuth.xml`, served at `/BingSiteAuth.xml`, and a `msvalidate.01` meta tag in `index.html`. Prerendered marketing pages reuse that shell. The blog HTML shell includes the same tag. Documentation pages are proxied from Mintlify and do not have a local HTML shell.
+
+IndexNow uses the key file `public/16274743d7549a346d2cf33abbd2d73d.txt`. `npm run indexnow` reads `dist/sitemap.xml` and `dist/docs/sitemap.xml` when those files exist, otherwise fetches `https://steadyrenew.com/sitemap.xml` and `https://steadyrenew.com/docs/sitemap.xml`, then POSTs the URLs to IndexNow. A production Netlify deploy runs the same script from `onSuccess`. That step is skipped outside production, and a submission failure does not fail the deploy. The SPA fallback is not forced, so both verification files stay static responses.
 
 ## Public guides
 

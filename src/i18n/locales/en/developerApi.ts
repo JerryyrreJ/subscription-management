@@ -53,6 +53,8 @@ export const developerApi = {
  agentCopyFailed: "Clipboard access failed. Select and copy the instructions below.",
  agentGuide: "Setup guide",
  agentDownload: "Download MCP",
+ agentVerifyKey: "Saved API key",
+ agentVerifyKeyPlaceholder: "Paste a saved key to test",
  agentVerify: "Test API connection",
  agentVerified: "API connection verified. Your agent still needs to verify its own MCP or API connection.",
  agentVerifyFailed: "Connection failed. Check the key, website address and API availability, then try again.",

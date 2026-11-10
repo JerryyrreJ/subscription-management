@@ -22,6 +22,7 @@
     "db:verify": "npm run db:start && supabase db reset --local && supabase db lint --local --fail-on error && supabase test db --local",
     "check": "npm run typecheck && npm run lint && npm test && npm run test:functions && npm run build",
     "preview": "vite preview",
+    "indexnow": "node scripts/indexnow.mjs",
     "test:notifications": "tsx scripts/test-scheduled-function-v2.ts",
     "test:sync": "node --import tsx --test tests/browser/*.test.ts"
   },

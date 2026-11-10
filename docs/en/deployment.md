@@ -27,6 +27,8 @@ The production output is written to `dist/`.
 
 Public guides are Markdown in `content/blog/`, compiled to `dist/blog/` and `dist/zh/blog/` during `vite build`. Canonical URLs, `robots.txt`, and `sitemap.xml` use `https://steadyrenew.com`. See [Public guides](blog.md).
 
+Bing Webmaster verification is the static file `/BingSiteAuth.xml` plus a `msvalidate.01` meta tag on the main HTML shell and the blog shell. IndexNow key file is `/16274743d7549a346d2cf33abbd2d73d.txt`. `npm run indexnow` submits URLs from the built sitemaps (or the live sitemap URLs when a built file is absent). Netlify runs that script after a successful production deploy; a failure is logged and does not fail the deploy. The SPA fallback is unforced, and both files have explicit `Content-Type` headers, so redirects and edge functions do not replace them.
+
 ## Functions
 
 Netlify Functions are used for:

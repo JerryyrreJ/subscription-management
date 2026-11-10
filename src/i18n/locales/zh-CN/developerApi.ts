@@ -53,6 +53,8 @@ export const developerApi = {
  agentCopyFailed: "无法访问剪贴板，请手动选中并复制下方说明。",
  agentGuide: "接入指南",
  agentDownload: "下载 MCP",
+ agentVerifyKey: "已保存的 API Key",
+ agentVerifyKeyPlaceholder: "粘贴已保存的密钥进行测试",
  agentVerify: "测试 API 连接",
  agentVerified: "API 连接已验证。Agent 端的 MCP 或 API 连接仍需由 Agent 实际调用验证。",
  agentVerifyFailed: "连接失败，请检查密钥、网站地址及 API 服务是否可用后重试。",

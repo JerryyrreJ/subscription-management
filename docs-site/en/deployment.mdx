@@ -32,6 +32,8 @@ dist/
 - SPA redirects to `index.html`.
 - Basic security headers.
 
+Bing Webmaster verification is `/BingSiteAuth.xml` plus a `msvalidate.01` meta tag. IndexNow serves `/16274743d7549a346d2cf33abbd2d73d.txt` and submits sitemap URLs with `npm run indexnow` after a successful production deploy. A submission failure does not fail the deploy.
+
 ## Functions
 
 Netlify Functions are used for:

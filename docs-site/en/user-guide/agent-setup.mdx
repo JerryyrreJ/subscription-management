@@ -20,7 +20,7 @@ description: "Copy setup instructions to your agent and connect MCP or the API t
   </Step>
   <Step title="Verify the connection">
     The agent reads one subscription to verify access, without creating test records. An empty list also means success.
-    **Test API connection** on the settings page checks your key and API only; the agent must still test its own connection.
+    **Test API connection** stays on **Settings → API & MCP**. Right after you create a key, it tests that key. After you leave the page, paste a saved key into the field next to the button. This checks the key and API only; the agent must still test its own connection.
     If the client needs a restart, ask the agent to query again afterward.
   </Step>
 </Steps>
@@ -38,10 +38,10 @@ The agent should confirm specific changes before writes, and the name and id bef
 
 | Method | When to use it | What the agent does |
 | --- | --- | --- |
-| MCP (recommended) | Your client supports local stdio MCP servers | Checks Node.js 20+, downloads and installs the package, merges client configuration, and verifies a tool call |
+| MCP (recommended) | Your client supports local stdio MCP servers | Checks Node.js 20+, downloads and installs the package in an empty directory, merges client configuration, and verifies a tool call |
 | API | Your agent can make authenticated HTTP requests | Reads the API contract, configures a private key, and verifies a query; no MCP installation required |
 
-**Download MCP** provides a standalone npm `.tgz` package containing the server and tool definitions. It ships with your website; no repository clone or public npm release is needed. Clients that only accept remote MCP URLs cannot use the package download URL as a server endpoint. There is currently no hosted remote MCP endpoint.
+**Download MCP** provides a standalone npm `.tgz` package containing the server and tool definitions. It ships with your website; no repository clone or public npm release is needed. Install it in an empty directory with npm 10 or newer. npm 9.2 fails inside an existing project or workspace with `Tracker "idealTree" already exists`; unpack the archive and run `bun install --ignore-scripts` inside `package/` instead. The server still needs `SUBSCRIPTION_MANAGER_BASE_URL` and `SUBSCRIPTION_MANAGER_API_KEY`. Clients that only accept remote MCP URLs cannot use the package download URL as a server endpoint. There is currently no hosted remote MCP endpoint.
 
 If the agent cannot run local tools or make HTTP requests, a prompt alone cannot complete the connection.
 
@@ -63,6 +63,7 @@ If the agent cannot run local tools or make HTTP requests, a prompt alone cannot
 | 429 | Wait for the response’s `Retry-After` interval |
 | HTML instead of JSON | Check API deployment; local development for this app requires `npm run dev:full` |
 | Configuration exists but MCP tools are unavailable | Check absolute Node and server paths, reload the client, then verify an actual tool call |
+| `Tracker "idealTree" already exists` during MCP install | Install in an empty directory with npm 10+, or unpack the `.tgz` and use bun |
 | Clipboard access fails | Expand the preview and select and copy the text manually |
 
 Bark credentials, test pushes, timezone, language, and category catalog management remain in the web app. See [reminders](/en/user-guide/reminders) and [AI tool usage](/en/api/ai-tools).
