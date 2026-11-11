@@ -141,3 +141,62 @@ for (const scenario of [
   }
  });
 }
+
+test('GET /api/v1/subscriptions rejects impossible calendar dates in expiringBefore', async () => {
+ const database = createDatabase(() => ({ data: [], error: null }));
+ const handler = createSubscriptionsApiHandler(() => ({
+  database,
+  limits,
+  createRequestId: () => 'invalid-expiring-before',
+  now: () => new Date('2026-06-16T00:00:00Z'),
+ }));
+
+ const response = expectHandlerResponse(await handler({
+  ...event('GET', '/api/v1/subscriptions', { authorization: `Bearer ${apiKey}` }),
+  queryStringParameters: { expiringBefore: '2026-02-30' },
+ }, {} as never));
+
+ assert.equal(response.statusCode, 400);
+ const body = JSON.parse(response.body || '{}') as { error?: { code?: string; field?: string } };
+ assert.equal(body.error?.code, 'invalid_query');
+ assert.equal(body.error?.field, 'expiringBefore');
+});
+
+test('PATCH /api/v1/subscriptions preserves 31st anchor day when updating a monthly trial with Jan 31 lastPaymentDate', async () => {
+ const row = {
+  ...subscriptionRow,
+  is_trial: true,
+  trial_ends_on: '2026-02-15',
+  next_payment_date: '2026-02-15',
+ };
+ let written: unknown;
+ const database = createDatabase(state => {
+  if (state.operation === 'select') return { data: row, error: null };
+  written = state.payload;
+  return { data: { ...row, ...(state.payload as object) }, error: null };
+ });
+ const handler = createSubscriptionsApiHandler(() => ({
+  database,
+  limits,
+  createRequestId: () => 'patch-trial-anchor',
+  now: () => new Date('2026-01-31T00:00:00Z'),
+ }));
+
+ const response = expectHandlerResponse(await handler(
+  event(
+   'PATCH',
+   `/api/v1/subscriptions/${row.id}`,
+   { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+   JSON.stringify({ lastPaymentDate: '2026-01-31' })
+  ),
+  {} as never
+ ));
+
+ assert.equal(response.statusCode, 200);
+ const payload = written as Record<string, unknown>;
+ assert.equal(payload.next_payment_date, '2026-02-28');
+ assert.equal(payload.trial_ends_on, '2026-02-28');
+ assert.equal(payload.billing_anchor_day, 31);
+ assert.equal(payload.last_payment_date, '2026-01-31');
+});
+

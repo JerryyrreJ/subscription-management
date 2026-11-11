@@ -129,7 +129,8 @@ export function Dashboard({
  // 如果viewMode是yearly，保持原值
  } else if (sub.period === 'custom') {
  // 自定义周期订阅
- const daysInPeriod = parseInt(sub.customDate || '30');
+ const parsedDays = parseInt(sub.customDate || '30', 10);
+ const daysInPeriod = Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 30;
  const periodsPerYear = 365 / daysInPeriod;
 
  if (viewMode === 'yearly') {

@@ -7,7 +7,13 @@ import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { recordAudit } from './_shared/audit';
 import { createSupabaseAdminClient } from './_shared/supabase';
-import { calculateNextPaymentDate, calculatePreviousPaymentDate, getDateOnlyDay } from '../../src/utils/dates';
+import {
+  calculateNextPaymentDate,
+  calculatePreviousPaymentDate,
+  formatDateOnly,
+  getDateOnlyDay,
+  parseDateOnly,
+} from '../../src/utils/dates';
 import {
   SUBSCRIPTION_CURRENCIES,
   SUBSCRIPTION_PERIODS,
@@ -156,7 +162,13 @@ const listFiltersSchema = z.object({
   q: z.string().trim().min(1).max(120).optional(),
   expiringBefore: z.string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'expiringBefore must use YYYY-MM-DD')
-    .refine(value => !Number.isNaN(Date.parse(value)), 'expiringBefore is not a valid date')
+    .refine(value => {
+      try {
+        return formatDateOnly(parseDateOnly(value)) === value;
+      } catch {
+        return false;
+      }
+    }, 'expiringBefore is not a valid date')
     .optional(),
   sort: z.enum(SORT_OPTIONS).default('-createdAt'),
 });
@@ -293,14 +305,18 @@ const toApiSubscription = (row: SubscriptionRow) => ({
   updatedAt: row.updated_at,
 });
 
+const doesAnchorDayMatchDate = (dateString: string, anchorDay: number): boolean => {
+  const date = parseDateOnly(dateString);
+  const maxDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  return Math.min(anchorDay, maxDay) === date.getUTCDate();
+};
+
 const toDatabasePayload = (
   parsed: z.infer<typeof subscriptionCreateInputSchema>
 ) => {
   const isTrial = parsed.isTrial ?? false;
-  const billingAnchorDay = parsed.period === 'monthly'
-    ? parsed.billingAnchorDay ?? getDateOnlyDay(
-      parsed.lastPaymentDate ?? parsed.nextPaymentDate ?? parsed.trialEndsOn as string
-    )
+  const initialAnchorDay = parsed.period === 'monthly'
+    ? (parsed.billingAnchorDay ?? (parsed.lastPaymentDate ? getDateOnlyDay(parsed.lastPaymentDate) : undefined))
     : undefined;
   const derivedNextPaymentDate = parsed.nextPaymentDate ?? (
     parsed.lastPaymentDate
@@ -308,7 +324,7 @@ const toDatabasePayload = (
         parsed.lastPaymentDate,
         parsed.period,
         parsed.customDate,
-        billingAnchorDay
+        initialAnchorDay
       )
       : parsed.trialEndsOn
   );
@@ -317,6 +333,22 @@ const toDatabasePayload = (
   if (!nextPaymentDate) {
     throw new Error('Next payment date is required');
   }
+  const billingAnchorDay = parsed.period === 'monthly'
+    ? (parsed.billingAnchorDay !== undefined && doesAnchorDayMatchDate(nextPaymentDate, parsed.billingAnchorDay)
+      ? parsed.billingAnchorDay
+      : !parsed.nextPaymentDate && !parsed.trialEndsOn && parsed.lastPaymentDate
+        ? getDateOnlyDay(parsed.lastPaymentDate)
+        : parsed.lastPaymentDate
+          && getDateOnlyDay(parsed.lastPaymentDate) > getDateOnlyDay(nextPaymentDate)
+          && calculateNextPaymentDate(
+            parsed.lastPaymentDate,
+            'monthly',
+            undefined,
+            getDateOnlyDay(parsed.lastPaymentDate)
+          ) === nextPaymentDate
+          ? getDateOnlyDay(parsed.lastPaymentDate)
+          : getDateOnlyDay(nextPaymentDate))
+    : undefined;
   const lastPaymentDate = calculatePreviousPaymentDate(
     nextPaymentDate,
     parsed.period,
@@ -492,7 +524,11 @@ const parsePatchInput = (
     if (merged.period === 'monthly' && !Object.hasOwn(body, 'billingAnchorDay')
       && (Object.hasOwn(body, 'trialEndsOn') || Object.hasOwn(body, 'nextPaymentDate')
         || Object.hasOwn(body, 'lastPaymentDate'))) {
-      merged.billingAnchorDay = getDateOnlyDay(merged.trialEndsOn as string);
+      merged.billingAnchorDay = Object.hasOwn(body, 'lastPaymentDate')
+        && !Object.hasOwn(body, 'nextPaymentDate')
+        && !Object.hasOwn(body, 'trialEndsOn')
+        ? getDateOnlyDay(merged.lastPaymentDate as string)
+        : getDateOnlyDay(merged.trialEndsOn as string);
     }
     merged.nextPaymentDate = merged.trialEndsOn;
   } else {

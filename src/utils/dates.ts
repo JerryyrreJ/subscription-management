@@ -135,8 +135,8 @@ const addMonthsClamped = (date: Date, months: number, anchorDay: number = date.g
  return clampUtcDate(targetMonth.getUTCFullYear(), targetMonth.getUTCMonth(), anchorDay);
 };
 
-const addYearsClamped = (date: Date, years: number): Date =>
- clampUtcDate(date.getUTCFullYear() + years, date.getUTCMonth(), date.getUTCDate());
+const addYearsClamped = (date: Date, years: number, anchorDay: number = date.getUTCDate()): Date =>
+ clampUtcDate(date.getUTCFullYear() + years, date.getUTCMonth(), anchorDay);
 
 const addDaysUtc = (date: Date, days: number): Date => {
  const nextDate = new Date(date.getTime());
@@ -156,7 +156,7 @@ export const addBillingPeriodToDate = (
  case 'monthly':
  return formatDateOnly(addMonthsClamped(date, 1, billingAnchorDay));
  case 'yearly':
- return formatDateOnly(addYearsClamped(date, 1));
+ return formatDateOnly(addYearsClamped(date, 1, billingAnchorDay));
  case 'custom': {
  const customDays = parseCustomDays(customDate);
  return customDays ? formatDateOnly(addDaysUtc(date, customDays)) : dateString;
@@ -178,7 +178,7 @@ export const subtractBillingPeriodFromDate = (
  case 'monthly':
  return formatDateOnly(addMonthsClamped(date, -1, billingAnchorDay));
  case 'yearly':
- return formatDateOnly(addYearsClamped(date, -1));
+ return formatDateOnly(addYearsClamped(date, -1, billingAnchorDay));
  case 'custom': {
  const customDays = parseCustomDays(customDate);
  return customDays ? formatDateOnly(addDaysUtc(date, -customDays)) : dateString;
@@ -285,11 +285,14 @@ export const getAutoRenewedDates = (
  timeZone: string = getCurrentTimeZone()
 ): { lastPaymentDate: string; nextPaymentDate: string } => {
  const today = formatDateOnly(getTodayDateOnly(timeZone));
+ const effectiveAnchorDay = (period === 'monthly' || period === 'yearly')
+  ? (billingAnchorDay ?? getDateOnlyDay(nextPaymentDate))
+  : undefined;
 
  // 如果还没到期，返回原始日期
  if (compareDateOnly(nextPaymentDate, today) >= 0) {
  return {
-  lastPaymentDate: calculatePreviousPaymentDate(nextPaymentDate, period, customDate, billingAnchorDay),
+  lastPaymentDate: calculatePreviousPaymentDate(nextPaymentDate, period, customDate, effectiveAnchorDay),
   nextPaymentDate,
  };
  }
@@ -297,7 +300,7 @@ export const getAutoRenewedDates = (
  let newNextPaymentDate = nextPaymentDate;
 
  while (compareDateOnly(newNextPaymentDate, today) < 0) {
- const advancedDate = addBillingPeriodToDate(newNextPaymentDate, period, customDate, billingAnchorDay);
+ const advancedDate = addBillingPeriodToDate(newNextPaymentDate, period, customDate, effectiveAnchorDay);
 
  if (advancedDate === newNextPaymentDate) {
  break;
@@ -307,7 +310,7 @@ export const getAutoRenewedDates = (
  }
 
  return {
- lastPaymentDate: calculatePreviousPaymentDate(newNextPaymentDate, period, customDate, billingAnchorDay),
+ lastPaymentDate: calculatePreviousPaymentDate(newNextPaymentDate, period, customDate, effectiveAnchorDay),
  nextPaymentDate: newNextPaymentDate,
  };
 };

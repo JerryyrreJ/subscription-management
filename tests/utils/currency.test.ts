@@ -270,3 +270,34 @@ test('getStoredExchangeRatesSnapshot returns cached metadata for the current bas
   }
  }
 });
+
+test('convertCurrencySafe converts between two non-base currencies via baseCurrency', () => {
+ const rates: ExchangeRates = {
+  USD: 1,
+  EUR: 0.8,
+  CNY: 7.2,
+ };
+
+ // 16 EUR -> 20 USD -> 144 CNY
+ const result = convertCurrencySafe(16, 'EUR', 'CNY', rates, 'USD');
+ assert.ok(Math.abs(result.amount - 144) < 1e-9);
+ assert.equal(result.usedFallback, false);
+ assert.equal(result.isAccurate, true);
+});
+
+test('convertCurrencySafe rejects non-finite or non-positive live rates and falls back to offline rates', () => {
+ for (const invalidRate of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) {
+  const result = convertCurrencySafe(10, 'USD', 'EUR', { USD: 1, EUR: invalidRate }, 'USD');
+  assert.equal(result.amount, 8.5);
+  assert.equal(result.usedFallback, true);
+  assert.equal(result.isAccurate, false);
+ }
+});
+
+test('convertCurrencySafe returns unchanged amount with isAccurate true when source and target currencies match', () => {
+ const result = convertCurrencySafe(19.99, 'JPY', 'JPY', {}, 'USD');
+ assert.equal(result.amount, 19.99);
+ assert.equal(result.usedFallback, false);
+ assert.equal(result.isAccurate, true);
+});
+

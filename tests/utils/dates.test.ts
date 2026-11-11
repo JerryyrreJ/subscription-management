@@ -169,3 +169,62 @@ test('formatMonthYear localizes month labels by locale', () => {
   assert.equal(formatMonthYear(new Date('2026-04-01T00:00:00.000Z'), 'en'), 'Apr 2026');
   assert.equal(formatMonthYear(new Date('2026-04-01T00:00:00.000Z'), 'zh-CN'), '2026年4月');
 });
+
+test('getAutoRenewedDates preserves month-end anchor day even when billingAnchorDay is omitted', () => {
+  withMockedNow('2026-02-15T12:00:00.000Z', () => {
+    assert.deepEqual(getAutoRenewedDates('2026-01-31', 'monthly', undefined, undefined, 'UTC'), {
+      lastPaymentDate: '2026-01-31',
+      nextPaymentDate: '2026-02-28',
+    });
+  });
+
+  withMockedNow('2026-03-15T12:00:00.000Z', () => {
+    assert.deepEqual(getAutoRenewedDates('2026-01-31', 'monthly', undefined, undefined, 'UTC'), {
+      lastPaymentDate: '2026-02-28',
+      nextPaymentDate: '2026-03-31',
+    });
+  });
+});
+
+test('getAutoRenewedDates preserves leap day (Feb 29) across non-leap years and back to leap year', () => {
+  withMockedNow('2024-03-15T12:00:00.000Z', () => {
+    assert.deepEqual(getAutoRenewedDates('2024-02-29', 'yearly', undefined, undefined, 'UTC'), {
+      lastPaymentDate: '2024-02-29',
+      nextPaymentDate: '2025-02-28',
+    });
+  });
+
+  withMockedNow('2028-02-15T12:00:00.000Z', () => {
+    assert.deepEqual(getAutoRenewedDates('2024-02-29', 'yearly', undefined, undefined, 'UTC'), {
+      lastPaymentDate: '2027-02-28',
+      nextPaymentDate: '2028-02-29',
+    });
+  });
+});
+
+test('getAutoRenewedDates safely terminates when custom period days are invalid or non-positive', () => {
+  withMockedNow('2026-04-10T12:00:00.000Z', () => {
+    for (const invalidCustom of [undefined, '', '0', '-5', 'abc']) {
+      assert.deepEqual(getAutoRenewedDates('2026-03-01', 'custom', invalidCustom, undefined, 'UTC'), {
+        lastPaymentDate: '2026-03-01',
+        nextPaymentDate: '2026-03-01',
+      });
+    }
+  });
+});
+
+test('getBillingCycleUsage clamps progress and daysUsed at cycle boundaries', () => {
+  withMockedNow('2026-04-15T12:00:00.000Z', () => {
+    const overdue = getBillingCycleUsage('2026-03-01', '2026-04-01', 'UTC');
+    assert.equal(overdue.daysTotal, 31);
+    assert.equal(overdue.daysUntil, -14);
+    assert.equal(overdue.daysUsed, 31);
+    assert.equal(overdue.progress, 100);
+
+    const zeroCycle = getBillingCycleUsage('2026-04-15', '2026-04-15', 'UTC');
+    assert.equal(zeroCycle.daysTotal, 0);
+    assert.equal(zeroCycle.daysUsed, 0);
+    assert.equal(zeroCycle.progress, 0);
+  });
+});
+
