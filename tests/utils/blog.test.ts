@@ -67,7 +67,11 @@ Short answer two.
 
   const html = markdownToHtml(`## Heading
 
-A [link](https://example.com) and **bold**.
+A [link](https://example.com), an [internal](https://steadyrenew.com/blog/), and **bold**.
+
+\`\`\`json
+{"a": 1}
+\`\`\`
 
 | Col | Value |
 | --- | --- |
@@ -80,7 +84,9 @@ A [link](https://example.com) and **bold**.
 Example answer.
 `);
   assert.match(html, /<h2 id="heading">Heading<\/h2>/);
-  assert.match(html, /href="https:\/\/example.com"/);
+  assert.match(html, /<a href="https:\/\/example.com" target="_blank" rel="noopener noreferrer">link<\/a>/);
+  assert.match(html, /<a href="https:\/\/steadyrenew.com\/blog\/">internal<\/a>/);
+  assert.match(html, /<pre><code>\{&quot;a&quot;: 1\}<\/code><\/pre>/);
   assert.match(html, /<table>/);
   assert.match(html, /<td>B<\/td>/);
 
@@ -114,7 +120,7 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.equal(zhPost.seoTitle, '微信/支付宝/Apple/Google 自动扣费怎么关？入口速查');
   assert.equal(zhPost.date, '2026-09-16');
   assert.equal(zhPost.updated, '2026-10-26');
-  assert.equal(zhPost.faqs.length, 0);
+  assert.equal(zhPost.faqs.length, 2);
 
   const index = files['blog/index.html'];
   const zhIndex = files['zh/blog/index.html'];
@@ -147,12 +153,15 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.match(index, /hreflang="x-default" href="https:\/\/steadyrenew.com\/blog\/"/);
   assert.match(zhIndex, /hreflang="en" href="https:\/\/steadyrenew.com\/blog\/"/);
   assert.match(zhArticle, /<html lang="zh">/);
+  assert.match(zhArticle, /<a class="brand" href="\/zh\/">/);
   assert.match(zhArticle, /href="\/zh\/blog\/"/);
   assert.match(zhArticle, /<title>微信\/支付宝\/Apple\/Google 自动扣费怎么关？入口速查 · SteadyRenew<\/title>/);
   assert.match(zhArticle, /property="og:title" content="微信\/支付宝\/Apple\/Google 自动扣费怎么关？入口速查 · SteadyRenew"/);
   assert.match(zhArticle, /name="twitter:title" content="微信\/支付宝\/Apple\/Google 自动扣费怎么关？入口速查 · SteadyRenew"/);
+  assert.match(zhArticle, /name="twitter:image" content="https:\/\/steadyrenew\.com\/icon\.png"/);
   assert.match(zhArticle, /<h1>自动扣费在哪里看、怎么关？微信 \/ 支付宝 \/ Apple \/ Google 入口速查（2026）<\/h1>/);
   assert.match(zhArticle, /"headline":"自动扣费在哪里看、怎么关？微信 \/ 支付宝 \/ Apple \/ Google 入口速查（2026）"/);
+  assert.match(zhArticle, /"@type":"FAQPage"/);
   assert.match(zhArticle, /"datePublished":"2026-09-16"/);
   assert.match(zhArticle, /"dateModified":"2026-10-26"/);
   assert.match(zhArticle, /2026年9月16日/);
@@ -182,8 +191,8 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.doesNotMatch(article, /hreflang=/);
 
   assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog\/<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>\s*<lastmod>2026-09-21<\/lastmod>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog\/<\/loc>\s*<lastmod>2026-10-26<\/lastmod>/);
   assert.match(
     sitemap,
     /<loc>https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit\/<\/loc>/
@@ -192,6 +201,8 @@ test('public blog files list app and posts under the canonical host', () => {
     sitemap,
     /<loc>https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew\/<\/loc>\s*<lastmod>2026-10-26<\/lastmod>/
   );
+  assert.match(robots, /Disallow: \/api\//);
+  assert.match(robots, /Disallow: \/\.netlify\//);
   assert.match(robots, /Sitemap: https:\/\/steadyrenew.com\/sitemap.xml/);
 
   const hrefs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
@@ -212,15 +223,21 @@ function pairedPost(lang: string, status: BlogPost['status'] = 'published', slug
   };
 }
 
-test('blog hreflang is emitted only for a published translation of the same slug', () => {
+test('blog hreflang is emitted only for a published translation of the same slug, and drafts are noindex and excluded from sitemap', () => {
   const en = pairedPost('en');
   const zh = pairedPost('zh');
+  const draft = pairedPost('en', 'draft', 'draft-guide');
   const paired = renderBlogPost(en, postLanguageAlternates(en, [en, zh]));
   assert.match(paired, /hreflang="zh-CN" href="https:\/\/steadyrenew.com\/zh\/blog\/shared-guide\/"/);
   assert.match(paired, /hreflang="en" href="https:\/\/steadyrenew.com\/blog\/shared-guide\/"/);
   assert.doesNotMatch(renderBlogPost(en, postLanguageAlternates(en, [en])), /hreflang=/);
   assert.doesNotMatch(renderBlogPost(en, postLanguageAlternates(en, [en, pairedPost('zh', 'draft')])), /hreflang=/);
   assert.doesNotMatch(renderBlogPost(en, postLanguageAlternates(en, [en, pairedPost('zh', 'published', 'other-guide')])), /hreflang=/);
+  assert.match(renderBlogPost(draft), /name="robots" content="noindex,follow"/);
+  const filesWithDraft = Object.fromEntries(
+    buildPublicFiles([en, draft], '2026-09-16').map(file => [file.filePath, file.contents])
+  );
+  assert.doesNotMatch(filesWithDraft['sitemap.xml'] ?? '', /draft-guide/);
 });
 
 test('first post follows soft-CTA and claims rules from the writer brief', () => {

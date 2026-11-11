@@ -5,7 +5,7 @@ description: "Set up the SteadyRenew MCP server to query subscriptions, review s
 date: 2026-09-17
 status: published
 lang: en
-canonical: https://steadyrenew.com/blog/manage-subscriptions-with-mcp
+canonical: https://steadyrenew.com/blog/manage-subscriptions-with-mcp/
 ---
 
 If you keep your subscriptions in [SteadyRenew](https://steadyrenew.com/app), you can connect an MCP client to query those records. For example, you can ask which subscriptions renew in the next two weeks or how much you spend in each currency.
@@ -31,7 +31,7 @@ The MCP server in the repo’s `mcp/` package proxies each tool call to `/api/v1
 
 ## What you’ll need
 
-- A signed-in [SteadyRenew](https://steadyrenew.com/app) account with some subscriptions already in the ledger (or add them in the web UI / via write tools later). If the list is empty, start with the [subscription audit how-to](/blog/how-to-do-a-subscription-audit).
+- A signed-in [SteadyRenew](https://steadyrenew.com/app) account with some subscriptions already in the ledger (or add them in the web UI / via write tools later). If the list is empty, start with the [subscription audit how-to](/blog/how-to-do-a-subscription-audit/).
 - A Developer API key from the user menu → **Developer API** (the full key is shown once—store it like a password).
 - Node.js 20+ to run the MCP server (see the package README for current install steps).
 - An MCP client (Claude Desktop is the copy-paste example below; Cursor, Codex, OpenCode, and others use the same pattern).
@@ -178,7 +178,7 @@ Use MCP when you want an assistant in the loop. Use REST when you want a script,
 - API docs: [https://steadyrenew.com/docs/en/api/overview](https://steadyrenew.com/docs/en/api/overview)
 - AI tools schema: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json)
 - MCP package: [github.com/JerryyrreJ/subscription-management/tree/main/mcp](https://github.com/JerryyrreJ/subscription-management/tree/main/mcp)
-- Fill the list first: [How to do a subscription audit](/blog/how-to-do-a-subscription-audit)
+- Fill the list first: [How to do a subscription audit](/blog/how-to-do-a-subscription-audit/)
 
 ## FAQ
 

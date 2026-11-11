@@ -20,20 +20,31 @@ test('marketing JSON-LD names SteadyRenew, the GitHub project, and the real pric
   const data = marketingStructuredData({
     description: 'Track subscription costs.',
     inLanguage: 'en',
+    url: 'https://steadyrenew.com/pricing/',
+    faqs: [['Is there a free plan?', 'Yes.']],
   });
   const graph = data['@graph'] as Array<Record<string, unknown>>;
   const organization = graph.find(item => item['@type'] === 'Organization');
+  const website = graph.find(item => item['@type'] === 'WebSite');
   const application = graph.find(item => item['@type'] === 'SoftwareApplication');
+  const faqPage = graph.find(item => item['@type'] === 'FAQPage');
   assert.ok(organization);
+  assert.ok(website);
   assert.ok(application);
+  assert.ok(faqPage);
   assert.equal(organization.name, 'SteadyRenew');
   assert.equal(organization.url, 'https://steadyrenew.com/');
+  assert.equal(organization.logo, 'https://steadyrenew.com/icon.png');
   assert.equal(organization.sameAs, STEADYRENEW_SAME_AS);
+  assert.equal(website.name, 'SteadyRenew');
+  assert.equal(website.url, 'https://steadyrenew.com/');
+  assert.equal(application.url, 'https://steadyrenew.com/pricing/');
   assert.equal(application.sameAs, 'https://github.com/JerryyrreJ/subscription-management');
   assert.deepEqual(application.offers, [
     { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' },
     { '@type': 'Offer', name: 'Premium', price: '9', priceCurrency: 'USD' },
   ]);
+  assert.equal(faqPage.url, 'https://steadyrenew.com/pricing/');
   const serialized = JSON.stringify(data);
   assert.doesNotMatch(serialized, /aggregateRating|reviewCount|sub\.jerrylu\.xyz/);
 });
@@ -73,6 +84,12 @@ test('llms.txt is plain text and only links to pages that exist in this repo', (
     assert.ok(body.includes(url), url);
   }
   assert.match(toml, /for = "\/llms\.txt"/);
+  assert.match(toml, /for = "\/sitemap\.xml"/);
+  assert.match(toml, /for = "\/robots\.txt"/);
+  assert.match(toml, /for = "\/assets\/\*"/);
+  assert.match(toml, /Cache-Control = "public, max-age=31536000, immutable"/);
+  assert.match(toml, /for = "\/app"/);
+  assert.match(toml, /X-Robots-Tag = "noindex, follow"/);
   assert.match(toml, /Content-Type = "text\/plain; charset=utf-8"/);
   const blog = toml.indexOf('from = "https://sub.jerrylu.xyz/blog"');
   const home = toml.indexOf('from = "https://sub.jerrylu.xyz/"');
@@ -82,4 +99,5 @@ test('llms.txt is plain text and only links to pages that exist in this repo', (
   assert.match(toml, /from = "https:\/\/www\.steadyrenew\.com\/\*"\s+to = "https:\/\/steadyrenew\.com\/:splat"/);
   assert.match(toml, /from = "http:\/\/steadyrenew\.com\/\*"\s+to = "https:\/\/steadyrenew\.com\/:splat"/);
   assert.match(toml, /from = "http:\/\/www\.steadyrenew\.com\/\*"\s+to = "https:\/\/steadyrenew\.com\/:splat"/);
+  assert.match(toml, /from = "http:\/\/app\.steadyrenew\.com\/\*"\s+to = "https:\/\/steadyrenew\.com\/:splat"/);
 });

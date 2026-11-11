@@ -102,8 +102,12 @@ function renderInline(text: string): string {
         if (!safe) {
           return label;
         }
-        const rel = safe.startsWith('http') ? ' rel="noopener noreferrer"' : '';
-        const target = safe.startsWith('http') ? ' target="_blank"' : '';
+        const isExternal =
+          safe.startsWith('http') &&
+          !safe.startsWith('https://steadyrenew.com/') &&
+          safe !== 'https://steadyrenew.com';
+        const rel = isExternal ? ' rel="noopener noreferrer"' : '';
+        const target = isExternal ? ' target="_blank"' : '';
         return `<a href="${escapeHtml(safe)}"${target}${rel}>${label}</a>`;
       }
     )
@@ -142,6 +146,20 @@ export function markdownToHtml(markdown: string): string {
 
     if (isBlank(line)) {
       index += 1;
+      continue;
+    }
+
+    if (line.trim().startsWith('```')) {
+      const codeLines: string[] = [];
+      index += 1;
+      while (index < lines.length && !peek().trim().startsWith('```')) {
+        codeLines.push(peek());
+        index += 1;
+      }
+      if (index < lines.length && peek().trim().startsWith('```')) {
+        index += 1;
+      }
+      html.push(`<pre><code>${escapeHtml(codeLines.join('\n'))}</code></pre>`);
       continue;
     }
 
@@ -220,7 +238,12 @@ export function markdownToHtml(markdown: string): string {
 
     const paragraph: string[] = [];
     while (index < lines.length && !isBlank(peek()) && !peek().startsWith('#')) {
-      if (/^\s*[-*]\s+/.test(peek()) || /^\s*\d+\.\s+/.test(peek()) || peek().trim().startsWith('>')) {
+      if (
+        /^\s*[-*]\s+/.test(peek()) ||
+        /^\s*\d+\.\s+/.test(peek()) ||
+        peek().trim().startsWith('>') ||
+        peek().trim().startsWith('```')
+      ) {
         break;
       }
       paragraph.push(peek());
@@ -237,21 +260,32 @@ export type FaqItem = {
   answer: string;
 };
 
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}
+
 export function extractFaqs(html: string): FaqItem[] {
-  const faqStart = html.search(/<h2 id="faq">/i);
-  if (faqStart === -1) {
+  const headingMatch = html.match(/<h2 id="(?:faq|常见问题)">[\s\S]*?<\/h2>/i);
+  if (!headingMatch || headingMatch.index === undefined) {
     return [];
   }
 
-  const section = html.slice(faqStart);
+  const afterHeading = html.slice(headingMatch.index + headingMatch[0].length);
+  const nextH2 = afterHeading.search(/<h2\b/i);
+  const section = nextH2 === -1 ? afterHeading : afterHeading.slice(0, nextH2);
   const faqs: FaqItem[] = [];
   const pattern = /<h3 id="[^"]*">([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>/gi;
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(section))) {
     faqs.push({
-      question: match[1].replace(/<[^>]+>/g, '').trim(),
-      answer: match[2].replace(/<[^>]+>/g, '').trim(),
+      question: decodeHtmlEntities(match[1].replace(/<[^>]+>/g, '').trim()),
+      answer: decodeHtmlEntities(match[2].replace(/<[^>]+>/g, '').trim()),
     });
   }
 

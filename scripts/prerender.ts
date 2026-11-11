@@ -15,17 +15,21 @@ const template = await readFile(path.join(out, 'index.html'), 'utf8');
 const origin = template.match(/rel="canonical" href="([^"]+)"/)![1].replace(/\/$/, '');
 const assets = await readdir(path.join(out, 'assets'));
 const css = assets.filter(file => /^LandingPage-.*\.css$/.test(file));
+const js = assets.filter(file => /^LandingPage-.*\.js$/.test(file));
 if (css.length !== 1) throw new Error('Expected one landing page stylesheet');
+if (js.length !== 1) throw new Error('Expected one landing page script');
 const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
 
 function head(html: string, title: string, description: string, canonical: string, locale: string, index: boolean) {
+  const ogLocale = locale === 'zh-CN' ? 'zh_CN' : 'en_US';
+  const ogLocaleAlternate = locale === 'zh-CN' ? 'en_US' : 'zh_CN';
   return html.replace('<html lang="en">', `<html lang="${locale}">`)
     .replace(/<title>[^<]*<\/title>/, `<title>${escape(title)}</title>`)
-    .replace(/(<meta (?:name="description"|property="og:description") content=")[^"]*/g, `$1${escape(description)}`)
-    .replace(/(<meta property="og:title" content=")[^"]*/, `$1${escape(title)}`)
+    .replace(/(<meta (?:name="description"|property="og:description"|name="twitter:description") content=")[^"]*/g, `$1${escape(description)}`)
+    .replace(/(<meta (?:property="og:title"|name="twitter:title") content=")[^"]*/g, `$1${escape(title)}`)
     .replace(/(<meta property="og:url" content=")[^"]*/, `$1${canonical}`)
     .replace(/(<link rel="canonical" href=")[^"]*/, `$1${canonical}`)
-    .replace('</head>', `<meta name="robots" content="${index ? 'index, follow' : 'noindex, follow'}" />\n</head>`);
+    .replace('</head>', `<meta property="og:locale" content="${ogLocale}" />\n<meta property="og:locale:alternate" content="${ogLocaleAlternate}" />\n<meta name="robots" content="${index ? 'index, follow' : 'noindex, follow'}" />\n</head>`);
 }
 
 // Unknown SPA paths use this shell too, never the indexable marketing document.
@@ -35,13 +39,11 @@ await writeFile(path.join(out, 'app/index.html'), head(template, 'SteadyRenew', 
 // Render the actual shared React component, not a separately maintained SEO copy.
 const server = await createServer({ configFile: false, root, mode: 'production', plugins: [react()], server: { middlewareMode: true }, appType: 'custom' });
 try {
-  const { default: i18n } = await server.ssrLoadModule('/src/i18n/index.ts');
   const { default: LandingPage } = await server.ssrLoadModule('/src/components/landing/LandingPage.tsx');
   const { default: LegalPage } = await server.ssrLoadModule('/src/components/legal/LegalPage.tsx');
   const legalCss = assets.filter(file => /^LegalPage-.*\.css$/.test(file));
   if (legalCss.length !== 1) throw new Error('Expected one legal page stylesheet');
   for (const [route, page] of Object.entries(publicPages)) {
-    await i18n.changeLanguage(page.locale);
     if (page.kind === 'privacy' || page.kind === 'terms') {
       const content = legalContent[page.locale][page.kind];
       const html = renderToString(createElement(LegalPage, { kind: page.kind, locale: page.locale }));
@@ -56,17 +58,22 @@ try {
     }
     const copy = landingCopy[page.locale];
     const pricing = page.kind === 'pricing';
-    const html = renderToString(createElement(LandingPage, { pricingOnly: pricing }));
+    const indexable = route !== '/about';
+    const html = renderToString(createElement(LandingPage, { pricingOnly: pricing, locale: page.locale }));
     const en = pricing ? '/pricing/' : '/';
     const zh = pricing ? '/zh/pricing/' : '/zh/';
     const alternates = `<link rel="alternate" hreflang="en" href="${origin}${en}" />\n<link rel="alternate" hreflang="zh-CN" href="${origin}${zh}" />\n<link rel="alternate" hreflang="x-default" href="${origin}${en}" />`;
-    const structured = route === '/about' ? '' : `${jsonLdScript(marketingStructuredData({
+    const structured = !indexable ? '' : `${jsonLdScript(marketingStructuredData({
       description: pricing ? copy.priceIntro : copy.description,
       inLanguage: page.locale,
+      url: origin + page.canonicalPath,
+      origin,
+      faqs: copy.faqs,
     }))}\n`;
-    const result = head(template, pricing ? `${copy.pricing} — SteadyRenew` : copy.title, pricing ? copy.priceIntro : copy.description, origin + page.canonicalPath, page.locale, true)
+    const preloadHero = pricing ? '' : `<link rel="preload" as="image" href="/product-${page.locale}-light.jpg" fetchpriority="high" />\n`;
+    const result = head(template, pricing ? `${copy.pricing} — SteadyRenew` : copy.title, pricing ? copy.priceIntro : copy.description, origin + page.canonicalPath, page.locale, indexable)
       .replace('<div id="root"></div>', `<div id="root">${html}</div>`)
-      .replace('</head>', `${alternates}\n${structured}<link rel="stylesheet" href="/assets/${css[0]}" />\n</head>`);
+      .replace('</head>', `${alternates}\n${structured}${preloadHero}<link rel="modulepreload" crossorigin href="/assets/${js[0]}" />\n<link rel="stylesheet" href="/assets/${css[0]}" />\n</head>`);
     const destination = path.join(out, route, 'index.html');
     await mkdir(path.dirname(destination), { recursive: true });
     await writeFile(destination, result);

@@ -127,6 +127,7 @@ function layout(options: {
   canonical: string;
   lang?: string;
   type?: 'website' | 'article';
+  robots?: string;
   jsonLd?: unknown[];
   alternates?: LanguageAlternate[] | null;
   bodyClass?: string;
@@ -134,8 +135,10 @@ function layout(options: {
 }): string {
   const lang = options.lang ?? 'en';
   const type = options.type ?? 'website';
+  const robots = options.robots ?? 'index,follow';
   const copy = uiCopy(lang);
   const guidesHref = publicPath(blogPath(lang));
+  const homeHref = isZhLang(lang) ? '/zh/' : '/';
   const jsonLdBlocks = (options.jsonLd ?? [])
     .map(block => `<script type="application/ld+json">${jsonLd(block)}</script>`)
     .join('\n    ');
@@ -150,7 +153,7 @@ function layout(options: {
     <meta name="description" content="${escapeHtml(options.description)}" />
     <link rel="canonical" href="${escapeHtml(options.canonical)}" />
     ${alternateLinks(options.alternates)}
-    <meta name="robots" content="index,follow" />
+    <meta name="robots" content="${escapeHtml(robots)}" />
     <meta property="og:site_name" content="${escapeHtml(SITE_NAME)}" />
     <meta property="og:type" content="${type}" />
     <meta property="og:title" content="${escapeHtml(options.title)}" />
@@ -160,6 +163,7 @@ function layout(options: {
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="${escapeHtml(options.title)}" />
     <meta name="twitter:description" content="${escapeHtml(options.description)}" />
+    <meta name="twitter:image" content="${escapeHtml(`${CANONICAL_ORIGIN}/icon.png`)}" />
     <link rel="icon" type="image/png" href="/icon.png" />
     <link rel="stylesheet" href="/blog.css" />
     ${jsonLdBlocks}
@@ -167,8 +171,8 @@ function layout(options: {
   <body class="${options.bodyClass ?? 'blog-body'}">
     <a class="skip-link" href="#content">${escapeHtml(copy.skip)}</a>
     <header class="site-header">
-      <a class="brand" href="/">
-        <img src="/icon.png" alt="" width="32" height="32" />
+      <a class="brand" href="${homeHref}">
+        <img src="/icon.png" alt="" width="32" height="32" decoding="async" />
         <span>${escapeHtml(SITE_NAME)}</span>
       </a>
       <nav aria-label="${escapeHtml(copy.guides)}">
@@ -270,6 +274,7 @@ export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] |
   const indexPath = publicPath(blogPath(post.lang));
   const draftNotice = post.status === 'draft' ? copy.draftBanner : '';
   const documentTitle = post.seoTitle?.trim() || post.title;
+  const logoUrl = `${CANONICAL_ORIGIN}/icon.png`;
 
   const jsonLd = [
     {
@@ -277,6 +282,8 @@ export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] |
       '@type': 'Article',
       headline: post.title,
       description: post.description,
+      url: canonical,
+      image: logoUrl,
       datePublished: post.date,
       dateModified: post.updated ?? post.date,
       inLanguage: post.lang,
@@ -290,6 +297,10 @@ export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] |
         '@type': 'Organization',
         name: SITE_NAME,
         url: `${CANONICAL_ORIGIN}/`,
+        logo: {
+          '@type': 'ImageObject',
+          url: logoUrl,
+        },
       },
     },
     faqJsonLd(canonical, post.faqs),
@@ -301,6 +312,7 @@ export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] |
     canonical,
     lang: post.lang,
     type: 'article',
+    robots: post.status === 'published' ? 'index,follow' : 'noindex,follow',
     jsonLd,
     alternates,
     bodyClass: 'blog-body article-body',
@@ -323,6 +335,8 @@ export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] |
 export function renderRobotsTxt(): string {
   return `User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /.netlify/
 
 Sitemap: ${CANONICAL_ORIGIN}/sitemap.xml
 Sitemap: ${CANONICAL_ORIGIN}/docs/sitemap.xml
@@ -330,14 +344,23 @@ Sitemap: ${CANONICAL_ORIGIN}/docs/sitemap.xml
 }
 
 export function renderSitemap(posts: BlogPost[], generatedAt: string = new Date().toISOString().slice(0, 10)): string {
+  const publishedPosts = posts.filter(post => post.status === 'published');
+  const enPosts = publishedPosts.filter(post => !isZhLang(post.lang));
+  const zhPosts = publishedPosts.filter(post => isZhLang(post.lang));
+  const latestLastmod = (items: BlogPost[]) =>
+    items.reduce<string | undefined>((latest, post) => {
+      const date = post.updated ?? post.date;
+      return !latest || date > latest ? date : latest;
+    }, undefined) ?? generatedAt;
+
   const urls = [
     { loc: canonicalUrl('/'), lastmod: undefined },
     { loc: canonicalUrl('/zh'), lastmod: undefined },
     { loc: canonicalUrl('/pricing'), lastmod: undefined },
     { loc: canonicalUrl('/zh/pricing'), lastmod: undefined },
-    { loc: canonicalUrl(BLOG_PATH), lastmod: generatedAt },
-    { loc: canonicalUrl(ZH_BLOG_PATH), lastmod: generatedAt },
-    ...posts.map(post => ({
+    { loc: canonicalUrl(BLOG_PATH), lastmod: latestLastmod(enPosts) },
+    { loc: canonicalUrl(ZH_BLOG_PATH), lastmod: latestLastmod(zhPosts) },
+    ...publishedPosts.map(post => ({
       loc: postCanonicalUrl(post.slug, post.lang),
       lastmod: post.updated ?? post.date,
     })),
@@ -345,8 +368,7 @@ export function renderSitemap(posts: BlogPost[], generatedAt: string = new Date(
 
   const entries = urls
     .map(url => `  <url>
-    <loc>${escapeHtml(url.loc)}</loc>
-    ${url.lastmod ? `<lastmod>${escapeHtml(url.lastmod)}</lastmod>` : ''}
+    <loc>${escapeHtml(url.loc)}</loc>${url.lastmod ? `\n    <lastmod>${escapeHtml(url.lastmod)}</lastmod>` : ''}
   </url>`)
     .join('\n');
 

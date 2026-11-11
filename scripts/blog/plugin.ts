@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { Connect, Plugin, PreviewServer, ViteDevServer } from 'vite';
 import { buildPublicFiles, writePublicFiles } from './generate.ts';
 import { loadPosts } from './posts.ts';
-import { renderBlogIndex, renderBlogPost, renderRobotsTxt, renderSitemap } from './render.ts';
+import { postLanguageAlternates, renderBlogIndex, renderBlogPost, renderRobotsTxt, renderSitemap } from './render.ts';
 import { isZhLang } from './site.ts';
 
 function send(res: ServerResponse, body: string, contentType: string, status = 200): void {
@@ -47,7 +47,7 @@ function blogMiddleware(rootDir: string): Connect.NextHandleFunction {
           send(res, 'Not found', 'text/plain; charset=utf-8', 404);
           return;
         }
-        send(res, renderBlogPost(post), 'text/html; charset=utf-8');
+        send(res, renderBlogPost(post, postLanguageAlternates(post, posts)), 'text/html; charset=utf-8');
         return;
       }
 
@@ -65,7 +65,7 @@ function blogMiddleware(rootDir: string): Connect.NextHandleFunction {
           send(res, 'Not found', 'text/plain; charset=utf-8', 404);
           return;
         }
-        send(res, renderBlogPost(post), 'text/html; charset=utf-8');
+        send(res, renderBlogPost(post, postLanguageAlternates(post, posts)), 'text/html; charset=utf-8');
         return;
       }
     } catch (error) {

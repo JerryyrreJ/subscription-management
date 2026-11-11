@@ -5,7 +5,7 @@ description: "Find recurring charges in your statements and app-store accounts, 
 date: 2026-09-16
 status: published
 lang: en
-canonical: https://steadyrenew.com/blog/how-to-do-a-subscription-audit
+canonical: https://steadyrenew.com/blog/how-to-do-a-subscription-audit/
 ---
 
 It’s easy to lose track of subscriptions when some bill through a card, others through an app store, and a few renew only once a year. A subscription audit brings those charges into one list so you can see what you still use and what to cancel.
@@ -72,7 +72,7 @@ Treat email as a **hint**, not proof. Open the provider’s real site or app fro
 
 ### Optional: WeChat Pay / Alipay
 
-If you also pay via WeChat Pay or Alipay auto-renew, add those plans to the same list. The [Chinese auto-renewal guide](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew) covers where to find them.
+If you also pay via WeChat Pay or Alipay auto-renew, add those plans to the same list. The [Chinese auto-renewal guide](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/) covers where to find them.
 
 ## Step 2: Put every plan on one list
 

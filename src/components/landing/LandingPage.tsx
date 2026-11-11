@@ -13,8 +13,10 @@ import {
   Sparkles,
   Sun,
 } from 'lucide-react';
-import { useAppLanguage } from '../../hooks/useAppLanguage';
+import type { SupportedLocale } from '../../i18n/types';
+import { shouldOpenApplication } from '../../lib/entryPreference';
 import type { Theme } from '../../types';
+import { getCurrentLocale } from '../../utils/locale';
 import { FREE_PRICE_USD, PREMIUM_PRICE_USD } from '../../utils/pricingFacts';
 import { resolveAppUrl } from '../../utils/siteRouting';
 import { landingCopy } from './copy';
@@ -26,23 +28,38 @@ type Copy = typeof landingCopy.en;
 const appUrl = resolveAppUrl(import.meta.env.VITE_APP_URL);
 
 function Brand() {
-  return <span className="landing-brand"><img src="/icon.png" alt="" width="32" height="32" />SteadyRenew</span>;
+  return <span className="landing-brand"><img src="/icon.png" alt="" width="32" height="32" decoding="async" />SteadyRenew</span>;
 }
 
 function ProductPreview({ c, language, theme }: { c: Copy; language: string; theme: Theme }) {
   return (
     <figure className="landing-preview">
       <a href={`/product-${language}-${theme}.jpg`} target="_blank" rel="noreferrer" aria-label={c.previewZoom}>
-        <img className="landing-product-image" src={`/product-${language}-${theme}.jpg`} alt={c.previewAlt} width="1440" height="860" fetchPriority="high" />
+        <img
+          className="landing-product-image"
+          src={`/product-${language}-${theme}.jpg`}
+          alt={c.previewAlt}
+          width="1440"
+          height="860"
+          decoding="async"
+          {...({ fetchpriority: 'high' } as Record<string, string>)}
+        />
       </a>
       <figcaption>{c.example}</figcaption>
     </figure>
   );
 }
 
-export default function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean } = {}) {
-  const { language } = useAppLanguage();
+export default function LandingPage({
+  pricingOnly = false,
+  locale,
+}: {
+  pricingOnly?: boolean;
+  locale?: SupportedLocale;
+} = {}) {
+  const language = locale ?? getCurrentLocale();
   const c = landingCopy[language];
+  const [enHomeUrl, setEnHomeUrl] = useState('/');
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'light';
     const saved = localStorage.getItem('theme');
@@ -52,13 +69,19 @@ export default function LandingPage({ pricingOnly = false }: { pricingOnly?: boo
         ? 'dark'
         : 'light';
   });
-  const guidesUrl = language === 'zh-CN' ? '/zh/blog' : '/blog';
-  const homeUrl = language === 'zh-CN' ? '/zh' : '/about';
-  const publicPricingUrl = language === 'zh-CN' ? '/zh/pricing' : '/pricing';
+  const guidesUrl = language === 'zh-CN' ? '/zh/blog/' : '/blog/';
+  const homeUrl = language === 'zh-CN' ? '/zh/' : enHomeUrl;
+  const publicPricingUrl = language === 'zh-CN' ? '/zh/pricing/' : '/pricing/';
   const pricingUrl = new URL(appUrl, typeof window === 'undefined' ? MARKETING_ORIGIN : window.location.origin);
   pricingUrl.searchParams.set('pricing', '1');
   const PriceHeading = pricingOnly ? 'h1' : 'h2';
   const docsUrl = getDocumentationUrl('user-guide/agent-setup', language);
+
+  useEffect(() => {
+    if (shouldOpenApplication()) {
+      setEnHomeUrl('/about');
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -66,17 +89,26 @@ export default function LandingPage({ pricingOnly = false }: { pricingOnly?: boo
   }, [theme]);
 
   useEffect(() => {
-    document.title = pricingOnly ? `${c.pricing} — SteadyRenew` : c.title;
+    const pageTitle = pricingOnly ? `${c.pricing} — SteadyRenew` : c.title;
+    const pageDescription = pricingOnly ? c.priceIntro : c.description;
+    document.documentElement.lang = language;
+    document.title = pageTitle;
     document
       .querySelector('meta[name="description"]')
-      ?.setAttribute('content', pricingOnly ? c.priceIntro : c.description);
+      ?.setAttribute('content', pageDescription);
     document
       .querySelector('meta[property="og:title"]')
-      ?.setAttribute('content', pricingOnly ? `${c.pricing} — SteadyRenew` : c.title);
+      ?.setAttribute('content', pageTitle);
     document
       .querySelector('meta[property="og:description"]')
-      ?.setAttribute('content', pricingOnly ? c.priceIntro : c.description);
-  }, [c, pricingOnly]);
+      ?.setAttribute('content', pageDescription);
+    document
+      .querySelector('meta[name="twitter:title"]')
+      ?.setAttribute('content', pageTitle);
+    document
+      .querySelector('meta[name="twitter:description"]')
+      ?.setAttribute('content', pageDescription);
+  }, [c, language, pricingOnly]);
 
   return (
     <div className="landing-page" lang={language}>
@@ -98,7 +130,7 @@ export default function LandingPage({ pricingOnly = false }: { pricingOnly?: boo
         <div className="landing-header-actions">
           <a
             className="landing-icon-button landing-language"
-            href={language === 'zh-CN' ? (pricingOnly ? '/pricing' : '/about') : (pricingOnly ? '/zh/pricing' : '/zh')}
+            href={language === 'zh-CN' ? (pricingOnly ? '/pricing/' : enHomeUrl) : (pricingOnly ? '/zh/pricing/' : '/zh/')}
             aria-label={
               language === 'zh-CN' ? 'Switch to English' : '切换到简体中文'
             }

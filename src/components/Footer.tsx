@@ -6,7 +6,7 @@ import { WEBSITE_PATH } from '../utils/entryPreference';
 export function Footer() {
  const { t, i18n } = useTranslation(['footer']);
  const currentYear = new Date().getFullYear();
- const guidesHref = getMarketingUrl(i18n.language.toLowerCase().startsWith('zh') ? '/zh/blog' : '/blog');
+ const guidesHref = getMarketingUrl(i18n.language.toLowerCase().startsWith('zh') ? '/zh/blog/' : '/blog/');
 
  return (
  <>
