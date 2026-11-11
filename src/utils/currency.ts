@@ -273,7 +273,7 @@ const getFallbackRates = (baseCurrency: Currency): ExchangeRates => {
  },
  };
 
- const rates = fallbackRates[baseCurrency] || fallbackRates.USD;
+ const rates = { ...(fallbackRates[baseCurrency] || fallbackRates.USD) };
 
  // 确保基准货币本身的汇率为1.0
  rates[baseCurrency] = 1.0;
@@ -299,7 +299,7 @@ const resolveRate = (
  }
 
  const liveRate = exchangeRates[currency];
- if (typeof liveRate === 'number' && liveRate > 0) {
+ if (typeof liveRate === 'number' && Number.isFinite(liveRate) && liveRate > 0) {
   return {
    rate: liveRate,
    usedFallback: false
@@ -307,7 +307,7 @@ const resolveRate = (
  }
 
  const fallbackRate = fallbackRates[currency];
- if (typeof fallbackRate === 'number' && fallbackRate > 0) {
+ if (typeof fallbackRate === 'number' && Number.isFinite(fallbackRate) && fallbackRate > 0) {
   return {
    rate: fallbackRate,
    usedFallback: true,

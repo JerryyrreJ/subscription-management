@@ -117,6 +117,41 @@ interface CreateSubscriptionOptions {
  createdAt?: string;
 }
 
+const doesAnchorDayMatchDate = (dateString: string, anchorDay: number): boolean => {
+ const date = parseDateOnly(dateString);
+ const maxDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+ return Math.min(anchorDay, maxDay) === date.getUTCDate();
+};
+
+const resolveMonthlyAnchorDay = (
+ parsed: SubscriptionCreateInput,
+ nextPaymentDate: string
+): number => {
+ if (
+  parsed.billingAnchorDay !== undefined &&
+  doesAnchorDayMatchDate(nextPaymentDate, parsed.billingAnchorDay)
+ ) {
+  return parsed.billingAnchorDay;
+ }
+
+ if (!parsed.nextPaymentDate && !parsed.trialEndsOn && parsed.lastPaymentDate) {
+  return getDateOnlyDay(parsed.lastPaymentDate);
+ }
+
+ if (parsed.lastPaymentDate) {
+  const lastDay = getDateOnlyDay(parsed.lastPaymentDate);
+  const nextDay = getDateOnlyDay(nextPaymentDate);
+  if (
+   lastDay > nextDay &&
+   calculateNextPaymentDate(parsed.lastPaymentDate, 'monthly', undefined, lastDay) === nextPaymentDate
+  ) {
+   return lastDay;
+  }
+ }
+
+ return getDateOnlyDay(nextPaymentDate);
+};
+
 export const createSubscriptionRecord = (
  input: unknown,
  options: CreateSubscriptionOptions = {}
@@ -124,10 +159,8 @@ export const createSubscriptionRecord = (
  const parsed = subscriptionCreateInputSchema.parse(input);
  const now = options.now || new Date().toISOString();
  const isTrial = parsed.isTrial ?? false;
- const billingAnchorDay = parsed.period === 'monthly'
-  ? parsed.billingAnchorDay ?? getDateOnlyDay(
-   parsed.lastPaymentDate ?? parsed.nextPaymentDate ?? parsed.trialEndsOn as string
-  )
+ const initialAnchorDay = parsed.period === 'monthly'
+  ? (parsed.billingAnchorDay ?? (parsed.lastPaymentDate ? getDateOnlyDay(parsed.lastPaymentDate) : undefined))
   : undefined;
  const derivedNextPaymentDate = parsed.nextPaymentDate ?? (
   parsed.lastPaymentDate
@@ -135,7 +168,7 @@ export const createSubscriptionRecord = (
     parsed.lastPaymentDate,
     parsed.period,
     parsed.customDate,
-    billingAnchorDay
+    initialAnchorDay
    )
    : parsed.trialEndsOn
  );
@@ -143,6 +176,9 @@ export const createSubscriptionRecord = (
   ? parsed.trialEndsOn ?? derivedNextPaymentDate
   : undefined;
  const nextPaymentDate = (isTrial ? trialEndsOn : derivedNextPaymentDate) as string;
+ const billingAnchorDay = parsed.period === 'monthly'
+  ? resolveMonthlyAnchorDay(parsed, nextPaymentDate)
+  : undefined;
  const lastPaymentDate = calculatePreviousPaymentDate(
   nextPaymentDate,
   parsed.period,
@@ -168,11 +204,44 @@ export const updateSubscriptionRecord = (
  existing: Subscription,
  input: unknown,
  now: string = new Date().toISOString()
-): Subscription => createSubscriptionRecord(input, {
- id: existing.id,
- createdAt: existing.createdAt || now,
- now,
-});
+): Subscription => {
+ let normalizedInput = input;
+
+ if (input && typeof input === 'object' && !Array.isArray(input)) {
+  const raw = { ...(input as Record<string, unknown>) };
+
+  if (
+   raw.nextPaymentDate !== undefined &&
+   raw.nextPaymentDate !== existing.nextPaymentDate
+  ) {
+   if (raw.billingAnchorDay === existing.billingAnchorDay) {
+    delete raw.billingAnchorDay;
+   }
+   if (raw.trialEndsOn === existing.trialEndsOn) {
+    raw.trialEndsOn = raw.nextPaymentDate;
+   }
+  }
+
+  if (
+   raw.trialEndsOn !== undefined &&
+   raw.trialEndsOn !== existing.trialEndsOn &&
+   raw.nextPaymentDate === existing.nextPaymentDate
+  ) {
+   raw.nextPaymentDate = raw.trialEndsOn;
+   if (raw.billingAnchorDay === existing.billingAnchorDay) {
+    delete raw.billingAnchorDay;
+   }
+  }
+
+  normalizedInput = raw;
+ }
+
+ return createSubscriptionRecord(normalizedInput, {
+  id: existing.id,
+  createdAt: existing.createdAt || now,
+  now,
+ });
+};
 
 export const normalizeSubscriptionRecord = (input: unknown): Subscription => {
  const parsed = subscriptionRecordSchema.parse(input);

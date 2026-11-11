@@ -125,16 +125,27 @@ async function releaseNotificationDelivery(
   }
 }
 
+export interface ScheduledNotificationsDependencies {
+  createSupabase?: () => SupabaseClient
+  sendNotification?: typeof sendBarkNotification
+}
+
 /**
  * Netlify Scheduled Function (v2 格式)
  * 每小时运行一次，检查所有用户的订阅并发送 Bark 推送
  */
-export default async (req: Request): Promise<Response> => {
+export const createScheduledNotificationsHandler = (
+  dependencies: ScheduledNotificationsDependencies = {}
+) => async (req: Request): Promise<Response> => {
   console.log('[Scheduled Notifications] Starting notification check...', new Date().toISOString())
+
+  const getSupabase = dependencies.createSupabase
+    ?? (() => createSupabaseAdminClient(getSupabaseAdminConfig()))
+  const deliverBarkNotification = dependencies.sendNotification ?? sendBarkNotification
 
   let supabase: SupabaseClient
   try {
-    supabase = createSupabaseAdminClient(getSupabaseAdminConfig())
+    supabase = getSupabase()
   } catch {
     console.error('[Scheduled Notifications] Missing or incomplete Supabase server configuration')
     return new Response(
@@ -331,7 +342,7 @@ export default async (req: Request): Promise<Response> => {
             deliveryReserved = true
 
             // 发送 Bark 推送
-            const success = await sendBarkNotification(
+            const success = await deliverBarkNotification(
                 bark_server_url,
                 bark_device_key,
                 title,
@@ -423,6 +434,8 @@ export default async (req: Request): Promise<Response> => {
     )
   }
 }
+
+export default createScheduledNotificationsHandler()
 
 // Netlify Scheduled Function 配置 (v2 格式)
 // 使用 Config 类型导出来定义执行频率

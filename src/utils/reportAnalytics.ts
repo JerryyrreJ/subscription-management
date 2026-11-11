@@ -123,8 +123,10 @@ export const calculateMonthlyCost = (subscription: Subscription): number => {
  return subscription.amount / 12;
  case 'custom':
  if (subscription.customDate) {
- const days = parseInt(subscription.customDate);
- return (subscription.amount / days) * 30;
+ const days = Number.parseInt(subscription.customDate, 10);
+ if (Number.isFinite(days) && days > 0) {
+  return (subscription.amount / days) * 30;
+ }
  }
  return subscription.amount;
  default:
@@ -147,7 +149,7 @@ const getLast12Months = (locale?: string): { month: string; monthLabel: string }
  const now = new Date();
 
  for (let i = 11; i >= 0; i--) {
- const date = new Date(Date.UTC(now.getFullYear(), now.getMonth() - i, 1));
+ const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
  const month = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
  const monthLabel = formatMonthYear(date, locale);
  months.push({ month, monthLabel });
@@ -161,7 +163,7 @@ const getLast12Months = (locale?: string): { month: string; monthLabel: string }
  */
 const isActiveInMonth = (subscription: Subscription, monthStr: string): boolean => {
  const [year, month] = monthStr.split('-').map(Number);
- const monthEnd = new Date(year, month, 0);
+ const monthEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
  const createdDate = subscription.createdAt ? new Date(subscription.createdAt) : parseDateOnly(subscription.lastPaymentDate);
 
@@ -368,15 +370,17 @@ export const generateOptimizationSuggestions = (
  const suggestions: OptimizationSuggestion[] = [];
 
  // Suggestion 1: Detect expensive subscriptions (monthly cost exceeding twice the average)
- const avgMonthlyCost = subscriptions.reduce((sum, sub) => {
- return sum + convertCurrency(
- calculateMonthlyCost(sub),
- sub.currency,
- baseCurrency,
- exchangeRates,
- baseCurrency
- );
- }, 0) / subscriptions.length;
+ const avgMonthlyCost = subscriptions.length > 0
+  ? subscriptions.reduce((sum, sub) => {
+   return sum + convertCurrency(
+   calculateMonthlyCost(sub),
+   sub.currency,
+   baseCurrency,
+   exchangeRates,
+   baseCurrency
+   );
+   }, 0) / subscriptions.length
+  : 0;
 
  const expensiveSubs = subscriptions.filter(sub => {
  const cost = convertCurrency(

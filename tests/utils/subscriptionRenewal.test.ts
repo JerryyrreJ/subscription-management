@@ -134,3 +134,34 @@ test('resolveSubscriptionRenewal does not auto-roll a free trial after the end d
   assert.ok(renewal.daysUntilEffectiveNextPayment < 0);
  });
 });
+
+test('resolveSubscriptionRenewal preserves Jan 31 cadence across February even without billingAnchorDay', () => {
+ withMockedNow('2026-03-10T12:00:00.000Z', () => {
+  const renewal = resolveSubscriptionRenewal(createSubscription({
+   lastPaymentDate: '2025-12-31',
+   nextPaymentDate: '2026-01-31',
+   billingAnchorDay: undefined,
+  }), 'UTC');
+
+  assert.equal(renewal.effectiveLastPaymentDate, '2026-02-28');
+  assert.equal(renewal.effectiveNextPaymentDate, '2026-03-31');
+  assert.equal(renewal.daysUntilEffectiveNextPayment, 21);
+  assert.equal(renewal.isAutoRenewed, true);
+ });
+});
+
+test('resolveSubscriptionRenewal preserves leap-day yearly cadence across non-leap and leap years', () => {
+ withMockedNow('2028-02-10T12:00:00.000Z', () => {
+  const renewal = resolveSubscriptionRenewal(createSubscription({
+   period: 'yearly',
+   lastPaymentDate: '2023-02-28',
+   nextPaymentDate: '2024-02-29',
+  }), 'UTC');
+
+  assert.equal(renewal.effectiveLastPaymentDate, '2027-02-28');
+  assert.equal(renewal.effectiveNextPaymentDate, '2028-02-29');
+  assert.equal(renewal.daysUntilEffectiveNextPayment, 19);
+  assert.equal(renewal.isAutoRenewed, true);
+ });
+});
+

@@ -114,3 +114,58 @@ test('turning off a trial clears trialEndsOn and keeps the date as nextPaymentDa
  assert.equal(converted.trialEndsOn, undefined);
  assert.equal(converted.nextPaymentDate, '2026-03-15');
 });
+
+test('createSubscriptionRecord derives billingAnchorDay from nextPaymentDate instead of clamped previous month', () => {
+ const subscription = createSubscriptionRecord({
+  ...validInput,
+  lastPaymentDate: '2026-02-28',
+  nextPaymentDate: '2026-03-31',
+ });
+
+ assert.equal(subscription.nextPaymentDate, '2026-03-31');
+ assert.equal(subscription.billingAnchorDay, 31);
+ assert.equal(subscription.lastPaymentDate, '2026-02-28');
+});
+
+test('createSubscriptionRecord preserves 31st anchor day when both Jan 31 lastPaymentDate and Feb 28 nextPaymentDate are provided', () => {
+ const subscription = createSubscriptionRecord({
+  ...validInput,
+  lastPaymentDate: '2026-01-31',
+  nextPaymentDate: '2026-02-28',
+ });
+
+ assert.equal(subscription.nextPaymentDate, '2026-02-28');
+ assert.equal(subscription.billingAnchorDay, 31);
+ assert.equal(subscription.lastPaymentDate, '2026-01-31');
+});
+
+test('updateSubscriptionRecord updates billingAnchorDay and trialEndsOn when nextPaymentDate is changed on a spread record', () => {
+ const existingMonthly = createSubscriptionRecord({
+  ...validInput,
+  lastPaymentDate: '2026-01-31',
+ }, { id: 'sub-anchor' });
+ assert.equal(existingMonthly.billingAnchorDay, 31);
+ assert.equal(existingMonthly.nextPaymentDate, '2026-02-28');
+
+ const updatedMonthly = updateSubscriptionRecord(existingMonthly, {
+  ...existingMonthly,
+  nextPaymentDate: '2026-03-15',
+ });
+ assert.equal(updatedMonthly.nextPaymentDate, '2026-03-15');
+ assert.equal(updatedMonthly.billingAnchorDay, 15);
+ assert.equal(updatedMonthly.lastPaymentDate, '2026-02-15');
+
+ const existingTrial = createSubscriptionRecord({
+  ...validInput,
+  isTrial: true,
+  trialEndsOn: '2026-03-01',
+ }, { id: 'sub-trial' });
+ const updatedTrial = updateSubscriptionRecord(existingTrial, {
+  ...existingTrial,
+  nextPaymentDate: '2026-03-20',
+ });
+ assert.equal(updatedTrial.nextPaymentDate, '2026-03-20');
+ assert.equal(updatedTrial.trialEndsOn, '2026-03-20');
+ assert.equal(updatedTrial.billingAnchorDay, 20);
+});
+

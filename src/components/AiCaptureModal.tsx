@@ -537,11 +537,15 @@ export function AiCaptureModal({
 
     const updatedPeriod = command.patch.period ?? target.period;
     const updatedNextPaymentDate = command.patch.nextPaymentDate ?? target.nextPaymentDate;
+    const hasDateChange = command.patch.nextPaymentDate !== undefined && command.patch.nextPaymentDate !== target.nextPaymentDate;
     const updated = {
       ...target,
       ...command.patch,
+      trialEndsOn: target.isTrial
+        ? (command.patch.nextPaymentDate ?? target.trialEndsOn ?? updatedNextPaymentDate)
+        : target.trialEndsOn,
       billingAnchorDay: updatedPeriod === 'monthly'
-        ? getDateOnlyDay(updatedNextPaymentDate)
+        ? (hasDateChange ? getDateOnlyDay(updatedNextPaymentDate) : (target.billingAnchorDay ?? getDateOnlyDay(updatedNextPaymentDate)))
         : undefined,
       customDate: command.patch.period && command.patch.period !== 'custom'
         ? undefined
@@ -601,11 +605,18 @@ export function AiCaptureModal({
         const targetSubscription = plan.target as Subscription;
         const updatedPeriod = plan.update.patch.period ?? targetSubscription.period;
         const updatedNextPaymentDate = plan.update.patch.nextPaymentDate ?? targetSubscription.nextPaymentDate;
+        const hasDateChange = plan.update.patch.nextPaymentDate !== undefined
+          && plan.update.patch.nextPaymentDate !== targetSubscription.nextPaymentDate;
         await onUpdate({
           ...targetSubscription,
           ...plan.update.patch,
+          trialEndsOn: targetSubscription.isTrial
+            ? (plan.update.patch.nextPaymentDate ?? targetSubscription.trialEndsOn ?? updatedNextPaymentDate)
+            : targetSubscription.trialEndsOn,
           billingAnchorDay: updatedPeriod === 'monthly'
-            ? getDateOnlyDay(updatedNextPaymentDate)
+            ? (hasDateChange
+              ? getDateOnlyDay(updatedNextPaymentDate)
+              : (targetSubscription.billingAnchorDay ?? getDateOnlyDay(updatedNextPaymentDate)))
             : undefined,
           customDate: plan.update.patch.period && plan.update.patch.period !== 'custom'
             ? undefined
