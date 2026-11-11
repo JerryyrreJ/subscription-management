@@ -69,6 +69,8 @@ test('llms.txt is plain text and only links to pages that exist in this repo', (
     'https://steadyrenew.com/zh/blog/',
     'https://steadyrenew.com/blog/how-to-do-a-subscription-audit/',
     'https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/',
+    'https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/',
+    'https://steadyrenew.com/blog/apple-free-trial-charge-refund/',
     'https://steadyrenew.com/blog/manage-subscriptions-with-mcp/',
     'https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/',
     'https://steadyrenew.com/docs/en/api/overview',

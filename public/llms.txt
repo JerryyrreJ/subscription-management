@@ -18,6 +18,8 @@ Free includes unlimited subscriptions, cloud sync, Bark renewal reminders, multi
 
 - [How to do a subscription audit](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/)
 - [How to choose a subscription tracker without linking your bank](https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/)
+- [Rocket Money alternatives that don’t ask for your bank login](https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/)
+- [Charged after an Apple free trial? How to check what billed you and request a refund](https://steadyrenew.com/blog/apple-free-trial-charge-refund/)
 - [Connect SteadyRenew to an MCP client](https://steadyrenew.com/blog/manage-subscriptions-with-mcp/)
 - [自动扣费在哪里看、怎么关？微信 / 支付宝 / Apple / Google 入口速查（2026）](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/)
 

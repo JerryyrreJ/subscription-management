@@ -1,198 +1,148 @@
 ---
 title: "How to do a subscription audit (keep / cancel / remind)"
 slug: how-to-do-a-subscription-audit
-description: "Find recurring charges in your statements and app-store accounts, cancel unused subscriptions, and keep track of renewal dates."
+description: "Sit down with your statements, app-store accounts, and wallets for half an hour to find every recurring bill, cancel what went stale, and catch annual renewals ahead of time."
 date: 2026-09-16
+updated: 2026-11-12
 status: published
 lang: en
 canonical: https://steadyrenew.com/blog/how-to-do-a-subscription-audit/
 ---
 
-It’s easy to lose track of subscriptions when some bill through a card, others through an app store, and a few renew only once a year. A subscription audit brings those charges into one list so you can see what you still use and what to cancel.
+Subscriptions rarely get out of hand all at once. One streaming plan goes on a credit card, two phone apps bill through Apple, a cloud backup renews every October on PayPal, and a free trial quietly turns into a $20 monthly charge while you are busy with something else. Because they never show up on the same screen, it is hard to tell what your recurring bills actually add up to.
 
-Set aside an afternoon to check your statements, Apple or Google Play subscriptions, payment wallets, and email receipts. You can record everything in a spreadsheet or notes app without giving another service access to your accounts.
-
-Keep the list after you finish. Adding new subscriptions as you sign up makes the next review much easier.
+Sitting down for half an hour to pull every recurring charge into one plain list fixes that. You do not need to hand another company your bank password; your own statements, phone settings, and a blank sheet or notes file are enough.
 
 ## Before you start
 
-### Gather payment sources
+Open whatever you will actually look at again next month (a spreadsheet, a notes page, or a manual tracker) and pull up statements for every card and bank account you still keep open, including that older card sitting in a drawer for "just one bill."
 
-Gather statements for the cards and accounts you have used for subscriptions, including older cards that may still have recurring charges.
+Give your list seven columns so you are not guessing later:
 
-### Open a blank list (spreadsheet, notes, or tracker)
-
-Minimum columns:
-
-| Column | Why it matters |
+| Column | What to write down |
 | --- | --- |
-| Service name | What you think you’re paying for |
-| Amount | The real charge, not a guess |
-| Currency | Useful if you mix USD, CNY, HKD, etc. |
-| Billing cycle | Monthly, yearly, quarterly, custom |
-| Next renewal | Or “unknown” if you still need to check |
-| Decision | Keep / cancel / remind |
-| Where it bills | Apple / Google / card / PayPal / other |
+| Service | The plain name of the app, membership, or tool |
+| Amount | What actually leaves your account (including tax) |
+| Currency | Helpful if you pay in a mix of USD, EUR, CNY, HKD, etc. |
+| Cycle | Monthly, yearly, quarterly, or free trial |
+| Next charge date | Write "unknown" for now if the statement does not say |
+| Where it bills | Which card, Apple, Google Play, PayPal, etc. |
+| Action | **Keep**, **Cancel**, or **Remind** |
 
-A spreadsheet or notes app is fine for this first pass.
+## Step 1: Check every place money can leave
 
-## Step 1: Check each payment channel
+Go channel by channel and write down every recurring charge you spot, even if you think you already canceled it. It is much easier to cross out a duplicate row five minutes from now than to miss an annual bill.
 
-Work through each channel below. Add every recurring plan you find—even if you’re unsure. You’ll dedupe and decide later.
+### Card and bank statements (look back 12 months)
 
-### Bank and card statements
+Skimming last month’s statement catches Netflix and Spotify, but it misses almost everything billed once a year: password managers, domain renewals, cloud storage, Amazon Prime, credit card fees, and software licenses. Pull a full year of PDFs or search your statement history if your bank lets you filter online.
 
-Look for memberships, software, streaming, delivery, cloud storage, and AI tools. Check up to a year of statements if available: one month will miss most annual charges. Confirm the next renewal date on each provider’s billing page.
+### Apple and Google Play subscriptions
 
-### Apple subscriptions
+Card statements are notoriously unhelpful for mobile apps because everything from iCloud storage to a language-learning app often shows up as `APPLE.COM/BILL` or `GOOGLE *`. Checking your phone directly takes thirty seconds and shows the real app names:
 
-On iPhone: **Settings → [your name] → Subscriptions**. On Mac, manage subscriptions from the App Store account settings. Apple-billed charges on your card may show as Apple, not the app brand—so the Apple subscriptions screen is often clearer than the statement alone.
+- **iPhone or iPad:** open **Settings → [your name] → Subscriptions** (on a Mac, check Account Settings inside the App Store). If your household uses Family Sharing, check whether someone else’s Apple Account is carrying the bill. Apple’s [official cancellation page](https://support.apple.com/118428) covers Apple TV and web steps too, and if a mystery trial just billed you, here is how to [check an Apple charge and request a refund](https://steadyrenew.com/blog/apple-free-trial-charge-refund/).
+- **Android / Google Play:** open **Google Play → profile icon → Payments & subscriptions → Subscriptions**. Deleting an app from your phone never stops Google Play or Apple billing; you have to cancel inside the subscription list. See [Google Play’s subscription help](https://support.google.com/googleplay/answer/7018481) if you have multiple Google Accounts.
 
-If you use Family Sharing, check whether a plan is shared or billed on someone else’s Apple Account.
+### PayPal and digital wallets
 
-Official help: [If you want to cancel a subscription from Apple](https://support.apple.com/118428).
+Log into PayPal, open Settings, and look under **Payments → Automatic payments**. Plenty of forgotten web services and annual software renewals live behind an old PayPal billing agreement long after the underlying card was replaced. If you also pay for services in China through WeChat Pay or Alipay, our [Chinese auto-renewal guide](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/) lists the exact menu paths for both apps.
 
-### Google Play subscriptions
+### Your email inbox (as a backup check)
 
-Open Google Play → profile → **Subscriptions** (or manage subscriptions on the web while signed into the right Google Account).
+Search your inbox for `receipt`, `renewal`, `invoice`, `trial`, and `membership`. Email catches annual renewals you signed up for eleven months ago, though you should always open the company’s real website yourself rather than clicking links inside strange "your subscription is renewing" emails, which are a favorite phishing lure.
 
-**Important:** uninstalling an app does **not** cancel its subscription. You still need to cancel in Google Play (or with the developer, if billing isn’t through Play).
+## Step 2: Clean up the numbers
 
-Official help: [Cancel, pause, or change a subscription on Google Play](https://support.google.com/googleplay/answer/7018481).
+Once everything is in one place, do a quick sanity check before deciding what stays:
 
-### PayPal and similar wallets
+- **Merge duplicates carefully.** An emailed receipt and a Visa line item from the same week are usually the same bill, unless you accidentally signed up under two different email addresses (which happens more often than people admit with streaming and cloud storage).
+- **Keep both the monthly average and the real hit.** A $120 annual plan works out to $10 a month on paper, which helps you compare costs, yet $120 still leaves your checking account on a single Tuesday. Write down the real renewal date so it does not catch you short.
+- **Fill in missing dates.** When a bank line item only shows the charge date, log into that account once to confirm when the next cycle hits.
 
-Check automatic / recurring payments in PayPal (and any other wallet you use). Match those agreements to your statements so forgotten trials don’t hide in a second billing channel.
+Here is how a realistic working list looks mid-audit:
 
-### Email search
-
-Search for clues with terms like: `subscription`, `renewal`, `receipt`, `invoice`, `trial`, `membership`.
-
-Treat email as a **hint**, not proof. Open the provider’s real site or app from a bookmark (not a random link in a renewal message) to confirm the plan and cancel path. Phishing emails often impersonate renewals.
-
-### Optional: WeChat Pay / Alipay
-
-If you also pay via WeChat Pay or Alipay auto-renew, add those plans to the same list. The [Chinese auto-renewal guide](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/) covers where to find them.
-
-## Step 2: Put every plan on one list
-
-- **Deduplicate.** A receipt and a statement entry may refer to the same payment. Match the account, amount, and date before combining rows; two subscriptions to the same service may be separate purchases.
-- **Note monthly equivalent** *and* **the real charge date.** A $120/year plan is about $10/month for comparison, but your bank still debits $120 on the renewal date—not $10 every month.
-- **Flag unknown renewal dates.** Follow up on the provider’s billing or account page before you decide “remind.”
-
-### Example list
-
-These amounts are examples, not current prices.
-
-| Service | Amount | Cycle | Where it bills | Decision |
+| Service | Amount | Cycle | Where it bills | Action |
 | --- | --- | --- | --- | --- |
-| Streaming | $15.99 / mo | Monthly | Card | Keep + remind ~1 week before |
-| Cloud storage | $99 / yr (~$8.25 / mo equivalent) | Yearly | Card | Keep + remind ~3 weeks before |
-| Unused AI trial | $20 / mo | Monthly | Card | Cancel + confirm next cycle |
-| Duplicate music app | $10.99 / mo | Monthly | Apple | Cancel in Apple Subscriptions |
-| Family shared storage | — | — | Apple (family) | Remind — talk with household first |
+| Video streaming | $15.99 | Monthly | Visa | Keep, set a 7-day reminder |
+| Cloud backup | $99.00 ($8.25/mo) | Yearly | Mastercard | Keep, review 3 weeks before Oct 12 |
+| AI writing tool trial | $20.00 | Monthly | Visa | Cancel today and check next statement |
+| Second music app | $10.99 | Monthly | Apple | Cancel in iPhone Settings |
+| Family cloud storage | $9.99 | Monthly | Apple (shared) | Remind, ask partner before touching it |
 
-## Step 3: Decide — keep / cancel / remind
+## Step 3: Sort every row into Keep, Cancel, or Remind
 
-For each subscription, check when you last used it and whether you expect to need it before the next renewal. If someone else uses a shared plan, check with them too.
+Trying to make a permanent decision on thirty bills at once stalls people out. Three buckets keep things moving:
 
-### Keep
+- **Keep** is for things you have actually used in the past month and would gladly pay for again today if you were starting from zero.
+- **Cancel** is for duplicates, forgotten add-ons, and "I might use this next month" memberships that have gone untouched for sixty days. You can always resubscribe in two minutes if you genuinely miss one.
+- **Remind** is the pressure valve for everything in between: free trials you are still testing, annual plans that are already paid for another six months, or shared household accounts you cannot cancel unilaterally. Instead of leaving them in limbo, pick a specific date to decide.
 
-Choose **keep** when you’ve used it recently, the value is clear, and a cheaper free tier wouldn’t actually cover what you need.
+## Step 4: Cancel on the provider’s side and keep the receipt
 
-### Cancel
+Deleting a row from your spreadsheet obviously does not stop a merchant from charging your card. Work through your **Cancel** rows right away while you already have your accounts open:
 
-Choose **cancel** for unused plans, duplicates, or “just in case” memberships you have no near-term plan to use. Cancel on the provider’s own flow (Apple, Google Play, or the merchant site). If you cannot find the cancellation option, check the provider’s help page.
+1. Cancel directly in Apple Subscriptions, Google Play, PayPal, or the company’s billing settings.
+2. Keep the confirmation email or snap a quick screenshot of the "Canceled / Expires on" screen.
+3. Glance at next month’s statement around the old billing day to make sure the charge actually stopped. If a company makes canceling unreasonably difficult or bills you after confirming cancellation, the [U.S. Federal Trade Commission’s guide on free trials and auto-renewals](https://consumer.ftc.gov/articles/getting-and-out-free-trials-auto-renewals-and-negative-option-subscriptions) explains your dispute rights.
 
-### Remind (pause the decision / trial / annual review)
+## Step 5: Put alerts ahead of what stays
 
-Choose **remind** when:
+A list only saves you money the second time around if it warns you *before* a renewal window closes. Good lead times for most people:
 
-- A free trial is nearing its end
-- An annual plan is fine *for now*, but you want a review before renewal
-- A shared household plan needs a conversation before anyone cancels
+- **Free trials:** 2 to 3 days before the trial ends (Apple, for instance, can attempt billing up to 24 hours before expiration).
+- **Monthly plans:** roughly a week ahead.
+- **Annual plans:** 2 to 4 weeks ahead, since annual terms sometimes have stricter notice windows and bigger price tags.
 
-## Step 4: Cancel carefully, then confirm
+Once your list exists, you rarely need another full audit from scratch. Just drop new trials onto the list the day you start them, skim your monthly card statement for surprises, and do a deeper check once or twice a year (or whenever you replace a lost card or move households).
 
-1. Use the provider’s own cancel flow (app settings, Apple/Google subscriptions, or the merchant account page).
-2. Save a confirmation (email, screenshot, or confirmation number).
-3. Check the **next expected billing window** on your statement. A “canceled” note in your personal list is not the same as the merchant stopping charges.
-4. If something looks wrong after cancel (unexpected renewals, hard-to-find cancel paths), consumer guidance on free trials and auto-renewals from the [U.S. Federal Trade Commission](https://consumer.ftc.gov/articles/getting-and-out-free-trials-auto-renewals-and-negative-option-subscriptions) can help you understand your options.
+## Spreadsheet, bank-linked app, or manual tracker?
 
-## Step 5: Set reminders on what you keep
-
-Practical defaults (adjust to your own habits):
-
-- **Monthly plans:** remind about a week before renewal
-- **Annual plans:** remind about 2–4 weeks before renewal
-- **Trials:** remind a few days before the free period ends
-
-Add these dates to your calendar or tracker, allowing enough time to meet each provider’s cancellation deadline.
-
-## How often to re-audit
-
-After the first full pass:
-
-- Take a **light monthly glance** for new trials and surprise charges
-- Do a **fuller review a few times a year** (seasonal check-ins work well)
-- Re-audit when cards change, household members change, or you switch phone accounts
-
-## Manual list vs bank-linked tool vs simple tracker app
-
-| Approach | Strength | Trade-off |
+| Approach | Where it shines | What to watch out for |
 | --- | --- | --- |
-| Bank-linked tools | Fast discovery from transactions | A third party sees your transaction data |
-| Spreadsheet / notes | Simple to set up and easy to customize | You need to update the list and set reminders separately |
-| Manual tracker app | Renewal dates, reminders, and spending totals together | You need to add new subscriptions yourself |
+| Bank-linked apps | Spots recurring charges automatically from past transactions | Requires sharing ongoing read access to your bank history and often charges a monthly fee |
+| Spreadsheet or notes | Free, private, and shaped however you want | Never sends alerts on its own; currency math is manual |
+| Manual tracker app | Keeps totals, currencies, and renewal alerts in one place | Only knows about the subscriptions you enter |
 
-A spreadsheet is enough to complete the audit. If you also want renewal reminders and spending totals, [SteadyRenew](https://steadyrenew.com/app) supports multiple currencies, optional cloud sync, and entry from screenshots or receipts. There is no bank login required. It does **not** connect to your bank, cancel for you, or negotiate bills.
+A plain spreadsheet is plenty to finish this whole process. If you want renewal alerts and multi-currency spending totals alongside your list, [SteadyRenew](https://steadyrenew.com/app) lets you track subscriptions in your browser with optional cloud sync and screenshot entry, with no bank login required. Keep the boundaries in mind, though: SteadyRenew does **not** connect to your bank, cancel for you, or negotiate bills.
 
 ## FAQ
 
-### How do I find all my subscriptions in one place?
+### Why does my card statement just say APPLE.COM/BILL instead of the app name?
 
-Combine the subscriptions you find in statements, app-store accounts, payment wallets, and email receipts. Match receipts to charges so you do not count the same payment twice.
+Apple routes App Store apps, in-app subscriptions, and iCloud storage under the same statement label, and sometimes combines several small purchases from the same week into one total. Check **Settings → [your name] → Subscriptions** and **Purchase History** on your iPhone, or sign into `reportaproblem.apple.com`, to see the exact app behind each charge.
 
-### What should I check besides my bank or card statement?
+### Does deleting an app from my phone stop the subscription?
 
-App Store / Apple ID subscriptions, Google Play subscriptions, PayPal (and similar) automatic payments, and email renewals/receipts. Annual plans and app-store billing often hide if you only skim one month of card activity.
+No. Removing an app icon only deletes the software on your phone. Whether it bills through Apple, Google Play, or directly on the developer’s website, the subscription keeps renewing until you cancel it in the billing account.
 
-### How far back should I look for annual or quarterly charges?
+### How far back should I check bank statements to catch annual plans?
 
-Far enough that yearly and quarterly charges appear at least once—commonly several months up to about a year of statements. Confirm the real renewal date on the provider’s billing page when the statement label is unclear.
+Check a full 12 months whenever possible. Monthly and quarterly bills repeat often enough to spot quickly, whereas yearly renewals for domains, cloud storage, antivirus tools, or memberships only appear on one statement per year.
 
-### What fields should I record for each subscription?
+### What if a subscription is tied to an old email address I cannot access anymore?
 
-At minimum: service name, amount, currency, billing cycle, next renewal (or unknown), keep/cancel/remind decision, and where it bills (Apple, Google, card, PayPal, other).
+First check whether it bills through Apple, Google Play, or PayPal, where you can cancel the billing agreement without logging into the app itself. If it bills your card directly, contact the company’s support team with the last four digits of your card and charge dates, or ask your card issuer how to revoke the merchant’s recurring billing authorization.
 
-### How do I decide whether to keep or cancel a subscription?
+### Should I just replace my credit card to kill unwanted subscriptions?
 
-Keep what you use and clearly value. Cancel unused or duplicate plans. Use **remind** for trials, annual reviews, or household decisions you aren’t ready to finalize today.
+Usually no. Visa, Mastercard, and American Express run automatic account-updater services that pass your new card number and expiration date straight to merchants with existing recurring agreements. Always cancel with the merchant first, unless your bank specifically places a merchant block for you.
 
-### How do I cancel Apple or Google Play subscriptions?
+### How should I handle subscriptions shared with a partner or family plan?
 
-For Apple: Settings → your name → Subscriptions (or use Apple’s account subscription management). Official steps: [Apple Support](https://support.apple.com/118428). For Google Play: Play Store → Subscriptions (uninstalling the app is not enough). Official steps: [Google Play Help](https://support.google.com/googleplay/answer/7018481).
-
-### How do I set reminders so I don’t forget renewals or trials?
-
-Put calendar alerts on everything you keep—about a week before monthly renewals, a few weeks before annual ones, and a few days before trial ends. Keep those dates up to date when a plan changes.
+Mark them **Remind** during your first pass rather than canceling on the spot. Note who pays for the plan and who uses it, talk it over, and check whether switching from two individual accounts to one family tier (or dropping down to a single seat) makes more sense.
 
 ### Do I need to link my bank to do a subscription audit?
 
-No. A manual audit from statements and provider screens is enough. Bank-linked tools are optional if you want automated discovery and are comfortable sharing transaction access.
+No. Reading your own PDF statements and checking Apple, Google Play, and PayPal directly finds the same charges without giving a third-party service ongoing access to your bank transactions.
 
-### How often should I re-audit after the first pass?
+### How do I make sure a canceled subscription actually stopped charging me?
 
-Glance monthly for new trials; do a fuller review a few times a year; re-check when cards, household members, or phone accounts change.
+Save the cancellation email or confirmation screen, leave a note of the old billing date, and check your card statement after that window passes. Only archive or delete the item from your list once a full cycle goes by with zero charge.
 
-### What should I do with the list after the audit?
+## Related reading
 
-Keep it somewhere easy to update. Add new trials when you sign up, record price changes, and remove canceled plans after confirming that billing has stopped.
-
-### Can a spreadsheet be enough, or when does an app help?
-
-A spreadsheet is enough for a short list and a first audit. An app helps when you want reminders, multi-device sync, multi-currency overview, or less manual upkeep.
-
-### After I cancel, how do I confirm billing actually stopped?
-
-Save the cancel confirmation, note the next expected charge date, and check that statement window. If a charge still appears, follow up with the provider and, if needed, your card issuer.
+- [How to choose a subscription tracker without linking your bank](https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/)
+- [Subscription tracker alternatives without linking your bank](https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/)
+- [Charged after an Apple free trial? How to check what billed you and request a refund](https://steadyrenew.com/blog/apple-free-trial-charge-refund/)
+- [Connect SteadyRenew to an MCP client](https://steadyrenew.com/blog/manage-subscriptions-with-mcp/)
