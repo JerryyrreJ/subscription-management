@@ -119,8 +119,8 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.match(zhPost.title, /^自动扣费在哪里看、怎么关/);
   assert.equal(zhPost.seoTitle, '微信/支付宝/Apple/Google 自动扣费怎么关？入口速查');
   assert.equal(zhPost.date, '2026-09-16');
-  assert.equal(zhPost.updated, '2026-10-26');
-  assert.equal(zhPost.faqs.length, 2);
+  assert.equal(zhPost.updated, '2026-11-12');
+  assert.equal(zhPost.faqs.length, 3);
 
   const index = files['blog/index.html'];
   const zhIndex = files['zh/blog/index.html'];
@@ -163,9 +163,9 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.match(zhArticle, /"headline":"自动扣费在哪里看、怎么关？微信 \/ 支付宝 \/ Apple \/ Google 入口速查（2026）"/);
   assert.match(zhArticle, /"@type":"FAQPage"/);
   assert.match(zhArticle, /"datePublished":"2026-09-16"/);
-  assert.match(zhArticle, /"dateModified":"2026-10-26"/);
+  assert.match(zhArticle, /"dateModified":"2026-11-12"/);
   assert.match(zhArticle, /2026年9月16日/);
-  assert.doesNotMatch(zhArticle, /2026年10月26日/);
+  assert.doesNotMatch(zhArticle, /2026年11月12日/);
   assert.match(
     article,
     /<title>How to do a subscription audit \(keep \/ cancel \/ remind\) · SteadyRenew<\/title>/
@@ -191,15 +191,23 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.doesNotMatch(article, /hreflang=/);
 
   assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>\s*<lastmod>2026-09-21<\/lastmod>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog\/<\/loc>\s*<lastmod>2026-10-26<\/lastmod>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/);
   assert.match(
     sitemap,
-    /<loc>https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit\/<\/loc>/
+    /<loc>https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/
   );
   assert.match(
     sitemap,
-    /<loc>https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew\/<\/loc>\s*<lastmod>2026-10-26<\/lastmod>/
+    /<loc>https:\/\/steadyrenew.com\/blog\/apple-free-trial-charge-refund\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/
+  );
+  assert.match(
+    sitemap,
+    /<loc>https:\/\/steadyrenew.com\/blog\/rocket-money-alternatives-without-bank-login\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/
+  );
+  assert.match(
+    sitemap,
+    /<loc>https:\/\/steadyrenew.com\/zh\/blog\/how-to-cancel-auto-renew\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/
   );
   assert.match(robots, /Disallow: \/api\//);
   assert.match(robots, /Disallow: \/\.netlify\//);

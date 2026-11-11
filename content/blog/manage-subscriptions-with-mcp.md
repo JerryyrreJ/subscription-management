@@ -1,85 +1,66 @@
 ---
 title: "Connect SteadyRenew to an MCP client"
 slug: manage-subscriptions-with-mcp
-description: "Set up the SteadyRenew MCP server to query subscriptions, review spending, and update reminders. Includes API key permissions and a sample configuration."
+description: "Connect Claude Desktop, Cursor, or another MCP client to your SteadyRenew subscription list to query upcoming renewals, check multi-currency spend, and update records."
 date: 2026-09-17
+updated: 2026-11-12
 status: published
 lang: en
 canonical: https://steadyrenew.com/blog/manage-subscriptions-with-mcp/
 ---
 
-If you keep your subscriptions in [SteadyRenew](https://steadyrenew.com/app), you can connect an MCP client to query those records. For example, you can ask which subscriptions renew in the next two weeks or how much you spend in each currency.
+Once your recurring bills live in [SteadyRenew](https://steadyrenew.com/app), you do not have to open the web dashboard every time you want to check when a plan renews. You can wire an MCP-compatible assistant (Claude Desktop, Cursor, Codex, OpenCode, or your own client) straight to your account and ask plain questions like *"Which subscriptions renew in the next two weeks?"* or *"How much am I spending per month in EUR vs. USD?"*
 
-The setup uses the MCP server included in this repository and a Developer API key. The server lets your client read subscription records and, with write permission, edit them. It does not access bank transactions or cancel services with merchants.
+Under the hood, the local MCP server in this repository (`mcp/src/server.mjs`) is a thin Node wrapper around the public `/api/v1` REST endpoints. Every tool call authenticates with a Developer API key you generate in your account settings, obeys the same rate limits, and only touches the subscription records stored in your SteadyRenew ledger.
 
-**Setup overview**
+## Before you connect
 
-1. Create a Developer API key (`subm_…`) with `read` or `write` scope.
-2. Set `SUBSCRIPTION_MANAGER_BASE_URL` and `SUBSCRIPTION_MANAGER_API_KEY`.
-3. Point your MCP client at `mcp/src/server.mjs` with `node`.
-4. Ask a read-only question first.
-5. Configure Bark in the web app if you want push reminders.
-6. Use the [API docs](https://steadyrenew.com/docs/en/api/overview) and [AI tools schema](https://steadyrenew.com/agent/ai-tools.json) when you need full detail.
+Make sure you have four things ready:
 
-## How MCP connects to the API
+- **A signed-in [SteadyRenew](https://steadyrenew.com/app) account** with a few subscriptions already entered (if you are starting from zero, run through the [subscription audit checklist](/blog/how-to-do-a-subscription-audit/) first).
+- **Node.js 20 or newer** installed on your machine to run the local stdio server.
+- **A Developer API key (`subm_…`)** created from the user menu under **Developer API**. Copy the full secret when it appears; the app only displays it once.
+- **An MCP client** such as Claude Desktop or Cursor. (If you also want push alerts on your phone, set up your Bark URL beforehand in the web app under **Settings → Notifications**, since API keys cannot read or change Bark URLs.)
 
-**MCP** (Model Context Protocol) lets an assistant call tools such as `list_subscriptions` and `get_spend_summary`.
+## Step 1: Pick the right API key scope
 
-The **REST API at `/api/v1`** exposes the same operations over HTTP for scripts and other integrations.
+Developer keys authenticate with a standard HTTP header (`Authorization: Bearer subm_…`) and come in two permission levels:
 
-The MCP server in the repo’s `mcp/` package proxies each tool call to `/api/v1` with your bearer key. Both interfaces use the same records, permissions, and rate limits.
-
-## What you’ll need
-
-- A signed-in [SteadyRenew](https://steadyrenew.com/app) account with some subscriptions already in the ledger (or add them in the web UI / via write tools later). If the list is empty, start with the [subscription audit how-to](/blog/how-to-do-a-subscription-audit/).
-- A Developer API key from the user menu → **Developer API** (the full key is shown once—store it like a password).
-- Node.js 20+ to run the MCP server (see the package README for current install steps).
-- An MCP client (Claude Desktop is the copy-paste example below; Cursor, Codex, OpenCode, and others use the same pattern).
-- Optional: Bark already set up under **Settings → Notifications** if you want push reminders. The agent cannot set your Bark URL.
-
-## Create a key (read vs write)
-
-Keys look like `subm_…` and authenticate as:
-
-```http
-Authorization: Bearer subm_…
-```
-
-| Scope | Can do |
+| Scope | What it allows |
 | --- | --- |
-| `read` | List/get subscriptions; read notification settings; analytics; audit log |
-| `write` | Everything `read` allows, plus create/update/delete subscriptions and update notification settings (`enabled` / `daysBefore`) |
+| `read` | List and inspect subscriptions, check global reminder settings, view spending analytics, and read the API audit log |
+| `write` | Everything in `read`, plus creating, editing, or deleting subscription rows and toggling global reminder settings (`enabled` and `daysBefore`) |
 
-**Quotas (per user):**
+Start with a **`read`** key when you first wire up an assistant. That way you can test queries without worrying about an overly eager prompt modifying or deleting an entry; any write attempt with a read-only key cleanly fails with `403 insufficient_scope`.
 
-| Plan | Active keys | Requests |
+Rate limits follow your account tier across both MCP and direct REST calls:
+
+| Plan | Active keys | Hourly limit |
 | --- | --- | --- |
-| Free | 1 | 60 / hour |
-| Premium | 5 | 1000 / hour |
+| Free | 1 | 60 requests / hour |
+| Premium | 5 | 1,000 requests / hour |
 
-A **read-only** key is enough to list subscriptions and review spending. If you try to edit a record with that key, the API returns `403 insufficient_scope`.
+Responses return `X-RateLimit-*` headers, and `429` responses include `Retry-After`.
 
-## Connect an MCP client (Claude Desktop example)
+## Step 2: Install the local MCP server
 
-Clone or open the [subscription-management](https://github.com/JerryyrreJ/subscription-management) repo, then install the MCP package:
+Clone the [subscription-management repository](https://github.com/JerryyrreJ/subscription-management) and install dependencies inside the `mcp` folder:
 
 ```bash
 cd mcp
 npm install
 ```
 
-Entry point: `mcp/src/server.mjs`.
+The server entry point is `mcp/src/server.mjs`, and it reads two environment variables:
 
-Environment variables:
-
-| Variable | Required | Example |
+| Variable | Required | Typical value |
 | --- | --- | --- |
-| `SUBSCRIPTION_MANAGER_BASE_URL` | yes | `https://steadyrenew.com` |
-| `SUBSCRIPTION_MANAGER_API_KEY` | yes | `subm_…` |
+| `SUBSCRIPTION_MANAGER_BASE_URL` | Yes | `https://steadyrenew.com` |
+| `SUBSCRIPTION_MANAGER_API_KEY` | Yes | `subm_your_key_here` |
 
-### Claude Desktop configuration
+### Adding it to Claude Desktop
 
-Add a server to `claude_desktop_config.json` (file location varies by OS—use Claude’s current docs):
+Open your `claude_desktop_config.json` file and register `subscription-manager` using the **absolute path** to `mcp/src/server.mjs`:
 
 ```json
 {
@@ -96,108 +77,76 @@ Add a server to `claude_desktop_config.json` (file location varies by OS—use C
 }
 ```
 
-Restart Claude Desktop after saving. Use an absolute path to `server.mjs`.
+Save the file and restart Claude Desktop completely so it spawns the process.
 
-**Cursor:** same `command` / `args` / `env` trio—`node`, absolute path to `mcp/src/server.mjs`, plus the two env vars. Where you paste that in Cursor’s UI changes over time; follow Cursor’s current MCP docs and our [AI tools page](https://steadyrenew.com/agent/ai-tools.json).
+### Cursor and other MCP clients
 
-More install detail: repo [`mcp/README.md`](https://github.com/JerryyrreJ/subscription-management/tree/main/mcp).
+Cursor, Codex, OpenCode, and other MCP hosts take the exact same three pieces: `node` as the command, the absolute path to `mcp/src/server.mjs` as the argument, and the two environment variables above. Check [`mcp/README.md`](https://github.com/JerryyrreJ/subscription-management/tree/main/mcp) if you are connecting against a self-hosted deployment instead of `steadyrenew.com`.
 
-### Other MCP clients
+## What your assistant can actually call (all 11 tools)
 
-Any MCP-compatible client uses the same pattern: run `node` on the absolute path to `mcp/src/server.mjs`, and set `SUBSCRIPTION_MANAGER_BASE_URL` + `SUBSCRIPTION_MANAGER_API_KEY`. Refer to your client’s MCP settings for the configuration file location and format.
+The MCP server exposes 11 tools that map directly onto `/api/v1`:
 
-## What the agent can do (11 tools)
+- **Subscription records:** `list_subscriptions` (supports filtering by `status`, `category`, `period`, `q`, `expiringBefore`, and `sort`), `get_subscription`, `create_subscription`, `update_subscription`, and `delete_subscription`.
+- **Global reminder lead time:** `get_notification_settings` and `update_notification_settings` (accepts `enabled` and `daysBefore` values of `1`, `3`, `7`, or `14`).
+- **Spending & cleanup analysis:** `get_spend_summary`, `find_duplicate_subscriptions`, and `get_optimization_suggestions`.
+- **Change history:** `list_audit_log`.
 
-Tool names match the documented schema one-for-one. Write tools need a write-scoped key.
+Once connected, try a few straightforward read queries first before testing edits:
 
-**Subscriptions**
+- *"Which subscriptions renew in the next 14 days?"*
+- *"Break down my monthly subscription spend by currency and category."*
+- *"Check whether I have any duplicate streaming or cloud storage plans."*
+- *"Turn global reminders on and set `daysBefore` to 3."* (requires a `write` key)
+- *"Show the last five API audit log entries."*
 
-- `list_subscriptions` — filters include `status`, `category`, `period`, `q`, `expiringBefore`, `sort`
-- `get_subscription`
-- `create_subscription`
-- `update_subscription`
-- `delete_subscription` — permanently removes the **tracked record** in your ledger
+## Guardrails worth knowing
 
-**Reminders (global only)**
+- **Deleting a record does not cancel a merchant.** Calling `delete_subscription` only removes that row from your personal SteadyRenew ledger. There are no tools that log into Netflix, Spotify, Apple, or your bank to cancel a real billing agreement. Always cancel with the provider first, then update your list.
+- **Bark push URLs and time zones stay in the web UI.** To prevent an agent or leaked key from redirecting push notifications, `update_notification_settings` only accepts `enabled` and `daysBefore`. Configure your Bark URL, test push, locale, and time zone in the web app (see the [notifications setup guide](https://github.com/JerryyrreJ/subscription-management/blob/main/docs/en/notifications.md)).
+- **Treat optimization output as a prompt to check, not an automatic cut.** Two subscriptions in the same category might be a real duplicate, or one might belong to a family member.
 
-- `get_notification_settings`
-- `update_notification_settings` — writable fields only: `enabled` and `daysBefore` (`1` | `3` | `7` | `14`)
+## Calling `/api/v1` directly from scripts
 
-**Analytics**
-
-- `get_spend_summary`
-- `find_duplicate_subscriptions`
-- `get_optimization_suggestions` — suggestions for subscriptions to review
-
-**Audit**
-
-- `list_audit_log`
-
-Full parameter schemas: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json). REST reference: [https://steadyrenew.com/docs/en/api/overview](https://steadyrenew.com/docs/en/api/overview).
-
-## Limits to keep in mind
-
-**No merchant cancel.** There are no `cancel` / `pause` / `resume` tools. The public API does not soft-cancel by writing `status`. `delete_subscription` removes the row from *your* tracker—it does **not** cancel Netflix, Spotify, Apple, or anyone else on your behalf. Cancel on the provider’s site or app; then update your tracker to reflect the change.
-
-**No Bark URL / test push / timeZone / locale via MCP or REST.** Those stay in the web app (**Settings → Notifications**). To configure them, follow the [reminders guide](https://github.com/JerryyrreJ/subscription-management/blob/main/docs/en/notifications.md).
-
-**Review suggestions before acting.** A duplicate or optimization suggestion may be worth checking, but it does not mean you can cancel a plan without losing something you use.
-
-**No access without your key.** Treat `subm_…` like a password. Use a read-only key if you only need queries.
-
-## Example prompts to try
-
-After the server shows up in your MCP client:
-
-- “List subscriptions expiring in the next 14 days.”
-- “Summarize spend by currency and category.”
-- “Find likely duplicate subscriptions.”
-- “Turn global reminders on and set `daysBefore` to 3.” (needs write)
-- “Show recent API audit entries for subscription updates.”
-
-Bark URLs and test notifications are managed in the [web app](https://steadyrenew.com/app) under **Settings → Notifications**.
-
-## Prefer scripts? Use the same REST API
-
-Anything MCP can do, curl can do against `/api/v1` with the same bearer key and quotas.
+If you just want a cron job, shell script, or custom webhook without an LLM in the middle, hit the REST API directly with the same `subm_…` bearer key:
 
 ```bash
 curl -sS https://steadyrenew.com/api/v1/subscriptions \
   -H "Authorization: Bearer subm_your_key_here"
 ```
 
-- Docs: [https://steadyrenew.com/docs/en/api/overview](https://steadyrenew.com/docs/en/api/overview)
-- Agent tool schema: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json)
-- OpenAPI: linked from the API docs (`openapi.yaml`)
-
-Use MCP when you want an assistant in the loop. Use REST when you want a script, a cron job, or your own agent runtime.
-
 ## Reference links
 
-- Ledger: [https://steadyrenew.com/app](https://steadyrenew.com/app)
-- API docs: [https://steadyrenew.com/docs/en/api/overview](https://steadyrenew.com/docs/en/api/overview)
-- AI tools schema: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json)
-- MCP package: [github.com/JerryyrreJ/subscription-management/tree/main/mcp](https://github.com/JerryyrreJ/subscription-management/tree/main/mcp)
-- Fill the list first: [How to do a subscription audit](/blog/how-to-do-a-subscription-audit/)
+- Web app ledger: [https://steadyrenew.com/app](https://steadyrenew.com/app)
+- REST API documentation: [https://steadyrenew.com/docs/en/api/overview](https://steadyrenew.com/docs/en/api/overview)
+- Machine-readable tool schema: [https://steadyrenew.com/agent/ai-tools.json](https://steadyrenew.com/agent/ai-tools.json)
+- OpenAPI specification: [https://steadyrenew.com/agent/openapi.yaml](https://steadyrenew.com/agent/openapi.yaml)
+- MCP server source: [github.com/JerryyrreJ/subscription-management/tree/main/mcp](https://github.com/JerryyrreJ/subscription-management/tree/main/mcp)
 
 ## FAQ
 
-### Do I need to link my bank?
+### Does the MCP server need access to my bank account?
 
-No. The MCP server accesses the subscription records in your account. You or your assistant add and update those records.
+No. SteadyRenew does not connect to banks. The MCP server only reads and updates the subscription entries stored in your SteadyRenew account.
 
-### Will the AI cancel Netflix for me?
+### Can an AI assistant cancel Netflix or an App Store trial for me through MCP?
 
-No. Agents can update or delete **tracked records** in your account. Merchant billing still has to be canceled with Netflix, Apple, Google Play, or whoever charges you.
+No. Write tools only edit or delete rows inside your personal tracker. To stop actual charges, you still have to cancel on the merchant’s website or in your Apple or Google Play subscription settings.
 
-### MCP or REST — which should I use?
+### When should I use MCP versus the `/api/v1` REST endpoints?
 
-Use MCP to work with your subscriptions through an assistant. Use REST for scripts and custom automation. Both talk to the same `/api/v1` backend with the same key scopes and rate limits.
+Use MCP when you want to ask ad-hoc questions or log updates conversationally inside an assistant like Claude Desktop or Cursor. Use the `/api/v1` REST endpoints directly when writing deterministic scripts, cron jobs, or backend automations.
 
 ### Why did `update_notification_settings` reject my Bark URL?
 
-The PATCH body only accepts `enabled` and `daysBefore` (1, 3, 7, or 14). Bark URL, test push, timeZone, and locale are web-only—configure them under **Settings → Notifications**. See the [reminders guide](https://github.com/JerryyrreJ/subscription-management/blob/main/docs/en/notifications.md).
+For security reasons, the public API only allows changing `enabled` and `daysBefore` (`1`, `3`, `7`, or `14`). Your Bark push endpoint, test notification button, time zone, and language stay locked to the web app under **Settings → Notifications**.
 
-### What are the Free vs Premium API limits?
+### What happens if I hit the hourly API rate limit?
 
-Free: 1 active key and 60 requests per user per hour. Premium: 5 active keys and 1000 requests per user per hour. Responses include `X-RateLimit-*` headers; `429` includes `Retry-After`.
+Free accounts allow 1 active key and 60 requests per hour, while Premium accounts allow 5 active keys and 1,000 requests per hour. When you exceed the quota, the API returns HTTP `429` with a `Retry-After` header telling your client when to try again.
+
+## Related reading
+
+- [How to choose a subscription tracker without linking your bank](https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/)
+- [Rocket Money alternatives that don’t ask for your bank login](https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/)
+- [How to do a subscription audit (keep / cancel / remind)](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/)
