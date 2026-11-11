@@ -213,6 +213,26 @@
   to = "/zh/pricing/index.html"
   status = 200
 
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/terms"
+  to = "/terms/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/zh/privacy"
+  to = "/zh/privacy/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/zh/terms"
+  to = "/zh/terms/index.html"
+  status = 200
+
 # SPA fallback for application routes. This rule is not forced, so files
 # published in dist/ — including /BingSiteAuth.xml and the IndexNow key
 # file — are served as static assets (200) instead of the app shell.

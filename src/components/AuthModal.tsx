@@ -1,3 +1,4 @@
+import { getMarketingUrl } from '../lib/site';
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
@@ -23,7 +24,7 @@ const isRetryableAuthRequestError = (error: unknown) => {
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  useModalScrollLock(isOpen);
- const { t } = useTranslation(['auth'])
+ const { t, i18n } = useTranslation(['auth'])
  const [isLogin, setIsLogin] = useState(true)
  const [isPasswordResetMode, setIsPasswordResetMode] = useState(false)
  const [email, setEmail] = useState('')
@@ -448,6 +449,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
  {t('auth:syncHint')}
+ <br />
+ <a className="underline" href={getMarketingUrl(i18n.language.startsWith('zh') ? '/zh/privacy' : '/privacy')} target="_blank" rel="noreferrer">{i18n.language.startsWith('zh') ? '隐私政策' : 'Privacy Policy'}</a>
+ {' · '}
+ <a className="underline" href={getMarketingUrl(i18n.language.startsWith('zh') ? '/zh/terms' : '/terms')} target="_blank" rel="noreferrer">{i18n.language.startsWith('zh') ? '服务条款' : 'Terms of Service'}</a>
  </p>
  </div>
  </div>

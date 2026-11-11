@@ -20,7 +20,7 @@ test('public home and pricing routes show marketing while app links open the app
   assert.equal(isApplicationEntry(url('/?utm_source=guide')), false);
   assert.equal(isApplicationEntry(url('/app')), true);
   assert.equal(isApplicationEntry(url('/app/')), true);
-  for (const path of ['/zh', '/zh/', '/pricing', '/pricing/', '/zh/pricing', '/zh/pricing/']) {
+  for (const path of ['/zh', '/zh/', '/pricing', '/pricing/', '/zh/pricing', '/zh/pricing/', '/privacy', '/privacy/', '/terms', '/terms/', '/zh/privacy', '/zh/privacy/', '/zh/terms', '/zh/terms/']) {
     assert.equal(isApplicationEntry(url(path)), false, path);
   }
   assert.equal(isApplicationEntry(url('/about')), false);

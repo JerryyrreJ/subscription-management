@@ -27,6 +27,8 @@ const Page = applicationEntry
   ? lazy(() => import('./Application'))
   : lazy(() => import('./components/landing/LandingPage'));
 
+const LegalPage = lazy(() => import('./components/legal/LegalPage'));
+
 export function EntryPage() {
   return (
     <Suspense
@@ -36,7 +38,9 @@ export function EntryPage() {
         </div>
       }
     >
-      <Page pricingOnly={publicPage?.kind === 'pricing'} />
+      {!applicationEntry && (publicPage?.kind === 'privacy' || publicPage?.kind === 'terms')
+       ? <LegalPage kind={publicPage.kind} locale={publicPage.locale} />
+       : <Page pricingOnly={publicPage?.kind === 'pricing'} />}
     </Suspense>
   );
 }

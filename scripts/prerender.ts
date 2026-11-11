@@ -4,6 +4,7 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { legalContact, legalContent } from '../src/components/legal/content.ts';
 import { publicPages } from '../src/utils/publicPages.ts';
 import { landingCopy } from '../src/components/landing/copy.ts';
 import { jsonLdScript, marketingStructuredData } from '../src/utils/structuredData.ts';
@@ -36,8 +37,23 @@ const server = await createServer({ configFile: false, root, mode: 'production',
 try {
   const { default: i18n } = await server.ssrLoadModule('/src/i18n/index.ts');
   const { default: LandingPage } = await server.ssrLoadModule('/src/components/landing/LandingPage.tsx');
+  const { default: LegalPage } = await server.ssrLoadModule('/src/components/legal/LegalPage.tsx');
+  const legalCss = assets.filter(file => /^LegalPage-.*\.css$/.test(file));
+  if (legalCss.length !== 1) throw new Error('Expected one legal page stylesheet');
   for (const [route, page] of Object.entries(publicPages)) {
     await i18n.changeLanguage(page.locale);
+    if (page.kind === 'privacy' || page.kind === 'terms') {
+      const content = legalContent[page.locale][page.kind];
+      const html = renderToString(createElement(LegalPage, { kind: page.kind, locale: page.locale }));
+      const result = head(template, `${content.title} — SteadyRenew`, content.intro, origin + page.canonicalPath, page.locale, Boolean(legalContact.email))
+        .replace('<div id="root"></div>', `<div id="root">${html}</div>`)
+        .replace('</head>', `<link rel="stylesheet" href="/assets/${legalCss[0]}" />\n</head>`);
+      const destination = path.join(out, route, 'index.html');
+      await mkdir(path.dirname(destination), { recursive: true });
+      await writeFile(destination, result);
+      console.log(`Prerendered ${route}`);
+      continue;
+    }
     const copy = landingCopy[page.locale];
     const pricing = page.kind === 'pricing';
     const html = renderToString(createElement(LandingPage, { pricingOnly: pricing }));

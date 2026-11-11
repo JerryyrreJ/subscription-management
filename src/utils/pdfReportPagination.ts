@@ -23,10 +23,10 @@ export const PDF_PAGE_CONTENT_PX =
  (PDF_A4_MM.height - PDF_A4_MM.paddingTop - PDF_A4_MM.paddingBottom) * PDF_PX_PER_MM;
 
 /**
- * 页脚占位：.pdf-spacer min-height 26px + .pdf-foot（上边框 + padding + 一行字）。
+ * 页脚占位：.pdf-spacer min-height 22px + .pdf-foot（上边框 + padding + 一行字）。
  * spacer 是 flex:1，会吃掉页内剩余空间，所以每页都要先扣掉这块。
  */
-export const PDF_FOOTER_PX = 52;
+export const PDF_FOOTER_PX = 48;
 
 /** 与 PdfReportDocument 一致：3 列 × 4 行，多出来的只显示「另有 N 笔」。 */
 export const MAX_RENEWAL_ENTRIES = 12;
@@ -36,20 +36,20 @@ export const MAX_RENEWAL_ENTRIES = 12;
  * 略偏保守，宁可多一页空白，也不要在 overflow:hidden 的 A4 盒子里裁切。
  */
 export const PDF_ESTIMATE_PX = {
- head: 82, // kicker + title + rule（含 rule 的 margin-top）
- kpis: 108,
- sectionHead: 27,
- categoryBarsPad: 36,
+ head: 71, // eyebrow + title + head bottom padding + rule
+ kpis: 112,
+ sectionHead: 26,
+ categoryBarsPad: 30,
  categoryBarRow: 18,
  categoryBarGap: 7,
- tableMargin: 12,
- tableHead: 24,
+ tableMargin: 10,
+ tableHead: 23,
  tableRow: 32,
- tableTotal: 34,
+ tableTotal: 36,
  groupRow: 34,
- next30Margin: 22,
- renewalsPad: 13,
- renewalRow: 20,
+ next30Margin: 20,
+ renewalsPad: 12,
+ renewalRow: 39,
 } as const;
 
 export interface PdfSnapshotHeights {

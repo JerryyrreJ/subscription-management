@@ -358,6 +358,8 @@ export default function LandingPage({ pricingOnly = false }: { pricingOnly?: boo
             aria-label={language === 'zh-CN' ? '页脚导航' : 'Footer navigation'}
           >
             <a href={guidesUrl}>{c.guides}</a>
+            <a href={language === 'zh-CN' ? '/zh/privacy' : '/privacy'}>{language === 'zh-CN' ? '隐私政策' : 'Privacy'}</a>
+            <a href={language === 'zh-CN' ? '/zh/terms' : '/terms'}>{language === 'zh-CN' ? '服务条款' : 'Terms'}</a>
             <a href={getDocumentationUrl("index", language)}>{c.docs}</a>
             <a
               href="https://github.com/JerryyrreJ/subscription-management"

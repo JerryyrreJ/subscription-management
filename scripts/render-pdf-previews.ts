@@ -1,9 +1,10 @@
 /**
  * 用与浏览器导出相同的 HTML/CSS 打印路径，重渲 README 里的 A4 预览图。
  *
- * 需要本机 Chrome 与 pdftoppm（poppler-utils）：
+ * 需要 Playwright Chromium 与 pdftoppm（poppler-utils）：
  *   npx tsx --tsconfig tsconfig.app.json scripts/render-pdf-previews.ts
  */
+import { chromium } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -21,9 +22,9 @@ import { PdfReportDocument } from '../src/components/pdf/PdfReportDocument.tsx';
 
 const workspace = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(workspace, 'docs-site/images/product');
-const NOW = '2026-07-26T12:00:00.000Z';
+const NOW = '2026-10-08T04:00:00.000Z';
 const EXCHANGE_RATES = { CNY: 1, USD: 0.147 };
-const EXCHANGE_RATES_UPDATED_AT = new Date('2026-07-26T12:00:00.000Z').getTime();
+const EXCHANGE_RATES_UPDATED_AT = new Date('2026-10-08T04:00:00.000Z').getTime();
 
 const withMockedNow = <T>(isoDateTime: string, run: () => T): T => {
  const RealDate = Date;
@@ -62,29 +63,29 @@ const sub = (overrides: Partial<Subscription> & Pick<Subscription, 'id' | 'name'
  amount: overrides.amount ?? 0,
  currency: overrides.currency || 'USD',
  period: overrides.period || 'monthly',
- lastPaymentDate: overrides.lastPaymentDate || '2026-06-26',
- nextPaymentDate: overrides.nextPaymentDate || '2026-08-26',
+ lastPaymentDate: overrides.lastPaymentDate || '2026-09-08',
+ nextPaymentDate: overrides.nextPaymentDate || '2026-11-26',
  createdAt: overrides.createdAt || '2025-01-01T00:00:00.000Z',
- updatedAt: overrides.updatedAt || '2026-06-26T00:00:00.000Z',
+ updatedAt: overrides.updatedAt || '2026-09-08T00:00:00.000Z',
  notificationEnabled: true,
 });
 
 const subscriptions: Subscription[] = [
- sub({ id: 'supabase', name: 'Supabase Pro', category: 'Cloud Services', amount: 25, nextPaymentDate: '2026-08-20', createdAt: '2025-08-01T00:00:00.000Z' }),
- sub({ id: 'cursor', name: 'Cursor Pro', category: 'AI Tools', amount: 20, nextPaymentDate: '2026-08-15', createdAt: '2026-07-01T00:00:00.000Z' }),
- sub({ id: 'perplexity', name: 'Perplexity Pro', category: 'AI Tools', amount: 20, nextPaymentDate: '2026-08-22', createdAt: '2026-02-01T00:00:00.000Z' }),
- sub({ id: 'claude', name: 'Claude Pro', category: 'AI Tools', amount: 20, nextPaymentDate: '2026-08-14', createdAt: '2026-01-01T00:00:00.000Z' }),
- sub({ id: 'vercel', name: 'Vercel Pro', category: 'Cloud Services', amount: 20, nextPaymentDate: '2026-08-12', createdAt: '2025-11-01T00:00:00.000Z' }),
- sub({ id: 'chatgpt', name: 'ChatGPT Plus', category: 'AI Tools', amount: 20, nextPaymentDate: '2026-08-10', createdAt: '2025-10-01T00:00:00.000Z' }),
- sub({ id: 'netlify', name: 'Netlify Pro', category: 'Cloud Services', amount: 19, nextPaymentDate: '2026-07-26', createdAt: '2025-09-01T00:00:00.000Z' }),
+ sub({ id: 'supabase', name: 'Supabase Pro', category: 'Cloud Services', amount: 25, nextPaymentDate: '2026-11-20', createdAt: '2025-08-01T00:00:00.000Z' }),
+ sub({ id: 'cursor', name: 'Cursor Pro', category: 'AI Tools', amount: 20, nextPaymentDate: '2026-11-15', createdAt: '2026-07-01T00:00:00.000Z' }),
+ sub({ id: 'perplexity', name: 'Perplexity Pro', category: 'AI Tools', amount: 20, nextPaymentDate: '2026-11-22', createdAt: '2026-02-01T00:00:00.000Z' }),
+ sub({ id: 'claude', name: 'Claude Pro', category: 'AI Tools', amount: 20, nextPaymentDate: '2026-11-14', createdAt: '2026-01-01T00:00:00.000Z' }),
+ sub({ id: 'vercel', name: 'Vercel Pro', category: 'Cloud Services', amount: 20, nextPaymentDate: '2026-11-12', createdAt: '2025-11-01T00:00:00.000Z' }),
+ sub({ id: 'chatgpt', name: 'ChatGPT Plus', category: 'AI Tools', amount: 20, nextPaymentDate: '2026-11-10', createdAt: '2025-10-01T00:00:00.000Z' }),
+ sub({ id: 'netlify', name: 'Netlify Pro', category: 'Cloud Services', amount: 19, nextPaymentDate: '2026-10-08', createdAt: '2025-09-01T00:00:00.000Z' }),
  sub({ id: 'jetbrains', name: 'JetBrains All Products', category: 'Developer Tools', amount: 173, period: 'yearly', nextPaymentDate: '2027-03-01', lastPaymentDate: '2026-03-01', createdAt: '2025-08-15T00:00:00.000Z' }),
- sub({ id: 'youtube', name: 'YouTube Premium', category: 'Entertainment', amount: 13.99, nextPaymentDate: '2026-08-19', createdAt: '2025-08-01T00:00:00.000Z' }),
- sub({ id: 'spotify', name: 'Spotify Premium', category: 'Entertainment', amount: 11.99, nextPaymentDate: '2026-08-09', createdAt: '2025-08-01T00:00:00.000Z' }),
- sub({ id: 'copilot', name: 'GitHub Copilot', category: 'Developer Tools', amount: 10, nextPaymentDate: '2026-08-05', createdAt: '2026-01-15T00:00:00.000Z' }),
- sub({ id: 'setapp', name: 'Setapp', category: 'Productivity', amount: 9.99, nextPaymentDate: '2026-08-18', createdAt: '2025-12-01T00:00:00.000Z' }),
+ sub({ id: 'youtube', name: 'YouTube Premium', category: 'Entertainment', amount: 13.99, nextPaymentDate: '2026-11-19', createdAt: '2025-08-01T00:00:00.000Z' }),
+ sub({ id: 'spotify', name: 'Spotify Premium', category: 'Entertainment', amount: 11.99, nextPaymentDate: '2026-11-09', createdAt: '2025-08-01T00:00:00.000Z' }),
+ sub({ id: 'copilot', name: 'GitHub Copilot', category: 'Developer Tools', amount: 10, nextPaymentDate: '2026-11-05', createdAt: '2026-01-15T00:00:00.000Z' }),
+ sub({ id: 'setapp', name: 'Setapp', category: 'Productivity', amount: 9.99, nextPaymentDate: '2026-11-18', createdAt: '2025-12-01T00:00:00.000Z' }),
  sub({ id: 'notion', name: 'Notion Plus', category: 'Productivity', amount: 96, period: 'yearly', nextPaymentDate: '2027-01-15', lastPaymentDate: '2026-01-15', createdAt: '2025-08-01T00:00:00.000Z' }),
- sub({ id: 'bilibili', name: 'Bilibili Premium', category: 'Entertainment', amount: 25, currency: 'CNY', nextPaymentDate: '2026-08-16', createdAt: '2026-03-01T00:00:00.000Z' }),
- sub({ id: 'icloud', name: 'iCloud+ 200GB', category: 'Personal', amount: 21, currency: 'CNY', nextPaymentDate: '2026-08-08', createdAt: '2025-08-01T00:00:00.000Z' }),
+ sub({ id: 'bilibili', name: 'Bilibili Premium', category: 'Entertainment', amount: 25, currency: 'CNY', nextPaymentDate: '2026-11-16', createdAt: '2026-03-01T00:00:00.000Z' }),
+ sub({ id: 'icloud', name: 'iCloud+ 200GB', category: 'Personal', amount: 21, currency: 'CNY', nextPaymentDate: '2026-11-08', createdAt: '2025-08-01T00:00:00.000Z' }),
 ];
 
 await i18n.use(initReactI18next).init({
@@ -131,22 +132,16 @@ const renderVariant = (variant: 'snapshot' | 'annual') =>
 </html>`;
  });
 
-const chrome = '/usr/bin/google-chrome';
-const printPdf = (htmlPath: string, pdfPath: string) => {
- execFileSync(
-  chrome,
-  [
-   '--headless=new',
-   '--disable-gpu',
-   '--no-pdf-header-footer',
-   '--no-first-run',
-   '--no-default-browser-check',
-   '--virtual-time-budget=8000',
-   `--print-to-pdf=${pdfPath}`,
-   htmlPath,
-  ],
-  { stdio: 'inherit' }
- );
+const browser = await chromium.launch();
+const printPdf = async (htmlPath: string, pdfPath: string) => {
+ const page = await browser.newPage();
+ try {
+  await page.goto(`file://${htmlPath}`);
+  await page.evaluate(() => document.fonts.ready);
+  await page.pdf({ path: pdfPath, preferCSSPageSize: true, printBackground: true });
+ } finally {
+  await page.close();
+ }
 };
 
 const README_PREVIEW_WIDTH = 1588;
@@ -174,14 +169,19 @@ const rasterPage1 = (pdfPath: string, pngPath: string) => {
  );
 };
 
-for (const variant of ['snapshot', 'annual'] as const) {
- const html = renderVariant(variant);
- const htmlPath = join(tmp, `${variant}.html`);
- const pdfPath = join(tmp, `${variant}.pdf`);
- const pngPath = join(outDir, `pdf-report-${variant}.png`);
- writeFileSync(htmlPath, html);
- printPdf(htmlPath, pdfPath);
- execFileSync('pdfinfo', [pdfPath], { stdio: 'inherit' });
- rasterPage1(pdfPath, pngPath);
- console.log(`wrote ${pngPath}`);
+try {
+ for (const variant of ['snapshot', 'annual'] as const) {
+  const html = renderVariant(variant);
+  const htmlPath = join(tmp, `${variant}.html`);
+  const pdfPath = join(tmp, `${variant}.pdf`);
+  const pngPath = join(outDir, `pdf-report-${variant}.png`);
+  writeFileSync(htmlPath, html);
+  await printPdf(htmlPath, pdfPath);
+  execFileSync('pdfinfo', [pdfPath], { stdio: 'inherit' });
+  rasterPage1(pdfPath, pngPath);
+  console.log(`wrote ${pngPath}`);
+ }
+
+} finally {
+ await browser.close();
 }

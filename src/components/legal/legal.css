@@ -1,0 +1,22 @@
+.legal-page { min-height:100vh; background:#fafaf7; color:#252c28; padding:0 28px; font-family:inherit; }
+.legal-page a { color:inherit; text-underline-offset:5px; }
+.legal-page a:focus-visible { outline:2px solid #047857; outline-offset:5px; }
+.legal-skip { position:absolute; top:-60px; background:white; padding:12px; }
+.legal-skip:focus { top:8px; }
+.legal-header { max-width:1120px; margin:auto; padding:28px 0; border-bottom:1px solid #d9ded8; display:flex; justify-content:space-between; align-items:center; gap:24px; }
+.legal-brand { font-size:23px; font-weight:650; letter-spacing:-1px; text-decoration:none; }
+.legal-header nav { display:flex; gap:24px; font-size:14px; }
+.legal-layout { max-width:1120px; margin:64px auto 0; display:grid; grid-template-columns:220px minmax(0,760px); gap:64px; }
+.legal-layout aside>p { font-size:11px; letter-spacing:2px; color:#66736a; margin-bottom:24px; }
+.legal-layout aside nav { display:grid; gap:16px; font-size:14px; }
+.legal-layout aside [aria-current] { color:#047857; font-weight:650; }
+.legal-date { font-size:13px; color:#66736a; }
+.legal-page h1 { font-size:clamp(36px,5vw,56px); line-height:1.15; letter-spacing:-1.8px; font-weight:600; margin:18px 0 26px; }
+.legal-intro { font-size:19px; line-height:1.7; padding-bottom:32px; border-bottom:1px solid #d9ded8; }
+.legal-page section { margin:36px 0; }
+.legal-page h2 { display:flex; align-items:baseline; gap:16px; font-size:21px; font-weight:600; line-height:1.5; margin-bottom:12px; }
+.legal-page h2 span { font-size:12px; color:#047857; font-weight:500; }
+.legal-page section p { font-size:16px; line-height:1.9; color:#46524a; overflow-wrap:anywhere; }
+.legal-draft { padding:16px; background:#fff3d8; border-left:3px solid #9b6a17; line-height:1.7; }
+.legal-page footer { border-top:1px solid #d9ded8; padding:28px 0 48px; font-size:14px; display:flex; justify-content:space-between; gap:24px; }
+@media(max-width:760px) { .legal-page { padding:0 20px; } .legal-header nav { gap:14px; } .legal-layout { display:block; margin-top:28px; } .legal-layout aside { margin-bottom:36px; } .legal-layout aside nav { display:flex; gap:24px; } .legal-layout aside>p { display:none; } }

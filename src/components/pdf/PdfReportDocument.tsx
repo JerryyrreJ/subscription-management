@@ -38,12 +38,21 @@ function PageHead({
  return (
   <div className="pdf-head">
    <div>
-    <div className="pdf-kicker">{kicker}</div>
+    <div className="pdf-eyebrow">
+     <span className="pdf-brand">
+      <span className="pdf-brand-dot" aria-hidden="true" />
+      <span>SteadyRenew</span>
+     </span>
+     <span className="pdf-eyebrow-sep" aria-hidden="true" />
+     <span className="pdf-kicker">{kicker}</span>
+    </div>
     <h1 className={`pdf-title${titleClassName ? ` ${titleClassName}` : ''}`}>{title}</h1>
    </div>
    <div className="pdf-head-meta">
-    {meta.map(line => (
-     <div key={line}>{line}</div>
+    {meta.map((line, index) => (
+     <div className={index === 0 ? 'pdf-head-meta-primary' : undefined} key={line}>
+      {line}
+     </div>
     ))}
    </div>
   </div>
@@ -94,7 +103,10 @@ function CategoryBars({ rows, showPercentage }: { rows: PdfCategoryRow[]; showPe
  return (
   <div className="pdf-bars">
    {rows.map((row, index) => (
-    <div className="pdf-bar-row" key={row.label}>
+    <div
+     className={`pdf-bar-row${showPercentage ? '' : ' pdf-bar-row-compact'}`}
+     key={row.label}
+    >
      <div className="pdf-bar-label">{row.label}</div>
      <div className="pdf-bar-track">
       <div
@@ -345,7 +357,9 @@ function AnnualOverviewPage({
    </div>
    <div className="pdf-trend-labels">
     {data.trend.map(point => (
-     <div key={point.label}>{point.label}</div>
+     <div className={point.isCurrent ? 'pdf-trend-label-current' : undefined} key={point.label}>
+      {point.label}
+     </div>
     ))}
    </div>
 

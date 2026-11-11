@@ -17,17 +17,11 @@ https://github.com/user-attachments/assets/08f934dc-0460-4085-a0ba-f2d5193de3d1
 <p align="center"><em>Add a subscription manually — fill in the form, save, and see it appear.</em></p>
 
 <p align="center">
-  <img src="docs-site/images/product/dashboard-overview.png" alt="SteadyRenew dashboard with demo subscription data" width="100%" />
+  <a href="docs-site/images/product/pdf-report-snapshot.png"><img src="docs-site/images/product/pdf-report-snapshot.png" alt="Exported snapshot PDF report with totals, category bars, and a subscription table" width="49%" /></a>
+  <a href="docs-site/images/product/pdf-report-annual.png"><img src="docs-site/images/product/pdf-report-annual.png" alt="Exported annual PDF report with a monthly spend trend chart and category totals" width="49%" /></a>
 </p>
 
-<p align="center"><em>Dashboard overview with demo subscription data.</em></p>
-
-<p align="center">
-  <img src="docs-site/images/product/pdf-report-snapshot.png" alt="Exported snapshot PDF report with totals, category bars, and a subscription table" width="49%" />
-  <img src="docs-site/images/product/pdf-report-annual.png" alt="Exported annual PDF report with a monthly spend trend chart and category totals" width="49%" />
-</p>
-
-<p align="center"><em>Print-ready A4 PDF reports: current snapshot and annual spend.</em></p>
+<p align="center"><em>Print-ready A4 PDF reports: current snapshot and annual spend (sample data).</em></p>
 
 ## Features
 

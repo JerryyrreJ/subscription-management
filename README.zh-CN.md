@@ -17,17 +17,11 @@ https://github.com/user-attachments/assets/08f934dc-0460-4085-a0ba-f2d5193de3d1
 <p align="center"><em>手动录入订阅：填好表单，保存后即可在仪表盘看到新卡片。</em></p>
 
 <p align="center">
-  <img src="docs-site/images/product/dashboard-overview.png" alt="使用演示订阅数据的 SteadyRenew 仪表盘" width="100%" />
+  <a href="docs-site/images/product/pdf-report-snapshot.png"><img src="docs-site/images/product/pdf-report-snapshot.png" alt="导出的快照 PDF 报表，包含总额、分类条形图和订阅表格" width="49%" /></a>
+  <a href="docs-site/images/product/pdf-report-annual.png"><img src="docs-site/images/product/pdf-report-annual.png" alt="导出的年度 PDF 报表，包含逐月支出趋势图和分类合计" width="49%" /></a>
 </p>
 
-<p align="center"><em>使用演示订阅数据的仪表盘概览。</em></p>
-
-<p align="center">
-  <img src="docs-site/images/product/pdf-report-snapshot.png" alt="导出的快照 PDF 报表，包含总额、分类条形图和订阅表格" width="49%" />
-  <img src="docs-site/images/product/pdf-report-annual.png" alt="导出的年度 PDF 报表，包含逐月支出趋势图和分类合计" width="49%" />
-</p>
-
-<p align="center"><em>可直接打印的 A4 PDF 报表：当前快照与年度支出。</em></p>
+<p align="center"><em>可打印的 A4 PDF 报表：当前快照与年度支出（示例数据，展示首页）。</em></p>
 
 ## 功能
 

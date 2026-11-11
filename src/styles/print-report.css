@@ -1,26 +1,35 @@
-/* 设计稿指定字形：Archivo（西文/数字）+ Noto Sans SC（中文）。
+/* 与主页及应用一致的无衬线字体体系：Inter（西文/数字）+ Noto Sans SC（中文）。
    本文件随 AdvancedReport 懒加载，打印前会等 document.fonts.ready。 */
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
 
 /*
- * Modernist —— PDF 报表专用皮肤。
+ * Calm Statement —— SteadyRenew PDF 报表样式。
  *
- * 所有 token 都锁在 .pdf-report 作用域内，绝不落到 :root：这套设计是零圆角 /
- * 硬分隔线 / 单一强调红，与 App 的柔性玻璃拟态 + dark mode 互斥，泄漏出去会污染全局。
+ * 与主页（landing.css）和应用浅色主题（index.css --app-*）共用同一套松墨绿字色、
+ * 鼠尾草灰绿中性面与森林绿强调色，但在纯白 A4 纸面上保持账单级的紧凑排版密度，
+ * 兼顾电子阅读质感与实体打印省墨、无白边。
  *
+ * 所有 token 仍锁在 .pdf-report 作用域内，避免打印态不受深色模式切换影响。
  * 屏幕上这份文档绝对定位到屏外（仍参与布局，便于量高），只在 @media print 下进入视口。
  */
 
 .pdf-report {
-  --pdf-bg: #f3f2f2;
-  --pdf-surface: #eae9e9;
-  --pdf-text: #201e1d;
-  --pdf-muted: #444141;
-  --pdf-faint: #605d5d;
-  --pdf-accent: #ec3013;
-  --pdf-accent-deep: #ae1800;
-  --pdf-rule: rgba(32, 30, 29, 0.28);
-  --pdf-hairline: rgba(32, 30, 29, 0.16);
+  --pdf-bg: #ffffff;
+  --pdf-surface: #f5f6f4;
+  --pdf-surface-subtle: #f8faf8;
+  --pdf-track: #dfe5df;
+  --pdf-border: #dde2dc;
+  --pdf-border-strong: #bac6bb;
+  --pdf-hairline: #eaeeea;
+  --pdf-text: #202923;
+  --pdf-secondary: #4b5850;
+  --pdf-muted: #69736c;
+  --pdf-accent: #047857;
+  --pdf-accent-soft: #ecfdf5;
+  --pdf-accent-border: rgba(4, 120, 87, 0.24);
+  --pdf-bar-major: #334239;
+  --pdf-bar-minor: #95a49b;
+  --pdf-trend-past: #b5c5bb;
 
   position: absolute;
   left: -200vw;
@@ -53,6 +62,10 @@
   .pdf-report-measure {
     display: none !important;
   }
+
+  .pdf-page {
+    box-shadow: none !important;
+  }
 }
 
 /* ── 页 ───────────────────────────────────────────────────────────── */
@@ -67,16 +80,18 @@
   padding: 14mm 14mm 10mm;
   background: var(--pdf-bg);
   color: var(--pdf-text);
-  font-family: "Archivo", "Noto Sans SC", system-ui, sans-serif;
+  font-family: 'Inter', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
   font-size: 11.5px;
-  line-height: 1.55;
+  line-height: 1.5;
   font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   overflow: hidden;
   break-inside: avoid;
   break-after: page;
+  box-shadow: inset 0 0 0 1px rgba(32, 41, 35, 0.08);
 }
 
 .pdf-page:last-child {
@@ -109,14 +124,14 @@
 }
 
 .pdf-next30 {
-  margin-top: 22px;
+  margin-top: 20px;
 }
 
 .pdf-page * {
   box-sizing: border-box;
 }
 
-/* 强制打印背景色 —— 否则强调红的条形图和表头底纹会被浏览器省略 */
+/* 强制打印背景色 —— 保证 KPI 浅底面板、进度条与合计行底纹完整输出 */
 .pdf-report,
 .pdf-report * {
   -webkit-print-color-adjust: exact;
@@ -130,116 +145,193 @@
   justify-content: space-between;
   align-items: flex-end;
   gap: 24px;
+  padding-bottom: 14px;
+}
+
+.pdf-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.3;
+}
+
+.pdf-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--pdf-text);
+}
+
+.pdf-brand-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--pdf-accent);
+  flex-shrink: 0;
+}
+
+.pdf-eyebrow-sep {
+  width: 1px;
+  height: 10px;
+  background: var(--pdf-border-strong);
+  flex-shrink: 0;
 }
 
 .pdf-kicker {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  color: var(--pdf-accent-deep);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--pdf-accent);
 }
 
 .pdf-title {
-  font-size: 38px;
-  font-weight: 800;
-  line-height: 1.04;
-  letter-spacing: -0.02em;
-  margin: 10px 0 0;
+  font-size: 29px;
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: var(--pdf-text);
+  margin: 7px 0 0;
 }
 
 .pdf-title-lg {
-  font-size: 46px;
-  line-height: 1;
-  letter-spacing: -0.03em;
+  font-size: 31px;
+  line-height: 1.1;
+  letter-spacing: -0.032em;
 }
 
 .pdf-title-sm {
-  font-size: 28px;
-  line-height: 1.05;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
 }
 
 .pdf-head-meta {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   text-align: right;
-  font-size: 11px;
+  font-size: 10.5px;
+  line-height: 1.45;
   color: var(--pdf-muted);
+}
+
+.pdf-head-meta-primary {
+  color: var(--pdf-secondary);
+  font-weight: 500;
 }
 
 /* ── 分隔线与小节标题 ─────────────────────────────────────────────── */
 
 .pdf-rule {
-  border-top: 2px solid var(--pdf-text);
-  margin: 18px 0 0;
+  border-top: 1px solid var(--pdf-border);
+  margin: 0;
+}
+
+/* 页眉下方紧跟圆角 KPI 面板时，省去多余横线，避免双线重叠 */
+[data-pdf='head']:has(+ [data-pdf='kpis']) .pdf-rule,
+.pdf-head + .pdf-rule:has(+ .pdf-kpis) {
+  border-top: 0;
 }
 
 .pdf-section {
-  border-top: 2px solid var(--pdf-text);
-  padding-top: 11px;
+  border-top: 1px solid var(--pdf-border);
+  padding-top: 10px;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
 }
 
+/* KPI 面板自身已有底边框与外边距，紧随其后的首节无需再叠一条顶线；
+   续页上紧跟页眉分隔线（.pdf-rule）的首节同样省去重复顶线。 */
+[data-pdf='kpis'] + [data-pdf='categories'] > .pdf-section,
+.pdf-kpis + .pdf-section {
+  border-top: 0;
+  padding-top: 2px;
+}
+
+[data-pdf='head'] + [data-pdf='categories'] > .pdf-section,
+[data-pdf='head'] + [data-pdf='table-section'] > .pdf-section {
+  border-top: 0;
+  padding-top: 14px;
+}
+
+[data-pdf='head'] + [data-pdf='renewals'] {
+  margin-top: 14px;
+}
+
+[data-pdf='head'] + [data-pdf='renewals'] > .pdf-section {
+  border-top: 0;
+  padding-top: 0;
+}
+
 .pdf-section-title {
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--pdf-secondary);
 }
 
 .pdf-section-note {
   font-size: 10px;
-  color: var(--pdf-faint);
+  color: var(--pdf-muted);
 }
 
-/* ── KPI 行 ───────────────────────────────────────────────────────── */
+/* ── KPI 概览面板 ─────────────────────────────────────────────────── */
 
 .pdf-kpis {
   display: grid;
   /* minmax(0, 1fr)：禁止列被长金额撑大，否则最后一列会被挤扁 */
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 18px 0 20px;
+  padding: 13px 16px;
+  margin: 2px 0 18px;
+  background: var(--pdf-surface);
+  border: 1px solid var(--pdf-border);
+  border-radius: 12px;
 }
 
 .pdf-kpi {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 0 16px;
-  border-left: 1px solid var(--pdf-rule);
+  gap: 4px;
+  padding: 1px 12px;
+  border-left: 1px solid var(--pdf-border);
 }
 
 .pdf-kpi:first-child {
-  padding-left: 0;
+  padding-left: 2px;
   border-left: 0;
 }
 
 .pdf-kpi:last-child {
-  padding-right: 0;
+  padding-right: 2px;
 }
 
 .pdf-kpi-label {
   font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  color: var(--pdf-faint);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  color: var(--pdf-muted);
   white-space: nowrap;
 }
 
 .pdf-kpi-value {
-  font-size: 27px;
-  font-weight: 800;
-  line-height: 1;
+  font-size: 22.5px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.14;
+  color: var(--pdf-text);
 }
 
 .pdf-kpis-lg .pdf-kpi-value {
-  font-size: 30px;
+  font-size: 24.5px;
 }
 
 /* 分类名可能很长，别把 KPI 格子撑破 */
 .pdf-kpi-value-text {
-  font-size: 22px;
+  font-size: 20px;
   overflow-wrap: anywhere;
 }
 
@@ -249,7 +341,7 @@
 }
 
 .pdf-kpis-lg.pdf-kpis-compact .pdf-kpi-value {
-  font-size: 23px;
+  font-size: 21.5px;
 }
 
 .pdf-kpi-value-accent {
@@ -257,8 +349,9 @@
 }
 
 .pdf-kpi-note {
-  font-size: 10.5px;
-  color: var(--pdf-faint);
+  font-size: 9.5px;
+  line-height: 1.35;
+  color: var(--pdf-muted);
 }
 
 /* ── 分类构成条 ───────────────────────────────────────────────────── */
@@ -267,74 +360,120 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
-  padding: 14px 0 22px;
+  padding: 12px 0 18px;
 }
 
 .pdf-bar-row {
   display: grid;
-  grid-template-columns: minmax(72px, 110px) 1fr 82px 46px;
+  grid-template-columns: minmax(72px, 114px) 1fr 82px 46px;
   align-items: center;
   gap: 12px;
 }
 
+.pdf-bar-row-compact {
+  grid-template-columns: minmax(72px, 108px) 1fr 82px;
+}
+
 .pdf-bar-label {
   font-weight: 500;
+  color: var(--pdf-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .pdf-bar-track {
-  height: 13px;
-  background: var(--pdf-surface);
+  height: 9px;
+  background: var(--pdf-track);
+  border-radius: 999px;
+  overflow: hidden;
 }
 
 .pdf-bar-fill {
   height: 100%;
-  background: var(--pdf-text);
+  min-width: 9px;
+  border-radius: 999px;
+  background: var(--pdf-bar-major);
 }
 
-/* 榜首用强调色，其余按权重降调 —— 强调色一页只出现在一处 */
+.pdf-bar-fill[style*='width: 0.0%'] {
+  min-width: 0;
+}
+
+/* 榜首使用森林绿强调色，其余按松墨与鼠尾草色阶自然过渡 */
 .pdf-bar-row:first-child .pdf-bar-fill {
   background: var(--pdf-accent);
 }
 
+.pdf-bar-row:nth-child(2) .pdf-bar-fill {
+  background: #25382e;
+}
+
+.pdf-bar-row:nth-child(3) .pdf-bar-fill {
+  background: #3b5245;
+}
+
+.pdf-bar-row:nth-child(4) .pdf-bar-fill {
+  background: #577062;
+}
+
+.pdf-bar-row:nth-child(5) .pdf-bar-fill {
+  background: #7a9385;
+}
+
+.pdf-bar-row:nth-child(n + 6) .pdf-bar-fill {
+  background: #a3b8ad;
+}
+
 .pdf-bar-fill-minor {
-  background: var(--pdf-faint);
+  background: var(--pdf-bar-minor);
 }
 
 .pdf-bar-amount {
   text-align: right;
   font-weight: 600;
+  color: var(--pdf-text);
 }
 
 .pdf-bar-percentage {
   text-align: right;
-  color: var(--pdf-faint);
+  font-size: 10.5px;
+  color: var(--pdf-muted);
 }
 
 /* ── 表格 ─────────────────────────────────────────────────────────── */
 
 .pdf-table {
   width: 100%;
-  border-collapse: collapse;
-  margin-top: 12px;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-top: 10px;
   font-size: 11.5px;
 }
 
 .pdf-table th {
   text-align: left;
   font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  font-weight: 600;
+  letter-spacing: 0.07em;
   color: var(--pdf-muted);
   padding: 0 0 7px;
-  border-bottom: 2px solid var(--pdf-text);
+  border-bottom: 1px solid var(--pdf-border-strong);
 }
 
 .pdf-table td {
-  padding: 7px 0;
+  padding: 6.5px 0;
   border-bottom: 1px solid var(--pdf-hairline);
+}
+
+.pdf-table th:first-child,
+.pdf-table td:first-child {
+  padding-left: 8px;
+}
+
+.pdf-table th:last-child,
+.pdf-table td:last-child {
+  padding-right: 8px;
 }
 
 .pdf-table tr {
@@ -351,7 +490,7 @@
 
 .pdf-cycle {
   padding-left: 16px !important;
-  color: var(--pdf-muted);
+  color: var(--pdf-secondary);
 }
 
 th.pdf-cycle {
@@ -360,6 +499,7 @@ th.pdf-cycle {
 
 .pdf-name {
   font-weight: 500;
+  color: var(--pdf-text);
 }
 
 .pdf-dim {
@@ -368,45 +508,75 @@ th.pdf-cycle {
 
 .pdf-strong {
   font-weight: 600;
+  color: var(--pdf-text);
 }
 
-.pdf-total-row {
-  background: var(--pdf-surface);
+/* 合计行做成柔和圆角底条，前一行收起底部分隔线以避免双线 */
+.pdf-table tbody tr:has(+ .pdf-total-row) td {
+  border-bottom-color: transparent;
 }
 
 .pdf-total-row td {
-  padding: 8px 0;
-  font-weight: 800;
-  border-bottom: 2px solid var(--pdf-text);
+  padding-top: 8px;
+  padding-bottom: 8px;
+  font-weight: 600;
+  color: var(--pdf-text);
+  background: var(--pdf-surface);
+  border-top: 1px solid var(--pdf-border);
+  border-bottom: 1px solid var(--pdf-border);
+}
+
+.pdf-total-row td:first-child {
+  border-left: 1px solid var(--pdf-border);
+  border-radius: 8px 0 0 8px;
+}
+
+.pdf-total-row td:last-child {
+  border-right: 1px solid var(--pdf-border);
+  border-radius: 0 8px 8px 0;
 }
 
 .pdf-group-row td {
-  padding: 9px 0 7px;
-  font-weight: 800;
-  border-bottom: 1px solid var(--pdf-rule);
+  padding-top: 9px;
+  padding-bottom: 6px;
+  font-weight: 600;
+  color: var(--pdf-text);
+  background: var(--pdf-surface-subtle);
+  border-bottom: 1px solid var(--pdf-border);
 }
 
 .pdf-group-child .pdf-name {
-  padding-left: 14px;
+  padding-left: 18px;
 }
 
 /* ── 未来 30 天续费 ───────────────────────────────────────────────── */
 
 .pdf-renewals {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px 20px;
-  padding: 13px 0 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 12px;
+  padding: 12px 0 0;
   font-size: 11px;
 }
 
 .pdf-renewal {
   display: flex;
-  gap: 9px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--pdf-surface);
+  border: 1px solid var(--pdf-border);
+  border-radius: 8px;
+}
+
+.pdf-renewal-next {
+  background: var(--pdf-accent-soft);
+  border-color: var(--pdf-accent-border);
 }
 
 .pdf-renewal-date {
-  font-weight: 800;
+  font-weight: 600;
+  color: var(--pdf-secondary);
   white-space: nowrap;
 }
 
@@ -415,6 +585,7 @@ th.pdf-cycle {
 }
 
 .pdf-renewal-name {
+  color: var(--pdf-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -422,7 +593,8 @@ th.pdf-cycle {
 
 .pdf-renewal-amount {
   margin-left: auto;
-  color: var(--pdf-muted);
+  color: var(--pdf-secondary);
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -433,9 +605,9 @@ th.pdf-cycle {
   grid-template-columns: repeat(12, 1fr);
   align-items: end;
   gap: 10px;
-  height: 168px;
-  padding: 18px 0 0;
-  border-bottom: 1px solid var(--pdf-rule);
+  height: 172px;
+  padding: 16px 0 0;
+  border-bottom: 1px solid var(--pdf-border);
 }
 
 .pdf-trend-col {
@@ -462,12 +634,13 @@ th.pdf-cycle {
 
 .pdf-trend-bar {
   width: 100%;
-  background: var(--pdf-text);
-  min-height: 1px;
+  background: var(--pdf-trend-past);
+  border-radius: 5px 5px 0 0;
+  min-height: 2px;
 }
 
 .pdf-trend-col-current .pdf-trend-value {
-  font-weight: 800;
+  font-weight: 600;
   color: var(--pdf-accent);
 }
 
@@ -480,9 +653,20 @@ th.pdf-cycle {
   grid-template-columns: repeat(12, 1fr);
   gap: 10px;
   padding-top: 7px;
-  font-size: 9.5px;
+  font-size: 9px;
+  letter-spacing: -0.015em;
   color: var(--pdf-muted);
   text-align: center;
+}
+
+.pdf-trend-labels > div {
+  margin-inline: -4px;
+  white-space: nowrap;
+}
+
+.pdf-trend-label-current {
+  color: var(--pdf-text);
+  font-weight: 600;
 }
 
 /* ── 排行榜（Top 5）───────────────────────────────────────────────── */
@@ -496,24 +680,36 @@ th.pdf-cycle {
 
 .pdf-rank-row {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 9px 0;
+  align-items: center;
+  gap: 10px;
+  padding: 8.5px 0;
   border-bottom: 1px solid var(--pdf-hairline);
-  font-size: 12px;
+  font-size: 11.5px;
 }
 
 .pdf-rank-index {
-  font-weight: 800;
-  width: 16px;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--pdf-surface);
+  color: var(--pdf-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .pdf-rank-row:first-child .pdf-rank-index {
+  background: var(--pdf-accent-soft);
   color: var(--pdf-accent);
+  border: 1px solid var(--pdf-accent-border);
 }
 
 .pdf-rank-name {
   font-weight: 500;
+  color: var(--pdf-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -522,12 +718,13 @@ th.pdf-cycle {
 .pdf-rank-amount {
   margin-left: auto;
   font-weight: 600;
+  color: var(--pdf-text);
 }
 
 .pdf-rank-percentage {
-  color: var(--pdf-faint);
+  color: var(--pdf-muted);
   font-size: 10.5px;
-  width: 46px;
+  width: 44px;
   text-align: right;
 }
 
@@ -535,15 +732,15 @@ th.pdf-cycle {
 
 .pdf-spacer {
   flex: 1;
-  min-height: 26px;
+  min-height: 22px;
 }
 
 .pdf-foot {
-  border-top: 2px solid var(--pdf-text);
+  border-top: 1px solid var(--pdf-border);
   padding-top: 9px;
   display: flex;
   justify-content: space-between;
   gap: 16px;
   font-size: 9.5px;
-  color: var(--pdf-faint);
+  color: var(--pdf-muted);
 }
