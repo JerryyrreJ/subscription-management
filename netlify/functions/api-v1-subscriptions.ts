@@ -1,7 +1,7 @@
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { assertScope, consumeApiRateLimit, identifyApiKey, type ApiClientContext } from './_shared/apiKeys';
+import { assertScope, consumeApiRateLimit, identifyApiKey, type ApiClientContext, type ApiKeyIdentity } from './_shared/apiKeys';
 import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
@@ -50,6 +50,7 @@ interface SubscriptionsApiDependencies {
   limits: ApiLimitsConfig;
   createRequestId(): string;
   now(): Date;
+  authenticatedIdentity?: ApiKeyIdentity;
 }
 
 // Name every column only in the mapper, not in the PostgREST select list.
@@ -114,6 +115,7 @@ const idSchema = z.string().uuid();
 
 const DEFAULT_PAGE_LIMIT = 50;
 const MAX_PAGE_LIMIT = 100;
+const MAX_PAGE_OFFSET = 10_000;
 const MAX_SUBSCRIPTIONS_SCAN = 1000;
 
 const paginationSchema = z.object({
@@ -123,6 +125,7 @@ const paginationSchema = z.object({
     .default(DEFAULT_PAGE_LIMIT),
   offset: z.coerce.number().int('offset must be a whole number')
     .min(0, 'offset cannot be negative')
+    .max(MAX_PAGE_OFFSET, `offset cannot exceed ${MAX_PAGE_OFFSET}`)
     .default(0),
 });
 
@@ -476,10 +479,7 @@ const parseCreateInput = (body: Record<string, unknown>) => {
   return parsed;
 };
 
-const parsePatchInput = (
-  body: Record<string, unknown>,
-  existing: ReturnType<typeof toStoredApiSubscription>
-) => {
+const parsePatchBody = (body: Record<string, unknown>): Record<string, unknown> => {
   assertAllowedFields(body);
   if (Object.keys(body).length === 0) {
     throw new HttpError(400, 'empty_patch', 'PATCH body must include at least one writable field', {}, {
@@ -488,9 +488,8 @@ const parsePatchInput = (
     });
   }
 
-  let patch: Record<string, unknown>;
   try {
-    patch = subscriptionPatchInputSchema.parse(body) as Record<string, unknown>;
+    return subscriptionPatchInputSchema.parse(body) as Record<string, unknown>;
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new HttpError(
@@ -503,6 +502,14 @@ const parsePatchInput = (
     }
     throw error;
   }
+};
+
+const parsePatchInput = (
+  body: Record<string, unknown>,
+  existing: ReturnType<typeof toStoredApiSubscription>,
+  prevalidatedPatch?: Record<string, unknown>
+) => {
+  const patch = prevalidatedPatch ?? parsePatchBody(body);
 
   const merged: Record<string, unknown> = {
     name: existing.name,
@@ -645,7 +652,7 @@ export const createSubscriptionsApiHandler = (
     const dependencies = dependenciesFactory();
     requestId = dependencies.createRequestId();
     const now = dependencies.now();
-    const identity = await identifyApiKey(
+    const identity = dependencies.authenticatedIdentity ?? await identifyApiKey(
       event.headers,
       dependencies.database,
       dependencies.limits,
@@ -814,10 +821,11 @@ export const createSubscriptionsApiHandler = (
     const id = parseSubscriptionId(subscriptionId);
 
     if (event.httpMethod === 'PATCH') {
+      const body = parseJsonObject(event.body);
+      const prevalidatedPatch = parsePatchBody(body);
       const existingRow = await getSubscription(dependencies.database, identity.userId, id);
       const existing = toStoredApiSubscription(existingRow);
-      const body = parseJsonObject(event.body);
-      const parsed = parsePatchInput(body, existing);
+      const parsed = parsePatchInput(body, existing, prevalidatedPatch);
       const context = await consume();
 
       const payload = toDatabasePayload(parsed);
@@ -850,10 +858,10 @@ export const createSubscriptionsApiHandler = (
       })));
     }
 
+    const context = await consume();
     const existing = toStoredApiSubscription(
       await getSubscription(dependencies.database, identity.userId, id)
     );
-    const context = await consume();
     const { error } = await dependencies.database
       .from('subscriptions')
       .delete()

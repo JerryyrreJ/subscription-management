@@ -47,7 +47,12 @@ interface CreateApiKeyResult extends ApiKeyRow {
 const createKeyBodySchema = z.object({
   name: z.string().trim().min(1).max(80).default('Default key'),
   // read is implied; pass ['read'] for a read-only key, omit for full read/write.
-  scopes: z.array(z.enum(['read', 'write'])).nonempty().optional(),
+  scopes: z
+    .array(z.enum(['read', 'write']))
+    .nonempty()
+    .max(2)
+    .transform(scopes => [...new Set(scopes)])
+    .optional(),
 });
 
 const revokeQuerySchema = z.object({

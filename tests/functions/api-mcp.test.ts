@@ -181,3 +181,99 @@ test('remote Streamable HTTP MCP handles preflight, 405 GET, 401 invalid auth, a
   assert.equal(missingIdResult.isError, true);
   assert.match(JSON.stringify(missingIdResult.content), /Missing required path parameter: id/);
 });
+
+test('remote MCP authenticates each HTTP request once and rejects oversized POST payloads', async () => {
+  let authLookups = 0;
+  const database = createFakeSupabaseClient(
+    (state: QueryState) => {
+      if (state.table === 'api_keys' && state.operation === 'update') {
+        return { data: null, error: null };
+      }
+      if (state.table === 'user_profiles') {
+        return { data: { is_premium: false }, error: null };
+      }
+      if (state.table === 'subscriptions') {
+        return { data: [sampleRow], error: null };
+      }
+      return { data: null, error: { message: `Unexpected query: ${state.table}` } };
+    },
+    name => {
+      if (name === 'lookup_api_key_for_auth') {
+        authLookups += 1;
+        return {
+          data: [
+            {
+              limited: false,
+              id: apiKeyId,
+              user_id: userId,
+              key_prefix: apiKey.slice(0, 14),
+              scopes: ['read'],
+            },
+          ],
+          error: null,
+        };
+      }
+      return {
+        data: [
+          {
+            allowed: true,
+            request_count: 1,
+            remaining: 59,
+            reset_at: '2026-06-16T01:00:00.000Z',
+          },
+        ],
+        error: null,
+      };
+    }
+  );
+
+  const mcpHandler = createApiMcpHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'mcp-req-single-auth',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const oversizedBody = JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: {
+      name: 'list_subscriptions',
+      arguments: { padding: 'x'.repeat(270 * 1024) },
+    },
+  });
+  const tooLarge = await mcpHandler(
+    new Request('https://steadyrenew.com/api/mcp', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: oversizedBody,
+    })
+  );
+  assert.equal(tooLarge.status, 413);
+  assert.equal(authLookups, 0);
+
+  const callRes = await mcpHandler(
+    new Request('https://steadyrenew.com/api/mcp', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'list_subscriptions',
+          arguments: { limit: 1 },
+        },
+      }),
+    })
+  );
+  assert.equal(callRes.status, 200);
+  assert.equal(authLookups, 1);
+});

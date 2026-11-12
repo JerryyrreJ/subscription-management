@@ -40,6 +40,8 @@ interface RawToolDef {
   parameters?: Record<string, unknown>;
 }
 
+const MAX_MCP_REQUEST_BYTES = 256 * 1024;
+
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
@@ -249,7 +251,29 @@ export const createApiMcpHandler = (
 
   let requestId: string = crypto.randomUUID();
 
+  const payloadTooLargeResponse = () => withMcpHeaders(new Response(JSON.stringify({
+    jsonrpc: '2.0',
+    error: {
+      code: -32600,
+      message: `Request body exceeds ${MAX_MCP_REQUEST_BYTES} bytes.`,
+    },
+    id: null,
+  }), {
+    status: 413,
+    headers: { 'Content-Type': 'application/json' },
+  }));
+
   try {
+    const declaredLength = Number(request.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_MCP_REQUEST_BYTES) {
+      return payloadTooLargeResponse();
+    }
+
+    const rawBody = await request.arrayBuffer();
+    if (rawBody.byteLength > MAX_MCP_REQUEST_BYTES) {
+      return payloadTooLargeResponse();
+    }
+
     const dependencies = dependenciesFactory();
     requestId = dependencies.createRequestId();
     const now = dependencies.now();
@@ -258,7 +282,7 @@ export const createApiMcpHandler = (
     // Authenticate the API key upfront on every MCP request (initialize, tools/list,
     // tools/call). Per-minute tool call quota is charged inside the target API route
     // handler only when tools/call executes a valid request.
-    await identifyApiKey(
+    const authenticatedIdentity = await identifyApiKey(
       incomingHeaders,
       dependencies.database,
       dependencies.limits,
@@ -266,10 +290,11 @@ export const createApiMcpHandler = (
       requestId
     );
 
-    const subscriptionsHandler = createSubscriptionsApiHandler(() => dependencies);
-    const analyticsHandler = createAnalyticsApiHandler(() => dependencies);
-    const auditHandler = createAuditApiHandler(() => dependencies);
-    const notificationSettingsHandler = createNotificationSettingsApiHandler(() => dependencies);
+    const authedDependencies = { ...dependencies, authenticatedIdentity };
+    const subscriptionsHandler = createSubscriptionsApiHandler(() => authedDependencies);
+    const analyticsHandler = createAnalyticsApiHandler(() => authedDependencies);
+    const auditHandler = createAuditApiHandler(() => authedDependencies);
+    const notificationSettingsHandler = createNotificationSettingsApiHandler(() => authedDependencies);
 
     const resolveRouteHandler = (path: string): Handler => {
       if (path.startsWith('/api/v1/subscriptions')) return subscriptionsHandler;
@@ -355,13 +380,16 @@ export const createApiMcpHandler = (
 
     // Ensure simple JSON-RPC HTTP clients that send Accept: application/json or */*
     // work alongside strict MCP clients that send Accept: application/json, text/event-stream.
-    let normalizedRequest = request;
+    const patchedHeaders = new Headers(request.headers);
     const accept = request.headers.get('accept') ?? '';
     if (!accept.includes('application/json') || !accept.includes('text/event-stream')) {
-      const patchedHeaders = new Headers(request.headers);
       patchedHeaders.set('Accept', 'application/json, text/event-stream');
-      normalizedRequest = new Request(request, { headers: patchedHeaders });
     }
+    const normalizedRequest = new Request(request.url, {
+      method: request.method,
+      headers: patchedHeaders,
+      body: rawBody,
+    });
 
     const mcpResponse = await transport.handleRequest(normalizedRequest);
     return withMcpHeaders(mcpResponse);

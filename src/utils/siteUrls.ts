@@ -12,7 +12,8 @@ export function isLegacyApplicationOrigin(origin: string): boolean {
 export function marketingUrl(path: string, currentOrigin: string): string {
   const origin = currentOrigin === APPLICATION_ORIGIN || isLegacyApplicationOrigin(currentOrigin)
     ? MARKETING_ORIGIN : currentOrigin;
-  return new URL(path, origin).toString();
+  const safePath = path.startsWith('//') ? `/${path.replace(/^\/+/, '')}` : path;
+  return new URL(safePath, origin).toString();
 }
 
 export function documentationUrl(path: string, locale: string, docsOrigin = DOCUMENTATION_ORIGIN): string {

@@ -8,7 +8,9 @@ const LEGACY_HOST = 'sub.jerrylu.xyz';
 /** Edge Functions run before redirect rules, so the old host must 301 here too. */
 function redirectLegacyHost(url: URL): Response | null {
   if (url.hostname !== LEGACY_HOST) return null;
-  const destination = new URL(`${url.pathname}${url.search}`, MARKETING_ORIGIN);
+  const destination = new URL(MARKETING_ORIGIN);
+  destination.pathname = url.pathname.replace(/^\/+/, '/');
+  destination.search = url.search;
   return new Response(null, {
     status: 301,
     headers: { Location: destination.toString() },

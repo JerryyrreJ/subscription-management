@@ -4,6 +4,39 @@ export interface CheckoutSessionResponse {
  requestId?: string;
 }
 
+export function assertAllowedCheckoutRedirectUrl(
+ url: string,
+ currentOrigin?: string
+): string {
+ let parsed: URL;
+ try {
+  parsed = new URL(url);
+ } catch {
+  throw new Error('Invalid checkout redirect URL');
+ }
+
+ if (parsed.username !== '' || parsed.password !== '') {
+  throw new Error('Checkout redirect URL must not include credentials');
+ }
+
+ const resolvedOrigin = currentOrigin ?? (typeof window !== 'undefined' ? window.location.origin : '');
+ const isSameOrigin = Boolean(
+  resolvedOrigin &&
+  parsed.origin === resolvedOrigin &&
+  (parsed.protocol === 'https:' || parsed.protocol === 'http:')
+ );
+ const hostname = parsed.hostname.toLowerCase();
+ const isStripeHostedCheckout =
+  parsed.protocol === 'https:' &&
+  (hostname === 'checkout.stripe.com' || hostname.endsWith('.stripe.com'));
+
+ if (!isSameOrigin && !isStripeHostedCheckout) {
+  throw new Error('Untrusted checkout redirect URL');
+ }
+
+ return parsed.toString();
+}
+
 export async function createCheckoutSession(
  accessToken?: string
 ): Promise<CheckoutSessionResponse> {
@@ -37,7 +70,7 @@ export async function createCheckoutSession(
 export async function redirectToCheckout(accessToken?: string): Promise<void> {
  try {
  const { url } = await createCheckoutSession(accessToken);
- window.location.href = url;
+ window.location.href = assertAllowedCheckoutRedirectUrl(url);
  } catch (error) {
  console.error('Failed to redirect to checkout:', error);
  throw error;

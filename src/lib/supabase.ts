@@ -21,13 +21,19 @@ const createSecureStorage = () => ({
  const rememberMe = isRememberMeEnabled()
 
  if (rememberMe) {
- // 记住登录：持久化存储
+ // 记住登录：持久化存储，并清理另一侧残留会话
  localStorage.setItem(key, value)
- console.log('🔐 Auth token stored persistently (remember me enabled)')
+ sessionStorage.removeItem(key)
+ if (import.meta.env.DEV) {
+  console.log('🔐 Auth token stored persistently (remember me enabled)')
+ }
  } else {
- // 普通登录：会话存储
+ // 普通登录：会话存储，并清理持久化残留令牌
  sessionStorage.setItem(key, value)
- console.log('🔐 Auth token stored in session (remember me disabled)')
+ localStorage.removeItem(key)
+ if (import.meta.env.DEV) {
+  console.log('🔐 Auth token stored in session (remember me disabled)')
+ }
  }
  }
  },
@@ -35,7 +41,9 @@ const createSecureStorage = () => ({
  // 从两个存储中都删除
  localStorage.removeItem(key)
  sessionStorage.removeItem(key)
- console.log('🔐 Auth token removed from both storages')
+ if (import.meta.env.DEV) {
+  console.log('🔐 Auth token removed from both storages')
+ }
  }
 })
 

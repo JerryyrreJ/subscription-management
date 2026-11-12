@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { config } from '../lib/config';
 import { useAuth } from '../contexts/AuthContext';
-import { createCheckoutSession, pendingCheckout } from '../services/payment';
+import { assertAllowedCheckoutRedirectUrl, createCheckoutSession, pendingCheckout } from '../services/payment';
 import { useCheckoutVerification } from '../hooks/useCheckoutVerification';
 import { FREE_PRICE_USD, PREMIUM_PRICE_USD } from '../utils/pricingFacts';
 import { pricingCopy } from './pricing/copy';
@@ -51,8 +51,9 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
   busy.current = true; setProcessing(true); setError(false);
   try {
    const result = await createCheckoutSession(session.access_token);
+   const checkoutUrl = assertAllowedCheckoutRedirectUrl(result.url);
    pendingCheckout(session.user.id, result.sessionId);
-   window.location.href = result.url;
+   window.location.href = checkoutUrl;
   }
   catch { setError(true); busy.current = false; setProcessing(false); }
  };

@@ -6,6 +6,7 @@ import {
   consumeApiRateLimit,
   identifyApiKey,
   type ApiClientContext,
+  type ApiKeyIdentity,
 } from './_shared/apiKeys';
 import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
@@ -42,6 +43,7 @@ interface AnalyticsApiDependencies {
   limits: ApiLimitsConfig;
   createRequestId(): string;
   now(): Date;
+  authenticatedIdentity?: ApiKeyIdentity;
 }
 
 // Use '*' rather than naming newer columns (billing_anchor_day, is_trial,
@@ -183,7 +185,7 @@ export const createAnalyticsApiHandler = (
     const view = parseAnalyticsView(event.path);
     const horizonDays = view === 'summary' ? parseHorizon(event.queryStringParameters) : 30;
 
-    const identity = await identifyApiKey(
+    const identity = dependencies.authenticatedIdentity ?? await identifyApiKey(
       event.headers,
       dependencies.database,
       dependencies.limits,

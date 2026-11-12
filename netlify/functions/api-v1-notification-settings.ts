@@ -6,6 +6,7 @@ import {
   consumeApiRateLimit,
   identifyApiKey,
   type ApiClientContext,
+  type ApiKeyIdentity,
 } from './_shared/apiKeys';
 import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
@@ -31,6 +32,7 @@ interface NotificationSettingsApiDependencies {
   limits: ApiLimitsConfig;
   createRequestId(): string;
   now(): Date;
+  authenticatedIdentity?: ApiKeyIdentity;
 }
 
 const NOTIFICATION_SETTINGS_COLUMNS = [
@@ -257,7 +259,7 @@ export const createNotificationSettingsApiHandler = (
     requestId = dependencies.createRequestId();
     const now = dependencies.now();
 
-    const identity = await identifyApiKey(
+    const identity = dependencies.authenticatedIdentity ?? await identifyApiKey(
       event.headers,
       dependencies.database,
       dependencies.limits,

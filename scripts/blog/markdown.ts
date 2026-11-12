@@ -82,7 +82,7 @@ export function escapeHtml(value: string): string {
 
 export function safeHref(href: string): string | null {
   const trimmed = href.trim();
-  if (/^javascript:/i.test(trimmed) || /^data:/i.test(trimmed)) {
+  if (trimmed.startsWith('//') || /^javascript:/i.test(trimmed) || /^data:/i.test(trimmed)) {
     return null;
   }
   if (/^(https?:\/\/|mailto:|\/|#)/i.test(trimmed)) {

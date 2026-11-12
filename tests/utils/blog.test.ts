@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { extractFaqs, markdownToHtml, parseFrontmatter, toFrontmatter } from '../../scripts/blog/markdown.ts';
+import { extractFaqs, markdownToHtml, parseFrontmatter, safeHref, toFrontmatter } from '../../scripts/blog/markdown.ts';
 import { buildPublicFiles } from '../../scripts/blog/generate.ts';
 import { postLanguageAlternates, renderBlogPost } from '../../scripts/blog/render.ts';
 import type { BlogPost } from '../../scripts/blog/posts.ts';
@@ -93,6 +93,11 @@ Example answer.
   const faqs = extractFaqs(html);
   assert.equal(faqs.length, 1);
   assert.equal(faqs[0]?.question, 'Example question?');
+
+  assert.equal(safeHref('//evil.example/phish'), null);
+  assert.equal(safeHref('javascript:alert(1)'), null);
+  assert.equal(safeHref('/blog/'), '/blog/');
+  assert.equal(markdownToHtml('Check [unsafe](//evil.example/phish)'), '<p>Check unsafe</p>');
 });
 
 test('Chinese headings keep usable ids instead of stripping to empty', () => {

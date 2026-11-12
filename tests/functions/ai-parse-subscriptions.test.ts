@@ -342,3 +342,19 @@ test('concurrent requests compete for last quota slot before provider calls', as
  assert.equal(responses.filter(response => response?.statusCode === 200).length, 1);
  assert.equal(responses.filter(response => response?.statusCode === 429).length, 7);
 });
+
+test('rejects malformed image.dataBase64 before consuming quota or calling the model', async () => {
+  const { handler, flags } = buildHandler();
+  for (const invalidPayload of ['data:image/png;base64,AAAA', 'not-valid-base64!!!', 'ABC']) {
+    const response = expectHandlerResponse(
+      await handler(postEvent({ image: { mediaType: 'image/png', dataBase64: invalidPayload } }), {} as never)
+    );
+    const body = parseJsonResponse<{ error: { code: string; field?: string } }>(response);
+    assert.equal(response.statusCode, 400);
+    assert.equal(body.error.code, 'invalid_capture');
+    assert.equal(body.error.field, 'image.dataBase64');
+  }
+  assert.equal(flags.consumeCalled, false);
+  assert.equal(flags.reserveCalled, false);
+  assert.equal(flags.parseCalled, false);
+});
