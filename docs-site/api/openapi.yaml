@@ -54,10 +54,11 @@ paths:
         - name: offset
           in: query
           required: false
-          description: Number of subscriptions to skip from the start of the list (default 0).
+          description: Number of subscriptions to skip from the start of the list (0-10000, default 0).
           schema:
             type: integer
             minimum: 0
+            maximum: 10000
             default: 0
         - name: status
           in: query
@@ -594,10 +595,11 @@ paths:
         - name: offset
           in: query
           required: false
-          description: Number of entries to skip from the start.
+          description: Number of entries to skip from the start (0-10000, default 0).
           schema:
             type: integer
             minimum: 0
+            maximum: 10000
             default: 0
         - name: subscriptionId
           in: query
@@ -795,7 +797,7 @@ components:
                   code: invalid_pagination
                   message: limit cannot exceed 100
                   field: limit
-                  suggestedFix: "Use limit between 1 and 100 and a non-negative offset, for example ?limit=50&offset=0."
+                  suggestedFix: "Use limit between 1 and 100 and offset between 0 and 10000, for example ?limit=50&offset=0."
                 requestId: request-1
     Unauthorized:
       description: The API key is missing, invalid, or revoked.
@@ -1145,6 +1147,7 @@ components:
         offset:
           type: integer
           minimum: 0
+          maximum: 10000
           description: Number of records skipped before this page.
         hasMore:
           type: boolean

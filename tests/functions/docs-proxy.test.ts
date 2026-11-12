@@ -52,6 +52,20 @@ test('preserves errors and streaming content, disables caching, and keeps docs r
   const missing = await docsProxy(new Request('https://steadyrenew.com/docs/missing'), context);
   assert.equal(missing.status, 404);
   assert.equal(await missing.text(), 'Not found');
+
+  for (const untrustedLocation of [
+    'https://evil.example/phish',
+    '//evil.example/phish',
+    'https://subscriptionmanager.mintlify.site/login',
+  ]) {
+    t.mock.method(globalThis, 'fetch', async () => new Response(null, {
+      status: 302,
+      headers: { Location: untrustedLocation },
+    }));
+    const blocked = await docsProxy(new Request('https://steadyrenew.com/docs'), context);
+    assert.equal(blocked.status, 502);
+    assert.equal(blocked.headers.get('location'), null);
+  }
 });
 
 test('legacy host docs 301 to the same path before the upstream proxy', async t => {

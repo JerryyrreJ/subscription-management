@@ -3,6 +3,7 @@ import type { Config } from '@netlify/functions';
 import Stripe from 'stripe';
 import { fulfillPremiumCheckout, reconcilePayment, referenceId, type FulfillmentStripe, type PaymentDatabase } from './_shared/paymentLifecycle';
 import type { Handler, HandlerEvent } from '@netlify/functions';
+import { getHeader } from './_shared/auth';
 import {
   getOptionalSupabaseAdminConfig,
   getStripeServerConfig,
@@ -78,7 +79,7 @@ export const createStripeWebhookHandler = (
     }, { Allow: 'POST' });
   }
 
-  const signature = event.headers['stripe-signature'];
+  const signature = getHeader(event.headers, 'stripe-signature');
   if (!signature || !event.body) {
     return jsonResponse(400, {
       error: { code: 'invalid_webhook_request', message: 'Missing Stripe signature or body' },

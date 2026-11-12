@@ -226,3 +226,32 @@ test('modern Request adapter preserves Stripe signed bytes and rejects tampering
  assert.equal((await handler(request(payload + ' '))).status, 400);
  assert.equal(grants, 1);
 });
+
+test('webhook accepts mixed-case Stripe-Signature headers on HandlerEvent', async () => {
+ let receivedSignature = '';
+ const handler = createStripeWebhookHandler(() => ({
+  stripeConfig,
+  supabaseConfig: null,
+  database: null,
+  stripe: {
+   ...paymentStripeFixture,
+   webhooks: {
+    constructEvent: (_body, signature) => {
+     receivedSignature = signature;
+     return { ...completedEvent(), type: 'checkout.session.async_payment_failed' } as Stripe.Event;
+    },
+   },
+   checkout: { sessions: { listLineItems: async () => ({ data: [] }) } },
+  },
+  createRequestId: () => 'mixed-case-sig',
+ }));
+
+ const response = await handler({
+  httpMethod: 'POST',
+  headers: { 'Stripe-Signature': 't=123,v1=abc' },
+  body: '{}',
+ } as unknown as HandlerEvent, {} as never);
+
+ assert.equal(response?.statusCode, 200);
+ assert.equal(receivedSignature, 't=123,v1=abc');
+});
