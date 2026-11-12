@@ -26,6 +26,13 @@ function redirectLegacyDocs(url: URL): Response | null {
   });
 }
 
+function unavailableResponse(): Response {
+  return new Response('Documentation is temporarily unavailable. Please try again shortly.', {
+    status: 502,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
+
 /** Public documentation only; application routes and credentials stay on Netlify. */
 export default async function docsProxy(request: Request, context: Pick<Context, 'next' | 'ip'>): Promise<Response> {
   const incoming = new URL(request.url);
@@ -52,9 +59,10 @@ export default async function docsProxy(request: Request, context: Pick<Context,
     const location = responseHeaders.get('location');
     if (location) {
       const redirect = new URL(location, target);
-      if (redirect.origin === upstreamOrigin && isDocsPath(redirect.pathname)) {
-        responseHeaders.set('Location', `${redirect.pathname}${redirect.search}${redirect.hash}`);
+      if (redirect.origin !== upstreamOrigin || !isDocsPath(redirect.pathname)) {
+        return unavailableResponse();
       }
+      responseHeaders.set('Location', `${redirect.pathname}${redirect.search}${redirect.hash}`);
     }
     // These public docs do not need to set cookies on the application's domain.
     responseHeaders.delete('set-cookie');
@@ -82,10 +90,7 @@ export default async function docsProxy(request: Request, context: Pick<Context,
     });
   } catch {
     // Never fall through to the app shell when the documentation origin is down.
-    return new Response('Documentation is temporarily unavailable. Please try again shortly.', {
-      status: 502,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
-    });
+    return unavailableResponse();
   }
 }
 

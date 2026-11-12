@@ -17,7 +17,7 @@ export interface AuthenticatedRequest {
 
 type HeadersLike = Record<string, string | undefined>;
 
-const getHeader = (headers: HeadersLike, name: string): string | undefined => {
+export const getHeader = (headers: HeadersLike, name: string): string | undefined => {
   const target = name.toLowerCase();
   const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === target);
   return entry?.[1];

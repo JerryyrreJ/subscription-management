@@ -110,8 +110,9 @@
           "offset": {
             "type": "integer",
             "minimum": 0,
+            "maximum": 10000,
             "default": 0,
-            "description": "Number of subscriptions to skip from the start. Use offset + limit to fetch the next page while hasMore is true."
+            "description": "Number of subscriptions to skip from the start (0-10000). Use offset + limit to fetch the next page while hasMore is true."
           },
           "status": {
             "type": "string",
@@ -492,8 +493,9 @@
           "offset": {
             "type": "integer",
             "minimum": 0,
+            "maximum": 10000,
             "default": 0,
-            "description": "Number of entries to skip from the start."
+            "description": "Number of entries to skip from the start (0-10000)."
           },
           "subscriptionId": {
             "type": "string",

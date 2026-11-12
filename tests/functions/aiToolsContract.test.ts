@@ -19,7 +19,9 @@ interface ToolDef {
   requiresConfirmation?: boolean;
   requiredScope?: string;
   fixedBody?: { status: string };
-  parameters?: { properties?: Record<string, { enum?: readonly string[] }> };
+  parameters?: {
+    properties?: Record<string, { enum?: readonly string[]; minimum?: number; maximum?: number }>;
+  };
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -99,6 +101,10 @@ test('shared schemas enumerate the same currencies and list-filter statuses as t
 
   const listTool = tools.find((tool) => tool.name === 'list_subscriptions');
   assert.deepEqual(listTool?.parameters?.properties?.status?.enum, [...SUBSCRIPTION_STATUSES]);
+  assert.equal(listTool?.parameters?.properties?.offset?.maximum, 10000);
+
+  const auditTool = tools.find((tool) => tool.name === 'list_audit_log');
+  assert.equal(auditTool?.parameters?.properties?.offset?.maximum, 10000);
 });
 
 test('the documented routes are present in the OpenAPI spec', () => {
