@@ -1,13 +1,20 @@
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { assertScope, consumeApiRateLimit, identifyApiKey, type ApiClientContext, type ApiKeyIdentity } from './_shared/apiKeys';
-import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
+import { assertScope, consumeApiRateLimit, identifyApiKey, type ApiClientContext } from './_shared/apiKeys';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { recordAudit } from './_shared/audit';
-import { createSupabaseAdminClient } from './_shared/supabase';
-import { runtimeEnvironment } from './_shared/webHandler';
+import {
+  createCorsHeaderAttacher,
+  createDefaultPublicApiDependencies,
+  DEFAULT_PAGE_LIMIT,
+  MAX_PAGE_LIMIT,
+  paginationFields,
+  parsePublicApiJsonObject,
+  withRateHeaders,
+  type PublicApiDependencies,
+} from './_shared/publicApi';
 import {
   calculateNextPaymentDate,
   calculatePreviousPaymentDate,
@@ -45,13 +52,7 @@ interface SubscriptionRow {
   updated_at: string;
 }
 
-interface SubscriptionsApiDependencies {
-  database: SupabaseClient;
-  limits: ApiLimitsConfig;
-  createRequestId(): string;
-  now(): Date;
-  authenticatedIdentity?: ApiKeyIdentity;
-}
+type SubscriptionsApiDependencies = PublicApiDependencies;
 
 // Name every column only in the mapper, not in the PostgREST select list.
 // Production can lag migrations that add billing_anchor_day, is_trial, and
@@ -93,41 +94,13 @@ const subscriptionFieldGuidance: Record<string, string> = {
 };
 
 const ALLOWED_METHODS = 'GET, POST, PATCH, DELETE, OPTIONS';
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-  'Access-Control-Allow-Methods': ALLOWED_METHODS,
-};
-
-const createDefaultDependencies = (): SubscriptionsApiDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
-
-  return {
-    database: createSupabaseAdminClient(supabaseConfig),
-    limits: getApiLimitsConfig(runtimeEnvironment),
-    createRequestId: () => crypto.randomUUID(),
-    now: () => new Date(),
-  };
-};
+const { withCorsHeaders, preflight, methodNotAllowed } = createCorsHeaderAttacher(ALLOWED_METHODS);
 
 const idSchema = z.string().uuid();
 
-const DEFAULT_PAGE_LIMIT = 50;
-const MAX_PAGE_LIMIT = 100;
-const MAX_PAGE_OFFSET = 10_000;
 const MAX_SUBSCRIPTIONS_SCAN = 1000;
 
-const paginationSchema = z.object({
-  limit: z.coerce.number().int('limit must be a whole number')
-    .min(1, 'limit must be at least 1')
-    .max(MAX_PAGE_LIMIT, `limit cannot exceed ${MAX_PAGE_LIMIT}`)
-    .default(DEFAULT_PAGE_LIMIT),
-  offset: z.coerce.number().int('offset must be a whole number')
-    .min(0, 'offset cannot be negative')
-    .max(MAX_PAGE_OFFSET, `offset cannot exceed ${MAX_PAGE_OFFSET}`)
-    .default(0),
-});
+const paginationSchema = z.object(paginationFields);
 
 const parsePagination = (
   query: HandlerEvent['queryStringParameters']
@@ -231,28 +204,11 @@ const parseSubscriptionId = (id: string): string => {
   return result.data;
 };
 
-const parseJsonObject = (body: string | null): Record<string, unknown> => {
-  if (!body) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(body) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new HttpError(400, 'invalid_json', 'Request body must be a JSON object', {}, {
-        suggestedFix: 'Send an object such as {"name":"Netflix","category":"Streaming","amount":15.99,"currency":"USD","period":"monthly","nextPaymentDate":"2026-07-01"}.',
-      });
-    }
-    return parsed as Record<string, unknown>;
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
-    }
-    throw new HttpError(400, 'invalid_json', 'Request body must be valid JSON', {}, {
-      suggestedFix: 'Check JSON syntax, quotes, commas, and that Content-Type is application/json.',
-    });
-  }
-};
+const parseJsonObject = (body: string | null): Record<string, unknown> =>
+  parsePublicApiJsonObject(
+    body,
+    'Send an object such as {"name":"Netflix","category":"Streaming","amount":15.99,"currency":"USD","period":"monthly","nextPaymentDate":"2026-07-01"}.'
+  );
 
 const assertAllowedFields = (body: Record<string, unknown>): void => {
   const unknownField = Object.keys(body).find(key => !allowedSubscriptionFields.has(key));
@@ -608,44 +564,18 @@ const parsePatchInput = (
   return merged as z.infer<typeof subscriptionCreateInputSchema>;
 };
 
-const withRateHeaders = (
-  context: ApiClientContext,
-  response: HandlerResponse
-): HandlerResponse => ({
-  ...response,
-  headers: {
-    ...(response.headers ?? {}),
-    ...context.rateLimit.headers,
-  },
-});
-
-const withCorsHeaders = (response: HandlerResponse): HandlerResponse => ({
-  ...response,
-  headers: {
-    ...CORS_HEADERS,
-    ...(response.headers ?? {}),
-  },
-});
-
 export const createSubscriptionsApiHandler = (
-  dependenciesFactory: () => SubscriptionsApiDependencies = createDefaultDependencies
+  dependenciesFactory: () => SubscriptionsApiDependencies = createDefaultPublicApiDependencies
 ): Handler => async (event: HandlerEvent): Promise<HandlerResponse> => {
   let requestId: string = crypto.randomUUID();
   let apiContext: ApiClientContext | null = null;
 
   if (event.httpMethod === 'OPTIONS') {
-    return withCorsHeaders({
-      statusCode: 204,
-      headers: { Allow: ALLOWED_METHODS },
-      body: '',
-    });
+    return preflight();
   }
 
   if (!['GET', 'POST', 'PATCH', 'DELETE'].includes(event.httpMethod)) {
-    return withCorsHeaders(jsonResponse(405, {
-      error: { code: 'method_not_allowed', message: 'Method not allowed' },
-      requestId,
-    }, { Allow: ALLOWED_METHODS }));
+    return methodNotAllowed(requestId);
   }
 
   try {

@@ -2,7 +2,11 @@ import { Subscription } from '../types';
 import { loadSubscriptions } from './storage';
 import { loadCategories, Category } from './categories';
 import { normalizeSubscription } from './subscriptionSync';
-import { normalizeSubscriptionRecord } from './subscriptionDomain';
+import {
+ normalizeSubscriptionRecord,
+ SUBSCRIPTION_CURRENCIES,
+ SUBSCRIPTION_PERIODS,
+} from './subscriptionDomain';
 import packageJson from '../../package.json';
 
 export interface ExportData {
@@ -55,8 +59,8 @@ export class ImportDataError extends Error {
  }
 }
 
-const SUBSCRIPTION_PERIODS = new Set(['monthly', 'yearly', 'custom']);
-const SUBSCRIPTION_CURRENCIES = new Set(['CNY', 'USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CAD', 'CHF', 'HKD', 'SGD']);
+const ALLOWED_SUBSCRIPTION_PERIODS = new Set<string>(SUBSCRIPTION_PERIODS);
+const ALLOWED_SUBSCRIPTION_CURRENCIES = new Set<string>(SUBSCRIPTION_CURRENCIES);
 
 const parseImportPayload = (content: string): ExportData => {
  const data = JSON.parse(content) as ExportData;
@@ -111,7 +115,7 @@ const normalizeImportSubscription = (
   throw new ImportDataError('subscriptionAmountInvalid', { index });
  }
 
- if (!sub.period || typeof sub.period !== 'string' || !SUBSCRIPTION_PERIODS.has(sub.period)) {
+ if (!sub.period || typeof sub.period !== 'string' || !ALLOWED_SUBSCRIPTION_PERIODS.has(sub.period)) {
   throw new ImportDataError('subscriptionPeriodInvalid', { index });
  }
 
@@ -122,7 +126,7 @@ const normalizeImportSubscription = (
   throw new ImportDataError('subscriptionNextPaymentRequired', { index });
  }
 
- if (sub.currency && !SUBSCRIPTION_CURRENCIES.has(sub.currency)) {
+ if (sub.currency && !ALLOWED_SUBSCRIPTION_CURRENCIES.has(sub.currency)) {
   throw new ImportDataError('subscriptionCurrencyInvalid', { index });
  }
 

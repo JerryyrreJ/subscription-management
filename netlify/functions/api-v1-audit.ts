@@ -1,18 +1,21 @@
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import {
   assertScope,
   consumeApiRateLimit,
   identifyApiKey,
   type ApiClientContext,
-  type ApiKeyIdentity,
 } from './_shared/apiKeys';
-import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
-import { createSupabaseAdminClient } from './_shared/supabase';
-import { runtimeEnvironment } from './_shared/webHandler';
+import {
+  createCorsHeaderAttacher,
+  createDefaultPublicApiDependencies,
+  MAX_PAGE_LIMIT,
+  paginationFields,
+  withRateHeaders,
+  type PublicApiDependencies,
+} from './_shared/publicApi';
 
 interface AuditRow {
   id: string;
@@ -24,13 +27,7 @@ interface AuditRow {
   created_at: string;
 }
 
-interface AuditApiDependencies {
-  database: SupabaseClient;
-  limits: ApiLimitsConfig;
-  createRequestId(): string;
-  now(): Date;
-  authenticatedIdentity?: ApiKeyIdentity;
-}
+type AuditApiDependencies = PublicApiDependencies;
 
 const AUDIT_COLUMNS = [
   'id',
@@ -42,40 +39,13 @@ const AUDIT_COLUMNS = [
   'created_at',
 ].join(', ');
 
-const DEFAULT_PAGE_LIMIT = 50;
-const MAX_PAGE_LIMIT = 100;
-const MAX_PAGE_OFFSET = 10_000;
-
 const ALLOWED_METHODS = 'GET, OPTIONS';
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-  'Access-Control-Allow-Methods': ALLOWED_METHODS,
-};
+const { withCorsHeaders, preflight, methodNotAllowed } = createCorsHeaderAttacher(ALLOWED_METHODS);
 
 const querySchema = z.object({
-  limit: z.coerce.number().int('limit must be a whole number')
-    .min(1, 'limit must be at least 1')
-    .max(MAX_PAGE_LIMIT, `limit cannot exceed ${MAX_PAGE_LIMIT}`)
-    .default(DEFAULT_PAGE_LIMIT),
-  offset: z.coerce.number().int('offset must be a whole number')
-    .min(0, 'offset cannot be negative')
-    .max(MAX_PAGE_OFFSET, `offset cannot exceed ${MAX_PAGE_OFFSET}`)
-    .default(0),
+  ...paginationFields,
   subscriptionId: z.string().uuid('subscriptionId must be a valid UUID').optional(),
 });
-
-const createDefaultDependencies = (): AuditApiDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
-
-  return {
-    database: createSupabaseAdminClient(supabaseConfig),
-    limits: getApiLimitsConfig(runtimeEnvironment),
-    createRequestId: () => crypto.randomUUID(),
-    now: () => new Date(),
-  };
-};
 
 const parseQuery = (query: HandlerEvent['queryStringParameters']) => {
   const result = querySchema.safeParse(query ?? {});
@@ -100,34 +70,18 @@ const toApiAuditEntry = (row: AuditRow) => ({
   createdAt: row.created_at,
 });
 
-const withCorsHeaders = (response: HandlerResponse): HandlerResponse => ({
-  ...response,
-  headers: { ...CORS_HEADERS, ...(response.headers ?? {}) },
-});
-
-const withRateHeaders = (
-  context: ApiClientContext,
-  response: HandlerResponse
-): HandlerResponse => ({
-  ...response,
-  headers: { ...(response.headers ?? {}), ...context.rateLimit.headers },
-});
-
 export const createAuditApiHandler = (
-  dependenciesFactory: () => AuditApiDependencies = createDefaultDependencies
+  dependenciesFactory: () => AuditApiDependencies = createDefaultPublicApiDependencies
 ): Handler => async (event: HandlerEvent): Promise<HandlerResponse> => {
   let requestId: string = crypto.randomUUID();
   let apiContext: ApiClientContext | null = null;
 
   if (event.httpMethod === 'OPTIONS') {
-    return withCorsHeaders({ statusCode: 204, headers: { Allow: ALLOWED_METHODS }, body: '' });
+    return preflight();
   }
 
   if (event.httpMethod !== 'GET') {
-    return withCorsHeaders(jsonResponse(405, {
-      error: { code: 'method_not_allowed', message: 'Method not allowed' },
-      requestId,
-    }, { Allow: ALLOWED_METHODS }));
+    return methodNotAllowed(requestId);
   }
 
   try {

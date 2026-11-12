@@ -6,13 +6,16 @@ import {
   consumeApiRateLimit,
   identifyApiKey,
   type ApiClientContext,
-  type ApiKeyIdentity,
 } from './_shared/apiKeys';
-import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
-import { createSupabaseAdminClient } from './_shared/supabase';
-import { runtimeEnvironment } from './_shared/webHandler';
+import {
+  createCorsHeaderAttacher,
+  createDefaultPublicApiDependencies,
+  parsePublicApiJsonObject,
+  withRateHeaders,
+  type PublicApiDependencies,
+} from './_shared/publicApi';
 import { hasValidBarkConfig } from '../../src/utils/barkSettings';
 import { normalizeLocale } from '../../src/utils/locale';
 
@@ -27,13 +30,7 @@ interface NotificationSettingsRow {
   updated_at: string;
 }
 
-interface NotificationSettingsApiDependencies {
-  database: SupabaseClient;
-  limits: ApiLimitsConfig;
-  createRequestId(): string;
-  now(): Date;
-  authenticatedIdentity?: ApiKeyIdentity;
-}
+type NotificationSettingsApiDependencies = PublicApiDependencies;
 
 const NOTIFICATION_SETTINGS_COLUMNS = [
   'user_id',
@@ -64,26 +61,10 @@ const rejectedWriteFields = new Set([
 ]);
 
 const ALLOWED_METHODS = 'GET, PATCH, OPTIONS';
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-  'Access-Control-Allow-Methods': ALLOWED_METHODS,
-};
+const { withCorsHeaders, preflight, methodNotAllowed } = createCorsHeaderAttacher(ALLOWED_METHODS);
 
 const BARK_SETUP_HINT =
   'Configure Bark in the web app under Settings → Notifications. Guide: /docs/en/user-guide/reminders (中文: /docs/zh-CN/user-guide/reminders). Bark URL and test push are not available through the public API.';
-
-const createDefaultDependencies = (): NotificationSettingsApiDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
-
-  return {
-    database: createSupabaseAdminClient(supabaseConfig),
-    limits: getApiLimitsConfig(runtimeEnvironment),
-    createRequestId: () => crypto.randomUUID(),
-    now: () => new Date(),
-  };
-};
 
 const patchSchema = z.object({
   enabled: z.boolean().optional(),
@@ -96,28 +77,8 @@ const patchSchema = z.object({
   ).optional(),
 }).strict();
 
-const parseJsonObject = (body: string | null): Record<string, unknown> => {
-  if (!body) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(body) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new HttpError(400, 'invalid_json', 'Request body must be a JSON object', {}, {
-        suggestedFix: 'Send an object such as {"enabled":true,"daysBefore":3}.',
-      });
-    }
-    return parsed as Record<string, unknown>;
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
-    }
-    throw new HttpError(400, 'invalid_json', 'Request body must be valid JSON', {}, {
-      suggestedFix: 'Check JSON syntax, quotes, commas, and that Content-Type is application/json.',
-    });
-  }
-};
+const parseJsonObject = (body: string | null): Record<string, unknown> =>
+  parsePublicApiJsonObject(body, 'Send an object such as {"enabled":true,"daysBefore":3}.');
 
 const assertWritableFields = (body: Record<string, unknown>): void => {
   for (const key of Object.keys(body)) {
@@ -224,34 +185,18 @@ const parsePatchInput = (body: Record<string, unknown>) => {
   return result.data;
 };
 
-const withCorsHeaders = (response: HandlerResponse): HandlerResponse => ({
-  ...response,
-  headers: { ...CORS_HEADERS, ...(response.headers ?? {}) },
-});
-
-const withRateHeaders = (
-  context: ApiClientContext,
-  response: HandlerResponse
-): HandlerResponse => ({
-  ...response,
-  headers: { ...(response.headers ?? {}), ...context.rateLimit.headers },
-});
-
 export const createNotificationSettingsApiHandler = (
-  dependenciesFactory: () => NotificationSettingsApiDependencies = createDefaultDependencies
+  dependenciesFactory: () => NotificationSettingsApiDependencies = createDefaultPublicApiDependencies
 ): Handler => async (event: HandlerEvent): Promise<HandlerResponse> => {
   let requestId: string = crypto.randomUUID();
   let apiContext: ApiClientContext | null = null;
 
   if (event.httpMethod === 'OPTIONS') {
-    return withCorsHeaders({ statusCode: 204, headers: { Allow: ALLOWED_METHODS }, body: '' });
+    return preflight();
   }
 
   if (event.httpMethod !== 'GET' && event.httpMethod !== 'PATCH') {
-    return withCorsHeaders(jsonResponse(405, {
-      error: { code: 'method_not_allowed', message: 'Method not allowed' },
-      requestId,
-    }, { Allow: ALLOWED_METHODS }));
+    return methodNotAllowed(requestId);
   }
 
   try {

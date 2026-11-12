@@ -1,18 +1,19 @@
 import type { Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import {
   assertScope,
   consumeApiRateLimit,
   identifyApiKey,
   type ApiClientContext,
-  type ApiKeyIdentity,
 } from './_shared/apiKeys';
-import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
-import { createSupabaseAdminClient } from './_shared/supabase';
-import { runtimeEnvironment } from './_shared/webHandler';
+import {
+  createCorsHeaderAttacher,
+  createDefaultPublicApiDependencies,
+  withRateHeaders,
+  type PublicApiDependencies,
+} from './_shared/publicApi';
 import {
   findDuplicates,
   optimizationCandidates,
@@ -38,13 +39,7 @@ interface AnalyticsRow {
   status: string;
 }
 
-interface AnalyticsApiDependencies {
-  database: SupabaseClient;
-  limits: ApiLimitsConfig;
-  createRequestId(): string;
-  now(): Date;
-  authenticatedIdentity?: ApiKeyIdentity;
-}
+type AnalyticsApiDependencies = PublicApiDependencies;
 
 // Use '*' rather than naming newer columns (billing_anchor_day, is_trial,
 // trial_ends_on) in the PostgREST select list so lagged migrations never trigger
@@ -56,12 +51,7 @@ const ANALYTICS_COLUMNS = '*';
 const MAX_ANALYTICS_ROWS = 1000;
 
 const ALLOWED_METHODS = 'GET, OPTIONS';
-
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-  'Access-Control-Allow-Methods': ALLOWED_METHODS,
-};
+const { withCorsHeaders, preflight, methodNotAllowed } = createCorsHeaderAttacher(ALLOWED_METHODS);
 
 const horizonSchema = z.object({
   horizonDays: z.coerce.number()
@@ -70,17 +60,6 @@ const horizonSchema = z.object({
     .max(365, 'horizonDays cannot exceed 365')
     .default(30),
 });
-
-const createDefaultDependencies = (): AnalyticsApiDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
-
-  return {
-    database: createSupabaseAdminClient(supabaseConfig),
-    limits: getApiLimitsConfig(runtimeEnvironment),
-    createRequestId: () => crypto.randomUUID(),
-    now: () => new Date(),
-  };
-};
 
 type AnalyticsView = 'summary' | 'duplicates' | 'optimizations';
 
@@ -148,34 +127,18 @@ const toInsightSubscription = (row: AnalyticsRow, now: Date): InsightSubscriptio
   };
 };
 
-const withCorsHeaders = (response: HandlerResponse): HandlerResponse => ({
-  ...response,
-  headers: { ...CORS_HEADERS, ...(response.headers ?? {}) },
-});
-
-const withRateHeaders = (
-  context: ApiClientContext,
-  response: HandlerResponse
-): HandlerResponse => ({
-  ...response,
-  headers: { ...(response.headers ?? {}), ...context.rateLimit.headers },
-});
-
 export const createAnalyticsApiHandler = (
-  dependenciesFactory: () => AnalyticsApiDependencies = createDefaultDependencies
+  dependenciesFactory: () => AnalyticsApiDependencies = createDefaultPublicApiDependencies
 ): Handler => async (event: HandlerEvent): Promise<HandlerResponse> => {
   let requestId: string = crypto.randomUUID();
   let apiContext: ApiClientContext | null = null;
 
   if (event.httpMethod === 'OPTIONS') {
-    return withCorsHeaders({ statusCode: 204, headers: { Allow: ALLOWED_METHODS }, body: '' });
+    return preflight();
   }
 
   if (event.httpMethod !== 'GET') {
-    return withCorsHeaders(jsonResponse(405, {
-      error: { code: 'method_not_allowed', message: 'Method not allowed' },
-      requestId,
-    }, { Allow: ALLOWED_METHODS }));
+    return methodNotAllowed(requestId);
   }
 
   try {
