@@ -221,7 +221,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   saveNotificationSettings(nextSettings, notificationScope);
 
   if (appUser && config.hasSupabaseConfig && isBarkReady(nextSettings)) {
-   void NotificationSettingsService.updateContext({ locale: appLocale }).catch(error => {
+   void NotificationSettingsService.updateContext({ locale: appLocale }, appUser.id).catch(error => {
     console.error('Failed to sync notification locale to cloud:', error);
    });
   }
@@ -245,7 +245,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   setNotificationSettings(nextSettings);
   saveNotificationSettings(nextSettings, notificationScope);
 
-  void NotificationSettingsService.updateContext({ timeZone: currentTimeZone }).catch(error => {
+  void NotificationSettingsService.updateContext({ timeZone: currentTimeZone }, appUser.id).catch(error => {
    console.error('Failed to sync notification time zone to cloud:', error);
   });
  }, [appUser, loading, notificationScope, notificationSettings]);
@@ -436,7 +436,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  // 2. 同步类别数据
  // 先检查云端是否有数据（不保存到本地，避免清空默认类别）
  try {
- const cloudCategoriesCheck = await CategoryService.getCategories();
+ const cloudCategoriesCheck = await CategoryService.getCategories(appUser.id);
  if (!isCurrentTask()) return;
 
  if (cloudCategoriesCheck.length === 0) {
@@ -464,7 +464,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  // 3. 同步通知设置
  try {
- const cloudNotificationSettings = await NotificationSettingsService.getSettings();
+ const cloudNotificationSettings = await NotificationSettingsService.getSettings(appUser.id);
  if (!isCurrentTask()) return;
  if (cloudNotificationSettings) {
  console.log('Cloud notification settings loaded');
@@ -476,7 +476,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  const localNotificationSettings = loadNotificationSettings(syncScope);
  if (isBarkReady(localNotificationSettings)) {
  console.log('Cloud notification settings empty, uploading local settings...');
- await NotificationSettingsService.saveSettings(localNotificationSettings);
+ await NotificationSettingsService.saveSettings(localNotificationSettings, appUser.id);
 }
  }
  } catch (error) {
@@ -610,17 +610,19 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  };
 
  const handleSaveNotificationSettings = async (newSettings: ReminderSettings) => {
+ const targetUserId = appUser?.id;
+ const targetScope = notificationScope;
  const nextSettings: ReminderSettings = {
  ...newSettings,
  locale: appLocale,
  };
 
  setNotificationSettings(nextSettings);
- saveNotificationSettings(nextSettings, notificationScope);
+ saveNotificationSettings(nextSettings, targetScope);
 
- if (appUser && config.hasSupabaseConfig) {
+ if (targetUserId && config.hasSupabaseConfig) {
  try {
- await NotificationSettingsService.saveSettings(nextSettings);
+ await NotificationSettingsService.saveSettings(nextSettings, targetUserId);
  } catch (error) {
  console.error('Failed to sync notification settings to cloud:', error);
  }

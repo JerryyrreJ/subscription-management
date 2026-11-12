@@ -91,3 +91,23 @@ test('each step of a queued sync remains pinned to its original authenticated us
 test('a create and delete during the same sync cannot reappear from a stale cloud snapshot', async () => {
  assert.deepEqual(await run('createThenDelete'), { count: 0, pending: ['delete'] });
 });
+test('category reconcile aborts before writing if authenticated user changes mid-sync', async () => {
+ assert.deepEqual(await run('categoryChangedAuthentication'), {
+  message: 'Authenticated user changed during category operation',
+  writeCalls: 0,
+ });
+});
+test('category sync isolates concurrent account switches so A never overwrites B', async () => {
+ assert.deepEqual(await run('categoryAccountSwitch'), {
+  calls: ['account-a', 'account-b'],
+  afterA: { status: 'syncing', lastSyncTime: null, observedChanges: [] },
+  storedB: ['Account B Category'],
+  finalObserved: [['Account B Category']],
+ });
+});
+test('notification settings service aborts before upserting secret key if authenticated user changed', async () => {
+ assert.deepEqual(await run('notificationChangedAuthentication'), {
+  message: 'Authenticated user changed during notification settings operation',
+  upserts: 0,
+ });
+});

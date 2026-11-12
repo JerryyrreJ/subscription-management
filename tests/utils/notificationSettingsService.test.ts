@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildNotificationSettingsConfigPayload } from '../../src/utils/notificationSettingsPayload.ts';
+import { scopeNotificationSettingsQueryToUser } from '../../src/utils/notificationSettingsTenantScope.ts';
 import { ReminderSettings } from '../../src/types.ts';
 import { normalizeTimeZone } from '../../src/utils/dates.ts';
 
@@ -48,4 +49,18 @@ test('notification settings payload preserves valid time zones and normalizes in
 
  assert.equal(buildNotificationSettingsConfigPayload(validSettings, 'user-1').time_zone, 'Asia/Shanghai');
  assert.equal(normalizeTimeZone('Definitely/Invalid', 'UTC'), 'UTC');
+});
+
+test('scopeNotificationSettingsQueryToUser enforces the user_id filter', () => {
+ const filters: Array<{ column: string; value: string }> = [];
+ const query = {
+  eq(column: string, value: string) {
+   filters.push({ column, value });
+   return this;
+  },
+ };
+
+ const result = scopeNotificationSettingsQueryToUser(query, 'user-abc');
+ assert.equal(result, query);
+ assert.deepEqual(filters, [{ column: 'user_id', value: 'user-abc' }]);
 });

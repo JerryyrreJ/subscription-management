@@ -2,11 +2,15 @@ import React, { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { User } from '@supabase/supabase-js';
 import { useSubscriptionSync } from '../../src/hooks/useSubscriptionSync';
+import { useCategorySync } from '../../src/hooks/useCategorySync';
 import { useInitialAccountSync } from '../../src/hooks/useInitialAccountSync';
 import { SubscriptionService } from '../../src/services/subscriptionService';
+import { CategoryService } from '../../src/services/categoryService';
+import { NotificationSettingsService } from '../../src/services/notificationSettingsService';
 import { config } from '../../src/lib/config';
 import { supabase } from '../../src/lib/supabase';
 import { loadPendingSyncOperations, loadSubscriptions, saveSubscriptions, savePendingSyncOperations } from '../../src/utils/storage';
+import { loadCategories, type Category } from '../../src/utils/categories';
 import { getUserDataScope } from '../../src/utils/dataScope';
 import { createSubscriptionRecord } from '../../src/utils/subscriptionDomain';
 import type { Subscription, SyncSubscriptionsResult } from '../../src/types';
@@ -246,5 +250,102 @@ export const scenarios = {
   await act(async () => request.resolve());
   await unmount();
   return stages;
+ },
+ async categoryChangedAuthentication() {
+  config.hasSupabaseConfig = true;
+  let authCalls = 0;
+  let writeCalls = 0;
+  supabase!.auth.getUser = async () => ({
+   data: { user: ++authCalls <= 2 ? userA : userB },
+   error: null,
+  });
+  const database = supabase as unknown as { from: () => unknown };
+  database.from = () => ({
+   select: () => ({ order: () => ({ eq: async () => ({ data: [], error: null }) }) }),
+   insert: () => {
+    writeCalls += 1;
+    return { select: () => ({ single: async () => ({ data: null, error: null }) }) };
+   },
+  });
+  try {
+   await CategoryService.reconcileCategories(
+    [{ id: 'custom-1', name: 'Private A Cat', order: 0, isBuiltIn: false, isHidden: false }],
+    userA.id
+   );
+   return { message: 'unexpected success', writeCalls };
+  } catch (error) {
+   return { message: (error as Error).message, writeCalls };
+  }
+ },
+ async categoryAccountSwitch() {
+  const a = deferred<Category[]>();
+  const b = deferred<Category[]>();
+  const calls: string[] = [];
+  const observedChanges: string[][] = [];
+  let catHook!: ReturnType<typeof useCategorySync>;
+  let setCatUser!: React.Dispatch<React.SetStateAction<User | null>>;
+  CategoryService.syncCategories = async (_local, userId) => {
+   calls.push(userId!);
+   return userId === userA.id ? a.promise : b.promise;
+  };
+  function CategoryHarness() {
+   const [user, updateUser] = useState<User | null>(userA);
+   catHook = useCategorySync(user, next => {
+    observedChanges.push(next.map(cat => cat.name));
+   });
+   setCatUser = updateUser;
+   return null;
+  }
+  root = createRoot(document.getElementById('root')!);
+  await act(async () => { root.render(React.createElement(CategoryHarness)); });
+  let first!: Promise<Category[]>;
+  await act(async () => { first = catHook.syncCategories(); });
+  await act(async () => setCatUser(userB));
+  let second!: Promise<Category[]>;
+  await act(async () => { second = catHook.syncCategories(); });
+  await act(async () => {
+   a.resolve([{ id: 'cat-a', name: 'Secret A Category', order: 0, isBuiltIn: false, isHidden: false }]);
+   await first;
+  });
+  const afterA = {
+   status: catHook.syncStatus,
+   lastSyncTime: catHook.lastSyncTime,
+   observedChanges: [...observedChanges],
+  };
+  await act(async () => {
+   b.resolve([{ id: 'cat-b', name: 'Account B Category', order: 0, isBuiltIn: false, isHidden: false }]);
+   await second;
+  });
+  const storedB = loadCategories(scopeB).map(cat => cat.name);
+  await unmount();
+  return { calls, afterA, storedB, finalObserved: observedChanges };
+ },
+ async notificationChangedAuthentication() {
+  config.hasSupabaseConfig = true;
+  let upserts = 0;
+  supabase!.auth.getUser = async () => ({ data: { user: userB }, error: null });
+  const database = supabase as unknown as { from: () => unknown };
+  database.from = () => ({
+   upsert: () => {
+    upserts += 1;
+    return { select: () => ({ single: async () => ({ data: null, error: null }) }) };
+   },
+  });
+  try {
+   await NotificationSettingsService.saveSettings({
+    timeZone: 'UTC',
+    locale: 'en',
+    barkPush: {
+     enabled: true,
+     serverUrl: 'https://api.day.app',
+     deviceKey: 'secret-user-a-key',
+     daysBefore: 3,
+     notificationHistory: {},
+    },
+   }, userA.id);
+   return { message: 'unexpected success', upserts };
+  } catch (error) {
+   return { message: (error as Error).message, upserts };
+  }
  },
 };
