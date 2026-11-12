@@ -1,6 +1,6 @@
 ---
 title: "Subscription CRUD"
-description: "Create, read, update, and delete subscriptions with task semantics for AI agents."
+description: "Create, read, update, and delete subscriptions and free trials with task semantics for AI agents."
 ---
 
 # Subscription CRUD
@@ -13,7 +13,7 @@ Subscription API payloads use camelCase. Server-managed fields are returned in r
 | --- | --- | --- | --- |
 | `GET /api/v1/subscriptions` | Search, summarize, analyze, or identify subscriptions | Low | Not required |
 | `GET /api/v1/subscriptions/{id}` | Fetch one known record by UUID | Low | Not required |
-| `POST /api/v1/subscriptions` | Record a new subscription | Medium | Required for AI agents |
+| `POST /api/v1/subscriptions` | Record a new subscription or free trial | Medium | Required for AI agents |
 | `PATCH /api/v1/subscriptions/{id}` | Change writable fields | Medium | Required for AI agents |
 | `DELETE /api/v1/subscriptions/{id}` | Permanently remove a tracked record | High | Required for AI agents |
 
@@ -21,7 +21,7 @@ For AI integrations, list subscriptions before updating or deleting unless the u
 
 ## Pagination
 
-`GET /api/v1/subscriptions` returns results newest first and accepts two optional query parameters:
+`GET /api/v1/subscriptions` returns results newest first by default and accepts two optional query parameters:
 
 | Parameter | Default | Rule |
 | --- | --- | --- |
@@ -40,12 +40,12 @@ The response includes a `pagination` object. Fetch the next page with `offset + 
 
 ```bash
 curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  "https://your-site.example/api/v1/subscriptions?limit=50&offset=50"
+  "https://steadyrenew.com/api/v1/subscriptions?limit=50&offset=50"
 ```
 
 Out-of-range values return `400 invalid_pagination`.
 
-## Filtering and sorting
+## Filtering, sorting, and automatic renewal rollover
 
 `GET /api/v1/subscriptions` accepts optional filters and a sort order alongside pagination:
 
@@ -54,15 +54,19 @@ Out-of-range values return `400 invalid_pagination`.
 | `status` | One of `active`, `paused`, `cancelled` |
 | `category` | Exact category match, e.g. `Streaming` |
 | `period` | One of `monthly`, `yearly`, `custom` |
+| `isTrial` | `true` (only free trials) or `false` (exclude free trials) |
 | `q` | Case-insensitive search over the subscription name |
-| `expiringBefore` | `YYYY-MM-DD`; returns records whose `nextPaymentDate` is on or before this date |
+| `expiringBefore` | `YYYY-MM-DD`; returns records whose effective `nextPaymentDate` is on or before this date |
 | `sort` | One of `createdAt`, `-createdAt`, `nextPaymentDate`, `-nextPaymentDate`, `amount`, `-amount`, `name`, `-name` (default `-createdAt`; `-` prefix is descending) |
+
+> [!NOTE]
+> **Dynamic renewal rollover:** Both `GET /api/v1/subscriptions` and `GET /api/v1/subscriptions/{id}` automatically advance overdue `active` non-trial subscriptions forward by whole billing periods to the next upcoming cycle (matching the web dashboard and Bark push reminders), including before evaluating `expiringBefore` and `sort=nextPaymentDate`. Free trials (`isTrial: true`) and `paused` / `cancelled` records are never rolled forward automatically.
 
 Combine `status=active` with `expiringBefore` to answer "what renews soon". Invalid values return `400 invalid_query` with a `field` and `suggestedFix`.
 
 ```bash
 curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  "https://your-site.example/api/v1/subscriptions?status=active&expiringBefore=2026-07-01&sort=nextPaymentDate"
+  "https://steadyrenew.com/api/v1/subscriptions?status=active&expiringBefore=2026-07-01&sort=nextPaymentDate"
 ```
 
 The response echoes the applied query so an agent can confirm what produced the result:
@@ -89,12 +93,15 @@ The response echoes the applied query so an agent can confirm what produced the 
   "lastPaymentDate": "2026-06-01",
   "nextPaymentDate": "2026-07-01",
   "billingAnchorDay": 1,
+  "isTrial": false,
   "notificationEnabled": true,
   "status": "active",
   "createdAt": "2026-06-16T00:00:00.000Z",
   "updatedAt": "2026-06-16T00:00:00.000Z"
 }
 ```
+
+When `isTrial` is `true`, the object also includes `"trialEndsOn": "YYYY-MM-DD"`. When `period` is `"custom"`, it includes `"customDate": "<days>"`.
 
 ## Writable fields
 
@@ -107,40 +114,57 @@ The response echoes the applied query so an agent can confirm what produced the 
   "period": "monthly",
   "nextPaymentDate": "2026-07-01",
   "billingAnchorDay": 1,
-  "customDate": null,
-  "notificationEnabled": true,
-  "status": "active"
+  "isTrial": false,
+  "notificationEnabled": true
 }
 ```
 
-The server manages:
-
-- `id`
-- `createdAt`
-- `updatedAt`
-
-Do not send server-managed fields in `POST` or `PATCH` requests.
+The server manages `id`, `status` (web-managed lifecycle state), `createdAt`, and `updatedAt`. Do not send server-managed fields in `POST` or `PATCH` requests (sending `status` or `id` returns `400 invalid_subscription_field`).
 
 ## Field rules
 
 | Field | Rule |
 | --- | --- |
-| `name` | Required, 1-120 characters |
-| `category` | Required, 1-80 characters |
-| `amount` | Required number, 0 to 999999.99, max 2 decimals |
+| `name` | Required, 1–120 characters |
+| `category` | Required, 1–80 characters |
+| `amount` | Required number, 0 to 999999.99, max 2 decimals (post-trial conversion price for free trials, or `0` if unknown) |
 | `currency` | Required. One of `CNY`, `USD`, `EUR`, `JPY`, `GBP`, `AUD`, `CAD`, `CHF`, `HKD`, `SGD` |
 | `period` | Required. One of `monthly`, `yearly`, `custom` |
-| `nextPaymentDate` | Required upcoming renewal date in `YYYY-MM-DD` format |
-| `billingAnchorDay` | Optional monthly calendar anchor from 1-31; normally inferred from `nextPaymentDate` |
-| `lastPaymentDate` | Deprecated compatibility input; converted into `nextPaymentDate` when the latter is omitted |
-| `customDate` | Required only when `period` is `custom`; positive whole-number string of days |
+| `nextPaymentDate` | Upcoming renewal date in `YYYY-MM-DD` format (required unless `isTrial` is `true` and `trialEndsOn` is provided; when both are sent for a trial, they must match) |
+| `billingAnchorDay` | Optional monthly calendar anchor from 1–31; normally inferred from `nextPaymentDate` |
+| `isTrial` | Optional boolean (`false` by default). Set `true` for a one-shot free trial |
+| `trialEndsOn` | Trial end / first-charge date (`YYYY-MM-DD`); required when `isTrial` is `true` unless `nextPaymentDate` is provided |
+| `customDate` | Required only when `period` is `custom`; positive whole-number string of days (omit for `monthly` / `yearly`) |
 | `notificationEnabled` | Optional boolean, defaults to `true` |
+| `lastPaymentDate` | Deprecated compatibility input; converted into `nextPaymentDate` when the latter is omitted |
 
-`nextPaymentDate` is the authoritative schedule date. For monthly billing, `billingAnchorDay` preserves the original calendar day across short months: January 31 → February 28/29 → March 31. If a charge repeats every 30 days rather than on a fixed day of each month, use `period: "custom"` with `customDate: "30"`. `lastPaymentDate` remains in responses as a derived compatibility field and should not be used for new integrations.
+`nextPaymentDate` is the authoritative schedule date. For monthly billing, `billingAnchorDay` preserves the original calendar day across short months: January 31 → February 28/29 → March 31. If a charge repeats every 30 days rather than on a fixed day of each month, use `period: "custom"` with `customDate: "30"`.
+
+### Free trials
+
+To track a free trial before its first paid charge, set `isTrial: true` and `trialEndsOn` (plus `nextPaymentDate` set to the same date):
+
+```json
+{
+  "name": "Figma Professional",
+  "category": "Design",
+  "amount": 15,
+  "currency": "USD",
+  "period": "monthly",
+  "isTrial": true,
+  "trialEndsOn": "2026-07-10",
+  "nextPaymentDate": "2026-07-10",
+  "notificationEnabled": true
+}
+```
+
+Free trials are one-shot deadlines: once `trialEndsOn` passes, SteadyRenew keeps the expired date visible instead of rolling it forward until you convert (`{"isTrial": false, "nextPaymentDate": "2026-08-10"}`) or delete the record.
 
 ## Status vs delete
 
-Responses include a read-only `status` (`active`, `paused`, or `cancelled`), and list queries may filter by it. The public API does **not** cancel, pause, or resume subscriptions by writing `status`. Use `DELETE` when the user wants the tracked record removed.
+Responses include a read-only `status` (`active`, `paused`, or `cancelled`), and list queries may filter by it. The public API does **not** cancel, pause, or resume subscriptions by writing `status`, nor does it cancel billing with external providers.
+
+Calling `DELETE /api/v1/subscriptions/{id}` permanently removes the tracked subscription row from your ledger and records a `subscription.delete` entry (including a `metadata.before` snapshot) in the [audit log](/en/api/audit).
 
 Only `active` subscriptions count toward active spend in the [analytics](/en/api/analytics) endpoints.
 
@@ -161,7 +185,7 @@ curl -X POST \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"ChatGPT Plus","category":"AI","amount":20,"currency":"USD","period":"monthly","nextPaymentDate":"2026-07-17","notificationEnabled":true}' \
-  https://your-site.example/api/v1/subscriptions
+  https://steadyrenew.com/api/v1/subscriptions
 ```
 
 ### Change billing period
@@ -183,7 +207,7 @@ curl -X PATCH \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"period":"yearly"}' \
-  https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
+  https://steadyrenew.com/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
 ```
 
 ### Remove a duplicate
@@ -203,7 +227,7 @@ Agent flow:
 ```bash
 curl -X DELETE \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  https://your-site.example/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
+  https://steadyrenew.com/api/v1/subscriptions/33333333-3333-4333-8333-333333333333
 ```
 
 ## Custom billing period
@@ -222,9 +246,7 @@ For non-monthly/non-yearly intervals, set `period` to `custom` and send `customD
 }
 ```
 
-For a fixed 30-day interval, set `customDate` to `"30"`; do not use `monthly`.
-
-When patching from `custom` back to `monthly` or `yearly`, omit `customDate`. The server clears stale custom billing data.
+For a fixed 30-day interval, set `customDate` to `"30"`; do not use `monthly`. When patching from `custom` back to `monthly` or `yearly`, omit `customDate`; the server clears stale custom billing data automatically.
 
 ## AI tool schema
 

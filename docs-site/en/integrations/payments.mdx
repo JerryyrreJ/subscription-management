@@ -1,11 +1,11 @@
 ---
 title: "Payments with Stripe"
-description: "Configure Stripe Checkout and webhooks for premium activation."
+description: "Configure Stripe Checkout, status verification, webhooks, and refund/dispute reconciliation for Lifetime Premium."
 ---
 
 # Payments with Stripe
 
-Stripe is optional. When configured, users can start a Stripe Checkout flow from the app.
+Stripe is optional. When configured, signed-in users can purchase **Lifetime Premium** as a one-time **\$9.00 USD** payment via Stripe Checkout (unlocking 300 monthly AI captures, Advanced Reports & PDF export, and Premium duplicate/optimization API analytics).
 
 ## Required variables
 
@@ -14,54 +14,50 @@ VITE_STRIPE_PUBLISHABLE_KEY=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_PRICE_ID=
+STRIPE_MODE=live          # use "test" on staging/preview deployments
+PRODUCTION_SUPABASE_URL=  # set on staging so test keys never touch the production DB
+SITE_URL=https://steadyrenew.com
 ```
 
-For premium activation after payment, also configure Supabase:
+For Lifetime Premium entitlement storage, Supabase must also be configured (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY`, plus migrations through `20260927012800_payment_lifecycle.sql`).
 
-```bash
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-SUPABASE_SECRET_KEY=
-```
-
-Prefer `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` for server configuration. Legacy names remain supported during migration.
-
-## Functions
+## Payment Functions
 
 ```text
 netlify/functions/create-checkout-session.ts
+netlify/functions/checkout-status.ts
 netlify/functions/stripe-webhook.ts
 ```
 
-`create-checkout-session.ts` creates a one-time Stripe Checkout session. When Supabase is enabled, it requires a valid access token; user identity, email, and Price ID are derived by the server.
+- **`create-checkout-session.ts`**: Creates a one-time Stripe Checkout session. When Supabase is enabled, it verifies the user's access token and derives user identity, email, and the trusted `STRIPE_PRICE_ID` entirely on the server (never trusting client-supplied Price IDs). Also enforces `STRIPE_MODE` and `PRODUCTION_SUPABASE_URL` safety guards.
+- **`checkout-status.ts`**: Verifies Checkout session status directly against Stripe when the user returns to `/app`, supporting both instant card payments and asynchronous payment methods without trusting redirect query parameters alone.
+- **`stripe-webhook.ts`**: Verifies the Stripe signature, key/event `livemode` match, payment status, and `STRIPE_PRICE_ID`, then runs idempotent database reconciliation to grant or revoke Premium across completions, refunds, and disputes. Guest support donations remain supported on self-hosted instances without Supabase (without granting Premium).
 
-`stripe-webhook.ts` verifies the signature, payment state, and purchased Price ID before invoking an idempotent database transaction that records payment and activates Premium. Guest support payments remain available for self-hosted deployments without Supabase, but do not grant Premium.
+## Stripe Dashboard setup
 
-## Stripe dashboard setup
-
-1. Create a Stripe product (for example `SteadyRenew Premium`).
-2. Create a **one-time** Price of **$9.00 USD** (lifetime). Do not reuse an old $6 Price — create a new Price and keep the product if you want.
-3. Copy the new Price ID (`price_...`) into the trusted server variable `STRIPE_PRICE_ID`. Optionally keep `VITE_STRIPE_PRICE_ID` only as a legacy server fallback; the browser does not trust it for checkout.
-4. Add your publishable key and secret key to the correct environments.
-5. Create a webhook endpoint for:
+1. Create a Stripe Product (for example `SteadyRenew Lifetime Premium`).
+2. Create a **one-time** Price of **\$9.00 USD** (do not reuse legacy \$6 Prices).
+3. Set `STRIPE_PRICE_ID=price_...` in your server environment.
+4. Create a webhook endpoint pointing to:
 
 ```text
-https://your-site.netlify.app/.netlify/functions/stripe-webhook
+https://your-domain.example/.netlify/functions/stripe-webhook
 ```
 
-6. Subscribe the endpoint to `checkout.session.completed`.
-7. Store the webhook signing secret in `STRIPE_WEBHOOK_SECRET`.
+5. Subscribe the webhook endpoint to all **11** lifecycle events handled by `stripe-webhook.ts`:
+   - Checkout fulfillment: `checkout.session.completed`, `checkout.session.async_payment_succeeded`
+   - Refunds: `charge.refunded`, `refund.created`, `refund.updated`, `refund.failed`
+   - Disputes: `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`, `charge.dispute.funds_withdrawn`, `charge.dispute.funds_reinstated`
+6. Save the signing secret in `STRIPE_WEBHOOK_SECRET`.
+
+## Relationship to API & MCP limits
+
+Developer API key limits (`5` active keys) and request rate limits (`60` requests/minute) are identical on Free and Premium plans. Lifetime Premium unlocks the two higher-order analytics endpoints (`/api/v1/analytics/duplicates` and `/api/v1/analytics/optimizations`) alongside web Advanced Reports, PDF export, and 300 monthly AI captures.
 
 ## Local webhook testing
 
-Use the Stripe CLI if you want to test webhooks locally:
+Forward events with the Stripe CLI while running `npm run dev:full`:
 
 ```bash
 stripe listen --forward-to localhost:8888/.netlify/functions/stripe-webhook
-```
-
-Run the app through Netlify Dev while testing functions:
-
-```bash
-npm run dev:full
 ```

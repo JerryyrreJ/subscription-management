@@ -1,69 +1,88 @@
 ---
 title: "快速开始"
-description: "在本地运行 SteadyRenew，并了解哪些服务是可选的。"
+description: "在本地运行 SteadyRenew，了解本地优先架构与可选云端能力的开启方式。"
 ---
 
 # 快速开始
 
-SteadyRenew 可以先作为纯前端应用运行。只有当你需要云同步、支付、提醒或开放 API 时，才需要配置后端服务。
+SteadyRenew 基于 React、TypeScript 与 Vite 构建。默认情况下，所有数据保存在浏览器本地存储中，无需注册数据库或账号即可完整使用核心功能。
 
-## 架构
+## 架构概览
 
 ```text
-React + Vite 前端
+React + Vite 前端 (/app) + 预渲染公开页面 (/, /pricing, /blog)
   |
-  | 可选的浏览器认证和同步
+  | 可选的浏览器登录与云同步
   v
-Supabase
+Supabase (Auth、Postgres + RLS、Passkeys 通行密钥)
   |
   | 可信服务端访问
   v
-Netlify Functions
-  |-- Developer API Key CRUD
-  |-- Subscription API v1
-  |-- Stripe checkout 和 webhook
-  |-- 定时 Bark 提醒
+Netlify Edge Functions + Functions
+  |-- Edge：smart-entry (/)、docs-proxy (/docs)
+  |-- API Key 管理、开放 API (/api/v1/*)、远程 MCP (/api/mcp)
+  |-- AI 录入 (/ai-parse-subscriptions)
+  |-- Stripe Checkout、状态对账与 Webhook
+  |-- 账号注销与定时 Bark 推送提醒
 ```
 
-## 前置条件
+## 环境要求
 
-- Node.js 20 或更高版本。
-- npm。
-- 可选：Supabase 项目，用于账号和云同步。
-- 可选：Netlify 站点，用于 Functions、定时任务和线上部署。
+- Node.js 22.12 或更高版本
+- npm
 
-## 安装依赖
+## 克隆与安装
 
 ```bash
+git clone https://github.com/JerryyrreJ/subscription-management.git
+cd subscription-management
 npm install
 ```
 
-## 启动开发服务器
+## 启动前端开发服务器
 
 ```bash
 npm run dev
 ```
 
-Vite 会输出本地预览地址。默认情况下，应用可以直接使用浏览器本地存储，不需要账号。
+Vite 启动后，可在 `http://localhost:5173/app` 打开应用工作台（公开落地页位于 `http://localhost:5173/`）。
 
-## 运行检查
+## 连同 Netlify Functions 一起运行
+
+测试 Stripe 支付回调、AI 录入、开放 API（`/api/v1/*`）、远程 MCP（`/api/mcp`）或定时通知逻辑时，使用 Netlify Dev：
 
 ```bash
-npm run check
+npm run dev:full
 ```
 
-这个命令会运行类型检查、函数测试和生产构建。修改 API、Supabase schema、通知或支付逻辑后，建议至少跑一次。
+该命令依赖 Netlify CLI（默认监听 `http://localhost:8888`）。
 
-## 启用云功能
+## 常用命令
 
-本地优先模式不需要环境变量。需要以下能力时，再按需配置：
+```bash
+npm run build               # 构建前端、Agent/MCP 交付物及预渲染页面
+npm run preview             # 预览生产构建产物
+npm run lint                # 运行 ESLint 检查
+npm run typecheck           # 运行前端、Functions 与构建脚本 TypeScript 类型检查
+npm run test                # 运行工具函数与 SEO/博客测试
+npm run test:functions      # 运行 Netlify Functions 与 Edge Functions 测试
+npm run check               # 依次执行 typecheck、lint、test、test:functions 和 build
+npm run db:verify           # 重置本地 Supabase、执行 schema lint 与 pgTAP 测试
+npm run test:notifications  # 本地测试定时 Bark 通知逻辑
+```
 
-| 能力 | 需要的服务 |
+## 本地优先行为
+
+未配置 Supabase 时，订阅、免费试用、分类、偏好设置与 JSON 导入导出数据全部留在浏览器中，依然可以记录订阅、筛选排序、切换币种、查看概览图表和深色模式。
+
+云端能力按需开启：
+
+| 能力 | 所需服务 |
 | --- | --- |
-| 账号登录和多设备同步 | Supabase |
-| AI 录入 | Supabase + Netlify Functions + OpenRouter 或 Anthropic Key |
-| 开放 API 和 API Key | Supabase + Netlify Functions |
-| 续费推送提醒 | Supabase + Netlify Scheduled Functions + Bark |
-| 付费激活 | Stripe + Netlify Functions |
+| 账号登录、Passkey 通行密钥与多设备云同步 | Supabase |
+| AI 录入（文本与截图解析） | Supabase + Netlify Functions + OpenRouter 或 Anthropic Key |
+| 开放 API（`/api/v1/*`）与 MCP（`/api/mcp`） | Supabase + Netlify Functions |
+| 续费与试用推送提醒 | Supabase + Netlify Scheduled Functions + Bark |
+| 终身高级版支付与权益对账 | Supabase + Netlify Functions + Stripe |
 
-下一步查看[配置说明](/zh-CN/configuration)。
+下一步请查看[配置说明](/zh-CN/configuration)。

@@ -1,27 +1,27 @@
 ---
 title: "Cloud sync with Supabase"
-description: "Configure Supabase for authentication, cloud sync, user profiles, notification settings, payments, API keys, and AI capture quotas."
+description: "Configure Supabase for authentication, Passkeys, cloud sync, notification settings, payments, API keys, and AI capture quotas."
 ---
 
 # Cloud sync with Supabase
 
-Supabase is optional. When configured, it enables authentication, user profiles, cloud sync, category sync, notification settings, payment activation, public API keys, and AI capture quota/budget accounting.
+Supabase is optional. When configured, it enables authentication (email/password, OAuth, and Passkeys), user profiles, multi-device subscription and category sync, Bark notification settings, Lifetime Premium entitlements, Developer API keys, and AI capture monthly quota/budget accounting.
 
 ## Required variables
 
 ```bash
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SECRET_KEY=
 ```
 
-`SUPABASE_SECRET_KEY` is server-only. It is needed by Netlify Functions that run outside a user session.
+`SUPABASE_SECRET_KEY` is server-only and is used by Netlify Functions (`SUPABASE_SERVICE_ROLE_KEY` remains supported as a legacy alias).
 
-The legacy `SUPABASE_SERVICE_ROLE_KEY` name remains supported as an alias.
+## SQL migrations
 
-## SQL setup
-
-The schema is managed by timestamped migrations:
+The database schema is managed by 13 timestamped migrations in `supabase/migrations/`:
 
 ```text
 supabase/migrations/20260615000100_baseline.sql
@@ -31,33 +31,58 @@ supabase/migrations/20260617000100_public_api_security_fixes.sql
 supabase/migrations/20260618000100_agent_operations_layer.sql
 supabase/migrations/20260619000100_ai_capture.sql
 supabase/migrations/20260625000100_ai_budget_reservations.sql
+supabase/migrations/20260714000100_preserve_payments_on_account_deletion.sql
+supabase/migrations/20260821000100_monthly_billing_anchor.sql
+supabase/migrations/20260916000100_subscription_trials.sql
+supabase/migrations/20260922000100_ai_monthly_quota.sql
+supabase/migrations/20260922190912_pricing_abuse_limits.sql
+supabase/migrations/20260927012800_payment_lifecycle.sql
 ```
 
-For a new environment, run `supabase start` and `npm run db:verify`. For an existing production environment, first create a read-only DDL dump, confirm the baseline diff, run `supabase/audit/preflight.sql`, then mark the baseline and apply the hardening migration. See `supabase/README.md` for the complete workflow.
+For a fresh local environment, run `npm run db:verify` (`supabase start`, `supabase db reset --local`, `supabase db lint --local`, and `supabase test db --local`). For an existing production project, follow `supabase/README.md` (`supabase/audit/preflight.sql` before applying migrations).
 
 ## Data model areas
 
-- User profiles store account and premium state.
-- Subscriptions store recurring payment records.
-- Categories store custom user categories.
-- Notification settings store Bark reminder preferences and delivery history.
-- Delivery locks prevent duplicate scheduled notification sends.
-- API keys store only hashed key material.
-- API rate limit windows track valid and failed API key usage.
-- API audit logs record public API write operations.
-- AI usage windows track per-user monthly AI capture counts.
-- AI cost windows track workspace-wide monthly aggregate token usage and budget reservations. They do not store pasted text, screenshots, or parsed content.
+- **User profiles** store account metadata and Lifetime Premium status.
+- **Subscriptions** store recurring payment records, monthly `billing_anchor_day`, and free-trial fields (`is_trial`, `trial_ends_on`).
+- **Categories** store custom user categories.
+- **Notification settings & delivery locks** store Bark reminder preferences, delivery history, and idempotency locks.
+- **API keys, rate-limit windows & audit logs** store SHA-256 hashed key material, scopes, per-minute/failed-auth rate windows, and public API write snapshots.
+- **AI usage & cost windows** track per-user **monthly** AI capture counts (`10` Free / `300` Premium) and workspace-wide monthly token budget reservations — without storing pasted text, screenshots, or parsed content.
+- **Payment ledger & account deletion**: self-serve account deletion (`delete-account.ts`) deletes the Auth user and all user-owned subscription/category/API data, while setting `payments.user_id` to `NULL` and retaining necessary transaction fields for financial reconciliation, refunds, and disputes.
 
-## Security notes
+## Passkeys (WebAuthn)
 
-- Keep Row Level Security enabled for user-owned tables.
-- Keep the service role key out of browser-exposed variables.
-- Store the service role key only in Netlify or another server environment.
-- Public API calls run through trusted Netlify Functions and always filter data by the API key owner.
-- API key values are shown once and stored as SHA-256 hashes.
+Passkey sign-in uses Supabase Auth WebAuthn (`auth.experimental.passkey: true`, requiring `@supabase/supabase-js` ≥ 2.105.0).
 
-## Moving to a new domain
+### Local CLI
 
-Add the new application origin and `/app` callback to Supabase Auth redirect URLs while retaining existing entries. Update Site URL only after the new domain serves HTTPS successfully. Reuse the existing Supabase project so accounts, cloud records and Premium entitlements stay together.
+`supabase/config.toml` enables:
 
-Passkeys are bound to their original relying-party domain. An existing credential cannot be moved to an unrelated domain by changing redirect URLs. Keep the old relying-party configuration during the transition, confirm another sign-in method, then schedule the new RP configuration and user enrollment separately. Browser-only records need JSON export from the old site and import on the new site.
+```toml
+[auth.passkey]
+enabled = true
+
+[auth.webauthn]
+rp_display_name = "SteadyRenew"
+rp_id = "127.0.0.1"
+rp_origins = ["http://127.0.0.1:5173"]
+```
+
+Open `http://127.0.0.1:5173` (prefer `127.0.0.1` over `localhost`) so the browser origin matches `rp_id` and `rp_origins`.
+
+### Production Dashboard
+
+In the Supabase Dashboard under **Authentication → Passkeys**:
+
+1. Enable Passkey authentication.
+2. Set **Relying Party Display Name** (e.g. `SteadyRenew`).
+3. Set **Relying Party ID** to your bare production domain (e.g. `steadyrenew.com`).
+4. Add exact HTTPS origins (up to 5) under **Relying Party Origins** (e.g. `https://steadyrenew.com`).
+5. Confirm **Site URL** and **Redirect URLs** include your `/app` callback for OAuth and password recovery.
+
+## Security & domain migration notes
+
+- Keep Row Level Security (RLS) enabled on all user-owned tables.
+- Never expose `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` in `VITE_*` browser variables.
+- Passkeys are cryptographically bound to their original Relying Party (`rp_id`) domain and cannot be migrated across domains via redirect URLs; users moving from an old domain must sign in via email/password or OAuth and enroll a new passkey on the new domain.

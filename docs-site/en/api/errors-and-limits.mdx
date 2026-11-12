@@ -1,6 +1,6 @@
 ---
 title: "Errors and limits"
-description: "Understand error responses, request IDs, rate-limit headers, and CORS behavior."
+description: "Understand error responses, request IDs, per-minute rate-limit headers, and CORS behavior."
 ---
 
 # Errors and limits
@@ -28,17 +28,21 @@ Errors use a stable JSON shape:
 | ---: | --- | --- |
 | `400` | `invalid_json` | Request body is not a JSON object |
 | `400` | `invalid_subscription` | Subscription fields failed validation |
-| `400` | `invalid_subscription_field` | The request tried to write a server-managed field |
+| `400` | `invalid_subscription_field` | The request tried to write a server-managed field (such as `id` or `status`) |
 | `400` | `invalid_subscription_id` | Subscription ID is not a valid UUID |
+| `400` | `invalid_notification_settings` | Notification settings fields failed validation (e.g., `daysBefore` not in `1, 3, 7, 14`) |
+| `400` | `invalid_notification_settings_field` | The request tried to write a web-only field (such as `barkUrl`, `timeZone`, or `locale`) |
 | `400` | `invalid_pagination` | `limit` or `offset` query parameter is out of range |
 | `400` | `invalid_query` | A filter or `sort` query parameter is invalid |
-| `400` | `empty_patch` | PATCH body did not include any writable fields |
+| `400` | `empty_patch` | `PATCH` body did not include any writable fields |
 | `401` | `authentication_required` | Missing Bearer token |
 | `401` | `invalid_api_key` | API key is invalid or revoked |
 | `403` | `insufficient_scope` | The API key lacks the `write` scope required for this operation |
+| `403` | `premium_required` | Endpoint requires Lifetime Premium (`duplicates` and `optimizations` analytics) |
 | `404` | `subscription_not_found` | Subscription does not exist for the API key owner |
+| `404` | `notification_settings_not_found` | Bark reminder settings have not been configured in the web app yet |
 | `405` | `method_not_allowed` | HTTP method is not supported |
-| `429` | `rate_limit_exceeded` | User request limit or invalid-auth limit exceeded |
+| `429` | `rate_limit_exceeded` | Per-minute user request quota or hourly failed-auth limit exceeded |
 | `500` | `internal_error` | Unexpected server error |
 
 ## Recovery fields
@@ -47,10 +51,10 @@ Errors use a stable JSON shape:
 | --- | --- |
 | `field` | The request field that caused the error |
 | `suggestedFix` | Human- and AI-readable correction guidance |
-| `allowedValues` | Valid enum values for fields such as `currency` or `period` |
-| `writableFields` | Fields accepted by `POST` and `PATCH` subscription requests |
+| `allowedValues` | Valid enum values for fields such as `currency`, `period`, or `daysBefore` |
+| `writableFields` | Fields accepted by `POST` and `PATCH` requests on that resource |
 
-Example non-writable field error:
+Example non-writable field error on `/api/v1/subscriptions`:
 
 ```json
 {
@@ -61,48 +65,50 @@ Example non-writable field error:
     "suggestedFix": "Remove server-managed fields such as id, createdAt, and updatedAt before retrying.",
     "writableFields": [
       "amount",
+      "billingAnchorDay",
       "category",
       "currency",
       "customDate",
-      "billingAnchorDay",
+      "isTrial",
       "lastPaymentDate",
-      "nextPaymentDate",
       "name",
+      "nextPaymentDate",
       "notificationEnabled",
-      "period"
+      "period",
+      "trialEndsOn"
     ]
   },
   "requestId": "request-..."
 }
 ```
 
-## Scopes
+## Scopes and plan gating
 
-API keys carry scopes. A `read` key can list and read subscriptions, read notification settings, and call the analytics and audit endpoints. A `write` key additionally allows create, update, delete, and notification settings updates. A write call made with a read-only key returns `403 insufficient_scope`; do not retry — request a write-scoped key. See [Authentication](/en/api/authentication#scopes).
+- **Scopes**: A `read` key can list and read subscriptions, read notification settings, and call analytics and audit endpoints. A `write` key additionally allows create, update, delete, and notification settings updates. A write call made with a read-only key returns `403 insufficient_scope`; do not retry — request a write-scoped key. See [Authentication](/en/api/authentication#scopes).
+- **Premium analytics**: `/api/v1/analytics/duplicates` and `/api/v1/analytics/optimizations` return `403 premium_required` on Free accounts. `/api/v1/analytics/summary` is available on all plans.
 
 ## Rate-limit headers
 
-Authenticated API responses include:
+Authenticated `/api/v1/*` responses include:
 
 ```text
-X-RateLimit-Limit
-X-RateLimit-Remaining
-X-RateLimit-Reset
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 59
+X-RateLimit-Reset: 1781568960
 ```
 
-`X-RateLimit-Reset` is a Unix timestamp in seconds.
-
-Validation failures (`400`) are rejected before the hourly quota is consumed, so they do not count against your limit and do not carry rate-limit headers. Fixing the payload and retrying is free.
-
-`429` responses also include a `Retry-After` header with the number of seconds to wait before retrying. This applies both to the per-user request limit and to the "too many invalid API key attempts" lockout.
+- Default authenticated quota: **60 requests per minute per account** (`API_RATE_LIMIT_PER_MINUTE`) on both Free and Premium plans.
+- `X-RateLimit-Reset` is a Unix timestamp in seconds indicating when the current 1-minute window resets.
+- Validation failures (`400`) on `POST`, `PATCH`, and query parameters are rejected **before** the per-minute quota is consumed, so they do not count against your limit and do not carry rate-limit headers. Fixing the payload and retrying is free.
+- Every `429 rate_limit_exceeded` response (both per-minute user rate limits and hourly failed-auth lockouts) includes a `Retry-After` header with the number of seconds to wait before retrying:
 
 ```text
-Retry-After: 2700
+Retry-After: 45
 ```
 
 ## CORS
 
-The subscription API supports browser preflight requests:
+The public API supports browser preflight requests:
 
 ```text
 Access-Control-Allow-Origin: *
@@ -110,4 +116,4 @@ Access-Control-Allow-Headers: Authorization, Content-Type
 Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS
 ```
 
-Keep API keys out of browser apps unless you fully trust the browser context. CORS support is mainly for developer tooling, internal dashboards, or trusted local workflows.
+Keep API keys out of public browser apps unless you fully trust the browser context. CORS support is intended for developer tooling, internal dashboards, and trusted local workflows.

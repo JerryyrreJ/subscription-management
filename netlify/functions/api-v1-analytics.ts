@@ -11,6 +11,7 @@ import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { createSupabaseAdminClient } from './_shared/supabase';
+import { runtimeEnvironment } from './_shared/webHandler';
 import {
   findDuplicates,
   optimizationCandidates,
@@ -19,6 +20,7 @@ import {
   type InsightStatus,
   type InsightSubscription,
 } from '../../src/utils/subscriptionInsights';
+import { resolveSubscriptionRenewal } from '../../src/utils/subscriptionRenewal';
 
 interface AnalyticsRow {
   id: string;
@@ -27,8 +29,11 @@ interface AnalyticsRow {
   amount: number | string;
   currency: string;
   period: string;
+  billing_anchor_day?: number | null;
   custom_date: string | null;
   next_payment_date: string;
+  is_trial?: boolean | null;
+  trial_ends_on?: string | null;
   status: string;
 }
 
@@ -39,17 +44,10 @@ interface AnalyticsApiDependencies {
   now(): Date;
 }
 
-const ANALYTICS_COLUMNS = [
-  'id',
-  'name',
-  'category',
-  'amount',
-  'currency',
-  'period',
-  'custom_date',
-  'next_payment_date',
-  'status',
-].join(', ');
+// Use '*' rather than naming newer columns (billing_anchor_day, is_trial,
+// trial_ends_on) in the PostgREST select list so lagged migrations never trigger
+// 42703 / HTTP 500; optional fields default safely in toInsightSubscription.
+const ANALYTICS_COLUMNS = '*';
 
 // Personal subscription sets are small; cap the analytics scan so a pathological
 // account can never make one request unbounded.
@@ -72,11 +70,11 @@ const horizonSchema = z.object({
 });
 
 const createDefaultDependencies = (): AnalyticsApiDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(process.env);
+  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
 
   return {
     database: createSupabaseAdminClient(supabaseConfig),
-    limits: getApiLimitsConfig(process.env),
+    limits: getApiLimitsConfig(runtimeEnvironment),
     createRequestId: () => crypto.randomUUID(),
     now: () => new Date(),
   };
@@ -116,17 +114,37 @@ const parseHorizon = (query: HandlerEvent['queryStringParameters']): number => {
   return result.data.horizonDays;
 };
 
-const toInsightSubscription = (row: AnalyticsRow): InsightSubscription => ({
-  id: row.id,
-  name: row.name,
-  category: row.category,
-  amount: Number(row.amount),
-  currency: row.currency,
-  period: row.period as InsightPeriod,
-  customDate: row.custom_date ?? undefined,
-  nextPaymentDate: row.next_payment_date,
-  status: row.status as InsightStatus,
-});
+const toInsightSubscription = (row: AnalyticsRow, now: Date): InsightSubscription => {
+  const status = (row.status ?? 'active') as InsightStatus;
+  const period = row.period as InsightPeriod;
+  const nextPaymentDate = status === 'active'
+    ? resolveSubscriptionRenewal(
+      {
+        nextPaymentDate: row.next_payment_date,
+        period,
+        customDate: row.custom_date ?? undefined,
+        billingAnchorDay: row.billing_anchor_day ?? undefined,
+        isTrial: Boolean(row.is_trial),
+        trialEndsOn: row.trial_ends_on ?? undefined,
+      },
+      'UTC',
+      now
+    ).effectiveNextPaymentDate
+    : row.next_payment_date;
+
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    amount: Number(row.amount),
+    currency: row.currency,
+    period,
+    customDate: row.custom_date ?? undefined,
+    nextPaymentDate,
+    isTrial: Boolean(row.is_trial),
+    status,
+  };
+};
 
 const withCorsHeaders = (response: HandlerResponse): HandlerResponse => ({
   ...response,
@@ -199,7 +217,7 @@ export const createAnalyticsApiHandler = (
       throw error;
     }
 
-    const subscriptions = ((data ?? []) as unknown as AnalyticsRow[]).map(toInsightSubscription);
+    const subscriptions = ((data ?? []) as unknown as AnalyticsRow[]).map(row => toInsightSubscription(row, now));
 
     const payload =
       view === 'summary'

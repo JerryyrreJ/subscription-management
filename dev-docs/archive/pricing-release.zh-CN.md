@@ -1,5 +1,7 @@
 # $9 Lifetime Pricing 改版与沙盒验收
 
+> **Archived / 历史归档**：此文档仅作早期研发与方案演进记录，部分设计与命令已被新版本取代；当前最新文档请以 [`docs-site/`](../../docs-site/README.md) 为准。
+
 基于 main 的 20fc855。前端整页重写，保留原有账户、报告与支付数据库流程，修复权益限制和付款边界。代码分支：feature/pricing-lifetime。未改动端到端加密分支。
 
 ## 权益

@@ -59,5 +59,5 @@ export default async function smartEntry(request: Request, context: Pick<Context
 
 // Run before the CDN cache; never opt this personalized routing into edge caching.
 export const config: Config = {
-  path: ['/', '/app', '/app/', '/pricing', '/pricing/', '/about', '/about/'],
+  path: ['/', '/app', '/app/', '/about', '/about/'],
 };

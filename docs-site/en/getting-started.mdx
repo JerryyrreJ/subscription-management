@@ -1,6 +1,6 @@
 ---
 title: "Getting started"
-description: "Run SteadyRenew locally and understand the default local-first behavior."
+description: "Run SteadyRenew locally and understand its local-first architecture and optional cloud services."
 ---
 
 # Getting started
@@ -10,19 +10,20 @@ SteadyRenew is a Vite app built with React and TypeScript. The default local set
 ## Architecture
 
 ```text
-React + Vite frontend
+React + Vite frontend (/app) + prerendered public pages (/, /pricing, /blog)
   |
   | optional browser auth and sync
   v
-Supabase
+Supabase (Auth, Postgres + RLS, Passkeys)
   |
   | trusted server access
   v
-Netlify Functions
-  |-- public API key CRUD
-  |-- subscription API v1
-  |-- Stripe checkout and webhook
-  |-- scheduled Bark reminders
+Netlify Edge Functions + Functions
+  |-- Edge: smart-entry (/), docs-proxy (/docs)
+  |-- API keys (/api-keys), Public API (/api/v1/*), Remote MCP (/api/mcp)
+  |-- AI capture (/ai-parse-subscriptions)
+  |-- Stripe checkout, status & webhook
+  |-- Account deletion & scheduled Bark reminders
 ```
 
 ## Requirements
@@ -33,8 +34,8 @@ Netlify Functions
 ## Install
 
 ```bash
-git clone https://github.com/jerryyrrej/subscription-manager.git
-cd subscription-manager
+git clone https://github.com/JerryyrreJ/subscription-management.git
+cd subscription-management
 npm install
 ```
 
@@ -44,44 +45,44 @@ npm install
 npm run dev
 ```
 
-Vite starts the app at:
-
-```text
-http://localhost:5173
-```
+Vite starts the app locally (typically at `http://localhost:5173/app`, with the marketing landing page at `http://localhost:5173/`).
 
 ## Run with Netlify Functions
 
-Use Netlify Dev when testing serverless functions such as Stripe checkout, Stripe webhooks, public API endpoints, or scheduled notification logic.
+Use Netlify Dev when testing serverless functions such as Stripe checkout/webhooks, AI capture, public API endpoints (`/api/v1/*`), remote MCP (`/api/mcp`), or scheduled notification logic:
 
 ```bash
 npm run dev:full
 ```
 
-This requires the Netlify CLI.
+This requires the Netlify CLI (`http://localhost:8888`).
 
 ## Useful commands
 
 ```bash
-npm run build               # Build for production
+npm run build               # Build frontend, agent/MCP assets, and prerendered pages
 npm run preview             # Preview the production build
 npm run lint                # Run ESLint
-npm run typecheck           # Run app and Functions TypeScript checks
-npm run test                # Run utility tests
-npm run test:functions      # Run Netlify Functions tests
-npm run check               # Run typecheck, lint, tests, and build
-npm run test:notifications  # Test scheduled notification logic
+npm run typecheck           # Run app, Functions, and Node script TypeScript checks
+npm run test                # Run utility and SEO/blog tests
+npm run test:functions      # Run Netlify Functions & Edge Function tests
+npm run check               # Run typecheck, lint, test, test:functions, and build
+npm run db:verify           # Reset local Supabase, lint schema, and run pgTAP tests
+npm run test:notifications  # Test scheduled Bark notification logic
 ```
 
 ## Local-first behavior
 
-Without Supabase configuration, subscriptions, categories, preferences, and import/export data stay in the browser. Users can still track subscriptions, filter and sort data, change currencies, view analytics, and use dark mode.
+Without Supabase configuration, subscriptions, free trials, categories, preferences, and JSON import/export stay in the browser. Users can track subscriptions, filter and sort data, switch currencies, view overview charts, and use dark mode with zero backend setup.
 
 Hosted features are opt-in:
 
-- Supabase enables accounts, cloud sync, user profiles, notification settings, and premium activation.
-- Netlify Functions enable trusted server-side work.
-- Stripe enables payment checkout and webhook processing.
-- AI capture uses Supabase, Netlify Functions, and a server-side OpenRouter or Anthropic key.
-- Bark enables push reminders for upcoming renewals.
-- Developer API keys enable external automation.
+| Capability | Required services |
+| --- | --- |
+| Accounts, Passkeys, and multi-device sync | Supabase |
+| AI capture (text & screenshots) | Supabase + Netlify Functions + OpenRouter or Anthropic key |
+| Public API (`/api/v1/*`) & MCP (`/api/mcp`) | Supabase + Netlify Functions |
+| Renewal & trial push reminders | Supabase + Netlify Scheduled Functions + Bark |
+| Lifetime Premium checkout & entitlement reconciliation | Supabase + Netlify Functions + Stripe |
+
+Next, see [Configuration](/en/configuration).

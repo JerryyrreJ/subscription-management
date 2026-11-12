@@ -17,7 +17,8 @@ export interface ResolvedSubscriptionRenewal {
 
 export const resolveSubscriptionRenewal = (
  subscription: Pick<Subscription, 'nextPaymentDate' | 'period' | 'customDate' | 'billingAnchorDay' | 'isTrial' | 'trialEndsOn'>,
- timeZone: string = getCurrentTimeZone()
+ timeZone: string = getCurrentTimeZone(),
+ now: Date = new Date()
 ): ResolvedSubscriptionRenewal => {
  const storedNextPaymentDate = subscription.isTrial
   ? subscription.trialEndsOn || subscription.nextPaymentDate
@@ -36,7 +37,7 @@ export const resolveSubscriptionRenewal = (
    storedNextPaymentDate,
    effectiveLastPaymentDate: storedLastPaymentDate,
    effectiveNextPaymentDate: storedNextPaymentDate,
-   daysUntilEffectiveNextPayment: getDaysUntil(storedNextPaymentDate, timeZone),
+   daysUntilEffectiveNextPayment: getDaysUntil(storedNextPaymentDate, timeZone, now),
    isAutoRenewed: false,
   };
  }
@@ -46,7 +47,8 @@ export const resolveSubscriptionRenewal = (
   subscription.period,
   subscription.customDate,
   subscription.billingAnchorDay,
-  timeZone
+  timeZone,
+  now
  );
 
  return {
@@ -59,7 +61,7 @@ export const resolveSubscriptionRenewal = (
   storedNextPaymentDate,
   effectiveLastPaymentDate: renewedDates.lastPaymentDate,
   effectiveNextPaymentDate: renewedDates.nextPaymentDate,
-  daysUntilEffectiveNextPayment: getDaysUntil(renewedDates.nextPaymentDate, timeZone),
+  daysUntilEffectiveNextPayment: getDaysUntil(renewedDates.nextPaymentDate, timeZone, now),
   isAutoRenewed: renewedDates.nextPaymentDate !== subscription.nextPaymentDate,
  };
 };

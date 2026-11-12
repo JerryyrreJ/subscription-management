@@ -1,48 +1,44 @@
 ---
 title: "Developer API keys"
-description: "Create and revoke API keys for trusted scripts, agents, and automations."
+description: "Create, test, and revoke Developer API keys for MCP clients, scripts, and automations."
 ---
 
 # Developer API keys
 
-Developer API keys let trusted tools operate your SteadyRenew account through the public API.
+Developer API keys (`subm_…`) let trusted MCP clients, scripts, and automations access your SteadyRenew account through both the remote MCP endpoint (`/api/mcp`) and the `/api/v1/*` REST API.
 
 ## When to use an API key
 
-Use an API key when you want a script, assistant, or automation tool to:
+Use an API key when you want an AI assistant, CLI tool, or script to:
 
-- List subscriptions.
-- Analyze spending.
-- Find duplicate subscriptions.
-- Create or update subscriptions after confirmation.
-- Read audit history.
+- List and filter subscriptions or free trials.
+- Summarize multi-currency spending (`get_spend_summary`).
+- Detect duplicate subscriptions or surface annual-billing optimization candidates (requires **Lifetime Premium**).
+- Create, update, or delete tracked subscriptions after confirmation (requires a **Read & write** key).
+- Toggle global reminder settings (`enabled` and `daysBefore`) or inspect the API audit log.
 
-Do not use API keys in public browser code or shared prompts.
+Never embed API keys in public browser apps or untrusted shared prompts.
 
-## Create a key
+## Create and test a key
 
-1. Sign in.
-2. Open **Settings**.
-3. Go to **API & MCP**.
-4. Enter a key name.
-5. Choose read/write or read-only permissions.
-6. Create the key.
-7. Copy the full key immediately, then use [Copy to Agent](/en/user-guide/agent-setup) to connect.
+1. Sign in to SteadyRenew.
+2. Open **Settings → API & MCP**.
+3. Enter a descriptive key name (for example, `Claude Desktop` or `Claude Code`).
+4. Choose **Read & write** or **Read only** permissions.
+5. Click **Create key** and save the full `subm_…` secret immediately — SteadyRenew stores only its SHA-256 hash and shows the full key once.
+6. Use [Copy to Agent](/en/user-guide/agent-setup) (or **Manual client config**) to connect your client, and use **Test API connection** in the footer anytime to verify a new or saved key.
 
-The full key is shown only once. After that, the app only shows the key prefix. **Test API connection** remains on this page: it uses the new key while that key is visible, and later accepts a pasted saved key.
+## Expiration & revocation
 
-## Revoke a key
-
-Open **Settings** > **API & MCP** and revoke any key you no longer use. Revoking a key stops future API requests that use it.
+- **Keys never expire automatically** — they stay valid until you revoke them (or delete your account).
+- Open **Settings → API & MCP** and click **Revoke** next to any key you no longer need. Revoked keys immediately stop working across both `/api/v1/*` and `/api/mcp`.
 
 ## Limits
 
-All signed-in users can create API keys. Defaults on both plans are 5 active keys and 60 requests per minute per account, shared across keys. The API & MCP screen shows your current plan and deployment limits.
+All signed-in accounts (Free and Lifetime Premium) default to **5 active keys** and **60 requests per minute per account**, shared across active keys. Duplicate detection (`/api/v1/analytics/duplicates`) and optimization suggestions (`/api/v1/analytics/optimizations`) require Lifetime Premium (`403 premium_required` on Free).
 
 ## Safety tips
 
-- Use one key per integration.
-- Revoke keys that are no longer needed.
-- Rotate a key if it may have appeared in logs, screenshots, or prompts.
-- Choose read-only permissions for agents that only query or analyze data.
-
+- Create one key per client or script so you can revoke each integration independently.
+- Prefer **Read only** keys for assistants that only answer questions about your spending.
+- Rotate a key immediately if it ever appears in terminal logs, screenshots, or shared chats.

@@ -17,6 +17,7 @@ const sub = (overrides: Partial<InsightSubscription>): InsightSubscription => ({
   period: overrides.period ?? 'monthly',
   customDate: overrides.customDate,
   nextPaymentDate: overrides.nextPaymentDate ?? '2026-06-20',
+  isTrial: overrides.isTrial ?? false,
   status: overrides.status ?? 'active',
 });
 
@@ -32,17 +33,18 @@ const fixture = (): InsightSubscription[] => [
 
 const asOf = new Date('2026-06-16T00:00:00.000Z');
 
-test('monthlyEquivalent normalizes each billing period', () => {
+test('monthlyEquivalent normalizes each billing period using 365/days annualization for custom cycles', () => {
   assert.equal(monthlyEquivalent(sub({ amount: 15, period: 'monthly' })), 15);
   assert.equal(monthlyEquivalent(sub({ amount: 120, period: 'yearly' })), 10);
-  assert.equal(monthlyEquivalent(sub({ amount: 30, period: 'custom', customDate: '30' })), 30);
-  assert.equal(monthlyEquivalent(sub({ amount: 30, period: 'custom', customDate: '15' })), 60);
+  assert.equal(monthlyEquivalent(sub({ amount: 365, period: 'custom', customDate: '365' })), 365 / 12);
+  assert.equal(monthlyEquivalent(sub({ amount: 73, period: 'custom', customDate: '73' })), 365 / 12);
+  assert.equal(monthlyEquivalent(sub({ amount: 15, period: 'custom', customDate: '15' })), (15 * 365) / (15 * 12));
 });
 
 test('summarizeSpend reports counts, per-currency totals, and renewals in the horizon', () => {
   const summary = summarizeSpend(fixture(), asOf, 30);
 
-  assert.deepEqual(summary.counts, { total: 7, active: 5, paused: 1, cancelled: 1 });
+  assert.deepEqual(summary.counts, { total: 7, active: 5, trials: 0, paused: 1, cancelled: 1 });
 
   const usd = summary.byCurrency.find(entry => entry.currency === 'USD');
   // active USD = 15 + 9.99 + (120/12=10) + 200 = 234.99
@@ -54,10 +56,46 @@ test('summarizeSpend reports counts, per-currency totals, and renewals in the ho
   assert.equal(summary.upcomingRenewals.length, 3);
   assert.equal(summary.upcomingRenewals[0].name, 'Rakuten');
   assert.equal(summary.upcomingRenewals[0].daysUntilRenewal, 2);
+  assert.equal(summary.upcomingRenewals[0].isTrial, false);
   assert.deepEqual(
     summary.upcomingRenewals.map(renewal => renewal.name),
     ['Rakuten', 'Netflix', 'Spotify']
   );
+});
+
+test('summarizeSpend and optimizationCandidates exclude unbilled free trials from paid totals while surfacing upcoming trial deadlines', () => {
+  const withTrial = [
+    ...fixture(),
+    sub({
+      id: 'h',
+      name: 'Cursor Pro Trial',
+      category: 'AI',
+      amount: 20,
+      currency: 'USD',
+      period: 'monthly',
+      nextPaymentDate: '2026-06-22',
+      isTrial: true,
+      status: 'active',
+    }),
+  ];
+
+  const summary = summarizeSpend(withTrial, asOf, 30);
+  assert.deepEqual(summary.counts, { total: 8, active: 6, trials: 1, paused: 1, cancelled: 1 });
+
+  // Paid USD spend stays unchanged at 234.99; AI category is omitted from paid spend.
+  const usd = summary.byCurrency.find(entry => entry.currency === 'USD');
+  assert.equal(usd?.activeSubscriptions, 4);
+  assert.equal(usd?.monthlyTotal, 234.99);
+  assert.equal(summary.byCategory.some(entry => entry.category === 'AI'), false);
+
+  // Upcoming renewals include the trial tagged with isTrial: true.
+  const trialRenewal = summary.upcomingRenewals.find(item => item.id === 'h');
+  assert.ok(trialRenewal);
+  assert.equal(trialRenewal.isTrial, true);
+  assert.equal(trialRenewal.daysUntilRenewal, 6);
+
+  const candidates = optimizationCandidates(withTrial);
+  assert.equal(candidates.monthlyToAnnual.some(item => item.id === 'h'), false);
 });
 
 test('findDuplicates groups active subscriptions sharing a normalized name', () => {

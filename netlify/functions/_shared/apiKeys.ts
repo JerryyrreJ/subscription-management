@@ -291,7 +291,14 @@ export const consumeApiRateLimit = async (
   );
 
   if (!rateLimit.allowed) {
-    throw new HttpError(429, 'rate_limit_exceeded', 'Rate limit exceeded', rateLimitHeaders);
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((new Date(rateLimit.reset_at).getTime() - now.getTime()) / 1000)
+    );
+    throw new HttpError(429, 'rate_limit_exceeded', 'Rate limit exceeded', {
+      ...rateLimitHeaders,
+      'Retry-After': String(retryAfterSeconds),
+    });
   }
 
   return {

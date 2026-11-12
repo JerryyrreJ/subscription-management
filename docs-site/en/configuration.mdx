@@ -1,72 +1,75 @@
 ---
 title: "Configuration"
-description: "Environment variables and feature flags for local-first, hosted, payment, notification, and public API deployments."
+description: "Environment variables and feature flags for local-first, hosted, payment, notification, AI capture, and public API/MCP deployments."
 ---
 
 # Configuration
 
-The core app runs without environment variables. Add environment variables only for the services you want to enable.
+The core app runs without environment variables. Add environment variables only for the services you want to enable. See `.env.example` in the repository root for a starter template.
 
 ## Environment variables
 
 | Variable | Required for | Scope |
 | --- | --- | --- |
-| `VITE_SUPABASE_URL` | Supabase auth and cloud sync | Browser |
-| `VITE_SUPABASE_ANON_KEY` | Supabase auth and cloud sync | Browser |
-| `SUPABASE_URL` | Supabase URL used by Functions | Server only |
+| `VITE_SITE_URL` | Public landing/blog origin, canonical URLs, and `/agent/*` schema base URLs (defaults to `https://steadyrenew.com`) | Browser / Build |
+| `VITE_APP_URL` | Application entry path or URL (`/app` on the same origin, or an external app host) | Browser / Build |
+| `VITE_DOCS_URL` | Localized documentation base URL (`https://steadyrenew.com/docs` by default) | Browser / Build |
+| `VITE_SUPABASE_URL` | Supabase authentication and cloud sync | Browser |
+| `VITE_SUPABASE_ANON_KEY` | Supabase authentication and cloud sync | Browser |
+| `SUPABASE_URL` | Supabase URL used by Netlify Functions | Server only |
 | `SUPABASE_PUBLISHABLE_KEY` | Access-token verification in Functions | Server only |
-| `SUPABASE_SECRET_KEY` | Notifications, premium activation, public API access, and AI capture quotas | Server only |
+| `SUPABASE_SECRET_KEY` | Notifications, premium activation, account deletion, public API/MCP access, and AI capture quotas | Server only |
 | `SUPABASE_SERVICE_ROLE_KEY` | Legacy alias for `SUPABASE_SECRET_KEY` | Server only |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Enables the payment UI; never trusted for checkout authorization | Browser |
-| `STRIPE_SECRET_KEY` | Stripe checkout session creation | Server only |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook verification | Server only |
-| `STRIPE_PRICE_ID` | The only Stripe Price accepted by the server | Server only |
-| `VITE_SITE_URL` | Public landing/blog origin and canonical URLs | Browser/build |
-| `VITE_APP_URL` | App entry URL; use `/app` for previews | Browser/build |
-| `VITE_DOCS_URL` | Localized documentation origin | Browser/build |
-| `SITE_URL` | Checkout success and cancellation URL | Server only |
-| `URL` | Netlify function callback URLs | Provided by Netlify |
-| `API_RATE_LIMIT_PER_MINUTE` | Both plans: requests per account per minute; default `60` | Server only |
-| `API_MAX_ACTIVE_KEYS` | Both plans: active key limit; default `5` | Server only |
+| `STRIPE_SECRET_KEY` | Stripe Checkout session creation and payment reconciliation | Server only |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification | Server only |
+| `STRIPE_PRICE_ID` | The single trusted \$9 USD one-time lifetime Stripe Price ID | Server only |
+| `STRIPE_MODE` | Explicit Stripe key mode assertion (`live` on production, `test` on staging); rejects mismatched keys/webhooks | Server only |
+| `PRODUCTION_SUPABASE_URL` | Set on staging/preview environments so test Stripe keys refuse to write to the production Supabase project | Server only |
+| `SITE_URL` | Trusted server origin for Stripe Checkout return URLs and agent asset URL fallback | Server only |
+| `URL` | Deployment origin provided automatically by Netlify | Provided by Netlify |
+| `MINTLIFY_UPSTREAM_ORIGIN` | Optional custom Mintlify origin for the `/docs` Edge proxy | Edge / Server |
+| `API_RATE_LIMIT_PER_MINUTE` | Authenticated API/MCP requests per account per minute (Free & Premium); defaults to `60` | Server only |
+| `API_MAX_ACTIVE_KEYS` | Active Developer API keys per account (Free & Premium); defaults to `5` | Server only |
 | `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR` | Failed API key authentication attempts per client identity per hour; defaults to `300` | Server only |
-| `API_RATE_LIMIT_RETENTION_HOURS` | Rate limit window retention before scheduled cleanup; defaults to `48` | Server only |
-| `OPENROUTER_API_KEY` | Enables AI capture with OpenRouter | Server only |
-| `ANTHROPIC_API_KEY` | Enables AI capture with Anthropic | Server only |
+| `API_RATE_LIMIT_RETENTION_HOURS` | Rate-limit window retention before scheduled cleanup; defaults to `48` | Server only |
+| `OPENROUTER_API_KEY` | Enables AI capture via OpenRouter (preferred default path) | Server only |
+| `ANTHROPIC_API_KEY` | Enables AI capture via Anthropic | Server only |
 | `AI_PROVIDER` | Optional provider override: `openrouter` or `anthropic` | Server only |
-| `AI_MODEL` | AI capture model override | Server only |
-| `AI_FALLBACK_MODELS` | Comma-separated OpenRouter fallback models | Server only |
-| `OPENROUTER_SITE_URL` | Optional OpenRouter referer; falls back to `SITE_URL` or `URL` | Server only |
-| `OPENROUTER_APP_TITLE` | Optional OpenRouter app title header | Server only |
-| `AI_FREE_MONTHLY_PARSES` | Free user AI captures per month (successful parses only); defaults to `10`. Legacy `AI_FREE_DAILY_PARSES` is accepted as a fallback. | Server only |
-| `AI_PREMIUM_MONTHLY_PARSES` | Premium user AI captures per month (successful parses only); defaults to `300`. Legacy `AI_PREMIUM_DAILY_PARSES` is accepted as a fallback. | Server only |
+| `AI_MODEL` | Primary AI capture model override (`google/gemini-2.5-flash-lite` default on OpenRouter) | Server only |
+| `AI_FALLBACK_MODELS` | Comma-separated OpenRouter fallback models (`google/gemini-2.5-flash` default) | Server only |
+| `OPENROUTER_SITE_URL` | Optional OpenRouter `HTTP-Referer` header; falls back to `SITE_URL` or `URL` | Server only |
+| `OPENROUTER_APP_TITLE` | Optional OpenRouter `X-Title` header (`SteadyRenew` default) | Server only |
+| `AI_FREE_MONTHLY_PARSES` | Free user AI captures per month (charged on successful parses only); defaults to `10` (`AI_FREE_DAILY_PARSES` accepted as legacy fallback) | Server only |
+| `AI_PREMIUM_MONTHLY_PARSES` | Premium user AI captures per month (charged on successful parses only); defaults to `300` (`AI_PREMIUM_DAILY_PARSES` accepted as legacy fallback) | Server only |
 | `AI_MAX_INPUT_CHARS` | AI capture text input cap; defaults to `20000` | Server only |
-| `AI_MAX_IMAGE_BYTES` | AI capture image cap; defaults to `4194304` | Server only |
-| `AI_MONTHLY_BUDGET_USD` | Workspace-wide monthly AI capture budget; defaults to `50` | Server only |
-| `AI_INPUT_USD_PER_MTOK` | Input-token cost estimate per million tokens | Server only |
-| `AI_OUTPUT_USD_PER_MTOK` | Output-token cost estimate per million tokens | Server only |
+| `AI_MAX_IMAGE_BYTES` | AI capture decoded image cap in bytes; defaults to `4194304` (4 MB) | Server only |
+| `AI_MONTHLY_BUDGET_USD` | Workspace-wide monthly AI capture budget breaker in USD; defaults to `50` | Server only |
+| `AI_INPUT_USD_PER_MTOK` | Input-token cost estimate per million tokens (`0.1` default) | Server only |
+| `AI_OUTPUT_USD_PER_MTOK` | Output-token cost estimate per million tokens (`0.4` default) | Server only |
 
 ## Browser variables
 
-Variables prefixed with `VITE_` are included in the browser bundle. Do not put secrets in them.
+Variables prefixed with `VITE_` are embedded in the client bundle at build time. Never place secret keys inside `VITE_*` variables.
 
-Use browser variables only for public configuration such as Supabase URL, Supabase anon key, and Stripe publishable key.
+Passkeys (WebAuthn) do not require extra `VITE_*` variables — configure them in the Supabase Dashboard (or `supabase/config.toml` locally) as described in [Cloud sync with Supabase](/en/integrations/supabase#passkeys-webauthn).
 
 ## Server variables
 
-Server-only variables must be configured in the hosting provider, such as Netlify environment variables. Never commit service role keys, Stripe secret keys, or webhook secrets.
+Configure server-only variables in your hosting provider (for example, Netlify environment variables). Never commit `SUPABASE_SECRET_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, or AI provider keys.
 
-Functions prefer the server-only names above and temporarily support the existing `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `VITE_STRIPE_PRICE_ID` names. `VITE_STRIPE_PRICE_ID` is a legacy server fallback only and is no longer read by browser code.
+Functions prefer `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and `STRIPE_PRICE_ID`, while retaining backwards-compatible fallbacks for `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `VITE_STRIPE_PRICE_ID`.
 
 ## Feature detection
 
-The app checks environment variables at runtime:
+The app checks configuration at runtime:
 
-- Supabase variables enable authentication and cloud sync.
-- Stripe variables enable payment flow.
-- Public API keys require Supabase and Netlify Functions; quota variables only override the defaults.
-- AI capture requires Supabase, Netlify Functions, the AI capture migrations, and either `OPENROUTER_API_KEY` or `ANTHROPIC_API_KEY`.
-- Missing optional variables keep the app in local-first mode.
+- Supabase variables enable authentication, Passkeys, cloud sync, and account management.
+- Stripe variables enable Lifetime Premium checkout and status reconciliation.
+- Developer API keys, `/api/v1/*`, and `/api/mcp` require Supabase and Netlify Functions.
+- AI capture requires Supabase, Netlify Functions, migrations through `20260922000100_ai_monthly_quota.sql`, and either `OPENROUTER_API_KEY` or `ANTHROPIC_API_KEY`.
+- Missing optional variables leave the app in local-first mode.
 
 ## Bark settings
 
-Bark notification settings are configured in the app UI. Users provide their Bark server URL, device key, and reminder timing.
+Bark notification settings (Bark server URL, device key, reminder lead time, and per-subscription toggles) are configured per user inside the web app under **Settings → Notifications**.

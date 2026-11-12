@@ -1,39 +1,43 @@
 ---
 title: "FAQ"
-description: "Common user questions about storage, sync, AI capture, reminders, currencies, and backups."
+description: "Common questions about local-first storage, cloud sync, Lifetime Premium, AI capture quotas, free trials, Bark reminders, and MCP."
 ---
 
 # FAQ
 
 ## Where is my data stored?
 
-Without an account, data is stored in the browser on the current device. If you sign in and cloud sync is available, data can sync to your account.
+Without an account, your subscriptions, categories, and preferences stay in your browser's local storage on the current device. When you sign in, SteadyRenew syncs your records to your cloud account so you can access them across devices.
 
 ## Do I need an account?
 
-No. You can track subscriptions locally without signing in. Sign in when you want cloud sync, account settings, premium status, reminders that require hosted sync, or Developer API keys.
+No. Core subscription tracking, multi-currency overview totals, categories, dark mode, and JSON import/export work locally without signing in. Sign in when you want multi-device cloud sync, Passkeys, AI capture, server-sent Bark push reminders, Lifetime Premium, or Developer API / MCP access.
+
+## What is included in Free vs Lifetime Premium?
+
+- **Free (\$0)**: Unlimited tracked subscriptions and free trials, local-first mode + cloud sync, Bark push reminders, **10 AI captures / month**, JSON import/export, and Developer API & MCP access (5 active keys, 60 requests/min, including `get_spend_summary`).
+- **Lifetime Premium (\$9 USD one-time — not a subscription)**: Everything in Free, plus **300 AI captures / month**, the **Advanced Report** view with print-ready **A4 PDF exports** (snapshot & annual), and the Premium duplicate/optimization analytics endpoints in the API & MCP.
+
+## Does SteadyRenew connect to my bank or cancel subscriptions for me?
+
+No. SteadyRenew never asks for bank credentials (no Plaid logins) and never logs into external merchants. Deleting or cancelling a record in SteadyRenew only updates your personal tracker — always cancel actual billing directly with the provider, App Store, or Google Play.
+
+## How do free trials behave differently from regular subscriptions?
+
+Regular `active` subscriptions automatically roll their next payment date forward by whole billing periods once a renewal date passes. Free trials (`isTrial: true`) use a one-shot trial end date that **never auto-advances** after expiry, keeping the deadline visible until you convert it to a paid plan or delete it.
 
 ## Does AI capture save my screenshot or pasted text?
 
-No. The submitted text or screenshot is sent once to the configured model provider for extraction. SteadyRenew does not store or log that content.
+No. Your text or screenshot is sent once to the configured model provider for extraction and is never stored or logged by SteadyRenew. Only monthly usage counts and aggregate token budget counters are recorded.
 
-## Why do totals change when I switch currency?
+## Why do Bark push reminders require signing in?
 
-The dashboard converts subscription amounts into the selected base currency. Exchange rates can change over time, so converted totals can change even when your original subscription amounts do not.
+Bark reminders are sent on a server schedule so they reach your iPhone or iPad even when your browser is closed. Signing in links your synced subscriptions and Bark device URL on the server so scheduled checks know what and where to send.
 
-## What does an offline or stale exchange rate message mean?
+## Why do totals change when I switch currency, or show an offline rate notice?
 
-It means the app could not refresh live rates and is using cached or fallback rates. Original subscription amounts are unchanged.
+The dashboard converts foreign-currency subscriptions into your chosen base currency using live exchange rates (falling back to cached or built-in rates when offline). Your original subscription amounts in their native currencies never change.
 
-## Why did I not receive a reminder?
+## How do I move data to another browser or back up locally?
 
-Check that Bark settings are saved, the device key is correct, the subscription has notifications enabled, and the next payment date is valid. Hosted reminders may also require being signed in.
-
-## How do I move data to another browser?
-
-Use **Export data** on the old browser and **Import data** on the new browser.
-
-## Can I undo changes?
-
-Manual edits can be changed again by editing the subscription. AI actions may show an immediate undo prompt after confirmation.
-
+Open **Settings → General**, click **Export data** to download a JSON backup, and use **Import data** in the target browser.

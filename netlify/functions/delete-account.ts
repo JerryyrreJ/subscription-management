@@ -4,6 +4,7 @@ import { getSupabaseAdminConfig, type SupabaseAdminConfig } from './_shared/env'
 import { errorResponse, HttpError, isNetworkFetchError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { createSupabaseAdminClient, createSupabaseAuthClient } from './_shared/supabase';
+import { runtimeEnvironment } from './_shared/webHandler';
 
 const ACCOUNT_DELETION_CONFIRMATION = 'DELETE_ACCOUNT';
 
@@ -26,7 +27,7 @@ interface AccountDeletionDependencies {
 }
 
 const createDefaultDependencies = (): AccountDeletionDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(process.env);
+  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
 
   return {
     supabaseConfig,

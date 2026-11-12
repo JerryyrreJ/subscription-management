@@ -1,50 +1,54 @@
 ---
 title: "AI 工具使用"
-description: "把开放 API 作为 AI Agent 的工具使用，包括操作语义、确认规则和错误恢复建议。"
+description: "把开放 API 与 MCP 端点作为 AI Agent 工具使用，涵盖全部 11 个工具的选择、确认规则和错误恢复策略。"
 ---
 
 # AI 工具使用
 
-首次接入请先看[连接 Agent](/zh-CN/user-guide/agent-setup)。设置页的 **复制给 Agent** 会带上当前网站地址、MCP 下载链接和 API 定义。
+首次接入请先阅读[连接 Agent](/zh-CN/user-guide/agent-setup)。在应用内 **设置 → API 与 MCP** 点击 **复制给 Agent**，即可生成包含当前站点地址、远程 Streamable HTTP MCP 端点（`/api/mcp`）、单文件本地 MCP 脚本（`/downloads/steadyrenew-mcp.mjs`）以及 API 契约链接的引导提示词。
 
-开放 API 可以暴露给 AI 助手作为工具使用。如果框架支持 JSON tool/function 定义，使用 [AI tool schema](/api/ai-tools.json)。如果框架支持直接导入 OpenAPI，使用 [OpenAPI schema](/api/openapi.yaml)。
+如果你要直接接入自定义 Agent 框架，可使用 [AI tool schema](/api/ai-tools.json) 导入 JSON 工具定义，或使用 [OpenAPI schema](/api/openapi.yaml) 直接导入 OpenAPI。
 
 ## 推荐 Agent 策略
 
-允许 AI 写入前，建议给助手这段规则：
+允许 AI 写入前，建议给助手配置以下规则：
 
 ```text
-你可以直接查询订阅。
-创建、更新或删除订阅前，必须总结即将执行的变更并询问用户确认。
-删除前，必须重复订阅名称和 id。
-不要发送服务端管理字段：id、createdAt、updatedAt。下次续费日期使用 nextPaymentDate。
+你可以直接查询订阅列表、支出汇总、通知设置和审计日志。
+创建、更新、删除订阅或修改全局提醒设置前，必须先总结即将执行的变更并征得用户确认。
+删除订阅前，必须重复订阅名称和 id，并说明删除仅移除本地追踪记录、不会替用户在服务商处退订。
+不要发送服务端管理字段：id、status、createdAt、updatedAt。下次续费日期使用 nextPaymentDate。
 如果 API 返回 field、suggestedFix、allowedValues 或 writableFields，使用这些提示修正 payload。
 ```
 
-## 工具选择
+## 全部 11 个工具与选择指南
 
-| 用户意图 | 工具 |
-| --- | --- |
-| “显示我的订阅” | `list_subscriptions` |
-| “找到我的 Netflix 订阅” | `list_subscriptions`，再按名称或分类匹配 |
-| “显示这个 id 的详情” | `get_subscription` |
-| “添加 ChatGPT Plus” | 确认后调用 `create_subscription` |
-| “把 Netflix 改成年付” | `list_subscriptions`，确认目标和变更后调用 `update_subscription` |
-| “删除重复的 Netflix 记录” | `list_subscriptions`，确认名称和 id 后调用 `delete_subscription` |
-| “提醒开了吗 / 提前 7 天提醒我” | `get_notification_settings` / 确认后 `update_notification_settings` |
-| “这是我的 Bark URL，帮我配置” | 拒绝；引导到[续费提醒指南](/zh-CN/user-guide/reminders) |
+| 用户意图 | 工具 | Scope / 套餐 |
+| --- | --- | --- |
+| “显示我的订阅” / “最近两周哪些要续费？” | `list_subscriptions` | `read` |
+| “查看这个订阅 UUID 的详情” | `get_subscription` | `read` |
+| “添加 ChatGPT Plus” / “记一个 7 天 Figma 免费试用” | 确认后调用 `create_subscription` | `write` |
+| “把 Netflix 改成年付” | `list_subscriptions`，确认目标和变更后调用 `update_subscription` | `write` |
+| “删除重复的 Netflix 记录” | `list_subscriptions`，确认名称和 id 后调用 `delete_subscription` | `write` |
+| “全局续费提醒开了吗？” | `get_notification_settings` | `read` |
+| “提前 7 天提醒我续费” | 确认后调用 `update_notification_settings` | `write` |
+| “我每个月各币种花多少钱？” | `get_spend_summary` | `read` |
+| “帮我查查有没有重复订阅” | `find_duplicate_subscriptions` | `read`（Premium） |
+| “有哪些月付订阅值得评估改年付？” | `get_optimization_suggestions` | `read`（Premium） |
+| “刚才通过 API 改了什么？” | `list_audit_log` | `read` |
+| “这是我的 Bark URL，帮我配置” | 拒绝；引导到网页端 **设置 → 通知** 与[续费提醒指南](/zh-CN/user-guide/reminders) | 仅网页端 |
 
 ## 风险等级
 
-| 风险 | 操作 | Agent 行为 |
+| 风险 | 工具 | Agent 行为 |
 | --- | --- | --- |
-| 低 | 查询列表、查询单条 | 用户要求时可直接执行 |
-| 中 | 创建、更新 | 调用前确认计划写入内容 |
-| 高 | 删除 | 调用前确认准确记录名称和 id |
+| 低 | `list_subscriptions`、`get_subscription`、`get_notification_settings`、`get_spend_summary`、`find_duplicate_subscriptions`、`get_optimization_suggestions`、`list_audit_log` | 用户询问时可直接调用 |
+| 中 | `create_subscription`、`update_subscription`、`update_notification_settings` | 调用前总结计划写入内容并请求确认 |
+| 高 | `delete_subscription` | 调用前确认准确的订阅名称和 `id` |
 
-公开 API 不支持通过 `status` 做软取消/暂停/恢复。如果用户说“取消订阅”，需要先确认：是删除本地追踪记录，还是要去外部服务真正取消订阅。
+公开 API 不支持通过 `status` 做软取消/暂停/恢复。如果用户说“取消订阅”，需要先确认：是删除 SteadyRenew 里的追踪记录，还是需要用户前往服务商官网取消真实扣款。
 
-Bark URL、test push、时区和 locale 也不能通过公开 API 配置；引导用户到网页端设置与[续费提醒指南](/zh-CN/user-guide/reminders)。
+Bark URL、测试推送、`timeZone` 和 `locale` 不能通过公开 API 读写；请引导用户到网页端设置与[续费提醒指南](/zh-CN/user-guide/reminders)。
 
 ## 示例流程
 
@@ -92,4 +96,6 @@ Bark URL、test push、时区和 locale 也不能通过公开 API 配置；引�
 }
 ```
 
-使用 `field` 和 `suggestedFix` 修正下一次请求。如果是写操作，并且修正后的 payload 改变了实际写入内容，需要重新向用户确认。
+- **校验提示（`400`）**：根据 `field`、`suggestedFix`、`allowedValues` 和 `writableFields` 修正请求；若修正后的 payload 改变了实际写入效果，需重新向用户确认。
+- **只读密钥（`403 insufficient_scope`）**：不要重试，提示用户改用具备 `write` 权限的 API Key。
+- **高级版分析（`403 premium_required`）**：不要重复调用 `find_duplicate_subscriptions` 或 `get_optimization_suggestions`；说明这两项分析工具需要终身高级版（`https://steadyrenew.com/pricing`），或改用 `list_subscriptions` / `get_spend_summary` 完成基础汇总。

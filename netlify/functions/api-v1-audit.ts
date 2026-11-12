@@ -11,6 +11,7 @@ import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { createSupabaseAdminClient } from './_shared/supabase';
+import { runtimeEnvironment } from './_shared/webHandler';
 
 interface AuditRow {
   id: string;
@@ -62,11 +63,11 @@ const querySchema = z.object({
 });
 
 const createDefaultDependencies = (): AuditApiDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(process.env);
+  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
 
   return {
     database: createSupabaseAdminClient(supabaseConfig),
-    limits: getApiLimitsConfig(process.env),
+    limits: getApiLimitsConfig(runtimeEnvironment),
     createRequestId: () => crypto.randomUUID(),
     now: () => new Date(),
   };

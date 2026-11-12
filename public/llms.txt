@@ -1,8 +1,8 @@
 # SteadyRenew
 
-> SteadyRenew is a personal subscription tracker for recurring costs and renewal dates. You add records yourself or from a screenshot; it does not connect to a bank.
+> SteadyRenew is a personal subscription and free-trial tracker for recurring costs and renewal dates. You add records yourself or from a screenshot; it does not connect to a bank.
 
-Free includes unlimited subscriptions, cloud sync, Bark renewal reminders, multi-currency totals, JSON import and export, 10 AI captures a month, and API and MCP access. Premium is a one-time $9 USD purchase (not a recurring fee) and raises AI captures to 300 a month, with advanced spending reports and PDF download.
+Free includes unlimited subscriptions and free trials, cloud sync, Bark renewal reminders, multi-currency totals, JSON import and export, 10 AI captures a month, and Developer API and MCP access (5 active keys, 60 requests/minute). Premium is a one-time $9 USD purchase (not a recurring fee) and raises AI captures to 300 a month, with advanced spending reports, print-ready A4 PDF download, and duplicate/optimization analytics in the API and MCP.
 
 ## Main pages
 
@@ -25,24 +25,29 @@ Free includes unlimited subscriptions, cloud sync, Bark renewal reminders, multi
 
 ## API and MCP
 
-- [API overview](https://steadyrenew.com/docs/en/api/overview): Subscriptions, notification settings, analytics, and audit
-- [API authentication](https://steadyrenew.com/docs/en/api/authentication): Bearer API keys
+- [API overview](https://steadyrenew.com/docs/en/api/overview): Subscriptions, notification settings, analytics, audit, and MCP
+- [API authentication](https://steadyrenew.com/docs/en/api/authentication): Bearer API keys (`subm_...`)
 - [Subscriptions API](https://steadyrenew.com/docs/en/api/subscriptions)
-- [MCP setup](https://steadyrenew.com/docs/en/user-guide/agent-setup): Local MCP client configuration
+- [MCP setup](https://steadyrenew.com/docs/en/user-guide/agent-setup): Remote Streamable HTTP MCP and local stdio setup
 - [Developer API keys](https://steadyrenew.com/docs/en/user-guide/developer-api-keys)
 - [中文 API 概览](https://steadyrenew.com/docs/zh-CN/api/overview)
 - [中文 MCP 接入](https://steadyrenew.com/docs/zh-CN/user-guide/agent-setup)
 - [Agent setup prompt](https://steadyrenew.com/agent/setup.md)
+- [AI tool schema](https://steadyrenew.com/agent/ai-tools.json)
 - [OpenAPI description](https://steadyrenew.com/agent/openapi.yaml)
-- [MCP package](https://steadyrenew.com/downloads/subscription-manager-mcp.tgz): Downloadable local stdio server. There is no hosted remote MCP endpoint.
+- [Remote MCP endpoint](https://steadyrenew.com/api/mcp): Stateless Streamable HTTP MCP (`POST` with `Authorization: Bearer subm_...`)
+- [Single-file local MCP script](https://steadyrenew.com/downloads/steadyrenew-mcp.mjs): Zero-dependency Node.js 20+ stdio bundle
+- [MCP package tarball](https://steadyrenew.com/downloads/subscription-manager-mcp.tgz): Standalone npm `.tgz` stdio package
 
-API routes on this site:
+API and MCP routes on this site:
 
+- `POST` https://steadyrenew.com/api/mcp
 - `GET` `POST` https://steadyrenew.com/api/v1/subscriptions
+- `GET` `PATCH` `DELETE` https://steadyrenew.com/api/v1/subscriptions/{id}
 - `GET` `PATCH` https://steadyrenew.com/api/v1/notification-settings
 - `GET` https://steadyrenew.com/api/v1/analytics/summary
-- `GET` https://steadyrenew.com/api/v1/analytics/duplicates
-- `GET` https://steadyrenew.com/api/v1/analytics/optimizations
+- `GET` https://steadyrenew.com/api/v1/analytics/duplicates (Premium)
+- `GET` https://steadyrenew.com/api/v1/analytics/optimizations (Premium)
 - `GET` https://steadyrenew.com/api/v1/audit
 
 ## Project

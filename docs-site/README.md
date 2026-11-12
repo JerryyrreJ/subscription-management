@@ -1,18 +1,19 @@
 # SteadyRenew Docs Site
 
-This directory contains the Mintlify documentation site for SteadyRenew.
+This directory is the canonical Mintlify documentation site for SteadyRenew, published at `https://steadyrenew.com/docs`.
 
 ## Structure
 
 ```text
 docs-site/
   docs.json          # Mintlify configuration and bilingual navigation
-  api/openapi.yaml   # Generated API Reference source
+  api/openapi.yaml   # OpenAPI 3.1 spec (drives API Reference + /agent/openapi.yaml)
+  api/ai-tools.json  # Canonical 11-tool schema (drives MCP + /agent/ai-tools.json)
   en/                # English documentation
   zh-CN/             # Simplified Chinese documentation
 ```
 
-English and Simplified Chinese pages are maintained side by side. When product behavior, API behavior, configuration, deployment, Supabase, notification, or payment flows change, update both language folders. If API paths, request bodies, response bodies, headers, auth, rate limits, or error formats change, update `api/openapi.yaml` in the same documentation pass.
+English and Simplified Chinese pages are maintained side by side. When product behavior, API/MCP behavior, configuration, deployment, Supabase, notification, or payment flows change, update both language folders. If API paths, request/response schemas, rate limits, or tool semantics change, update `api/openapi.yaml` and `api/ai-tools.json` in the same pass.
 
 ## Local preview
 
@@ -28,47 +29,32 @@ Open `http://localhost:3000`.
 
 ```bash
 cd docs-site
+mint broken-links
 mint validate
 ```
 
-## Deploy
+## Production subpath & Edge proxy
 
-Create a Mintlify project at `https://mintlify.com/start`, connect this repository, and set the documentation path to `docs-site`.
+The public documentation URL is `https://steadyrenew.com/docs`. In Mintlify Domain setup, keep `steadyrenew.com/docs` as the custom domain and base path while keeping root DNS pointed at Netlify (adding only Mintlify's TXT verification records).
 
-Do not move the files back into the root unless you also update the Mintlify project path.
+`netlify/edge-functions/docs-proxy.ts` forwards `/docs`, `/docs/*`, and `/.well-known/vercel/*` to `https://subscriptionmanager.mintlify.site` (overrideable via `MINTLIFY_UPSTREAM_ORIGIN`) ahead of the SPA fallback:
 
-## Production subpath
+- Rewrites legacy `docs.sub.jerrylu.xyz` and `sub.jerrylu.xyz/docs` requests with `301` redirects to `https://steadyrenew.com/docs`.
+- Caches hashed Mintlify bundles (`/docs/_next/static/*`) with `public, max-age=31536000, immutable` and static docs media (`/docs/images/*`, `/docs/logo/*`, `/docs/favicon.*`) with `stale-while-revalidate`, while keeping HTML pages and dynamic routes `no-store`.
+- Strips app cookies and `Authorization` headers before forwarding upstream.
 
-The public documentation URL is `https://steadyrenew.com/docs`. In Mintlify Domain setup, keep `steadyrenew.com/docs` as the custom domain and base path. The repository directory remains `docs-site`.
-
-Keep the root DNS record pointed at Netlify. Add Mintlify's TXT verification records as displayed in its dashboard; do not replace the root CNAME with Mintlify's target.
-
-`netlify/edge-functions/docs-proxy.ts` forwards `/docs`, `/docs/*`, and `/.well-known/vercel/*` to `https://subscriptionmanager.mintlify.site`, ahead of the SPA fallback. It preserves request bodies, status codes, and query strings, rewrites upstream documentation redirects to the public path, and disables intermediary caching. These are public docs: app cookies and authorization headers are not forwarded. Private Mintlify authentication would require a separate design.
-
-After deploying the Netlify site, verify both language pages, CSS/JS loading, search, `/docs/llms.txt`, and a missing-page 404. Source: [Mintlify reverse proxy guide](https://www.mintlify.com/docs/deploy/reverse-proxy).
+After deploying, verify both language tabs, CSS/JS asset caching, search, `/docs/llms.txt`, and a missing-page `404`.
 
 ## Refresh product media
 
-README and the documentation share `images/product/`. After a branding or UI change:
+`README*.md` and `docs-site/` share `docs-site/images/product/`. After a branding or UI change:
 
 ```bash
 npx playwright install chromium
-# Capture the public app with synthetic local-only data in an isolated browser.
+# Capture the public app with synthetic local-only data in an isolated browser (requires FFmpeg).
 CAPTURE_ORIGIN=https://steadyrenew.com node scripts/capture-docs.mjs
 # Render current PDF components and print CSS (requires Poppler).
 npx tsx --tsconfig tsconfig.app.json scripts/render-pdf-previews.ts
 ```
 
-The capture script requires FFmpeg and produces `dashboard-overview.png` and
-`dashboard-tour.mp4`. It demonstrates monthly/yearly totals; it does not claim to
-exercise AI extraction. For local UI changes, run Vite and set `CAPTURE_ORIGIN` to
-its URL. The PDF fixture uses a fixed date and illustrative exchange rates for
-repeatable output; previews show the first page of each report. Inspect all pages
-of `/tmp/pdf-report-previews/{snapshot,annual}.pdf` when changing print layout.
-
-Publish documentation assets before checking the README video link at
-`https://steadyrenew.com/docs/images/product/dashboard-tour.mp4`. The old GitHub
-attachment is no longer used. The legacy `ai-add-subscription.mp4` is retained as
-historical source media, not embedded as a current demo. The iPhone notification
-photo in the reminders guide is explicitly labeled as an earlier-version capture
-and needs a fresh device capture to replace it.
+`capture-docs.mjs` updates `dashboard-overview.png` and `dashboard-tour.mp4` (embedded on `en/index.mdx` and `zh-CN/index.mdx`). Inspect all pages of `/tmp/pdf-report-previews/{snapshot,annual}.pdf` when changing print layout. The iPhone notification photo in the reminders guide (`images/guides/bark-guide-04-test-received.jpg`) is labeled as an earlier-version capture until replaced by a fresh device photo.

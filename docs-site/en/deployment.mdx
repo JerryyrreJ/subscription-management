@@ -1,72 +1,73 @@
 ---
 title: "Deployment"
-description: "Deploy the Vite frontend, Netlify Functions, Supabase migrations, Stripe webhooks, and scheduled jobs."
+description: "Deploy the Vite frontend, prerendered pages, Netlify Edge Functions, Netlify Functions, Supabase migrations, and scheduled jobs."
 ---
 
 # Deployment
 
-The project is configured for Netlify, but the frontend can be hosted anywhere that supports a Vite static build.
+SteadyRenew is configured out of the box for Netlify, combining a static + prerendered Vite frontend with Netlify Edge Functions and serverless/scheduled Functions. The frontend alone can also be hosted on any static host in local-first mode.
 
-## Static frontend
-
-Build the app:
+## Build output
 
 ```bash
 npm run build
 ```
 
-The production output is written to:
+`npm run build` runs `vite build && tsx scripts/prerender.ts` and writes to `dist/`:
 
-```text
-dist/
-```
+- `/app` SPA shell (`dist/app/index.html` via `/* -> /app/index.html` fallback).
+- Prerendered static marketing, pricing, legal, and blog pages (`/`, `/zh`, `/about`, `/pricing`, `/zh/pricing`, `/privacy`, `/terms`, `/blog/*`, `/zh/blog/*`, `/sitemap.xml`, `/robots.txt`).
+- Agent & MCP artifacts (`/agent/setup.md`, `/agent/ai-tools.json`, `/agent/openapi.yaml`, `/downloads/steadyrenew-mcp.mjs`, `/downloads/subscription-manager-mcp.tgz`).
 
-## Netlify
+## Netlify routing (`netlify.toml`)
 
-`netlify.toml` defines:
+`netlify.toml` configures:
 
-- `npm run build` as the build command.
-- `dist` as the publish directory.
-- `netlify/functions` as the functions directory.
-- Public API redirects for `/api/v1/subscriptions`.
-- SPA redirects to `index.html`.
-- Basic security headers.
+- **Build command**: `npm run build`, publish directory `dist`, Node `22`.
+- **Edge Functions** (`netlify/edge-functions/`):
+  - `smart-entry.ts` on `/` — routes returning app users or localized visitors cleanly while keeping crawlers on the static landing page.
+  - `docs-proxy.ts` on `/docs`, `/docs/*`, and `/.well-known/vercel/*` — reverse-proxies the Mintlify documentation site under `/docs` with immutable caching for `/docs/_next/static/*` assets and `no-store` for HTML pages.
+- **Public API & MCP redirects**:
+  - `/api/mcp` → `/.netlify/functions/api-mcp`
+  - `/api/v1/subscriptions` & `/api/v1/subscriptions/*` → `/.netlify/functions/api-v1-subscriptions`
+  - `/api/v1/notification-settings` → `/.netlify/functions/api-v1-notification-settings`
+  - `/api/v1/analytics/*` → `/.netlify/functions/api-v1-analytics`
+  - `/api/v1/audit` → `/.netlify/functions/api-v1-audit`
+- **SPA fallback**: `/*` → `/app/index.html` (`200`), served after static files in `dist/`.
+- **Security & CORS headers**: CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and permissive CORS + explicit MIME types on `/llms.txt`, `/agent/*`, and `/downloads/*`.
 
-Bing Webmaster verification is `/BingSiteAuth.xml` plus a `msvalidate.01` meta tag. IndexNow serves `/16274743d7549a346d2cf33abbd2d73d.txt` and submits sitemap URLs with `npm run indexnow` after a successful production deploy. A submission failure does not fail the deploy.
+Bing Webmaster verification uses `/BingSiteAuth.xml` plus a `msvalidate.01` meta tag. IndexNow serves `/16274743d7549a346d2cf33abbd2d73d.txt` and submits sitemap URLs via `npm run indexnow` after production deploys without failing the deploy on network errors.
 
-## Functions
+## Serverless & scheduled Functions
 
-Netlify Functions are used for:
+`netlify/functions/` includes:
 
-- Creating Stripe Checkout sessions.
-- Handling Stripe webhooks.
-- Running scheduled Bark reminder checks.
-- Creating and revoking Developer API keys.
-- Serving the public subscription CRUD API.
-- Cleaning up public API rate limit windows.
+| Function | Role |
+| --- | --- |
+| `api-keys.ts` | Create, list, and revoke Developer API keys (`subm_…`) |
+| `api-mcp.ts` | Stateless Streamable HTTP MCP endpoint (`/api/mcp`) |
+| `api-v1-subscriptions.ts` | Subscription & free-trial CRUD (`/api/v1/subscriptions`) |
+| `api-v1-notification-settings.ts` | Global reminder toggle & lead-time API (`/api/v1/notification-settings`) |
+| `api-v1-analytics.ts` | Spend summary, duplicate detection, and optimization candidates (`/api/v1/analytics/*`) |
+| `api-v1-audit.ts` | Public API write audit log (`/api/v1/audit`) |
+| `ai-parse-subscriptions.ts` | AI subscription capture with monthly user quotas and workspace budget reservations |
+| `create-checkout-session.ts` | Authenticated Stripe Checkout session creation |
+| `checkout-status.ts` | Checkout completion & async payment status verification |
+| `stripe-webhook.ts` | Idempotent Stripe webhook fulfillment and refund/dispute reconciliation |
+| `delete-account.ts` | Self-serve account deletion preserving anonymized payment ledger records |
+| `send-scheduled-notifications.ts` | Scheduled Bark renewal & trial end push notifications |
+| `cleanup-api-rate-limits.ts` | Scheduled cleanup of expired API rate-limit windows |
 
-Use Netlify Dev for local function testing:
+Use Netlify Dev for local end-to-end function testing:
 
 ```bash
 npm run dev:full
 ```
 
-## Deployment checklist
+## Pre-deploy checklist
 
-- Add only the environment variables for services you plan to enable.
-- Run Supabase SQL migrations before enabling cloud sync, public API keys, payments, or scheduled notifications.
-- Configure Stripe webhook URLs after the Netlify site URL is available.
-- Test local-first behavior with no optional variables configured.
-- Test hosted behavior with Supabase, Stripe, API keys, and notification settings enabled as needed.
-- Run `npm run check` before publishing application changes.
-
-## Public API routes
-
-The public API is served through Netlify redirects:
-
-```text
-/api/v1/subscriptions
-/.netlify/functions/api-v1-subscriptions
-```
-
-Use the pretty `/api/v1/subscriptions` path in client documentation and examples.
+1. Run `npm run check` (`typecheck`, `lint`, `test`, `test:functions`, and `build`).
+2. Apply all Supabase SQL migrations in `supabase/migrations/` before enabling cloud sync, Passkeys, API keys, AI capture, payments, or scheduled notifications.
+3. Configure only the [environment variables](/en/configuration) needed for your enabled services (including `STRIPE_MODE=live` on production and `PRODUCTION_SUPABASE_URL` on staging).
+4. Point your Stripe webhook endpoint at `https://your-domain.example/.netlify/functions/stripe-webhook` with the events listed in [Payments with Stripe](/en/integrations/payments).
+5. If you changed documentation under `docs-site/`, run `cd docs-site && mint broken-links` (and `mint validate` before major structure changes).

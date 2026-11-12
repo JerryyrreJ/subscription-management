@@ -163,7 +163,7 @@ export function markdownToHtml(markdown: string): string {
       continue;
     }
 
-    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
     if (heading) {
       const level = heading[1].length;
       const title = heading[2].trim();
@@ -237,7 +237,7 @@ export function markdownToHtml(markdown: string): string {
     }
 
     const paragraph: string[] = [];
-    while (index < lines.length && !isBlank(peek()) && !peek().startsWith('#')) {
+    while (index < lines.length && !isBlank(peek()) && !/^#{1,6}\s+/.test(peek())) {
       if (
         /^\s*[-*]\s+/.test(peek()) ||
         /^\s*\d+\.\s+/.test(peek()) ||
@@ -249,7 +249,11 @@ export function markdownToHtml(markdown: string): string {
       paragraph.push(peek());
       index += 1;
     }
-    html.push(`<p>${renderInline(paragraph.join(' '))}</p>`);
+    if (paragraph.length > 0) {
+      html.push(`<p>${renderInline(paragraph.join(' '))}</p>`);
+    } else {
+      index += 1;
+    }
   }
 
   return html.join('\n');

@@ -1,95 +1,53 @@
 # SteadyRenew MCP server
 
-SteadyRenew was previously called Subscription Manager. The package name, download URL, and `SUBSCRIPTION_MANAGER_*` environment variables retain their existing names so installed integrations keep working.
+SteadyRenew was previously called Subscription Manager. The package name (`subscription-manager-mcp`), `.tgz` download URL, and `SUBSCRIPTION_MANAGER_*` environment variables retain their existing names so installed integrations keep working without changes.
 
-A [Model Context Protocol](https://modelcontextprotocol.io) server that lets MCP
-clients (Claude Desktop, Cursor, and others) operate a SteadyRenew
-account through its public API.
+A [Model Context Protocol](https://modelcontextprotocol.io) server that lets MCP clients (ChatGPT, Claude Desktop, Claude Code, Codex, Cursor, Windsurf, OpenCode, and others) operate a SteadyRenew account through its public API.
 
-It loads the bundled `schema/ai-tools.json` (copied from `docs-site/api/ai-tools.json` when packaging) and exposes every tool defined
-there, so the MCP surface — tool names, purposes, risk levels, parameter schemas
-— always matches the documented API. Each tool call is proxied to the REST API
-with your bearer key.
+It loads `schema/ai-tools.json` (bundled from `docs-site/api/ai-tools.json` when packaging, with all `$ref` schemas recursively inlined) and exposes every tool defined there, so the MCP surface — tool names, purposes, risk levels, parameter schemas — never drifts from the documented API.
+
+## Connection options
+
+SteadyRenew supports three ways to connect MCP clients using the same `subm_...` API key created in **Settings → API & MCP** (both Free and Premium include **5 active keys** and **60 requests / minute**; keys do not expire unless revoked):
+
+1. **Remote Streamable HTTP MCP (zero local install)**: connect directly to `https://steadyrenew.com/api/mcp` (or `<BASE_URL>/api/mcp` on self-hosted deployments) with header `Authorization: Bearer <SUBSCRIPTION_MANAGER_API_KEY>`. Works in ChatGPT Connectors, Claude Web/Desktop remote MCP, Claude Code (`claude mcp add --transport http`), and any Streamable HTTP MCP client.
+2. **Single-file zero-dependency local script**: download `/downloads/steadyrenew-mcp.mjs` and run `node /absolute/path/to/steadyrenew-mcp.mjs` directly (Node.js 20+, no `npm install` needed).
+3. **Standalone npm package archive**: download `/downloads/subscription-manager-mcp.tgz` and install in an empty directory (`npm install --ignore-scripts ./subscription-manager-mcp.tgz`).
+
+For guided setup, open **Settings → API & MCP → Copy to Agent** in the web app, or read `/agent/setup.md`.
 
 ## Tools
 
-All tools from the API tool schema are exposed, including:
+All 11 tools from `ai-tools.json` are exposed:
 
-- `list_subscriptions` (with `status`, `category`, `period`, `q`, `expiringBefore`, `sort` filters)
+- `list_subscriptions` (with `status`, `category`, `period`, `q`, `expiringBefore`, `sort` filters; active recurring subscriptions automatically roll overdue dates forward while free trials stay one-shot)
 - `get_subscription`, `create_subscription`, `update_subscription`
-- `delete_subscription` (permanent)
+- `delete_subscription` (permanent removal; records a `subscription.delete` entry in the audit log)
 - `get_notification_settings`, `update_notification_settings` (`enabled` / `daysBefore` only)
-- `get_spend_summary`, `find_duplicate_subscriptions`, `get_optimization_suggestions`
+- `get_spend_summary` (Free & Premium)
+- `find_duplicate_subscriptions`, `get_optimization_suggestions` (**Premium only** — returns `403 premium_required` on Free)
 - `list_audit_log`
 
-Write tools require a key with the `write` scope; read and analytics tools work
-with a read-only key. Soft cancel/pause/resume via `status` is not part of the
-public API surface. Bark URL, test push, timeZone, and locale stay web-managed;
-the tool schema tells agents to refuse those requests and point users to the
-reminders guide.
+Write tools require a key with the `write` scope; read and analytics tools work with a read-only (`read`) key. Soft cancel/pause/resume via `status` is not part of the public API surface. Bark URL, test push, `timeZone`, and `locale` stay web-managed (`/docs/en/user-guide/reminders`).
 
-## Configuration
+## Local stdio configuration
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `SUBSCRIPTION_MANAGER_BASE_URL` | yes | Site origin, e.g. `https://subscriptions.example.com` |
-| `SUBSCRIPTION_MANAGER_API_KEY` | yes | A key created in the dashboard (`subm_...`) |
-| `SUBSCRIPTION_MANAGER_TOOLS_SCHEMA` | no | Path to an `ai-tools.json` override |
+| `SUBSCRIPTION_MANAGER_BASE_URL` | yes | Site origin without `/api/v1`, e.g. `https://steadyrenew.com` |
+| `SUBSCRIPTION_MANAGER_API_KEY` | yes | API key created in **Settings → API & MCP** (`subm_...`) |
+| `SUBSCRIPTION_MANAGER_TOOLS_SCHEMA` | no | Optional path to an `ai-tools.json` override |
 
-## Install and run
-
-For guided setup, open **Settings → API & MCP → Copy to Agent** on your website.
-The instructions use that website's origin and can optionally include a newly
-created key. The public guide is served at `/agent/setup.md`.
-
-Download `/downloads/subscription-manager-mcp.tgz` from your website, then install
-it in an empty persistent private directory. Do not install it inside this
-repository, another npm project, or a workspace:
-
-```bash
-npm install --ignore-scripts ./subscription-manager-mcp.tgz
-```
-
-Use npm 10 or newer (current Node.js 20 releases include it). npm 9.2 fails in an
-existing project with `Tracker "idealTree" already exists`. Unpack and use bun
-when that happens:
-
-```bash
-tar -xzf subscription-manager-mcp.tgz
-cd package
-bun install --ignore-scripts
-```
-
-Configure a local stdio MCP client to run Node with the absolute path to
-`node_modules/subscription-manager-mcp/src/server.mjs` (or `package/src/server.mjs`
-after the bun unpack). The archive includes its tool schema; no repository
-checkout is needed. Node.js 20+ is required, along with
-`SUBSCRIPTION_MANAGER_BASE_URL` and `SUBSCRIPTION_MANAGER_API_KEY`. This is a
-downloadable local server, not a hosted remote MCP endpoint. Direct API access is
-available for agents that can make HTTP requests but cannot run local servers.
-
-For source development:
-
-```bash
-cd mcp
-npm install
-SUBSCRIPTION_MANAGER_BASE_URL=https://subscriptions.example.com \
-SUBSCRIPTION_MANAGER_API_KEY=subm_xxx.yyy \
-npm start
-```
-
-## Connect from a client
-
-Claude Desktop (`claude_desktop_config.json`) or any MCP client:
+### Claude Desktop / Cursor / Windsurf (`mcpServers` JSON)
 
 ```json
 {
   "mcpServers": {
     "subscription-manager": {
       "command": "node",
-      "args": ["/absolute/path/to/integration/node_modules/subscription-manager-mcp/src/server.mjs"],
+      "args": ["/absolute/path/to/steadyrenew-mcp.mjs"],
       "env": {
-        "SUBSCRIPTION_MANAGER_BASE_URL": "https://subscriptions.example.com",
+        "SUBSCRIPTION_MANAGER_BASE_URL": "https://steadyrenew.com",
         "SUBSCRIPTION_MANAGER_API_KEY": "subm_xxx.yyy"
       }
     }
@@ -97,21 +55,57 @@ Claude Desktop (`claude_desktop_config.json`) or any MCP client:
 }
 ```
 
-Use a read-only key here if you only want analysis and listing; the server will
-return a `403 insufficient_scope` error (surfaced to the model) if a write tool
-is attempted with a read-only key.
+(If installed from `subscription-manager-mcp.tgz`, set `args` to `["/absolute/path/to/integration/node_modules/subscription-manager-mcp/src/server.mjs"]`.)
 
-Merge this entry into existing client configuration. Store keys privately, then
-reload the client and call `list_subscriptions` with `{"limit":1}` to verify.
-An empty list succeeds. Creating a config file alone does not verify a connection.
-The API works with cloud-synced records; browser-only data is unavailable.
+### Codex (`~/.codex/config.toml`)
+
+```toml
+[mcp_servers.steadyrenew]
+command = "node"
+args = ["/absolute/path/to/steadyrenew-mcp.mjs"]
+
+[mcp_servers.steadyrenew.env]
+SUBSCRIPTION_MANAGER_BASE_URL = "https://steadyrenew.com"
+SUBSCRIPTION_MANAGER_API_KEY = "subm_xxx.yyy"
+```
+
+### Claude Code CLI
+
+```bash
+# Remote HTTP MCP (no local script required)
+claude mcp add --transport http steadyrenew https://steadyrenew.com/api/mcp \
+  --header "Authorization: Bearer subm_xxx.yyy"
+
+# Or local stdio MCP
+claude mcp add steadyrenew \
+  -e SUBSCRIPTION_MANAGER_BASE_URL=https://steadyrenew.com \
+  -e SUBSCRIPTION_MANAGER_API_KEY=subm_xxx.yyy \
+  -- node /absolute/path/to/steadyrenew-mcp.mjs
+```
+
+### Installing the `.tgz` archive manually
+
+If using `/downloads/subscription-manager-mcp.tgz`, install it in an **empty** directory (not inside another npm project or workspace):
+
+```bash
+npm install --ignore-scripts ./subscription-manager-mcp.tgz
+```
+
+npm 9.2 fails inside an existing project with `Tracker "idealTree" already exists`; use npm 10+, use `steadyrenew-mcp.mjs`, or unpack and run `bun install --ignore-scripts` inside `package/`.
+
+For source development inside this repository:
+
+```bash
+cd mcp
+npm install
+SUBSCRIPTION_MANAGER_BASE_URL=https://steadyrenew.com \
+SUBSCRIPTION_MANAGER_API_KEY=subm_xxx.yyy \
+npm start
+```
 
 ## Packaging and verification
 
-The root `npm run build` emits the package, setup guide, and both API schemas into
-`dist/`. Vite serves the same files in development; run `npm run dev:full` for API
-functions as well. `npm pack` inside `mcp/` also includes the canonical schema via
-the `prepack` script. Public npm publication is not required.
+`npm run build` at the repository root emits `/downloads/steadyrenew-mcp.mjs`, `/downloads/subscription-manager-mcp.tgz`, `/agent/setup.md`, `/agent/ai-tools.json`, and `/agent/openapi.yaml` (with the deployment's canonical site origin injected) into `dist/`.
 
 After building from the repository root:
 
@@ -119,7 +113,3 @@ After building from the repository root:
 npm ci --prefix mcp --ignore-scripts
 npm test --prefix mcp
 ```
-
-The test installs the actual downloadable archive outside the repository and
-connects an MCP client over stdio to verify tool discovery, CRUD request mapping,
-authentication errors, and invalid-response handling against a local test API.

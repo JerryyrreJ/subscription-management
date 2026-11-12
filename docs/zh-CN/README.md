@@ -1,24 +1,26 @@
-# 文档
+# 简体中文文档
 
 [English](../en/README.md) | [简体中文](README.md)
 
-这些文档覆盖 SteadyRenew 的公开配置和运行方式。开发笔记、实现总结和旧方案文档放在 [`dev-docs/`](../../dev-docs/README.md)。
+SteadyRenew 的公开中文文档统一维护在 [`docs-site/zh-CN/`](../../docs-site/zh-CN/)，线上访问地址为 [steadyrenew.com/docs/zh-CN](https://steadyrenew.com/docs/zh-CN)。
 
-## 从这里开始
+## 快速入口
 
-- [快速开始](getting-started.md)
-- [配置](configuration.md)
-- [部署](deployment.md)
-- [公开指南（`/blog`）](blog.md)
+- [介绍](../../docs-site/zh-CN/index.mdx)
+- [使用指南总览](../../docs-site/zh-CN/user-guide/overview.mdx)
+- [连接 Agent（MCP 与 API）](../../docs-site/zh-CN/user-guide/agent-setup.mdx)
+- [快速开始（自托管）](../../docs-site/zh-CN/getting-started.mdx)
+- [配置说明](../../docs-site/zh-CN/configuration.mdx)
+- [部署说明](../../docs-site/zh-CN/deployment.mdx)
+- [Supabase 云同步与 Passkey](../../docs-site/zh-CN/integrations/supabase.mdx)
+- [AI 录入](../../docs-site/zh-CN/integrations/ai-capture.mdx)
+- [使用 Bark 续费提醒](../../docs-site/zh-CN/integrations/notifications.mdx)
+- [Stripe 支付集成](../../docs-site/zh-CN/integrations/payments.mdx)
+- [开放 API 概览](../../docs-site/zh-CN/api/overview.mdx)
 
-## 可选服务
+## 维护与运维文档
 
-- [使用 Supabase 云同步](supabase.md)
-- [AI 录入](ai-capture.md)
-- [使用 Bark 续费提醒](notifications.md)
-- [使用 Stripe 支付](payments.md)
-- [开放 API](api.md)
-
-## 说明
-
-核心应用不依赖任何托管服务。部署自己的实例时，可以按需启用账号同步、定时提醒、支付和 API 自动化功能。
+- [Agent 接入源文档（`docs/agent-setup.md`）](../agent-setup.md)
+- [公开指南 `/blog` 写作规范（`dev-docs/blog.zh-CN.md`）](../../dev-docs/blog.zh-CN.md)
+- [落地页与域名架构（`dev-docs/landing-page.zh-CN.md`）](../../dev-docs/landing-page.zh-CN.md)
+- [运维操作手册（`docs/operations/`）](../operations/)

@@ -1,5 +1,7 @@
 # SteadyRenew 域名迁移
 
+> **当前状态更新（2026-11）：** 主域名切换已完成，`https://steadyrenew.com`（含 `/app`、`/docs`、`/blog`）已成为正式生产域名；`netlify.toml` 与 `netlify/edge-functions/docs-proxy.ts` 已对旧域名 `sub.jerrylu.xyz` 及 `docs.sub.jerrylu.xyz` 启用全量 `301` 永久重定向至 `steadyrenew.com`。以下内容保留为 2026-10 迁移窗口期间的原始操作记录与架构说明。
+
 状态记录：2026-10-07（香港时间）。用户已确认产品名为 **SteadyRenew**。本分支统一更新首页、应用、中英文文案、博客、文档、通知、PDF 署名和 MCP 显示名称。
 
 用户确认沿用同域路径结构：`steadyrenew.com/` 是首页，`steadyrenew.com/app` 是应用。已添加的 `app` 子域名仅作为跳转入口。

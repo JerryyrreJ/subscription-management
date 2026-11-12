@@ -62,6 +62,7 @@ export function DeveloperApiModal({
  const [newKeyName, setNewKeyName] = useState(defaultKeyName);
  const [createdApiKey, setCreatedApiKey] = useState<string | null>(null);
  const [createdKeyId, setCreatedKeyId] = useState<string | null>(null);
+ const [createdKeyScopes, setCreatedKeyScopes] = useState<readonly string[] | undefined>(undefined);
  const [keyAccess, setKeyAccess] = useState<'write' | 'read'>('write');
  const [copied, setCopied] = useState(false);
  const [loading, setLoading] = useState(false);
@@ -95,6 +96,7 @@ export function DeveloperApiModal({
   sessionEpoch.current += 1;
   setCreatedApiKey(null);
   setCreatedKeyId(null);
+  setCreatedKeyScopes(undefined);
   setKeys([]);
   setLimits(null);
   setCopied(false);
@@ -134,6 +136,7 @@ export function DeveloperApiModal({
    if (epoch !== sessionEpoch.current) return;
    setCreatedApiKey(result.apiKey);
    setCreatedKeyId(result.key.id);
+   setCreatedKeyScopes(result.key.scopes);
    setNewKeyName(defaultKeyName);
    await loadKeys();
   } catch (createError) {
@@ -160,7 +163,10 @@ export function DeveloperApiModal({
   try {
    await ApiKeyService.revokeApiKey(accessToken, key.id);
    if (epoch !== sessionEpoch.current) return;
-   if (key.id === createdKeyId) setCreatedApiKey(null);
+   if (key.id === createdKeyId) {
+    setCreatedApiKey(null);
+    setCreatedKeyScopes(undefined);
+   }
    await loadKeys();
   } catch (revokeError) {
    if (epoch !== sessionEpoch.current) return;
@@ -231,7 +237,12 @@ export function DeveloperApiModal({
       </div>
      ) : (
       <>
-       <AgentSetupCard key={createdKeyId && createdApiKey ? createdKeyId : 'no-key'} apiKey={createdApiKey} />
+       <AgentSetupCard
+        key={createdKeyId && createdApiKey ? createdKeyId : 'no-key'}
+        apiKey={createdApiKey}
+        scopes={createdKeyScopes}
+        onVerified={() => void loadKeys()}
+       />
        {limits && (
         <div className="grid sm:grid-cols-3 gap-3">
          <div className="settings-card p-4">
@@ -273,7 +284,7 @@ export function DeveloperApiModal({
         </div>
        )}
 
-       <div className="settings-card">
+       <div id="settings-api-key-create-card" className="settings-card">
         <label htmlFor="settings-api-key-name" className="block text-sm font-medium app-theme-text-primary mb-2">
          {t('developerApi:keyName')}
         </label>
@@ -300,8 +311,11 @@ export function DeveloperApiModal({
          <label className="inline-flex items-center gap-1.5"><input type="radio" name="key-access" checked={keyAccess === 'write'} onChange={() => setKeyAccess('write')} className="accent-emerald-700" />{t('developerApi:readWrite')}</label>
          <label className="inline-flex items-center gap-1.5"><input type="radio" name="key-access" checked={keyAccess === 'read'} onChange={() => setKeyAccess('read')} className="accent-emerald-700" />{t('developerApi:readOnly')}</label>
         </fieldset>
+        <p className="text-xs app-theme-text-muted mt-2">
+         {t('developerApi:keysNeverExpireHint')}
+        </p>
         {!canCreateKey && limits && (
-         <p className="text-xs app-theme-text-muted mt-2">
+         <p className="text-xs app-theme-text-muted mt-1">
           {t('developerApi:keyLimitReached', { count: limits.activeKeys })}
          </p>
         )}

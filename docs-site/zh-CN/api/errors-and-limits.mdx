@@ -1,6 +1,6 @@
 ---
 title: "错误和限流"
-description: "开放 API 的错误响应、requestId、rate limit headers 和 CORS 行为。"
+description: "开放 API 的错误响应、requestId、每分钟限流请求头和 CORS 行为。"
 ---
 
 # 错误和限流
@@ -28,17 +28,21 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
 | ---: | --- | --- |
 | `400` | `invalid_json` | 请求体不是合法 JSON 对象 |
 | `400` | `invalid_subscription` | 订阅字段未通过校验 |
-| `400` | `invalid_subscription_field` | 请求尝试写入服务端管理字段 |
+| `400` | `invalid_subscription_field` | 请求尝试写入服务端管理字段（如 `id` 或 `status`） |
 | `400` | `invalid_subscription_id` | 订阅 ID 不是合法 UUID |
+| `400` | `invalid_notification_settings` | 通知设置字段未通过校验（如 `daysBefore` 不在 `1, 3, 7, 14` 中） |
+| `400` | `invalid_notification_settings_field` | 请求尝试写入仅限网页端管理的字段（如 `barkUrl`、`timeZone`、`locale`） |
 | `400` | `invalid_pagination` | `limit` 或 `offset` 查询参数超出范围 |
 | `400` | `invalid_query` | 过滤或 `sort` 查询参数非法 |
-| `400` | `empty_patch` | PATCH 请求体没有包含任何可写字段 |
+| `400` | `empty_patch` | `PATCH` 请求体未包含任何可写字段 |
 | `401` | `authentication_required` | 缺少 Bearer token |
 | `401` | `invalid_api_key` | API Key 无效或已撤销 |
 | `403` | `insufficient_scope` | API Key 缺少该操作所需的 `write` 权限 |
-| `404` | `subscription_not_found` | 当前 API Key owner 下不存在该订阅 |
+| `403` | `premium_required` | 该端点需要终身高级版（`duplicates` 与 `optimizations` 分析） |
+| `404` | `subscription_not_found` | 当前 API Key 所属用户下不存在该订阅 |
+| `404` | `notification_settings_not_found` | 该账号尚未在网页端保存过 Bark 通知设置 |
 | `405` | `method_not_allowed` | HTTP method 不支持 |
-| `429` | `rate_limit_exceeded` | 用户请求限额或无效认证限额已耗尽 |
+| `429` | `rate_limit_exceeded` | 每分钟用户请求配额或每小时失败认证限额已耗尽 |
 | `500` | `internal_error` | 未预期的服务端错误 |
 
 ## 恢复字段
@@ -47,10 +51,10 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
 | --- | --- |
 | `field` | 导致错误的请求字段 |
 | `suggestedFix` | 人和 AI 都能读懂的修正建议 |
-| `allowedValues` | `currency` 或 `period` 等枚举字段的合法值 |
-| `writableFields` | 订阅 `POST` 和 `PATCH` 请求接受的可写字段 |
+| `allowedValues` | `currency`、`period`、`daysBefore` 等枚举字段的合法值 |
+| `writableFields` | 当前资源 `POST` 和 `PATCH` 请求接受的可写字段 |
 
-不可写字段示例：
+`/api/v1/subscriptions` 不可写字段错误示例：
 
 ```json
 {
@@ -61,64 +65,55 @@ description: "开放 API 的错误响应、requestId、rate limit headers 和 CO
     "suggestedFix": "Remove server-managed fields such as id, createdAt, and updatedAt before retrying.",
     "writableFields": [
       "amount",
+      "billingAnchorDay",
       "category",
       "currency",
       "customDate",
-      "billingAnchorDay",
+      "isTrial",
       "lastPaymentDate",
-      "nextPaymentDate",
       "name",
+      "nextPaymentDate",
       "notificationEnabled",
-      "period"
+      "period",
+      "trialEndsOn"
     ]
   },
   "requestId": "request-..."
 }
 ```
 
-## 权限范围（Scopes）
+## 权限范围与套餐限制
 
-API Key 带有 scopes。`read` Key 可以查询、读取订阅与通知设置，并调用分析与审计端点；`write` Key 额外允许创建、更新、删除，以及更新通知设置。用只读 Key 执行写操作会返回 `403 insufficient_scope`，此时不要重试——需要换用带 `write` 权限的 Key。详见 [API 认证](/zh-CN/api/authentication#权限范围-scopes)。
+- **Scopes**：`read` Key 可以查询、读取订阅与通知设置，并调用分析与审计端点；`write` Key 额外允许创建、更新、删除订阅以及更新通知设置。用只读 Key 执行写操作会返回 `403 insufficient_scope`，此时不要重试——需要换用带 `write` 权限的 Key。详见 [API 认证](/zh-CN/api/authentication#权限范围scopes)。
+- **高级版分析**：`/api/v1/analytics/duplicates` 与 `/api/v1/analytics/optimizations` 在 Free 账户上返回 `403 premium_required`；`/api/v1/analytics/summary` 在所有套餐下均可用。
 
 ## Rate limit headers
 
-认证成功后的响应会包含：
+认证成功后的 `/api/v1/*` 响应会包含：
 
 ```text
-X-RateLimit-Limit
-X-RateLimit-Remaining
-X-RateLimit-Reset
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 59
+X-RateLimit-Reset: 1781568960
 ```
 
-`X-RateLimit-Reset` 是 Unix 秒级时间戳，表示当前固定窗口何时重置。
-
-校验失败（`400`）会在扣减每小时限额之前被拒绝，因此不计入限额，也不带 rate limit headers。修正请求体后重试是「免费」的。
-
-`429` 响应还会带 `Retry-After` header，表示需要等待多少秒后再重试。它同时适用于「用户请求限额」和「无效 API Key 尝试过多」两种封锁。
+- 默认已认证配额：Free 与 Premium 账户均为**每账户每分钟 60 次请求**（`API_RATE_LIMIT_PER_MINUTE`）。
+- `X-RateLimit-Reset` 是 Unix 秒级时间戳，表示当前 1 分钟固定窗口何时重置。
+- `POST`、`PATCH` 请求体和查询参数的校验失败（`400`）会在扣减**每分钟限额**之前被拒绝，因此不消耗配额，也不携带 rate limit headers。修正请求体后重试不占额度。
+- 所有 `429 rate_limit_exceeded` 响应（无论是每分钟用户请求限流还是每小时无效 Key 尝试封锁）都会附带 `Retry-After` 请求头，指示重试前需等待的秒数：
 
 ```text
-Retry-After: 2700
+Retry-After: 45
 ```
 
 ## CORS
 
-订阅 API 支持浏览器预检请求：
+开放 API 支持浏览器预检请求：
 
 ```text
-OPTIONS /api/v1/subscriptions
-OPTIONS /api/v1/subscriptions/{id}
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: Authorization, Content-Type
+Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS
 ```
 
-允许的方法：
-
-```text
-GET, POST, PATCH, DELETE, OPTIONS
-```
-
-允许的 headers：
-
-```text
-Authorization, Content-Type
-```
-
-不要把 API Key 暴露在不可信浏览器环境里。CORS 主要用于开发者工具、内部面板或可信本地工作流。
+不要把 API Key 暴露在不可信的公开浏览器环境中。CORS 主要用于开发者工具、内部面板或受信任的本地工作流。

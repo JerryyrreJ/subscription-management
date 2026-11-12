@@ -1,5 +1,7 @@
 # Quick Start: PDF Generation Testing
 
+> **Archived / 历史归档**：此文档仅作早期研发与方案演进记录，部分设计与命令已被新版本取代；当前最新文档请以 [`docs-site/`](../../docs-site/README.md) 为准。
+
 ## 🚀 Test Locally (Recommended)
 
 ### Step 1: Install Netlify CLI

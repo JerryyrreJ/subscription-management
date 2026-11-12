@@ -1,18 +1,17 @@
 #!/usr/bin/env node
 // MCP server for the SteadyRenew public API.
 //
-// Single source of truth: it loads docs-site/api/ai-tools.json and exposes every
-// tool there over the Model Context Protocol, proxying each call to the REST API
-// with a bearer key. Because the tool list, purposes, risk levels, and parameter
-// schemas all come from that file, the MCP surface never drifts from the docs.
+// Single source of truth: it loads docs-site/api/ai-tools.json (or an embedded
+// copy in the single-file bundle) and exposes every tool over the Model Context
+// Protocol, proxying each call to the REST API with a bearer key.
 //
 // Required environment:
-//   SUBSCRIPTION_MANAGER_BASE_URL   e.g. https://subscriptions.example.com
-//   SUBSCRIPTION_MANAGER_API_KEY    a key minted in the dashboard (subm_...)
+//   SUBSCRIPTION_MANAGER_BASE_URL   e.g. https://steadyrenew.com
+//   SUBSCRIPTION_MANAGER_API_KEY    a key minted in Settings -> API & MCP (subm_...)
 // Optional:
 //   SUBSCRIPTION_MANAGER_TOOLS_SCHEMA   path to an ai-tools.json override
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
@@ -21,8 +20,6 @@ import {
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-const here = dirname(fileURLToPath(import.meta.url));
 
 const baseUrl = process.env.SUBSCRIPTION_MANAGER_BASE_URL;
 const apiKey = process.env.SUBSCRIPTION_MANAGER_API_KEY;
@@ -34,36 +31,107 @@ if (!baseUrl || !apiKey) {
   process.exit(1);
 }
 
-const bundledSchemaPath = join(here, '..', 'schema', 'ai-tools.json');
-const schemaPath =
-  process.env.SUBSCRIPTION_MANAGER_TOOLS_SCHEMA ||
-  (existsSync(bundledSchemaPath) ? bundledSchemaPath : join(here, '..', '..', 'docs-site', 'api', 'ai-tools.json'));
+const loadSchemaAndVersion = () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const pkgPath = join(here, '..', 'package.json');
+  let version = globalThis.__STEADYRENEW_MCP_VERSION__ || '0.2.0';
+  if (!globalThis.__STEADYRENEW_MCP_VERSION__ && existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+      if (pkg?.name === 'subscription-manager-mcp' && typeof pkg.version === 'string') {
+        version = pkg.version;
+      }
+    } catch {
+      // Fall back to default version when running outside package layout.
+    }
+  }
 
-const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+  if (process.env.SUBSCRIPTION_MANAGER_TOOLS_SCHEMA) {
+    return {
+      schema: JSON.parse(readFileSync(process.env.SUBSCRIPTION_MANAGER_TOOLS_SCHEMA, 'utf8')),
+      version,
+    };
+  }
+
+  if (globalThis.__STEADYRENEW_AI_TOOLS_SCHEMA__) {
+    return {
+      schema: globalThis.__STEADYRENEW_AI_TOOLS_SCHEMA__,
+      version,
+    };
+  }
+
+  const bundledSchemaPath = join(here, '..', 'schema', 'ai-tools.json');
+  const schemaPath = existsSync(bundledSchemaPath)
+    ? bundledSchemaPath
+    : join(here, '..', '..', 'docs-site', 'api', 'ai-tools.json');
+
+  return {
+    schema: JSON.parse(readFileSync(schemaPath, 'utf8')),
+    version,
+  };
+};
+
+const { schema, version: serverVersion } = loadSchemaAndVersion();
 const defs = schema.$defs ?? {};
 
 let normalizedBase;
 try {
   const url = new URL(baseUrl);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-  if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+  if (
+    (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) ||
+    url.username ||
+    url.password ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash
+  ) {
     throw new Error('Expected an HTTPS site origin (HTTP is allowed for localhost).');
   }
   normalizedBase = url.origin;
 } catch {
-  console.error('Invalid SUBSCRIPTION_MANAGER_BASE_URL. Use the HTTPS site origin without /api/v1; HTTP is allowed for localhost.');
+  console.error(
+    'Invalid SUBSCRIPTION_MANAGER_BASE_URL. Use the HTTPS site origin without /api/v1; HTTP is allowed for localhost.'
+  );
   process.exit(1);
 }
 
-// Resolve a top-level $ref so each tool's inputSchema has an object root, and
-// attach $defs so nested refs (dateOnly, subscriptionPatch) still resolve.
-const buildInputSchema = (tool) => {
-  let params = tool.parameters ?? { type: 'object', properties: {}, additionalProperties: false };
-  if (params.$ref) {
-    const name = params.$ref.replace('#/$defs/', '');
-    params = defs[name] ?? { type: 'object' };
+// Recursively inline #/$defs/* references so every tool inputSchema is a clean,
+// self-contained JSON Schema object without carrying redundant $defs payloads.
+const inlineSchemaRefs = (node, seen = new Set()) => {
+  if (!node || typeof node !== 'object') {
+    return node;
   }
-  return { ...params, $defs: defs };
+  if (Array.isArray(node)) {
+    return node.map((item) => inlineSchemaRefs(item, seen));
+  }
+  if (typeof node.$ref === 'string' && node.$ref.startsWith('#/$defs/')) {
+    const defName = node.$ref.slice('#/$defs/'.length);
+    if (seen.has(defName) || !defs[defName]) {
+      return { type: 'object' };
+    }
+    const nextSeen = new Set(seen);
+    nextSeen.add(defName);
+    const resolved = inlineSchemaRefs(defs[defName], nextSeen);
+    const siblings = { ...node };
+    delete siblings.$ref;
+    return { ...resolved, ...inlineSchemaRefs(siblings, nextSeen) };
+  }
+  const output = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (key === '$defs') continue;
+    output[key] = inlineSchemaRefs(value, seen);
+  }
+  return output;
+};
+
+const buildInputSchema = (tool) => {
+  const params = tool.parameters ?? {
+    type: 'object',
+    properties: {},
+    additionalProperties: false,
+  };
+  return inlineSchemaRefs(params);
 };
 
 const describeTool = (tool) => {
@@ -73,6 +141,12 @@ const describeTool = (tool) => {
   }
   if (tool.requiredScope) {
     lines.push(`Requires the '${tool.requiredScope}' API key scope.`);
+  }
+  if (tool.requiresPremium && !String(tool.purpose).toLowerCase().includes('premium')) {
+    lines.push('Requires SteadyRenew Premium.');
+  }
+  if (Array.isArray(tool.useWhen) && tool.useWhen.length > 0) {
+    lines.push(`Use when: ${tool.useWhen.join(' ')}`);
   }
   if (Array.isArray(tool.doNotUseWhen) && tool.doNotUseWhen.length > 0) {
     lines.push(`Do not use when: ${tool.doNotUseWhen.join(' ')}`);
@@ -90,7 +164,7 @@ const tools = schema.tools.map((tool) => ({
   annotations: {
     readOnlyHint: tool.method === 'GET',
     destructiveHint: tool.method !== 'GET' && tool.method !== 'POST',
-    openWorldHint: true,
+    openWorldHint: false,
   },
 }));
 
@@ -99,14 +173,19 @@ const toolByName = new Map(schema.tools.map((tool) => [tool.name, tool]));
 // Turn a tool call into a concrete HTTP request using the tool's method/path and
 // the conventions encoded in ai-tools.json (path params, fixedBody, patch body).
 const buildRequest = (tool, args = {}) => {
+  const safeArgs = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
   const usedPathParams = new Set();
   const path = tool.path.replace(/\{(\w+)\}/g, (_, key) => {
+    const raw = safeArgs[key];
+    if (raw === undefined || raw === null || String(raw).trim() === '') {
+      throw new Error(`Missing required path parameter: ${key}`);
+    }
     usedPathParams.add(key);
-    return encodeURIComponent(String(args[key]));
+    return encodeURIComponent(String(raw));
   });
 
   const rest = {};
-  for (const [key, value] of Object.entries(args)) {
+  for (const [key, value] of Object.entries(safeArgs)) {
     if (!usedPathParams.has(key)) {
       rest[key] = value;
     }
@@ -157,22 +236,32 @@ const callTool = async (tool, args) => {
 
   const text = await response.text();
   if (!response.headers.get('content-type')?.includes('application/json')) {
-    return { ok: false, status: response.status, text: `Expected a JSON API response, received HTTP ${response.status}. Check the site URL and that Netlify Functions are deployed (locally use npm run dev:full).` };
+    return {
+      ok: false,
+      status: response.status,
+      text: `Expected a JSON API response, received HTTP ${response.status}. Check the site URL and that Netlify Functions are deployed (locally use npm run dev:full).`,
+    };
   }
-  try { JSON.parse(text); } catch {
-    return { ok: false, status: response.status, text: `Invalid JSON API response (HTTP ${response.status}).` };
+  try {
+    JSON.parse(text);
+  } catch {
+    return {
+      ok: false,
+      status: response.status,
+      text: `Invalid JSON API response (HTTP ${response.status}).`,
+    };
   }
   return { ok: response.ok, status: response.status, text };
 };
 
-const server = new Server(
-  { name: 'subscription-manager', title: 'SteadyRenew', version: schema.schemaVersion ?? '0.0.0' },
+const mcpServer = new McpServer(
+  { name: 'subscription-manager', title: 'SteadyRenew', version: serverVersion },
   { capabilities: { tools: {} } }
 );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
+mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const tool = toolByName.get(request.params.name);
   if (!tool) {
     return {
@@ -190,11 +279,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   } catch (error) {
     return {
       isError: true,
-      content: [{ type: 'text', text: `Request failed: ${error instanceof Error ? error.message : String(error)}` }],
+      content: [
+        {
+          type: 'text',
+          text: `Request failed: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
     };
   }
 });
 
 const transport = new StdioServerTransport();
-await server.connect(transport);
+await mcpServer.connect(transport);
 console.error(`SteadyRenew MCP server ready (${tools.length} tools, base ${normalizedBase}).`);

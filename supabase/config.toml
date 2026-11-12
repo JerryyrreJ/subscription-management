@@ -32,7 +32,7 @@ enable_confirmations = false
 
 # Local Passkey / WebAuthn (requires matching loopback origin in the browser).
 # Production projects must enable Passkeys in the Supabase Dashboard and set a
-# stable RP ID / Origins there — see docs/en/supabase.md.
+# stable RP ID / Origins there — see docs-site/en/integrations/supabase.mdx.
 [auth.passkey]
 enabled = true
 

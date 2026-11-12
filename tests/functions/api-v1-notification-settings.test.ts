@@ -136,6 +136,7 @@ test('returns 404 when notification settings have never been configured', async 
   assert.equal(response.statusCode, 404);
   assert.equal(body.error.code, 'notification_settings_not_found');
   assert.match(body.error.suggestedFix ?? '', /Settings → Notifications/);
+  assert.match(body.error.suggestedFix ?? '', /\/docs\/en\/user-guide\/reminders/);
 });
 
 test('updates enabled and daysBefore', async () => {
@@ -285,4 +286,58 @@ test('rejects writes from a read-only API key', async () => {
   assert.equal(response.statusCode, 403);
   assert.equal(body.error.code, 'insufficient_scope');
   assert.equal(settingsTouched, false);
+});
+
+test('does not consume rate-limit quota when notification settings PATCH validation fails', async () => {
+  let consumeCalled = false;
+  const database = createFakeSupabaseClient((state: QueryState) => {
+    if (state.table === 'api_keys' && state.operation === 'update') {
+      return { data: null, error: null };
+    }
+    if (state.table === 'user_profiles') {
+      return { data: { is_premium: false }, error: null };
+    }
+    return { data: null, error: { message: `Unexpected query: ${state.table}` } };
+  }, (name) => {
+    if (name === 'lookup_api_key_for_auth') {
+      return {
+        data: [{
+          limited: false,
+          id: apiKeyId,
+          user_id: userId,
+          key_prefix: apiKey.slice(0, 14),
+          scopes: ['read', 'write'],
+        }],
+        error: null,
+      };
+    }
+    if (name === 'consume_api_user_minute_limit') {
+      consumeCalled = true;
+      return {
+        data: [{ allowed: true, request_count: 1, remaining: 59, reset_at: '2026-06-16T01:00:00.000Z' }],
+        error: null,
+      };
+    }
+    return { data: null, error: null };
+  });
+  const handler = createNotificationSettingsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-no-quota-notif',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'PATCH',
+    '/api/v1/notification-settings',
+    {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    JSON.stringify({ barkUrl: 'https://api.day.app/secret' })
+  ), {} as never));
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(consumeCalled, false);
+  assert.equal(response.headers?.['X-RateLimit-Limit'], undefined);
 });

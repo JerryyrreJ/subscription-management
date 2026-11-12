@@ -16,7 +16,7 @@ VITE_APP_URL=/app
 SITE_URL=https://example.com/app
 ```
 
-将 `example.com` 替换为实际域名。`VITE_SITE_URL` 同时更新首页分享信息、博客 canonical、sitemap 和 robots.txt；留空时使用 `steadyrenew.com`。`SITE_URL` 是现有付款后端使用的应用站点地址。实际迁移进度和切换顺序见 [域名迁移操作记录](../operations/steadyrenew-domain-migration.md)。
+将 `example.com` 替换为实际域名。`VITE_SITE_URL` 同时更新首页分享信息、博客 canonical、sitemap 和 robots.txt；留空时使用 `steadyrenew.com`。`SITE_URL` 是现有付款后端使用的应用站点地址。实际迁移进度和切换顺序见 [域名迁移操作记录](../docs/operations/steadyrenew-domain-migration.md)。
 
 ## 可选：自托管使用应用子域名
 
@@ -46,7 +46,7 @@ npm run dev
 
 应用界面更新后，启动 `npm run dev`，运行 `node scripts/capture-landing.mjs`。脚本在隔离浏览器中添加四笔示例记录，使用实际页面和控件，生成中英文、深浅色四张截图。可用 `CAPTURE_ORIGIN` 指定本地服务器地址。
 
-文档链接基址为 `https://steadyrenew.com/docs`，通过 `VITE_DOCS_URL` 可覆盖；URL 拼接保留 `/docs` 路径。文档由 `netlify/edge-functions/docs-proxy.ts` 在 SPA fallback 之前转发至 `subscriptionmanager.mintlify.site`，保留 `/docs` 前缀、查询参数及 HTTP 方法，并禁用代理缓存。`/.well-known/vercel/*` 也转发用于域名验证；根路径的其他机器可读文件继续由应用提供。
+文档链接基址为 `https://steadyrenew.com/docs`，通过 `VITE_DOCS_URL` 可覆盖；URL 拼接保留 `/docs` 路径。文档由 `netlify/edge-functions/docs-proxy.ts` 在 SPA fallback 之前转发至 `subscriptionmanager.mintlify.site`，保留 `/docs` 前缀、查询参数及 HTTP 方法，对 `/docs/_next/static/*` 等静态资源启用缓存，对 HTML 页面禁用代理缓存（`no-store`）。`/.well-known/vercel/*` 也转发用于域名验证；根路径的其他机器可读文件继续由应用提供。
 
 文案参考 [Google 的语气指南](https://developers.google.com/style/tone)：使用直接、具体的表达，减少口号和不提供信息的修饰。
 

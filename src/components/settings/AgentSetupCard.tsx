@@ -2,10 +2,20 @@ import { useEffect, useState } from 'react';
 import { ArrowUpRight, Check, Clipboard, Download, Loader2, PlugZap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ApiKeyService, ApiKeyServiceError } from '../../services/apiKeyService';
-import { buildAgentSetupPrompt, type AgentConnectionMode } from '../../utils/agentSetup';
+import {
+ buildAgentClientConfigSnippets,
+ buildAgentSetupPrompt,
+ type AgentConnectionMode,
+} from '../../utils/agentSetup';
 import { getDocumentationUrl } from '../../lib/site';
 
-export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
+interface AgentSetupCardProps {
+ apiKey: string | null;
+ scopes?: readonly string[];
+ onVerified?: () => void;
+}
+
+export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardProps) {
  const { t, i18n } = useTranslation('developerApi');
  const [mode, setMode] = useState<AgentConnectionMode>('mcp');
  const [includeKey, setIncludeKey] = useState(false);
@@ -15,8 +25,20 @@ export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
  const [verificationError, setVerificationError] = useState('');
  const [pastedKey, setPastedKey] = useState('');
  const [showPrompt, setShowPrompt] = useState(false);
+ const [showSnippets, setShowSnippets] = useState(false);
  const keyToTest = apiKey?.trim() || pastedKey.trim() || null;
- const prompt = buildAgentSetupPrompt({ origin: window.location.origin, locale: i18n.language, mode, apiKey: includeKey ? apiKey ?? undefined : undefined });
+ const includedApiKey = includeKey ? apiKey ?? undefined : undefined;
+ const prompt = buildAgentSetupPrompt({
+  origin: window.location.origin,
+  locale: i18n.language,
+  mode,
+  apiKey: includedApiKey,
+  scopes,
+ });
+ const snippets = buildAgentClientConfigSnippets({
+  origin: window.location.origin,
+  apiKey: includedApiKey,
+ });
  const guideUrl = getDocumentationUrl('user-guide/agent-setup', i18n.language);
 
  useEffect(() => {
@@ -28,6 +50,15 @@ export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
   const timer = window.setTimeout(() => setCopied(false), 2000);
   return () => window.clearTimeout(timer);
  }, [copied]);
+
+ const handleStepKeyClick = () => {
+  const input = document.getElementById('settings-api-key-name') as HTMLInputElement | null;
+  const section = document.getElementById('settings-api-key-create-card') ?? input;
+  section?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (input && !input.disabled) {
+   input.focus();
+  }
+ };
 
  const copyPrompt = async () => {
   try {
@@ -45,6 +76,7 @@ export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
   try {
    await ApiKeyService.verifyConnection(keyToTest);
    setVerification('success');
+   onVerified?.();
   } catch (error) {
    setVerification('error');
    setVerificationError(error instanceof ApiKeyServiceError && error.code === 'developer_api_unavailable'
@@ -63,7 +95,7 @@ export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
     </div>
    </div>
    <ol className="agent-setup-steps">
-    <li><span>{apiKey ? <Check size={12} aria-hidden="true" /> : '1'}</span><button type="button" className="hover:underline" onClick={() => document.getElementById('settings-api-key-name')?.focus()}>{t(apiKey ? 'agentKeyReady' : 'agentStepKey')}</button></li>
+    <li><span>{apiKey ? <Check size={12} aria-hidden="true" /> : '1'}</span><button type="button" className="hover:underline" onClick={handleStepKeyClick}>{t(apiKey ? 'agentKeyReady' : 'agentStepKey')}</button></li>
     <li><span>2</span>{t('agentStepCopy')}</li>
     <li><span>3</span>{t('agentStepConnect')}</li>
    </ol>
@@ -88,12 +120,30 @@ export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
      {copied ? t('copied') : t('agentCopy')}
     </button>
     <button type="button" className="text-sm app-theme-text-muted hover:underline" onClick={() => setShowPrompt(!showPrompt)} aria-expanded={showPrompt} aria-controls="agent-prompt-preview">{t(showPrompt ? 'agentHidePrompt' : 'agentPreview')}</button>
+    <button type="button" className="text-sm app-theme-text-muted hover:underline" onClick={() => setShowSnippets(!showSnippets)} aria-expanded={showSnippets} aria-controls="agent-client-snippets">{t(showSnippets ? 'agentHideSnippets' : 'agentSnippetsToggle')}</button>
    </div>
    <div aria-live="polite" className="text-xs app-theme-text-muted">
     {copied && t('agentCopiedHint')}
     {copyError && t('agentCopyFailed')}
    </div>
    {showPrompt && <textarea id="agent-prompt-preview" aria-label={t('agentPreview')} className="settings-input w-full text-xs leading-relaxed font-mono" rows={10} readOnly value={prompt} onFocus={event => event.currentTarget.select()} />}
+   {showSnippets && (
+    <div id="agent-client-snippets" className="space-y-2.5 rounded-xl border border-gray-200 dark:border-gray-800 p-3 text-xs">
+     <p className="app-theme-text-muted leading-relaxed">{t('agentSnippetsHint')}</p>
+     <div>
+      <p className="font-medium app-theme-text-primary mb-1">{t('agentSnippetRemoteLabel')}</p>
+      <pre className="overflow-x-auto rounded-lg bg-gray-100 dark:bg-gray-950 p-2 font-mono text-[11px] app-theme-text-primary">{snippets.claudeCodeRemoteCmd}</pre>
+     </div>
+     <div>
+      <p className="font-medium app-theme-text-primary mb-1">{t('agentSnippetDesktopLabel')}</p>
+      <pre className="overflow-x-auto rounded-lg bg-gray-100 dark:bg-gray-950 p-2 font-mono text-[11px] app-theme-text-primary">{snippets.claudeDesktopJson}</pre>
+     </div>
+     <div>
+      <p className="font-medium app-theme-text-primary mb-1">{t('agentSnippetCodexLabel')}</p>
+      <pre className="overflow-x-auto rounded-lg bg-gray-100 dark:bg-gray-950 p-2 font-mono text-[11px] app-theme-text-primary">{snippets.codexToml}</pre>
+     </div>
+    </div>
+   )}
    {!apiKey && (
     <label className="block text-xs app-theme-text-muted leading-relaxed" htmlFor="agent-verify-key">
      {t('agentVerifyKey')}
@@ -115,6 +165,7 @@ export function AgentSetupCard({ apiKey }: { apiKey: string | null }) {
    )}
    <div className="agent-setup-footer">
     <a href={guideUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1">{t('agentGuide')}<ArrowUpRight size={14} aria-hidden="true" /></a>
+    <a href="/downloads/steadyrenew-mcp.mjs" download className="inline-flex items-center gap-1"><Download size={14} aria-hidden="true" />{t('agentDownloadScript')}</a>
     <a href="/downloads/subscription-manager-mcp.tgz" download className="inline-flex items-center gap-1"><Download size={14} aria-hidden="true" />{t('agentDownload')}</a>
     <button type="button" data-testid="test-api-connection" onClick={() => void verify()} disabled={!keyToTest || verification === 'pending'} className="inline-flex items-center gap-1 disabled:opacity-50">
      {verification === 'pending' && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}

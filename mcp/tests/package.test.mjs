@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-test('downloaded package installs independently and proxies CRUD through real MCP stdio', { timeout: 90_000 }, async (t) => {
+test('downloaded package and single-file bundle run independently and proxy CRUD through real MCP stdio', { timeout: 90_000 }, async (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'installed-subscription-mcp-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const archive = fileURLToPath(new URL('../../dist/downloads/subscription-manager-mcp.tgz', import.meta.url));
@@ -42,6 +42,7 @@ test('downloaded package installs independently and proxies CRUD through real MC
   });
   await new Promise(resolve => api.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => api.close(resolve)));
+
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [join(installed, 'src/server.mjs')],
@@ -57,10 +58,24 @@ test('downloaded package installs independently and proxies CRUD through real MC
   await client.connect(transport);
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map(tool => tool.name), schema.tools.map(tool => tool.name));
+  for (const tool of tools) {
+    const raw = JSON.stringify(tool.inputSchema);
+    assert.equal(raw.includes('"$defs"'), false, `${tool.name} should not emit $defs`);
+    assert.equal(raw.includes('"$ref"'), false, `${tool.name} should inline $ref`);
+    assert.equal(tool.annotations.openWorldHint, false);
+    assert.match(tool.description, /Use when:/);
+  }
   assert.equal(tools.find(tool => tool.name === 'list_subscriptions').annotations.readOnlyHint, true);
   for (const name of ['update_subscription', 'update_notification_settings', 'delete_subscription']) {
     assert.equal(tools.find(tool => tool.name === name).annotations.destructiveHint, true, `${name} can overwrite or remove existing data`);
   }
+
+  // Missing path parameter is rejected locally without sending /undefined to the API.
+  const beforeMissing = requests.length;
+  const missingId = await client.callTool({ name: 'get_subscription', arguments: {} });
+  assert.equal(missingId.isError, true);
+  assert.equal(requests.length, beforeMissing);
+
   const id = '11111111-1111-4111-8111-111111111111';
   const subscription = { name: 'Example', amount: 12, currency: 'USD', period: 'monthly', category: 'Tools', nextPaymentDate: '2026-11-07' };
   const cases = [
@@ -83,4 +98,31 @@ test('downloaded package installs independently and proxies CRUD through real MC
     assert.equal(requests.length, count + 1, 'errors are not retried; redirects are not followed');
     assert.ok(!JSON.stringify(result).includes('private-test-key'));
   }
+
+  // Verify the zero-dependency single-file bundle runs in an empty directory without node_modules.
+  failure = '';
+  const standaloneDir = mkdtempSync(join(tmpdir(), 'standalone-steadyrenew-mcp-'));
+  t.after(() => rmSync(standaloneDir, { recursive: true, force: true }));
+  const standaloneScript = join(standaloneDir, 'steadyrenew-mcp.mjs');
+  copyFileSync(
+    fileURLToPath(new URL('../../dist/downloads/steadyrenew-mcp.mjs', import.meta.url)),
+    standaloneScript
+  );
+  const standaloneTransport = new StdioClientTransport({
+    command: process.execPath,
+    args: [standaloneScript],
+    cwd: standaloneDir,
+    env: {
+      SUBSCRIPTION_MANAGER_BASE_URL: `http://127.0.0.1:${api.address().port}`,
+      SUBSCRIPTION_MANAGER_API_KEY: 'subm_test.private-test-key',
+    },
+    stderr: 'pipe',
+  });
+  const standaloneClient = new Client({ name: 'standalone-test', version: '1.0.0' });
+  t.after(() => standaloneClient.close());
+  await standaloneClient.connect(standaloneTransport);
+  const standaloneTools = await standaloneClient.listTools();
+  assert.equal(standaloneTools.tools.length, schema.tools.length);
+  const standaloneCall = await standaloneClient.callTool({ name: 'list_subscriptions', arguments: { limit: 1 } });
+  assert.equal(standaloneCall.isError, false);
 });

@@ -96,8 +96,10 @@ Example answer.
 });
 
 test('Chinese headings keep usable ids instead of stripping to empty', () => {
-  const html = markdownToHtml('## 微信：自动续费 / 扣费服务\n');
+  const html = markdownToHtml('## 微信：自动续费 / 扣费服务\n\n#### 子步骤\n\n#hashtag line\n');
   assert.match(html, /<h2 id="微信自动续费-扣费服务">/);
+  assert.match(html, /<h4 id="子步骤">子步骤<\/h4>/);
+  assert.match(html, /<p>#hashtag line<\/p>/);
   assert.doesNotMatch(html, /id=""/);
 });
 

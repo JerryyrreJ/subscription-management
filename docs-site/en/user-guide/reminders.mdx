@@ -75,9 +75,11 @@ Screenshots use redacted placeholders such as `your_device_key`. They are not re
 
 Notification settings are linked to the current account. You must be signed in before saving or testing so that the server can match subscriptions to the correct notification device.
 
-## Per-subscription toggles
+## Per-subscription toggles & free trials
 
-After enabling Bark globally, you can still turn reminders on or off for each subscription when adding or editing it. Disabling one subscription does not affect the others.
+- After enabling Bark globally, you can turn reminders on or off for each subscription (`notificationEnabled`) when adding or editing it. Disabling one subscription does not affect the others.
+- **Paused** and **cancelled** subscriptions are skipped automatically even if their per-subscription notification toggle is still on.
+- **Free trials**: When a subscription is marked as a free trial, SteadyRenew reminds you ahead of its one-shot **trial end / first-charge date** with trial-ending copy so you can cancel or keep it in time. Once that date passes, it does not auto-advance like a recurring renewal date.
 
 ## Test and troubleshoot
 

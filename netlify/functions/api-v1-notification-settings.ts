@@ -11,6 +11,7 @@ import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { createSupabaseAdminClient } from './_shared/supabase';
+import { runtimeEnvironment } from './_shared/webHandler';
 import { hasValidBarkConfig } from '../../src/utils/barkSettings';
 import { normalizeLocale } from '../../src/utils/locale';
 
@@ -69,14 +70,14 @@ const CORS_HEADERS = {
 };
 
 const BARK_SETUP_HINT =
-  'Configure Bark in the web app under Settings → Notifications. Guide: /en/user-guide/reminders (中文: /zh-CN/user-guide/reminders). Bark URL and test push are not available through the public API.';
+  'Configure Bark in the web app under Settings → Notifications. Guide: /docs/en/user-guide/reminders (中文: /docs/zh-CN/user-guide/reminders). Bark URL and test push are not available through the public API.';
 
 const createDefaultDependencies = (): NotificationSettingsApiDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(process.env);
+  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
 
   return {
     database: createSupabaseAdminClient(supabaseConfig),
-    limits: getApiLimitsConfig(process.env),
+    limits: getApiLimitsConfig(runtimeEnvironment),
     createRequestId: () => crypto.randomUUID(),
     now: () => new Date(),
   };
@@ -266,14 +267,8 @@ export const createNotificationSettingsApiHandler = (
 
     if (event.httpMethod === 'GET') {
       assertScope(identity.scopes, 'read');
-    } else {
-      assertScope(identity.scopes, 'write');
-    }
-
-    const context = await consumeApiRateLimit(dependencies.database, identity, now);
-    apiContext = context;
-
-    if (event.httpMethod === 'GET') {
+      const context = await consumeApiRateLimit(dependencies.database, identity, now);
+      apiContext = context;
       const row = await getSettingsRow(dependencies.database, identity.userId);
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
         data: toApiNotificationSettings(row),
@@ -281,7 +276,12 @@ export const createNotificationSettingsApiHandler = (
       })));
     }
 
+    assertScope(identity.scopes, 'write');
+    // Validate the request body before charging the per-minute quota so 400
+    // validation errors never consume rate-limit budget or attach rate headers.
     const patch = parsePatchInput(parseJsonObject(event.body));
+    const context = await consumeApiRateLimit(dependencies.database, identity, now);
+    apiContext = context;
     const existing = await getSettingsRow(dependencies.database, identity.userId);
 
     const updatePayload: Record<string, unknown> = {};

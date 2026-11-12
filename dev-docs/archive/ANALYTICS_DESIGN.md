@@ -1,5 +1,7 @@
 # Advanced Analytics Design System
 
+> **Archived / 历史归档**：此文档仅作早期研发与方案演进记录，部分设计与命令已被新版本取代；当前最新文档请以 [`docs-site/`](../../docs-site/README.md) 为准。
+
 ## Design Philosophy: Financial Data Brutalism
 
 The Advanced Subscription Analytics interface has been redesigned with a **bold, distinctive aesthetic** that combines brutalist design principles with financial data visualization. This design completely breaks away from generic "AI slop" patterns and creates a memorable, data-forward experience.

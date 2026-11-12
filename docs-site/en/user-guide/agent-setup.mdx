@@ -1,80 +1,72 @@
 ---
 title: "Connect your agent"
-description: "Copy setup instructions to your agent and connect MCP or the API to manage subscriptions naturally."
+description: "Connect ChatGPT, Claude, Cursor, Claude Code, Codex, or OpenCode to SteadyRenew via remote Streamable HTTP MCP, local stdio MCP, or REST."
 ---
+
+# Connect your agent
 
 ## Connect in three steps
 
 <Steps>
-  <Step title="Create a key">
-    Sign in and open **Settings → API & MCP**. Create a separate key for your agent.
-    Choose **Read & write** to list, create, update, and delete subscriptions, or **Read only** for viewing and analysis.
-    The full key is shown only once. Save it privately.
+  <Step title="Create a Developer API key">
+    Sign in and open **Settings → API & MCP**. Create a dedicated key for your assistant:
+    choose **Read & write** to list, create, update, and delete subscriptions, or **Read only** for safe querying and spend analysis.
+    The full `subm_…` secret is shown only once and never expires automatically until revoked.
   </Step>
-  <Step title="Copy to Agent">
-    Choose **MCP · recommended** or **API only**, then click **Copy to Agent** at the top of the page.
-    Paste the instructions into an agent that can configure local tools or make HTTP requests.
-    By default the instructions contain no key; the agent guides you to supply it privately.
-    After creating a key, you can explicitly choose to include it in this copy. Paste that text only into an agent you trust.
-    Use **Preview instructions** to inspect the exact text.
+  <Step title="Copy to Agent (or copy a manual client snippet)">
+    Choose **MCP · recommended** or **API only**, then click **Copy to Agent**.
+    By default the generated prompt contains no secret; right after creating a key, you can optionally check **Include newly created key in this copy** for a trusted agent.
+    Prefer manual configuration? Expand **Manual client config** on the same card for ready-to-paste snippets for Claude Code, Claude Desktop, Cursor, and Codex.
   </Step>
   <Step title="Verify the connection">
-    The agent reads one subscription to verify access, without creating test records. An empty list also means success.
-    **Test API connection** stays on **Settings → API & MCP**. Right after you create a key, it tests that key. After you leave the page, paste a saved key into the field next to the button. This checks the key and API only; the agent must still test its own connection.
-    If the client needs a restart, ask the agent to query again afterward.
+    Ask the agent to list your subscriptions (it will verify access with a read-only query without creating test data; an empty list also counts as success).
+    You can also click **Test API connection** directly inside **Settings → API & MCP** to verify any new or saved key—testing updates the key’s **Last used** timestamp immediately.
   </Step>
 </Steps>
 
-After connecting, try:
+After connecting, try natural prompts like:
 
-- “List all my subscriptions.”
-- “Add a subscription costing $20 per month.” (The agent asks for the name, renewal date, and other required details.)
-- “Change Netflix to $25.”
-- “Delete a duplicate subscription record.”
+- *"Which subscriptions or free trials renew in the next 14 days?"*
+- *"Summarize my monthly spend by currency and category."*
+- *"Add ChatGPT Plus at \$20/month renewing on 2026-07-17."* (With a `write` key, the agent summarizes and asks for confirmation first.)
+- *"Delete the duplicate Netflix tracking entry."* (With a `write` key, the agent confirms exact name and `id` first.)
 
-The agent should confirm specific changes before writes, and the name and id before deletion. Deleting a tracking record does not cancel a service with its provider.
+## Choose how to connect
 
-## Choose MCP or API
-
-| Method | When to use it | What the agent does |
+| Method | Best for | How it works |
 | --- | --- | --- |
-| MCP (recommended) | Your client supports local stdio MCP servers | Checks Node.js 20+, downloads and installs the package in an empty directory, merges client configuration, and verifies a tool call |
-| API | Your agent can make authenticated HTTP requests | Reads the API contract, configures a private key, and verifies a query; no MCP installation required |
+| **Remote Streamable HTTP MCP** (`/api/mcp`) | Claude Code, Cursor remote MCP, ChatGPT / web Claude connectors | Connect directly to `https://steadyrenew.com/api/mcp` (`POST` with `Authorization: Bearer subm_…`) — **zero local installation or Node.js required** |
+| **Local stdio MCP** (`/downloads/steadyrenew-mcp.mjs`) | Claude Desktop, Cursor local stdio, Codex (`config.toml`), OpenCode | Download one self-contained `.mjs` file (Node.js 20+) and run it via `node` with `SUBSCRIPTION_MANAGER_API_KEY` |
+| **Direct `/api/v1` REST API** | Cron scripts, custom backends, HTTP-capable agents without MCP | Call `/api/v1/*` directly using `/agent/openapi.yaml` and `/agent/ai-tools.json` |
 
-**Download MCP** provides a standalone npm `.tgz` package containing the server and tool definitions. It ships with your website; no repository clone or public npm release is needed. Install it in an empty directory with npm 10 or newer. npm 9.2 fails inside an existing project or workspace with `Tracker "idealTree" already exists`; unpack the archive and run `bun install --ignore-scripts` inside `package/` instead. The server still needs `SUBSCRIPTION_MANAGER_BASE_URL` and `SUBSCRIPTION_MANAGER_API_KEY`. Clients that only accept remote MCP URLs cannot use the package download URL as a server endpoint. There is currently no hosted remote MCP endpoint.
+> [!TIP]
+> **Download MCP** on **Settings → API & MCP** also provides a backwards-compatible standalone npm tarball (`/downloads/subscription-manager-mcp.tgz`). For most local stdio setups, downloading `/downloads/steadyrenew-mcp.mjs` directly (`curl -fsSL https://steadyrenew.com/downloads/steadyrenew-mcp.mjs -o ~/.steadyrenew/mcp/steadyrenew-mcp.mjs`) is faster and avoids npm workspace install quirks.
 
-If the agent cannot run local tools or make HTTP requests, a prompt alone cannot complete the connection.
+## Plan limits & scope behavior
 
-## Existing keys, self-hosting, and local data
-
-- Reuse an existing private key with the instructions; there is no need to create a key for every connection.
-- The app cannot recover a full key from an old prefix. If lost, create a replacement and revoke the old key.
-- The settings page uses the current website origin, including for self-hosted instances. Do not use the documentation host as the API host.
-- Only the current account’s cloud subscriptions are available. Sync browser-only records to that account first.
-- Defaults are 5 active keys and 60 requests per minute per account, shared across keys. The settings page shows your deployment’s actual limits.
+- **Rate & key limits**: Both Free and Premium accounts allow up to **5 active keys** and **60 requests / minute** per account (shared across keys). Keys never expire automatically.
+- **Read-only keys**: Selecting **Read only** generates a `["read"]` key and tailors **Copy to Agent** so the assistant knows upfront not to attempt writes.
+- **Premium analytics**: `get_spend_summary` works on all plans; `find_duplicate_subscriptions` and `get_optimization_suggestions` require **Lifetime Premium** (`403 premium_required` on Free).
+- **Web-only settings**: Deleting a record never cancels a subscription with the external merchant. Bark push URLs, test pushes, `timeZone`, `locale`, and category catalog edits stay in the web app (see [Reminders](/en/user-guide/reminders)).
 
 ## Troubleshooting
 
 | Symptom | What to do |
 | --- | --- |
-| 401 / invalid key | Check the full key, revocation status, and site origin |
-| 403 `insufficient_scope` | A read-only key cannot write; use a read/write key for changes |
-| 403 on some analytics | Inspect the Premium entitlement error; core CRUD remains available on Free |
-| 429 | Wait for the response’s `Retry-After` interval |
-| HTML instead of JSON | Check API deployment; local development for this app requires `npm run dev:full` |
-| Configuration exists but MCP tools are unavailable | Check absolute Node and server paths, reload the client, then verify an actual tool call |
-| `Tracker "idealTree" already exists` during MCP install | Install in an empty directory with npm 10+, or unpack the `.tgz` and use bun |
-| Clipboard access fails | Expand the preview and select and copy the text manually |
-
-Bark credentials, test pushes, timezone, language, and category catalog management remain in the web app. See [reminders](/en/user-guide/reminders) and [AI tool usage](/en/api/ai-tools).
+| `401` (`authentication_required` / `invalid_api_key`) | Verify the full `subm_…` key, ensure it has not been revoked, and confirm the base URL matches your SteadyRenew origin (not `/docs`) |
+| `403 insufficient_scope` | The key is read-only (`read`); create a **Read & write** key to add, edit, or delete records |
+| `403 premium_required` | `find_duplicate_subscriptions` and `get_optimization_suggestions` require Lifetime Premium; `list_subscriptions` and `get_spend_summary` work on Free |
+| `429 rate_limit_exceeded` | Wait for the number of seconds in the `Retry-After` response header |
+| HTML returned instead of JSON | Check your base URL; when testing locally, run `npm run dev:full` (Netlify Dev) rather than `npm run dev` |
+| Local stdio MCP tools do not appear | Verify Node.js 20+ (`node -v`), use an absolute path to `steadyrenew-mcp.mjs` (not `~`), and restart/reload your MCP client |
 
 ## Machine-readable entry points
 
-These paths are hosted on the **application website**:
+Hosted on the **application origin** (`https://steadyrenew.com` in production):
 
-- `/agent/setup.md`: installation, configuration, verification, and recovery.
-- `/agent/ai-tools.json`: tool and parameter definitions.
-- `/agent/openapi.yaml`: the public API contract.
-- `/downloads/subscription-manager-mcp.tgz`: standalone MCP package.
-
-These public files contain no account keys. The settings page supplies the actual site origin in the generated prompt.
+- `/api/mcp` — Stateless Streamable HTTP MCP endpoint (`POST` with Bearer `subm_…`).
+- `/downloads/steadyrenew-mcp.mjs` — Zero-dependency single-file local stdio MCP server.
+- `/downloads/subscription-manager-mcp.tgz` — Standalone npm tarball MCP package.
+- `/agent/setup.md` — Step-by-step agent onboarding & client configuration reference.
+- `/agent/ai-tools.json` — Canonical 11-tool JSON schema with risk & confirmation metadata.
+- `/agent/openapi.yaml` — OpenAPI 3.1 specification for `/api/v1/*`.

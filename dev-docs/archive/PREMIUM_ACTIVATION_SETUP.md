@@ -1,5 +1,7 @@
 # Premium Status Activation Setup Guide
 
+> **Archived / 历史归档**：此文档仅作早期研发与方案演进记录，部分设计与命令已被新版本取代；当前最新文档请以 [`docs-site/`](../../docs-site/README.md) 为准。
+
 This guide explains how to set up automatic Premium status activation when users complete payment via Stripe.
 
 ## Overview

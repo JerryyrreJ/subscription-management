@@ -1,5 +1,6 @@
-// Confirm the public operator and contact before publication.
-export const legalContact = { operator: '', email: '' };
+// Public operator and support/privacy contact published on /privacy and /terms.
+// Self-hosted forks that leave email empty display a draft notice and emit noindex.
+export const legalContact = { operator: 'SteadyRenew', email: 'jerryno153@gmail.com' };
 
 export type LegalKind = 'privacy' | 'terms';
 export type LegalLocale = 'en' | 'zh-CN';

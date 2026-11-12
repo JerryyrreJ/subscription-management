@@ -2,11 +2,11 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-在线使用：[steadyrenew.com](https://steadyrenew.com)
+在线使用：[steadyrenew.com](https://steadyrenew.com) · 打开应用：[steadyrenew.com/app](https://steadyrenew.com/app) · 文档站：[steadyrenew.com/docs](https://steadyrenew.com/docs)
 
-SteadyRenew 是一个本地优先的 Web 应用，用于跟踪周期性订阅。它支持多币种、续费提醒、数据分析、导入导出，以及可选的云同步。
+SteadyRenew 是一个本地优先的周期订阅与免费试用管理工具，无需绑定银行账户。支持多币种折算、Bark 推送提醒、AI 自然语言/截图录入、客户端 A4 PDF 报表导出、可选云同步，以及开放 API 与 MCP 助手接入。
 
-应用不需要账号也能使用，数据默认保存在浏览器中。如果需要托管同步、支付或服务端提醒，可以配置 Supabase、Stripe、Netlify Functions 和 Bark 通知。
+应用无需注册账号即可使用，数据默认保存在浏览器本地。如需多设备云同步、Passkey 通行密钥登录、终身高级版支付、服务端定时推送或 API/MCP 自动化，可按需配置 Supabase、Stripe、Netlify Functions 与 Bark。
 
 https://github.com/user-attachments/assets/a7bb1549-0076-4aa8-a8d8-4a6d5ba0e17c
 
@@ -23,33 +23,31 @@ https://github.com/user-attachments/assets/08f934dc-0460-4085-a0ba-f2d5193de3d1
 
 <p align="center"><em>可打印的 A4 PDF 报表：当前快照与年度支出（示例数据，展示首页）。</em></p>
 
-## 功能
+## 功能特性
 
-- 记录订阅名称、分类、金额、币种、计费周期和续费日期
+- 记录周期订阅与一次性到期的免费试用（分类、金额、币种、计费周期与续费/试用到期日）
 - 按所选基准货币查看月度和年度总支出
 - 支持 CNY、USD、EUR、JPY、GBP、AUD、CAD、CHF、HKD 和 SGD 之间的换算
-- 按名称、金额、续费日期、分类或创建时间排序和筛选订阅
+- 按名称、金额、续费日期、分类、状态或创建时间排序和筛选订阅
 - 管理内置分类和自定义分类
 - 使用 AI 录入从文本或截图中提议新增、修改、删除和批量更新
-- 以 JSON 文件导入和导出订阅数据
+- 以 JSON 文件导入和导出订阅备份
 - 查看支出报告、分类占比、最高支出订阅和续费分布
-- 导出可直接打印的 A4 PDF 报表（当前快照与年度报告）
-- 可选启用 Supabase 登录和多设备同步
-- 可选通过 Bark 推送发送续费提醒
-- 可选创建开发者 API Key，用于自动化增删查改订阅
+- 在浏览器本地直接导出可打印的 A4 PDF 报表（当前快照与年度报告）
+- 可选启用 Supabase 登录（邮箱密码、OAuth、Passkey 通行密钥）和多设备云同步
+- 可选通过 Bark 推送发送续费与免费试用到期提醒
+- 支持通过远程托管 Streamable HTTP MCP（`/api/mcp`）、单文件本地 stdio MCP（`/downloads/steadyrenew-mcp.mjs`）或 `/api/v1/*` REST API 连接各类 AI 助手
 - 支持桌面端和移动端的浅色/深色模式
 
 ## 技术栈
 
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS
-- i18next
-- Recharts
-- Supabase
-- Netlify Functions
-- Stripe
+- React 18 & TypeScript
+- Vite & Tailwind CSS
+- i18next & Recharts
+- Supabase（Auth、Postgres + RLS、WebAuthn Passkeys）
+- Netlify Edge Functions & Serverless / Scheduled Functions
+- Model Context Protocol（`@modelcontextprotocol/sdk`）
+- Stripe Checkout & Webhooks
 
 ## 快速开始
 
@@ -67,99 +65,96 @@ npm install
 npm run dev
 ```
 
-Vite 开发服务器运行在 `http://localhost:5173`。
+Vite 开发服务器默认运行在 `http://localhost:5173`（访问 `/app` 进入订阅工作台）。
 
-如果需要本地测试 Netlify Functions，使用：
+如需在本地联调 Netlify Functions（`/api/v1/*`、`/api/mcp`、AI 录入、Stripe 或定时提醒），请运行：
 
 ```bash
 npm run dev:full
 ```
 
-这个命令需要安装 Netlify CLI。
+该命令需要安装 Netlify CLI。
 
-## 脚本
+## 常用脚本
 
 ```bash
-npm run dev                 # 启动 Vite 开发服务器
-npm run dev:full            # 启动 Netlify 本地开发环境
-npm run build               # 生产构建
-npm run preview             # 预览生产构建
-npm run indexnow            # 把 sitemap URL 提交给 IndexNow
-npm run lint                # 运行 ESLint
-npm run typecheck           # 运行前端和 Functions TypeScript 检查
-npm run test                # 运行工具函数测试
-npm run test:functions      # 运行 Netlify Functions 测试
-npm run db:verify           # 重置并 lint 本地 Supabase 数据库
-npm run check               # 运行 typecheck、lint、测试和构建
+npm run dev                 # 启动 Vite 前端开发服务器
+npm run dev:full            # 启动 Netlify 本地完整开发环境（前端 + Functions）
+npm run build               # 构建前端、Agent/MCP 交付物及预渲染页面
+npm run preview             # 预览生产构建产物
+npm run indexnow            # 将 sitemap URL 提交给 IndexNow
+npm run lint                # 运行 ESLint 检查
+npm run typecheck           # 运行前端、Functions 和构建脚本 TypeScript 检查
+npm run test                # 运行工具函数与 SEO/博客测试
+npm run test:functions      # 运行 Netlify Functions 与 Edge Functions 测试
+npm run db:verify           # 重置、lint 并测试本地 Supabase 数据库迁移
+npm run check               # 依次执行 typecheck、lint、测试和构建
 npm run test:notifications  # 测试定时通知逻辑
 ```
 
-## 配置
+## 配置概览
 
-核心应用不需要环境变量。可选服务使用以下配置：
+核心应用不需要环境变量。可选云服务使用以下环境变量（详见 `.env.example`）：
 
 | 服务 | 变量 | 用途 |
 | --- | --- | --- |
-| Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SECRET_KEY` 或 `SUPABASE_SERVICE_ROLE_KEY` | 登录、云同步、定时通知访问、API Key 和 AI 录入配额 |
-| Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` | 支付界面、Checkout 和 webhook 处理 |
-| 开放 API | `API_RATE_LIMIT_PER_MINUTE`, `API_MAX_ACTIVE_KEYS`, `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR`, `API_RATE_LIMIT_RETENTION_HOURS` | 可选覆盖 API 配额 |
+| 站点与入口地址 | `VITE_SITE_URL`, `VITE_APP_URL`, `VITE_DOCS_URL`, `SITE_URL` | 主站 canonical 域名、`/app` 入口、`/docs` 地址及服务端回调 URL |
+| Supabase | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`（兼容 `SUPABASE_SERVICE_ROLE_KEY`） | 登录、Passkey、云同步、定时提醒、API Key 与 AI 配额 |
+| Stripe | `VITE_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `STRIPE_MODE`, `PRODUCTION_SUPABASE_URL` | \$9 买断终身高级版结账、测试/生产隔离校验与 Webhook 对账 |
+| 开放 API 与 MCP | `API_RATE_LIMIT_PER_MINUTE`, `API_MAX_ACTIVE_KEYS`, `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR`, `API_RATE_LIMIT_RETENTION_HOURS` | 可选覆盖 API/MCP 限额（默认每分钟 `60` 次、`5` 个有效 Key） |
 | AI 录入 | `OPENROUTER_API_KEY`、`ANTHROPIC_API_KEY`、`AI_PROVIDER`、`AI_MODEL`、`AI_FALLBACK_MODELS`、`OPENROUTER_SITE_URL`、`OPENROUTER_APP_TITLE`、`AI_FREE_MONTHLY_PARSES`、`AI_PREMIUM_MONTHLY_PARSES`、`AI_MAX_INPUT_CHARS`、`AI_MAX_IMAGE_BYTES`、`AI_MONTHLY_BUDGET_USD`、`AI_INPUT_USD_PER_MTOK`、`AI_OUTPUT_USD_PER_MTOK` | 可选的 AI 辅助录入；不设供应商 Key 即禁用 |
-| Bark | 在应用内配置 | 订阅续费推送提醒 |
-| Netlify | `URL` 由 Netlify 提供 | 函数回调和定时提醒 |
+| Bark | 在应用内 **设置 → 通知** 配置 | 订阅续费与免费试用推送提醒 |
+| Netlify | `URL`（Netlify 自动注入）、`MINTLIFY_UPSTREAM_ORIGIN` | 函数回调地址回退与 `/docs` 代理上游覆盖 |
 
 ## AI 录入与隐私
 
-AI 录入可以从一句话、一段粘贴的银行/信用卡账单，或一张截图开始。它可以提议新增、修改、删除和批量更新订阅，再由你确认或修改后才执行——AI 只负责「提议」，绝不直接写入你的数据。
+AI 录入可以从一句话、一段账单文本或一张截图开始，提议新增、修改、删除和批量更新订阅，再由你核对确认后执行——AI 只负责「提议」，绝不直接写入你的数据。
 
-- **可选、可替换。** 设置 `OPENROUTER_API_KEY` 即启用低成本 OpenRouter 路径。默认模型是 `google/gemini-2.5-flash-lite`，并用 `google/gemini-2.5-flash` 作为 fallback（`AI_FALLBACK_MODELS`）。Anthropic 仍可通过 `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` 使用；不设置供应商 Key 则「添加」回退到手动表单。模型与所有护栏都由环境变量配置（`AI_MODEL`、配额、输入上限、月度预算——见 `.env.example`），且模型调用封装在一个小的 `SubscriptionParser` 接口后面。
-- **量与成本控制。** 每个用户有每日解析配额（免费 vs 会员），每次请求限制输入大小，并有一个工作区级的月度预算熔断——达到配置的支出上限即暂停该功能。Key 只在服务端。
-- **隐私。** 你粘贴或上传的内容只为这一次识别发送给模型供应商一次，**不存储、不记录**——服务端只保留聚合的 token 计数（供预算熔断用）和每用户每日次数，绝不保存内容。截图在浏览器端先降采样再上传。
+- **可选、可替换。** 设置 `OPENROUTER_API_KEY` 即启用低成本 OpenRouter 路径（默认 `google/gemini-2.5-flash-lite`，备选 `google/gemini-2.5-flash`）；也可通过 `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` 使用 Anthropic。不设置供应商 Key 时自动回退到手动表单。
+- **用量与成本控制。** 已登录用户按**月度**计算解析配额（Free 每月 **10** 次、终身高级版每月 **300** 次，仅成功解析计次），单次请求限制输入大小，并设有工作区级月度预算熔断机制；供应商密钥仅保存在服务端。
+- **隐私保护。** 你粘贴或上传的内容只为本次识别发送给模型供应商一次，**不存储、不记录**——服务端只保留工作区聚合 token 计数和每用户**每月**成功次数，绝不保存原始内容。截图在浏览器端先降采样再上传。
 
-## 文档
+## 文档导航
 
-- [文档入口](docs/README.md)
-- [快速开始](docs/zh-CN/getting-started.md)
-- [配置](docs/zh-CN/configuration.md)
-- [部署](docs/zh-CN/deployment.md)
-- [公开指南（`/blog`）](docs/zh-CN/blog.md)
-- [使用 Supabase 云同步](docs/zh-CN/supabase.md)
-- [使用 Bark 续费提醒](docs/zh-CN/notifications.md)
-- [使用 Stripe 支付](docs/zh-CN/payments.md)
+中英双语公开文档统一维护在 [`docs-site/`](docs-site/README.md)（线上地址 [steadyrenew.com/docs](https://steadyrenew.com/docs)）：
+
+- [Mintlify 文档站说明](docs-site/README.md) 与 [文档目录索引](docs/README.md)
+- [快速开始](docs-site/zh-CN/getting-started.mdx) · [配置说明](docs-site/zh-CN/configuration.mdx) · [部署说明](docs-site/zh-CN/deployment.mdx)
+- [Supabase 云同步与 Passkey](docs-site/zh-CN/integrations/supabase.mdx)
+- [使用 Bark 续费提醒](docs-site/zh-CN/integrations/notifications.mdx)
+- [使用 Stripe 支付](docs-site/zh-CN/integrations/payments.mdx)
 - [AI 录入](docs-site/zh-CN/integrations/ai-capture.mdx)
-- [开放 API](docs/zh-CN/api.md)
-- [连接 Agent（复制给 Agent）](docs-site/zh-CN/user-guide/agent-setup.mdx)
-- [更新日志](CHANGELOG.md)
+- [开放 API 概览](docs-site/zh-CN/api/overview.mdx) 与 [连接 Agent（MCP 与 API）](docs-site/zh-CN/user-guide/agent-setup.mdx)
+- [公开指南（`/blog`）写作说明](dev-docs/blog.zh-CN.md)
+- [运维操作手册](docs/operations/) 与 [更新日志](CHANGELOG.md)
 
 ## 项目结构
 
 ```text
-src/                 React 应用代码
-src/components/      UI 组件
-src/hooks/           React hooks
-src/services/        云服务、支付和同步服务
-src/utils/           存储、货币、通知和校验工具
-content/blog/        公开 SEO 指南（静态 HTML，路径 `/blog` 与 `/zh/blog`）
-scripts/blog/        构建时生成博客 HTML、sitemap、robots
-netlify/functions/   Serverless functions
-supabase/            SQL 设置和迁移
-tests/               Node test runner 工具测试
-docs/                按语言拆分的公开文档
-dev-docs/            开发笔记和归档实现草稿
+src/                      React 应用与公开页面代码（/app、首页、定价页、法律页）
+content/blog/             公开 SEO 指南源文件（静态构建至 /blog 与 /zh/blog）
+scripts/                  预渲染、博客生成、Agent/MCP 产物打包与巡检脚本
+mcp/                      独立本地 stdio MCP 服务器源码与集成测试
+netlify/edge-functions/   Edge 智能入口分流（smart-entry.ts）与 /docs 文档代理（docs-proxy.ts）
+netlify/functions/        Serverless 与定时函数（/api/v1/*、/api/mcp、AI、Stripe、Bark）
+supabase/                 时间戳 SQL 迁移、pgTAP 测试与本地配置
+tests/                    Node 测试套件（工具、Functions、云同步与 Playwright 支付测试）
+docs-site/                Mintlify 双语公开文档站源码及 OpenAPI / AI 工具规范
+docs/                     文档索引、/agent/setup.md 源文件与运维手册
+dev-docs/                 内部维护指南与历史归档设计草稿
 ```
 
 ## 产品首页
 
-主域名承载产品 landing page，应用位于同域的 `/app`（线上为 `https://steadyrenew.com/app`），本地与预览环境路径一致。支持中英文、深浅色主题和移动端。可通过 `VITE_SITE_URL` 与 `VITE_APP_URL` 设置主域名和应用入口，详见 [Landing page 与域名配置](docs/zh-CN/landing-page.md)及[迁移进度](docs/operations/steadyrenew-domain-migration.md)。
+主域名承载预渲染产品落地页，应用位于同域 `/app`（生产环境为 `https://steadyrenew.com/app`）。可通过 `VITE_SITE_URL` 与 `VITE_APP_URL` 自定义主域名与应用入口，详见 [Landing page 与域名配置](dev-docs/landing-page.zh-CN.md)及[域名迁移记录](docs/operations/steadyrenew-domain-migration.md)。
 
 ## 搜索引擎
 
-Bing Webmaster 通过 `public/BingSiteAuth.xml`（线上路径 `/BingSiteAuth.xml`）以及 `index.html` 里的 `msvalidate.01` meta 标签验证。预渲染的营销页复用这个 HTML 壳。博客 HTML 壳也包含同一标签。文档页由 Mintlify 反向代理，仓库里没有单独的文档 HTML 壳。
-
-IndexNow 使用密钥文件 `public/16274743d7549a346d2cf33abbd2d73d.txt`。`npm run indexnow` 会读取已构建的 `dist/sitemap.xml` 和 `dist/docs/sitemap.xml`（没有这些文件时改为请求 `https://steadyrenew.com/sitemap.xml` 和 `https://steadyrenew.com/docs/sitemap.xml`），再把 URL POST 到 IndexNow。生产环境的 Netlify 部署会在 `onSuccess` 里运行同一脚本。非生产环境会跳过；提交失败不会让部署失败。SPA 回退没有 `force`，这两个验证文件仍按静态文件返回。
+Bing Webmaster 通过 `public/BingSiteAuth.xml`（`/BingSiteAuth.xml`）及 `index.html` 中的 `msvalidate.01` meta 标签验证。IndexNow 使用 `public/16274743d7549a346d2cf33abbd2d73d.txt`，生产部署成功后运行 `npm run indexnow` 自动提交主站与文档站 sitemap URL（提交失败不阻断发布）。
 
 ## 公开指南
 
-`/blog` 是主站上的静态内容中心（`https://steadyrenew.com/blog`）。中文指南在 `/zh/blog`。在 `content/blog/` 新增 Markdown 即可，见[公开指南](docs/zh-CN/blog.md)。
+`/blog` 是主站上的静态内容中心（`https://steadyrenew.com/blog`），中文指南位于 `/zh/blog`。在 `content/blog/` 新增 Markdown 即可发布，详见[公开指南写作说明](dev-docs/blog.zh-CN.md)。
 
 ## 许可证
 

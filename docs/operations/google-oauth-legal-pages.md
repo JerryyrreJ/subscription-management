@@ -4,11 +4,14 @@ The hosted app has bilingual pages at `/privacy`, `/terms`, `/zh/privacy`, and
 `/zh/terms`. They are rendered to static HTML during `npm run build`, with links
 from the homepage, app footer, and sign-in dialog.
 
-## Before publication
+## Contact configuration & self-hosted forks
 
-Confirm the public operator identity and support/privacy email in
-`src/components/legal/content.ts`. Empty contact details intentionally display
-a draft notice and emit `noindex`. Confirm provider configuration and retention
+The hosted app configures `legalContact` (`SteadyRenew` / `jerryno153@gmail.com`) in
+`src/components/legal/content.ts`, allowing `/privacy`, `/terms`, `/zh/privacy`,
+and `/zh/terms` to render without a draft banner and with `index, follow` robots
+metadata. Self-hosted forks should replace `legalContact` with their own operator
+identity and support/privacy email (leaving `email` empty intentionally displays a
+draft notice and emits `noindex`). Confirm provider configuration and retention
 practices against `src/components/legal/content.ts` before publishing; do not
 promise a specific retention period, data residency, refund window, or legal
 jurisdiction without verifying it. Review these commitments when integrations or

@@ -2,10 +2,10 @@ openapi: 3.1.0
 info:
   title: SteadyRenew Public API
   version: 1.0.0
-  description: Public API for cloud subscription CRUD automation through API keys created in Settings → API & MCP. Use Copy to Agent in the app for guided setup, or read /agent/setup.md on your application origin. A standalone local stdio MCP package is available at /downloads/subscription-manager-mcp.tgz on that same origin. The operation descriptions include AI-oriented task semantics, risk levels, and confirmation guidance for agent integrations.
+  description: Public API for cloud subscription CRUD, reminder controls, spend analytics, and audit logs through API keys created in Settings → API & MCP. Use Copy to Agent in the app for guided setup, connect a remote MCP client to /api/mcp, run the zero-dependency script at /downloads/steadyrenew-mcp.mjs (or package /downloads/subscription-manager-mcp.tgz), or read /agent/setup.md on your application origin.
 servers:
-  - url: https://your-site.example
-    description: Replace with your deployed SteadyRenew site URL.
+  - url: https://steadyrenew.com
+    description: SteadyRenew Cloud (replace with your deployment origin when self-hosting).
 security:
   - bearerApiKey: []
 tags:
@@ -27,7 +27,7 @@ paths:
       tags:
         - Subscriptions
       summary: List subscriptions
-      description: Returns subscriptions owned by the authenticated API key owner, newest first. Use the limit and offset query parameters to page through results.
+      description: Returns subscriptions owned by the authenticated API key owner, newest first. Active non-trial subscriptions automatically advance overdue stored renewal dates to the next billing cycle (matching the web dashboard and Bark reminders), while free trials keep their one-shot trialEndsOn date. Use the limit and offset query parameters to page through results.
       operationId: listSubscriptions
       x-ai:
         purpose: Find and inspect the authenticated user's subscriptions before planning analysis, update, or delete tasks.
@@ -77,6 +77,12 @@ paths:
           description: Filter by billing period.
           schema:
             $ref: "#/components/schemas/SubscriptionPeriod"
+        - name: isTrial
+          in: query
+          required: false
+          description: Filter by free-trial status (true returns only free trials; false excludes free trials).
+          schema:
+            type: boolean
         - name: q
           in: query
           required: false
@@ -355,7 +361,7 @@ paths:
       tags:
         - Subscriptions
       summary: Delete a subscription
-      description: Deletes one subscription if it belongs to the authenticated API key owner.
+      description: Deletes one subscription if it belongs to the authenticated API key owner and records a subscription.delete audit entry with the prior record in metadata.before.
       operationId: deleteSubscription
       x-ai:
         purpose: Permanently remove a subscription record from tracking. This cannot be undone.
@@ -439,7 +445,7 @@ paths:
       tags:
         - Analytics
       summary: Spend summary
-      description: Returns subscription counts by status, monthly and yearly totals grouped per currency (never converted across currencies), spend by category, and upcoming renewals within a horizon.
+      description: Returns subscription counts by status (including active free trials in counts.trials), paid monthly and yearly totals grouped per currency (never converted across currencies; unbilled free trials are excluded from recurring spend totals), paid spend by category, and upcoming renewals/trial expirations within a horizon (using effective auto-advanced renewal dates for active non-trial subscriptions, with each item tagged via isTrial).
       operationId: getSpendSummary
       x-ai:
         purpose: Answer how much the user spends, where the money goes, and what renews soon, without listing and summing records client-side.
@@ -738,13 +744,13 @@ components:
         type: integer
         example: 1781690400
     RetryAfter:
-      description: Seconds to wait before retrying. Sent with 429 responses, including when too many invalid API key attempts are throttled.
+      description: Seconds to wait before retrying. Sent with 429 responses for both per-user minute rate limits and invalid API key lockouts.
       schema:
         type: integer
-        example: 2700
+        example: 45
   responses:
     BadRequest:
-      description: The request payload or path parameter is invalid. Validation failures are rejected before the hourly quota is consumed, so they do not carry rate-limit headers.
+      description: The request payload or path parameter is invalid. Validation failures are rejected before the per-minute quota is consumed, so they do not carry rate-limit headers.
       content:
         application/json:
           schema:
@@ -805,7 +811,7 @@ components:
                   message: Invalid API key
                 requestId: request-1
     Forbidden:
-      description: The API key lacks the scope required for this operation.
+      description: The API key lacks the required scope (403 insufficient_scope) or the account plan does not include advanced analytics (403 premium_required).
       content:
         application/json:
           schema:
@@ -817,6 +823,13 @@ components:
                   code: insufficient_scope
                   message: "This API key does not have the required 'write' scope"
                   suggestedFix: Use an API key created with the write scope. Read-only keys can only list and read subscriptions.
+                requestId: request-1
+            premiumRequired:
+              value:
+                error:
+                  code: premium_required
+                  message: Advanced analytics require Premium
+                  suggestedFix: Upgrade to Premium for duplicate detection and optimization insights, or use /api/v1/analytics/summary for basic spend totals.
                 requestId: request-1
     NotFound:
       description: The subscription was not found for the API key owner.
@@ -993,7 +1006,6 @@ components:
         - amount
         - currency
         - period
-        - nextPaymentDate
       properties:
         name:
           type: string
@@ -1016,7 +1028,7 @@ components:
         period:
           $ref: "#/components/schemas/SubscriptionPeriod"
         nextPaymentDate:
-          description: Authoritative upcoming renewal date.
+          description: Authoritative upcoming renewal date. Required unless isTrial is true and trialEndsOn is provided (when both are sent on a trial, they must match).
           $ref: "#/components/schemas/DateOnly"
         billingAnchorDay:
           description: Optional monthly calendar anchor from 1 to 31. Inferred from nextPaymentDate when omitted.
@@ -1038,7 +1050,7 @@ components:
           default: false
           description: Mark a free trial. When true, trialEndsOn is the one-shot end / first-charge date.
         trialEndsOn:
-          description: Trial end / first-charge date in YYYY-MM-DD format. Required when isTrial is true.
+          description: Trial end / first-charge date in YYYY-MM-DD format. Required when isTrial is true unless nextPaymentDate is provided.
           $ref: "#/components/schemas/DateOnly"
       additionalProperties: false
     SubscriptionPatch:
@@ -1153,6 +1165,9 @@ components:
               type: integer
             active:
               type: integer
+            trials:
+              type: integer
+              description: Active free trials (subset of active; excluded from recurring spend totals).
             paused:
               type: integer
             cancelled:
@@ -1205,6 +1220,9 @@ components:
                 $ref: "#/components/schemas/DateOnly"
               daysUntilRenewal:
                 type: integer
+              isTrial:
+                type: boolean
+                description: True when this upcoming date is a one-shot free trial conversion/expiration rather than an existing paid renewal.
     SpendSummaryResponse:
       type: object
       required:
@@ -1247,6 +1265,8 @@ components:
                       type: string
                     period:
                       $ref: "#/components/schemas/SubscriptionPeriod"
+                    isTrial:
+                      type: boolean
                     status:
                       $ref: "#/components/schemas/SubscriptionStatus"
         requestId:

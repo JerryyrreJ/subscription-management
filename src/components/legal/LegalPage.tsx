@@ -27,7 +27,7 @@ export default function LegalPage({ kind = 'privacy', locale = 'en' }: { kind?: 
      {!legalContact.email && <p role="note" className="legal-draft">{zh ? '草稿：运营者和公开联系邮箱待确认，尚不用于正式发布或 OAuth 审核。' : 'Draft: operator and public contact email await confirmation. Not ready for publication or OAuth review.'}</p>}
      {c.sections.map(([title, body], index) => <section key={title} id={`section-${index + 1}`}><h2><span>{String(index + 1).padStart(2, '0')}</span>{title}</h2><p>{body}</p></section>)}
      <section><h2>{zh ? '联系我们' : 'Contact'}</h2>
-      {legalContact.email ? <p>{legalContact.operator} · <a href={`mailto:${legalContact.email}`}>{legalContact.email}</a></p> : <p>{zh ? '待确认对外运营者名称及隐私、服务和退款联系邮箱。' : 'Public operator name and contact email for privacy, service, and refund requests are pending confirmation.'}</p>}
+      {legalContact.email ? <p>{legalContact.operator ? `${legalContact.operator} · ` : ''}<a href={`mailto:${legalContact.email}`}>{legalContact.email}</a></p> : <p>{zh ? '待确认对外运营者名称及隐私、服务和退款联系邮箱。' : 'Public operator name and contact email for privacy, service, and refund requests are pending confirmation.'}</p>}
      </section>
      <footer><a href={`${prefix}/${kind === 'privacy' ? 'terms' : 'privacy'}`}>{legalContent[locale][kind === 'privacy' ? 'terms' : 'privacy'].title} →</a><p>© 2026 SteadyRenew</p></footer>
     </article>

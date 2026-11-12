@@ -1,70 +1,73 @@
 ---
 title: "部署"
-description: "将 SteadyRenew 部署到 Netlify，并启用可选后端能力。"
+description: "部署 Vite 前端、预渲染页面、Netlify Edge Functions、Netlify Functions、Supabase 迁移与定时任务。"
 ---
 
 # 部署
 
-推荐使用 Netlify 部署前端和 Functions。前端由 Vite 构建，API、支付和提醒由 Netlify Functions 提供。
+SteadyRenew 原生适配 Netlify，结合了静态 + 预渲染的 Vite 前端、Netlify Edge Functions 以及无服务器 / 定时 Functions。若仅使用本地优先模式，也可直接将构建产物托管在任意静态站点服务上。
 
-## 构建命令
+## 构建产物
 
 ```bash
 npm run build
 ```
 
-构建产物在：
+`npm run build` 会执行 `vite build && tsx scripts/prerender.ts`，向 `dist/` 输出：
 
-```text
-dist
-```
+- `/app` 单页应用入口（未命中静态路由时通过 `/* -> /app/index.html` 回退）。
+- 预渲染静态营销落地页、定价页、法律条款与博客文章（`/`、`/zh`、`/about`、`/pricing`、`/zh/pricing`、`/privacy`、`/terms`、`/blog/*`、`/zh/blog/*`、`/sitemap.xml`、`/robots.txt`）。
+- Agent 与 MCP 交付物（`/agent/setup.md`、`/agent/ai-tools.json`、`/agent/openapi.yaml`、`/downloads/steadyrenew-mcp.mjs`、`/downloads/subscription-manager-mcp.tgz`）。
 
-## Netlify 配置
+## Netlify 路由与配置（`netlify.toml`）
 
-发布目录设置为：
+`netlify.toml` 定义了：
 
-```text
-dist
-```
+- **构建参数**：构建命令 `npm run build`，发布目录 `dist`，Node `22`。
+- **Edge Functions**（`netlify/edge-functions/`）：
+  - `smart-entry.ts`（`/`）：为回访应用用户与多语言访客做智能分流，同时保证搜索引擎爬虫抓取静态落地页。
+  - `docs-proxy.ts`（`/docs`、`/docs/*`、`/.well-known/vercel/*`）：将 Mintlify 文档站挂载到 `/docs` 同域路径下，对 `/docs/_next/static/*` 启用长期 `immutable` 缓存，对 HTML 页面保持 `no-store`。
+- **开放 API 与 MCP 路由转发**：
+  - `/api/mcp` → `/.netlify/functions/api-mcp`
+  - `/api/v1/subscriptions` 与 `/api/v1/subscriptions/*` → `/.netlify/functions/api-v1-subscriptions`
+  - `/api/v1/notification-settings` → `/.netlify/functions/api-v1-notification-settings`
+  - `/api/v1/analytics/*` → `/.netlify/functions/api-v1-analytics`
+  - `/api/v1/audit` → `/.netlify/functions/api-v1-audit`
+- **SPA 回退**：`/*` → `/app/index.html`（`200`），仅在未命中 `dist/` 静态文件时生效。
+- **安全与 CORS 响应头**：全站启用 CSP、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`，并为 `/llms.txt`、`/agent/*`、`/downloads/*` 配置明确的 Content-Type 与跨域头。
 
-构建命令设置为：
+Bing Webmaster 通过 `/BingSiteAuth.xml` 与 `msvalidate.01` meta 标签验证；IndexNow 提供 `/16274743d7549a346d2cf33abbd2d73d.txt`，可在生产发布后运行 `npm run indexnow` 提交 sitemap URL（网络异常不会阻断发布）。
 
-```text
-npm run build
-```
+## Serverless 与定时 Functions
 
-Functions 位于：
+`netlify/functions/` 包含以下服务端函数：
 
-```text
-netlify/functions
-```
+| 函数文件 | 职责 |
+| --- | --- |
+| `api-keys.ts` | 创建、查询与撤销 Developer API Key（`subm_…`） |
+| `api-mcp.ts` | 无状态远程 Streamable HTTP MCP 端点（`/api/mcp`） |
+| `api-v1-subscriptions.ts` | 订阅与免费试用 CRUD（`/api/v1/subscriptions`） |
+| `api-v1-notification-settings.ts` | 全局提醒开关与提前天数 API（`/api/v1/notification-settings`） |
+| `api-v1-analytics.ts` | 支出汇总、重复检测与优化建议（`/api/v1/analytics/*`） |
+| `api-v1-audit.ts` | 开放 API 写操作审计日志（`/api/v1/audit`） |
+| `ai-parse-subscriptions.ts` | AI 订阅录入（含用户月度配额与工作区月度预算预留） |
+| `create-checkout-session.ts` | 创建经服务端鉴权的 Stripe Checkout 会话 |
+| `checkout-status.ts` | 查询结账完成状态与异步支付结果 |
+| `stripe-webhook.ts` | 幂等处理 Stripe Webhook 权益发放及退款/争议对账 |
+| `delete-account.ts` | 自助注销账号（匿名保留财务对账所需的支付流水） |
+| `send-scheduled-notifications.ts` | 定时发送 Bark 续费与免费试用到期提醒 |
+| `cleanup-api-rate-limits.ts` | 定时清理过期的 API 限流时间窗记录 |
 
-Bing Webmaster 通过 `/BingSiteAuth.xml` 和 `msvalidate.01` meta 标签验证。IndexNow 提供 `/16274743d7549a346d2cf33abbd2d73d.txt`，并在生产部署成功后用 `npm run indexnow` 提交 sitemap URL。提交失败不会让部署失败。
-
-## API 路由
-
-公开 API 使用友好的路径：
-
-```text
-/api/v1/subscriptions
-```
-
-Netlify 会把它转发到对应的 function。文档和客户端示例都应该使用 `/api/v1/subscriptions`，不要直接暴露内部 function 文件名。
-
-## 部署前检查
+在本地联调完整 Functions 运行时请使用：
 
 ```bash
-npm run check
+npm run dev:full
 ```
 
-部署前确认：
+## 部署前检查清单
 
-- 前端能成功构建。
-- Netlify 环境变量已经配置。
-- Supabase migration 已应用。
-- Stripe webhook endpoint 指向线上地址。
-- Bark 定时提醒只在需要时启用。
-
-## 文档站
-
-Mintlify 文档站源码位于 `docs-site/`。如果 API、配置、部署流程、Supabase schema 或支付/提醒行为发生变化，需要同步更新英文和中文文档。
+1. 运行 `npm run check`（依次通过 `typecheck`、`lint`、`test`、`test:functions` 和 `build`）。
+2. 在开启云同步、Passkey、API Key、AI 录入、支付或定时提醒前，按序执行 `supabase/migrations/` 下的全部 SQL 迁移。
+3. 按需配置[环境变量](/zh-CN/configuration)（生产环境设置 `STRIPE_MODE=live`，预发/测试环境设置 `STRIPE_MODE=test` 与 `PRODUCTION_SUPABASE_URL`）。
+4. 将 Stripe Webhook 指向 `https://your-domain.example/.netlify/functions/stripe-webhook`，并订阅[支付集成](/zh-CN/integrations/payments)中列出的事件。
+5. 若修改了 `docs-site/` 文档，执行 `cd docs-site && mint broken-links` 确认中英文文档无断链。

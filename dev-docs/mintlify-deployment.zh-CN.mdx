@@ -1,54 +1,35 @@
 ---
-title: "Mintlify 部署"
-description: "Subscription Manager 文档站的 Mintlify 配置、部署和维护方式。"
+title: "SteadyRenew 文档站 Mintlify 部署"
+description: "SteadyRenew 文档站（docs-site/）的 Mintlify 配置、本地校验与同域代理维护方式。"
 ---
 
-# Mintlify 部署
+# SteadyRenew 文档站 Mintlify 部署
 
-文档站源码位于：
-
-```text
-docs-site
-```
-
-Mintlify 项目应该配置为读取这个子目录里的 `docs.json`。
-
-## Git settings
-
-在 Mintlify Dashboard 中：
-
-- Repository 选择 `subscription-management`。
-- Branch 选择实际部署分支，例如 `main`。
-- 打开 `docs.json is in a subdirectory`。
-- 子目录填写 `docs-site`。
-- 授权 GitHub App 访问这个仓库。
+`docs-site/` 是 SteadyRenew 唯一的公开文档源码目录，生产环境通过 `netlify/edge-functions/docs-proxy.ts` 挂载在 `https://steadyrenew.com/docs`。反向代理与截图重录细节见 [`docs-site/README.md`](../docs-site/README.md)。
 
 ## 本地结构
 
 ```text
 docs-site/
-  docs.json
-  api/openapi.yaml
-  en/
-  zh-CN/
+  docs.json          # Mintlify 导航与中英双语配置
+  api/openapi.yaml   # 开放 API OpenAPI 3.1 规范
+  api/ai-tools.json  # AI / MCP 工具定义真源
+  en/                # 英文文档
+  zh-CN/             # 简体中文文档
 ```
 
-英文和中文页面需要同步维护。开放 API 的交互式参考由 `api/openapi.yaml` 生成，两种语言共用同一份接口规范。
+## 更新与校验流程
 
-## 更新流程
+当产品功能、开放 API、MCP、环境变量、Supabase schema、支付或通知逻辑变化时：
 
-当 API、配置、部署、Supabase、支付或通知逻辑变化时：
+1. 同步更新 `docs-site/en/` 与 `docs-site/zh-CN/` 对应页面。
+2. 如涉及接口或工具定义变更，同步更新 `docs-site/api/openapi.yaml` 与 `docs-site/api/ai-tools.json`。
+3. 在 `docs-site/` 目录执行断链与构建校验：
 
-1. 更新对应英文页面。
-2. 更新对应中文页面。
-3. 如果接口字段、路径、请求体、响应体或错误格式变化，更新 `api/openapi.yaml`。
-4. 本地运行文档结构检查。
-5. 提交并 push 后等待 Mintlify 自动部署。
+```bash
+cd docs-site
+mint broken-links
+mint validate
+```
 
-## 发布后检查
-
-- 语言切换能看到 English 和 Simplified Chinese。
-- 英文和中文导航都能打开。
-- API Reference 能加载。
-- 页面复制 Markdown 功能可用。
-- `/llms.txt` 和页面 Markdown 版本可访问。
+4. 在仓库根目录执行 `npm run check`（确保构建生成的 `/agent/*` 与 MCP 交付物同步更新）。

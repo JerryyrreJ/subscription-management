@@ -1,6 +1,6 @@
 # 公开指南（`/blog`）
 
-[English](../en/blog.md) | [简体中文](blog.md)
+[English](blog.en.md) | [简体中文](blog.zh-CN.md)
 
 产品站点是 React SPA，但 `/blog` 是构建时从 Markdown **生成的静态 HTML**。爬虫拿到的是完整 HTML。Canonical 一律使用 `https://steadyrenew.com`（不要用 `*.netlify.app` 别名）。
 

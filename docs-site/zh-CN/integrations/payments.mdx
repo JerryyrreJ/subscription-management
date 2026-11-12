@@ -1,41 +1,63 @@
 ---
 title: "支付集成"
-description: "使用 Stripe Checkout 和 webhook 激活 Premium 能力。"
+description: "配置 Stripe Checkout、支付状态查询、Webhook 签名校验以及退款/争议自动对账，启用终身高级版。"
 ---
 
 # 支付集成
 
-支付能力是可选的。启用后，用户可以通过 Stripe Checkout 以 **$9 USD 终身** 升级 Premium（主卖 AI 额度与进阶分析 / PDF，不当 API 限流卖点）。
+支付模块是可选的。启用后，登录用户可通过 Stripe Checkout 以一次性 **\$9.00 USD** 升级**终身高级版（Lifetime Premium）**，解锁每月 300 次 AI 录入、高级分析报表与 A4 PDF 导出，以及开放 API / MCP 的重复检测与优化建议端点。
 
-## 组成部分
-
-- Stripe Checkout 创建支付会话。
-- Stripe webhook 接收支付状态。
-- Supabase 保存用户套餐状态。
-- 前端根据套餐状态显示 Premium 能力。
-
-## 服务端变量
+## 必需环境变量
 
 ```bash
-STRIPE_SECRET_KEY=...
-STRIPE_WEBHOOK_SECRET=...
-STRIPE_PRICE_ID=price_...   # 必须是 $9 USD 一次性 Price
-SUPABASE_SERVICE_ROLE_KEY=...
+VITE_STRIPE_PUBLISHABLE_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_ID=          # 必须是 $9.00 USD 一次性 Price ID
+STRIPE_MODE=live          # 预发/测试环境设为 "test"
+PRODUCTION_SUPABASE_URL=  # 在预发环境指向生产库 URL，阻止测试支付写入生产库
+SITE_URL=https://steadyrenew.com
 ```
 
-这些变量不能暴露给浏览器。
+记录用户高级版权益需同时配置 Supabase（`SUPABASE_URL`、`SUPABASE_PUBLISHABLE_KEY`、`SUPABASE_SECRET_KEY`，并应用至 `20260927012800_payment_lifecycle.sql` 的数据库迁移）。
 
-## Stripe Dashboard
+## 支付相关 Functions
 
-1. 创建 Product（例如 Premium Lifetime）。
-2. **新建** One-time Price：**$9.00 USD**（不要复用旧的 $6 Price）。
-3. 将新 Price ID 写入 Netlify / `.env` 的 `STRIPE_PRICE_ID`。
-4. 配置 webhook：`checkout.session.completed` → `/.netlify/functions/stripe-webhook`。
+```text
+netlify/functions/create-checkout-session.ts
+netlify/functions/checkout-status.ts
+netlify/functions/stripe-webhook.ts
+```
 
-## Webhook
+- **`create-checkout-session.ts`**：创建一次性 Stripe Checkout 会话。启用 Supabase 时强制校验用户登录态，由服务端确定用户身份、邮箱与唯一受信任的 `STRIPE_PRICE_ID`（不信任浏览器传入的价格参数），并执行 `STRIPE_MODE` 与 `PRODUCTION_SUPABASE_URL` 环境隔离校验。
+- **`checkout-status.ts`**：用户支付跳回 `/app` 后向 Stripe 实时核对会话状态，支持即时银行卡与异步支付方式，绝不单凭回跳 URL 参数直接开通权益。
+- **`stripe-webhook.ts`**：校验 Stripe 签名、`livemode` 模式一致性、支付状态与 `STRIPE_PRICE_ID`，并通过幂等事务完成高级版开通以及全额退款、争议扣款时的权益自动对账与回收。未配置 Supabase 的自托管实例仍可使用匿名赞赏模式（不发放高级版）。
 
-Webhook 必须校验 Stripe 签名，并核对购买的 Price ID 与 `STRIPE_PRICE_ID` 一致。只有校验通过才会激活 Premium。
+## Stripe Dashboard 配置步骤
 
-## 与 API 限额的关系
+1. 创建 Product（例如 `SteadyRenew Lifetime Premium`）。
+2. 新建 **One-time（一次性）** Price：**\$9.00 USD**（请勿复用旧的 \$6 Price）。
+3. 将生成的 `price_...` 填入服务端环境变量 `STRIPE_PRICE_ID`。
+4. 新建 Webhook Endpoint：
 
-开放 API / MCP 保留统一防滥用上限；Premium 可能提高内部天花板，但**不在定价页作为卖点**。开发者 API 页面仍会显示当前套餐与限流数字，便于自查。
+```text
+https://your-domain.example/.netlify/functions/stripe-webhook
+```
+
+5. 勾选 `stripe-webhook.ts` 处理的全部 **11** 个生命周期事件：
+   - 支付完成：`checkout.session.completed`、`checkout.session.async_payment_succeeded`
+   - 退款状态：`charge.refunded`、`refund.created`、`refund.updated`、`refund.failed`
+   - 争议处理：`charge.dispute.created`、`charge.dispute.updated`、`charge.dispute.closed`、`charge.dispute.funds_withdrawn`、`charge.dispute.funds_reinstated`
+6. 将签名密钥写入 `STRIPE_WEBHOOK_SECRET`。
+
+## 与开放 API / MCP 限额的关系
+
+Free 与 Premium 账户的开放 API 密钥上限（`5` 个有效 Key）及请求速率上限（每分钟 `60` 次）完全一致，不做限流分级。升级终身高级版在 API / MCP 侧解锁的是 `/api/v1/analytics/duplicates`（重复订阅检测）与 `/api/v1/analytics/optimizations`（优化建议）两个高阶分析端点。
+
+## 本地联调 Webhook
+
+启动 `npm run dev:full` 后，使用 Stripe CLI 转发事件到本地：
+
+```bash
+stripe listen --forward-to localhost:8888/.netlify/functions/stripe-webhook
+```

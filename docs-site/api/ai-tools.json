@@ -1,8 +1,8 @@
 {
-  "schemaVersion": "2026-08-21",
+  "schemaVersion": "1.1.0",
   "name": "SteadyRenew AI tool schema",
   "sourceOpenApi": "api/openapi.yaml",
-  "baseUrl": "https://your-site.example",
+  "baseUrl": "https://steadyrenew.com",
   "auth": {
     "type": "bearer",
     "header": "Authorization",
@@ -25,7 +25,6 @@
       "currency",
       "customDate",
       "isTrial",
-      "lastPaymentDate",
       "nextPaymentDate",
       "name",
       "notificationEnabled",
@@ -57,11 +56,11 @@
     "fieldSemantics": {
       "period": "The billing cycle. Monthly means the same calendar day each month, not a fixed 30 days. Send monthly, yearly, or custom.",
       "customDate": "The fixed interval in days when period is custom. Use customDate 30 for every 30 days.",
-      "nextPaymentDate": "The authoritative upcoming renewal date in YYYY-MM-DD format. For free trials, prefer trialEndsOn; that date is one-shot and is not auto-advanced.",
+      "nextPaymentDate": "The authoritative upcoming renewal date in YYYY-MM-DD format. Active non-trial subscriptions automatically roll overdue dates forward to the next billing cycle when read; free trials keep their one-shot trialEndsOn date without auto-advancing.",
       "billingAnchorDay": "Original calendar day (1-31) for monthly billing. Short months use month end temporarily, then return to this day.",
-      "lastPaymentDate": "Deprecated compatibility input. New tools should send nextPaymentDate instead.",
+      "lastPaymentDate": "Deprecated REST compatibility input returned on subscription records. Omitted from AI tool write schemas in favor of nextPaymentDate.",
       "isTrial": "True when the record is a free trial rather than a recurring paid subscription.",
-      "trialEndsOn": "The trial end / first-charge date in YYYY-MM-DD format. Required when isTrial is true. Do not roll this date forward after it passes.",
+      "trialEndsOn": "The trial end / first-charge date in YYYY-MM-DD format. Required when isTrial is true (when both trialEndsOn and nextPaymentDate are provided on a trial, they must match). Do not roll this date forward after it passes.",
       "status": "Read-only lifecycle state returned on subscription records and accepted as a list filter. The public API does not create, cancel, pause, or resume via status changes; use delete_subscription to remove a tracked record.",
       "notificationEnabled": "Per-subscription reminder toggle on a subscription record. Independent from the global enabled flag in notification settings.",
       "notificationSettings.enabled": "Global reminder master switch. Reminders only send when this is true, Bark is configured in the web app, and the subscription has notificationEnabled true.",
@@ -70,7 +69,7 @@
     "scopes": "API keys carry scopes. A read key can call list, get, notification settings read, the analytics endpoints, and the audit log. A write key additionally allows create, update, delete, and notification settings updates. Calling a write tool with a read-only key returns 403 insufficient_scope; do not retry, ask the user for a write-scoped key.",
     "auditTrail": "Every successful create, update, and delete is recorded in the audit log with before/after state. Use list_audit_log to show the user what changed or to support an undo.",
     "writeConfirmationPolicy": "Ask for user confirmation before any write (create, update, delete, update_notification_settings). For delete, repeat the target subscription name and id.",
-    "outOfScope": "Do not claim you can configure Bark URL/device key, send a test push, change timeZone/locale, or manage the category catalog. Those stay in the web app. If the user asks to paste a Bark URL or run a test push, refuse and point them to Settings → Notifications in the web app, and to the reminders guide at /en/user-guide/reminders (Chinese: /zh-CN/user-guide/reminders). After Bark is configured on the web, you may toggle enabled/daysBefore and per-subscription notificationEnabled."
+    "outOfScope": "Do not claim you can configure Bark URL/device key, send a test push, change timeZone/locale, or manage the category catalog. Those stay in the web app. If the user asks to paste a Bark URL or run a test push, refuse and point them to Settings → Notifications in the web app, and to the reminders guide at /docs/en/user-guide/reminders (Chinese: /docs/zh-CN/user-guide/reminders). After Bark is configured on the web, you may toggle enabled/daysBefore and per-subscription notificationEnabled."
   },
   "tools": [
     {
@@ -84,7 +83,7 @@
       "useWhen": [
         "The user asks to show, search, analyze, or summarize subscriptions.",
         "The user names a subscription but does not provide its UUID.",
-        "The user asks which subscriptions renew soon (use status=active with expiringBefore).",
+        "The user asks which subscriptions renew soon (use status=active with expiringBefore) or which free trials are active (use isTrial=true).",
         "The agent needs current state before planning an update or delete."
       ],
       "doNotUseWhen": [
@@ -94,6 +93,7 @@
       "naturalLanguageExamples": [
         "Show all my subscriptions.",
         "Which subscriptions renew before the end of the month?",
+        "Which free trials do I have active right now?",
         "Find my Netflix subscription.",
         "List my active subscriptions."
       ],
@@ -134,6 +134,10 @@
               "custom"
             ],
             "description": "Filter by billing period."
+          },
+          "isTrial": {
+            "type": "boolean",
+            "description": "Filter by free-trial status (true returns only free trials; false excludes free trials)."
           },
           "q": {
             "type": "string",
@@ -267,7 +271,7 @@
       "operationId": "deleteSubscription",
       "method": "DELETE",
       "path": "/api/v1/subscriptions/{id}",
-      "purpose": "Permanently delete a tracked subscription record. This cannot be undone and removes audit history for the record. This is the public API removal path; soft cancel/pause via status is not supported.",
+      "purpose": "Permanently delete a tracked subscription record. Deletion removes the subscription immediately while recording a subscription.delete entry (with the prior record in metadata.before) in the audit log. This is the public API removal path; soft cancel/pause via status is not supported.",
       "riskLevel": "high",
       "requiresConfirmation": true,
       "requiredScope": "write",
@@ -280,7 +284,7 @@
       ],
       "naturalLanguageExamples": [
         "Delete the duplicate Netflix record permanently.",
-        "Remove this subscription and don't keep its history."
+        "Remove this subscription from my tracked list."
       ],
       "parameters": {
         "type": "object",
@@ -373,7 +377,7 @@
       "operationId": "getSpendSummary",
       "method": "GET",
       "path": "/api/v1/analytics/summary",
-      "purpose": "Return computed spend analytics: subscription counts by status, monthly and yearly totals grouped per currency (never converted across currencies), spend by category, and upcoming renewals within a horizon. Use this instead of listing and summing client-side.",
+      "purpose": "Return computed spend analytics: subscription counts by status (including active free trials in counts.trials), paid monthly and yearly totals grouped per currency (never converted across currencies; unbilled free trials are excluded from recurring spend totals), paid spend by category, and upcoming renewals/trial expirations within a horizon (each tagged with isTrial). Use this instead of listing and summing client-side.",
       "riskLevel": "low",
       "requiresConfirmation": false,
       "useWhen": [
@@ -407,15 +411,17 @@
       "operationId": "findDuplicateSubscriptions",
       "method": "GET",
       "path": "/api/v1/analytics/duplicates",
-      "purpose": "Return groups of non-cancelled subscriptions that share a normalized name, which usually indicates duplicate tracking or double billing.",
+      "purpose": "Premium only. Return groups of non-cancelled subscriptions that share a normalized name, which usually indicates duplicate tracking or double billing. Free accounts receive 403 premium_required and should use get_spend_summary or list_subscriptions instead.",
       "riskLevel": "low",
       "requiresConfirmation": false,
+      "requiresPremium": true,
       "useWhen": [
         "The user asks whether they are paying for the same thing twice.",
         "The agent is cleaning up the subscription list."
       ],
       "doNotUseWhen": [
-        "The user wants overlapping-but-differently-named services; this only matches by name."
+        "The user wants overlapping-but-differently-named services; this only matches by name.",
+        "The account is known to be on the Free plan (returns 403 premium_required)."
       ],
       "naturalLanguageExamples": [
         "Am I paying for anything twice?",
@@ -432,15 +438,17 @@
       "operationId": "getOptimizationSuggestions",
       "method": "GET",
       "path": "/api/v1/analytics/optimizations",
-      "purpose": "Return factual optimization candidates: active monthly subscriptions with their current annualized cost (monthlyToAnnual), and subscriptions whose monthly cost is more than twice the per-currency average (aboveAverageInCurrency). No discount rates are invented; present the figures and let the user decide.",
+      "purpose": "Premium only. Return factual optimization candidates: active monthly subscriptions with their current annualized cost (monthlyToAnnual), and subscriptions whose monthly cost is more than twice the per-currency average (aboveAverageInCurrency). No discount rates are invented; present the figures and let the user decide. Free accounts receive 403 premium_required and should use get_spend_summary instead.",
       "riskLevel": "low",
       "requiresConfirmation": false,
+      "requiresPremium": true,
       "useWhen": [
         "The user asks what they could cut or how to save money.",
         "The user asks which subscriptions are expensive."
       ],
       "doNotUseWhen": [
-        "The user wants a guaranteed savings number; the API reports current costs, not negotiated discounts."
+        "The user wants a guaranteed savings number; the API reports current costs, not negotiated discounts.",
+        "The account is known to be on the Free plan (returns 403 premium_required)."
       ],
       "naturalLanguageExamples": [
         "My subscription spending is too high, what can I cut?",
@@ -516,11 +524,12 @@
       "If field and suggestedFix are present, revise the payload and retry only when the user's intent is unchanged.",
       "If the failed operation is create, update, delete, or update_notification_settings, ask for confirmation again before retrying when the effective write changes.",
       "On 403 insufficient_scope, do not retry: the API key is read-only. Tell the user a write-scoped key is required for this action.",
+      "On 403 premium_required (from find_duplicate_subscriptions or get_optimization_suggestions), do not retry: explain that advanced analytics require SteadyRenew Premium ($9 lifetime) and fall back to get_spend_summary or list_subscriptions.",
       "On 400 invalid_query, correct the filter or sort parameter named in field and retry.",
-      "Validation errors (400) are rejected before the hourly quota is consumed, so fixing the payload and retrying does not cost rate-limit budget.",
+      "Validation errors (400) are rejected before the per-minute quota is consumed, so fixing the payload and retrying does not cost rate-limit budget.",
       "On 429, wait the number of seconds in the Retry-After header before retrying.",
       "Use requestId when reporting unresolved API errors.",
-      "On 404 notification_settings_not_found, do not invent Bark credentials. Tell the user to open the web app Settings → Notifications and follow /en/user-guide/reminders (Chinese: /zh-CN/user-guide/reminders), then retry.",
+      "On 404 notification_settings_not_found, do not invent Bark credentials. Tell the user to open the web app Settings → Notifications and follow /docs/en/user-guide/reminders (Chinese: /docs/zh-CN/user-guide/reminders), then retry.",
       "If the user asks to configure a Bark URL or send a test push, refuse: those are web-only. Point them to the reminders guide links above."
     ]
   },
@@ -537,8 +546,7 @@
         "category",
         "amount",
         "currency",
-        "period",
-        "nextPaymentDate"
+        "period"
       ],
       "properties": {
         "name": {
@@ -581,7 +589,8 @@
           ]
         },
         "nextPaymentDate": {
-          "$ref": "#/$defs/dateOnly"
+          "$ref": "#/$defs/dateOnly",
+          "description": "Upcoming renewal date in YYYY-MM-DD format. Required unless isTrial is true and trialEndsOn is provided (when both are sent on a trial, they must match)."
         },
         "billingAnchorDay": {
           "type": "integer",
@@ -602,7 +611,8 @@
           "default": false
         },
         "trialEndsOn": {
-          "$ref": "#/$defs/dateOnly"
+          "$ref": "#/$defs/dateOnly",
+          "description": "Trial end / first-charge date in YYYY-MM-DD format. Required when isTrial is true unless nextPaymentDate is provided."
         }
       },
       "additionalProperties": false

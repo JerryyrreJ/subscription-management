@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FREE_PRICE_USD, PREMIUM_PRICE_CURRENCY, PREMIUM_PRICE_USD, PREMIUM_UNIT_AMOUNT_CENTS } from '../../src/utils/pricingFacts.ts';
 import { marketingStructuredData, STEADYRENEW_SAME_AS } from '../../src/utils/structuredData.ts';
+import { legalContact } from '../../src/components/legal/content.ts';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -102,4 +103,9 @@ test('llms.txt is plain text and only links to pages that exist in this repo', (
   assert.match(toml, /from = "http:\/\/steadyrenew\.com\/\*"\s+to = "https:\/\/steadyrenew\.com\/:splat"/);
   assert.match(toml, /from = "http:\/\/www\.steadyrenew\.com\/\*"\s+to = "https:\/\/steadyrenew\.com\/:splat"/);
   assert.match(toml, /from = "http:\/\/app\.steadyrenew\.com\/\*"\s+to = "https:\/\/steadyrenew\.com\/:splat"/);
+});
+
+test('public legal contact is configured so /privacy and /terms prerender as indexable pages', () => {
+  assert.equal(legalContact.operator, 'SteadyRenew');
+  assert.equal(legalContact.email, 'jerryno153@gmail.com');
 });

@@ -1,32 +1,27 @@
 ---
 title: "Supabase 集成"
-description: "使用 Supabase 提供账号、云同步、API Key、订阅数据、付费状态和 AI 录入配额。"
+description: "配置 Supabase 以支持账号认证、Passkey 通行密钥、云同步、提醒设置、支付对账、API Key 与 AI 录入月度配额。"
 ---
 
 # Supabase 集成
 
-Supabase 是 SteadyRenew 的可选云层。未配置 Supabase 时，应用仍然可以使用本地存储模式。
+Supabase 是 SteadyRenew 的可选云服务层。配置后可启用账号登录（邮箱密码、OAuth、Passkey 通行密钥）、多设备订阅与分类云同步、Bark 提醒配置、终身高级版权益状态、Developer API Key 以及 AI 录入月度配额与预算记账。
 
-## Supabase 负责什么
+## 必需环境变量
 
-- 用户认证。
-- 多设备订阅同步。
-- API Key 归属关系。
-- 订阅数据表。
-- 付费状态和套餐信息。
-- Bark 提醒配置。
-- AI 录入的每月配额与月度预算计数。
+```bash
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SECRET_KEY=
+```
 
-## 配置步骤
+`SUPABASE_SECRET_KEY` 仅供 Netlify Functions 服务端使用（旧名 `SUPABASE_SERVICE_ROLE_KEY` 仍作为兼容别名支持）。
 
-1. 创建 Supabase 项目。
-2. 应用 `supabase/` 目录下的 migrations。
-3. 在前端配置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`。
-4. 在 Netlify Functions 环境中配置 `SUPABASE_SECRET_KEY`，或继续使用兼容别名 `SUPABASE_SERVICE_ROLE_KEY`。
+## SQL 迁移列表
 
-## SQL migrations
-
-正式 schema 由时间戳迁移管理：
+数据库结构由 `supabase/migrations/` 下的 13 个时间戳迁移管理：
 
 ```text
 supabase/migrations/20260615000100_baseline.sql
@@ -36,24 +31,58 @@ supabase/migrations/20260617000100_public_api_security_fixes.sql
 supabase/migrations/20260618000100_agent_operations_layer.sql
 supabase/migrations/20260619000100_ai_capture.sql
 supabase/migrations/20260625000100_ai_budget_reservations.sql
+supabase/migrations/20260714000100_preserve_payments_on_account_deletion.sql
+supabase/migrations/20260821000100_monthly_billing_anchor.sql
+supabase/migrations/20260916000100_subscription_trials.sql
+supabase/migrations/20260922000100_ai_monthly_quota.sql
+supabase/migrations/20260922190912_pricing_abuse_limits.sql
+supabase/migrations/20260927012800_payment_lifecycle.sql
 ```
 
-AI 录入相关表只保存每月调用次数和月度聚合 token 计数，不保存用户粘贴的文本、截图或解析内容。
+在全新本地环境中运行 `npm run db:verify` 即可完成启动、重置、schema lint 与 pgTAP 校验；已有线上环境请先参考 `supabase/README.md` 运行 `supabase/audit/preflight.sql`。
 
-## 安全边界
+## 数据模型职责
 
-浏览器只能使用 anon key。任何需要绕过 RLS 或执行可信写入的逻辑，都必须放在 Netlify Functions 中，并使用 service role key。
+- **用户档案（profiles）**：保存账户信息与终身高级版（Premium）权益状态。
+- **订阅表（subscriptions）**：保存周期扣款、月付锚点日 `billing_anchor_day` 以及免费试用字段（`is_trial`、`trial_ends_on`）。
+- **分类表（categories）**：保存用户自定义分类。
+- **通知设置与发送锁**：保存 Bark 偏好、推送历史与防重锁。
+- **API Key、限流窗口与审计日志**：仅存储 SHA-256 密钥哈希与 `scopes` 权限，记录每分钟请求限流、失败鉴权计数及公开 API 写操作快照。
+- **AI 月度配额与预算窗口**：按用户记录**每月** AI 录入成功次数（Free `10` 次 / Premium `300` 次）及工作区级月度聚合 token 预留，不存储任何粘贴文本、截图或解析内容。
+- **支付流水与账号注销**：用户通过 `delete-account.ts` 自助注销账号时，会彻底删除 Auth 用户及全部订阅、分类、API Key 数据；支付表中的 `user_id` 会置为 `NULL`，仅保留对账、退款和争议处理所必需的交易记录。
 
-## RLS
+## Passkeys（WebAuthn 通行密钥）
 
-数据库表应该通过 Row Level Security 限制用户只能访问自己的数据。开放 API 也会根据 API Key 所属用户过滤订阅查询。
+通行密钥登录基于 Supabase Auth WebAuthn（客户端启用 `auth.experimental.passkey: true`，需 `@supabase/supabase-js` ≥ 2.105.0）。
 
-## 与开放 API 的关系
+### 本地 CLI 配置
 
-开放 API 使用 Developer API Key 认证。Function 验证 key 后，会以 key owner 的身份读写订阅数据。
+`supabase/config.toml` 默认启用了：
 
-## 更换域名
+```toml
+[auth.passkey]
+enabled = true
 
-先在 Supabase Auth 回调允许列表中追加新应用域名及 `/app` 回调，保留已有条目。新域名 HTTPS 验证通过后再切换 Site URL。继续使用原 Supabase 项目，让账户、云端记录和 Premium 权益保持一致。
+[auth.webauthn]
+rp_display_name = "SteadyRenew"
+rp_id = "127.0.0.1"
+rp_origins = ["http://127.0.0.1:5173"]
+```
 
-通行密钥绑定原来的 RP 域名，不能通过修改回调地址迁往另一个域名。过渡期先保留旧 RP 配置，确认用户有其他登录方式，再单独安排新 RP 配置和用户重新注册。仅存于浏览器的记录，需要在旧站导出 JSON、到新站导入。
+本地测试通行密钥时请通过 `http://127.0.0.1:5173` 访问（优先使用 `127.0.0.1` 而非 `localhost`），使浏览器 Origin 与 `rp_id` / `rp_origins` 保持一致。
+
+### 生产环境 Dashboard 配置
+
+在 Supabase Dashboard 打开 **Authentication → Passkeys**：
+
+1. 开启 Passkey 认证。
+2. 设置 **Relying Party Display Name**（如 `SteadyRenew`）。
+3. 将 **Relying Party ID** 设为主站裸域名（如 `steadyrenew.com`）。
+4. 在 **Relying Party Origins** 中填入完整的 HTTPS 访问源（最多 5 个，如 `https://steadyrenew.com`）。
+5. 确认 **Site URL** 与 **Redirect URLs** 包含 `/app` 回调地址，以保障 OAuth 与密码重置正常运作。
+
+## 安全边界与域名迁移
+
+- 对所有用户数据表保持启用 Row Level Security（RLS）。
+- 绝不能将 `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` 放入前端 `VITE_*` 变量。
+- 通行密钥与注册时的 Relying Party（`rp_id`）域名强绑定，无法通过修改回调地址跨域名迁移；更换主域名后，老用户需先用邮箱密码或 OAuth 登录新域名，再重新注册新的通行密钥。

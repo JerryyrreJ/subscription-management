@@ -1,5 +1,7 @@
 # 离线推送通知系统 - 实现总结
 
+> **Archived / 历史归档**：此文档仅作早期研发与方案演进记录，部分设计与命令已被新版本取代；当前最新文档请以 [`docs-site/`](../../docs-site/README.md) 为准。
+
 ## 核心改进
 
 ### ✅ 问题解决
@@ -298,8 +300,8 @@ Functions → send-scheduled-notifications → Logs
 ## 相关文档
 
 - 📖 [完整部署指南](./NOTIFICATION_DEPLOYMENT_GUIDE.md)
-- 🗄️ [数据库架构脚本](../supabase/)
-- 🔧 [Netlify Function 源码](../netlify/functions/send-scheduled-notifications.ts)
+- 🗄️ [数据库架构脚本](../../supabase/)
+- 🔧 [Netlify Function 源码](../../netlify/functions/send-scheduled-notifications.ts)
 
 ---
 

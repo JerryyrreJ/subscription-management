@@ -1,17 +1,19 @@
 ---
 title: "Public API overview"
-description: "Use Developer API keys to automate subscription lifecycle, analytics, and audit access through the v1 public API."
+description: "Use Developer API keys to automate subscription lifecycle, notification settings, analytics, audit access, and MCP tools through the v1 public API."
 ---
 
 # Public API overview
 
-The v1 public API exposes subscription lifecycle management, analytics, and audit access through Developer API keys. It is designed for scripts, agents, automation tools, and third-party integrations.
+The v1 public API exposes subscription lifecycle management, global reminder settings, spending analytics, and audit access through Developer API keys (`Authorization: Bearer subm_…`). It also powers SteadyRenew’s remote Streamable HTTP MCP endpoint (`/api/mcp`) and standalone local MCP server.
 
 ## Base path
 
 ```text
-https://your-site.example/api/v1
+https://steadyrenew.com/api/v1
 ```
+
+*(For self-hosted deployments, replace `https://steadyrenew.com` with your own origin.)*
 
 Main endpoint groups live under:
 
@@ -20,40 +22,42 @@ Main endpoint groups live under:
 /api/v1/notification-settings
 /api/v1/analytics
 /api/v1/audit
+/api/mcp
 ```
 
 ## Design choices
 
-- API responses are JSON.
-- Request and response field names use camelCase.
-- Database-managed fields are read-only.
-- The API key owner determines the user scope.
-- Every subscription query is filtered by the authenticated API key owner.
-- `nextPaymentDate` is the authoritative renewal date; monthly schedules preserve their original calendar-day anchor.
+- API responses are JSON, and request/response field names use camelCase.
+- Database-managed fields (`id`, `createdAt`, `updatedAt`) are read-only.
+- Every query and mutation is scoped to the authenticated API key owner.
+- `nextPaymentDate` is the authoritative renewal date; monthly schedules preserve their original calendar-day anchor (`billingAnchorDay`).
+- Overdue `active` non-trial subscriptions automatically roll `nextPaymentDate` forward to the current billing cycle on read and in spend summaries (matching the web dashboard and Bark reminders). Free trials (`isTrial: true`) and `paused` / `cancelled` records do not auto-advance.
 - `status` is returned on records and accepted as a list filter, but is not writable through the public API.
-- Notification settings expose only `enabled` and `daysBefore` for writes; Bark URL, test push, timeZone, and locale stay web-managed.
-- Analytics endpoints report totals per currency and never convert across currencies.
-- Audit endpoints expose write history for public API create, update, and delete operations.
-- Write operations return AI-readable validation errors when a specific field can be corrected.
+- Notification settings expose only `enabled` and `daysBefore` for writes; Bark URL, test push, `timeZone`, and `locale` stay web-managed.
+- Analytics endpoints report totals per currency and never convert across currencies. Duplicate detection and optimization candidates require Lifetime Premium (`403 premium_required` on Free).
+- Audit endpoints expose write history (`subscription.create`, `subscription.update`, `subscription.delete`) for public API operations.
+- Write operations return AI-readable validation errors (`field`, `suggestedFix`, `allowedValues`, `writableFields`) before consuming rate-limit quota.
 
-## AI-ready artifacts
+## AI & MCP artifacts
 
-Use these files when connecting an AI assistant or agent framework:
+Use these endpoints and files when connecting an AI assistant, MCP host, or agent framework:
 
 | Artifact | Use it for |
 | --- | --- |
-| [OpenAPI schema](/api/openapi.yaml) | Endpoint schemas, examples, auth, and `x-ai` task metadata |
-| [AI tool schema](/api/ai-tools.json) | Function/tool definitions with risk levels and confirmation guidance |
-| [AI tool usage guide](/api/ai-tools) | Prompting, operation choice, and safety policy |
+| `https://steadyrenew.com/api/mcp` | Hosted stateless Streamable HTTP MCP endpoint (`POST` with `Authorization: Bearer subm_…`) |
+| `https://steadyrenew.com/downloads/steadyrenew-mcp.mjs` | Zero-dependency single-file local stdio MCP script (Node.js 20+) |
+| [OpenAPI schema](/api/openapi.yaml) | Endpoint schemas, examples, auth, and `x-ai` task metadata (also served on the app origin at `/agent/openapi.yaml`) |
+| [AI tool schema](/api/ai-tools.json) | Function/tool definitions with risk levels and confirmation guidance (also served at `/agent/ai-tools.json`) |
+| [AI tool usage guide](/en/api/ai-tools) | Prompting, operation choice, confirmation rules, and error recovery |
 
 ## Default plan limits
 
-| Plan | Active keys | Requests |
-| --- | ---: | ---: |
-| Free | 5 | 60 requests per account per minute |
-| Premium | 5 | 60 requests per account per minute |
+| Plan | Active keys | Rate limit | Analytics endpoints |
+| --- | ---: | --- | --- |
+| Free | 5 | 60 requests / minute / account | `/api/v1/analytics/summary` |
+| Premium | 5 | 60 requests / minute / account | `summary`, `duplicates`, and `optimizations` |
 
-You can override defaults with server-only environment variables:
+Self-hosters can override defaults with server-only environment variables:
 
 ```bash
 API_RATE_LIMIT_PER_MINUTE=60
@@ -64,18 +68,21 @@ API_RATE_LIMIT_RETENTION_HOURS=48
 
 ## Endpoints
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/api/v1/subscriptions` | List subscriptions |
-| `GET` | `/api/v1/subscriptions/{id}` | Get one subscription |
-| `POST` | `/api/v1/subscriptions` | Create a subscription |
-| `PATCH` | `/api/v1/subscriptions/{id}` | Update writable fields |
-| `DELETE` | `/api/v1/subscriptions/{id}` | Delete a subscription |
-| `GET` | `/api/v1/analytics/summary` | Spend summary by currency/category and upcoming renewals |
-| `GET` | `/api/v1/analytics/duplicates` | Duplicate subscription candidates |
-| `GET` | `/api/v1/analytics/optimizations` | Optimization candidates without invented savings |
-| `GET` | `/api/v1/audit` | Public API write audit log |
+| Method | Path | Scope / Plan | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/subscriptions` | `read` | List, filter, and sort subscriptions |
+| `GET` | `/api/v1/subscriptions/{id}` | `read` | Get one subscription by UUID |
+| `POST` | `/api/v1/subscriptions` | `write` | Create a subscription or free trial |
+| `PATCH` | `/api/v1/subscriptions/{id}` | `write` | Update writable subscription fields |
+| `DELETE` | `/api/v1/subscriptions/{id}` | `write` | Permanently delete a tracked subscription |
+| `GET` | `/api/v1/notification-settings` | `read` | Read global reminder status and lead time |
+| `PATCH` | `/api/v1/notification-settings` | `write` | Update `enabled` and `daysBefore` (`1`, `3`, `7`, `14`) |
+| `GET` | `/api/v1/analytics/summary` | `read` | Spend summary by currency/category and upcoming renewals |
+| `GET` | `/api/v1/analytics/duplicates` | `read` (Premium) | Duplicate subscription candidates |
+| `GET` | `/api/v1/analytics/optimizations` | `read` (Premium) | Optimization candidates without invented savings |
+| `GET` | `/api/v1/audit` | `read` | Public API write audit log |
+| `POST` | `/api/mcp` | `read` / `write` | Stateless Streamable HTTP MCP transport |
 
 ## API reference
 
-Use the generated [API Reference](/api-reference) for endpoint schemas, parameters, and response examples.
+Open the **API Reference** tab in the top navigation bar (generated from [openapi.yaml](/api/openapi.yaml)) for interactive request/response schemas and examples.

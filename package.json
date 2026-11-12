@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@netlify/functions": "^5.1.2",
     "@supabase/supabase-js": "^2.116.0",
     "i18next": "^26.0.3",

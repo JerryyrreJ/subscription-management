@@ -81,10 +81,11 @@ test('calculateMonthlyCost and calculateYearlyCost normalize monthly, yearly, an
  assert.equal(calculateMonthlyCost(createSub({ amount: 120, period: 'yearly' })), 10);
  assert.equal(calculateYearlyCost(createSub({ amount: 120, period: 'yearly' })), 120);
 
- assert.equal(calculateMonthlyCost(createSub({ amount: 15, period: 'custom', customDate: '15' })), 30);
- assert.equal(calculateYearlyCost(createSub({ amount: 15, period: 'custom', customDate: '15' })), 360);
+ assert.equal(calculateMonthlyCost(createSub({ amount: 15, period: 'custom', customDate: '15' })), 365 / 12);
+ assert.equal(calculateYearlyCost(createSub({ amount: 15, period: 'custom', customDate: '15' })), 365);
 
- assert.equal(calculateMonthlyCost(createSub({ amount: 90, period: 'custom', customDate: '90' })), 30);
+ assert.equal(calculateMonthlyCost(createSub({ amount: 73, period: 'custom', customDate: '73' })), 365 / 12);
+ assert.equal(calculateYearlyCost(createSub({ amount: 365, period: 'custom', customDate: '365' })), 365);
 });
 
 test('calculateMonthlyCost safely falls back to subscription amount for invalid or non-positive customDate', () => {

@@ -125,7 +125,7 @@ export const calculateMonthlyCost = (subscription: Subscription): number => {
  if (subscription.customDate) {
  const days = Number.parseInt(subscription.customDate, 10);
  if (Number.isFinite(days) && days > 0) {
-  return (subscription.amount / days) * 30;
+  return (subscription.amount * 365) / (days * 12);
  }
  }
  return subscription.amount;

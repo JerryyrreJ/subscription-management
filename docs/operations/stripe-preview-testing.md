@@ -6,7 +6,7 @@ run on that PR's deployment. Checkout returns to that exact PR URL.
 
 | Component | Production | PR previews |
 | --- | --- | --- |
-| Website | `https://sub.jerrylu.xyz` | `https://deploy-preview-<PR>--subscription-management.netlify.app` |
+| Website | `https://steadyrenew.com` | `https://deploy-preview-<PR>--subscription-management.netlify.app` |
 | Supabase | `uikhflwvhhgifvbuhebi` | `acoynfyopsgbcfhqhhiv` — Subscription Manager Preview (Free) |
 | Stripe | Existing live configuration | `acct_1SJz1UFOZrBrnI1K` — Subscription Manager 沙盒 |
 | Price | Existing production Price | `price_1UNVrZFOZrBrnI1KZdsVYp7j` — USD 9, one time |

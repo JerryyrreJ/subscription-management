@@ -82,7 +82,7 @@ test('summary returns per-currency totals and upcoming renewals', async () => {
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers?.['X-RateLimit-Limit'], '60');
-  assert.deepEqual(body.summary.counts, { total: 3, active: 2, paused: 0, cancelled: 1 });
+  assert.deepEqual(body.summary.counts, { total: 3, active: 2, trials: 0, paused: 0, cancelled: 1 });
   assert.equal(body.summary.byCurrency.find(entry => entry.currency === 'USD')?.monthlyTotal, 24.99);
   assert.equal(body.summary.upcomingRenewals.length, 1);
   assert.equal(body.summary.upcomingRenewals[0].name, 'Netflix');
@@ -153,4 +153,107 @@ test('rejects non-GET methods', async () => {
   ), {} as never));
 
   assert.equal(response.statusCode, 405);
+});
+
+test('summary advances overdue active recurring subscriptions into upcomingRenewals without rolling trials', async () => {
+  const rolledRows = [
+    {
+      id: 'overdue-recurring',
+      name: 'Linear',
+      category: 'Productivity',
+      amount: '10.00',
+      currency: 'USD',
+      period: 'monthly',
+      billing_anchor_day: 25,
+      custom_date: null,
+      next_payment_date: '2026-01-25',
+      is_trial: false,
+      trial_ends_on: null,
+      status: 'active',
+    },
+    {
+      id: 'expired-trial',
+      name: 'Old Trial',
+      category: 'Tools',
+      amount: '29.00',
+      currency: 'USD',
+      period: 'monthly',
+      billing_anchor_day: 20,
+      custom_date: null,
+      next_payment_date: '2026-05-20',
+      is_trial: true,
+      trial_ends_on: '2026-05-20',
+      status: 'active',
+    },
+  ];
+
+  const response = expectHandlerResponse(await handlerWith(makeDatabase({ subscriptionRows: rolledRows }))(event(
+    'GET',
+    '/api/v1/analytics/summary',
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+  const body = parseJsonResponse<{
+    summary: {
+      upcomingRenewals: Array<{ id: string; nextPaymentDate: string; daysUntilRenewal: number }>;
+    };
+  }>(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(body.summary.upcomingRenewals, [
+    {
+      id: 'overdue-recurring',
+      name: 'Linear',
+      category: 'Productivity',
+      amount: 10,
+      currency: 'USD',
+      period: 'monthly',
+      nextPaymentDate: '2026-06-25',
+      daysUntilRenewal: 9,
+      isTrial: false,
+    },
+  ]);
+});
+
+test('summary keeps active free trials out of paid spend totals while tagging upcoming trial conversions', async () => {
+  const trialRows = [
+    ...rows,
+    {
+      id: 'active-trial',
+      name: 'Raycast Pro Trial',
+      category: 'Productivity',
+      amount: '10.00',
+      currency: 'USD',
+      period: 'monthly',
+      custom_date: null,
+      next_payment_date: '2026-06-22',
+      is_trial: true,
+      trial_ends_on: '2026-06-22',
+      status: 'active',
+    },
+  ];
+
+  const response = expectHandlerResponse(await handlerWith(makeDatabase({ subscriptionRows: trialRows }))(event(
+    'GET',
+    '/api/v1/analytics/summary',
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+  const body = parseJsonResponse<{
+    summary: {
+      counts: { total: number; active: number; trials: number; paused: number; cancelled: number };
+      byCurrency: Array<{ currency: string; monthlyTotal: number; activeSubscriptions: number }>;
+      upcomingRenewals: Array<{ id: string; isTrial: boolean; daysUntilRenewal: number }>;
+    };
+  }>(response);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(body.summary.counts, { total: 4, active: 3, trials: 1, paused: 0, cancelled: 1 });
+  assert.equal(body.summary.byCurrency.find(entry => entry.currency === 'USD')?.monthlyTotal, 24.99);
+  assert.equal(body.summary.byCurrency.find(entry => entry.currency === 'USD')?.activeSubscriptions, 2);
+  assert.deepEqual(
+    body.summary.upcomingRenewals.map(item => ({ id: item.id, isTrial: item.isTrial })),
+    [
+      { id: 'a', isTrial: false },
+      { id: 'active-trial', isTrial: true },
+    ]
+  );
 });

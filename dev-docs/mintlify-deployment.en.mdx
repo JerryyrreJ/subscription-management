@@ -1,78 +1,34 @@
 ---
-title: "Deploy this documentation site"
-description: "Use Mintlify to preview and publish the docs-site directory."
+title: "Deploy the SteadyRenew documentation site"
+description: "Use Mintlify to preview, validate, and publish the docs-site directory."
 ---
 
-# Deploy this documentation site
+# Deploy the SteadyRenew documentation site
 
-This repository includes a Mintlify documentation site in:
+`docs-site/` is the canonical public documentation source for SteadyRenew, served in production at `https://steadyrenew.com/docs` via `netlify/edge-functions/docs-proxy.ts`. See [`docs-site/README.md`](../docs-site/README.md) for proxy and asset capture details.
 
-```text
-docs-site/
-```
-
-The original Markdown files in `docs/` remain available as source material and historical docs. The Mintlify site is the public-facing documentation experience.
-
-## Local preview
-
-Install the Mintlify CLI:
+## Local preview & validation
 
 ```bash
 npm i -g mint
-```
-
-Run the preview from the documentation directory:
-
-```bash
 cd docs-site
 mint dev
 ```
 
-The local preview opens at:
-
-```text
-http://localhost:3000
-```
-
-## Validate
-
-From `docs-site/`, run:
+Before pushing documentation changes, run both checks from `docs-site/`:
 
 ```bash
+cd docs-site
+mint broken-links
 mint validate
 ```
 
-This checks broken links, configuration, and the OpenAPI document.
+## Mintlify project setup
 
-## Deploy through Mintlify
-
-1. Go to `https://mintlify.com/start`.
-2. Create a project.
-3. Connect the GitHub repository.
-4. Install the Mintlify GitHub App.
-5. Choose this repository.
-6. Set the docs path to:
-
-```text
-docs-site
-```
-
-7. Finish onboarding and wait for the first deployment.
-
-The site will be available at:
-
-```text
-https://<your-project-name>.mintlify.app
-```
+1. Open `https://mintlify.com/start` and connect the `subscription-management` repository.
+2. Enable subdirectory mode and set the documentation path to `docs-site`.
+3. Configure custom domain subpath `steadyrenew.com/docs` in Mintlify while keeping root DNS on Netlify (add only Mintlify's TXT verification records).
 
 ## Agent-friendly outputs
 
-Mintlify automatically exposes:
-
-- Copy page actions.
-- Per-page Markdown export.
-- `Accept: text/markdown`.
-- `/llms.txt`.
-- `/llms-full.txt`.
-
-These outputs are useful when sending documentation context to agents or API automation tools.
+Mintlify automatically serves per-page Markdown exports, `Accept: text/markdown`, `/docs/llms.txt`, and `/docs/llms-full.txt` alongside the app's own `/llms.txt` and `/agent/*` contracts.

@@ -1,17 +1,19 @@
 ---
 title: "开放 API 概览"
-description: "使用 Developer API Key 通过 v1 开放 API 管理订阅生命周期、分析和审计。"
+description: "使用 Developer API Key 通过 v1 开放 API 管理订阅生命周期、通知设置、支出分析、审计日志与 MCP 工具。"
 ---
 
 # 开放 API 概览
 
-v1 开放 API 通过 Developer API Key 提供订阅生命周期管理、分析和审计访问能力。它主要面向脚本、Agent、自动化工具和第三方集成。
+v1 开放 API 通过 Developer API Key（`Authorization: Bearer subm_…`）提供订阅生命周期管理、全局提醒设置、支出分析和审计日志能力，同时驱动 SteadyRenew 的远程 Streamable HTTP MCP 端点（`/api/mcp`）与本地单文件 MCP 服务。
 
 ## Base path
 
 ```text
-https://your-site.example/api/v1
+https://steadyrenew.com/api/v1
 ```
+
+*（自托管部署请将 `https://steadyrenew.com` 替换为你的站点域名。）*
 
 主要接口组位于：
 
@@ -20,40 +22,42 @@ https://your-site.example/api/v1
 /api/v1/notification-settings
 /api/v1/analytics
 /api/v1/audit
+/api/mcp
 ```
 
 ## 设计约定
 
-- API 响应为 JSON。
-- 请求和响应字段使用 camelCase。
-- 数据库管理字段为只读。
-- API Key 所属用户决定访问范围。
-- 所有订阅查询都会按 API Key owner 过滤。
-- `nextPaymentDate` 是权威续费日期；月付计划会保留原始的每月固定日期。
+- API 响应为 JSON，请求与响应字段统一使用 camelCase。
+- 数据库管理字段（`id`、`createdAt`、`updatedAt`）为只读。
+- 所有查询和变更都严格限定在当前 API Key 所属用户范围内。
+- `nextPaymentDate` 是权威续费日期；月付计划通过 `billingAnchorDay` 保留每月固定扣款日。
+- 已过期的 `active` 非试用订阅在读取和支出汇总中会自动将 `nextPaymentDate` 滚动到当前计费周期（与网页仪表盘及 Bark 提醒保持一致）；免费试用（`isTrial: true`）以及 `paused` / `cancelled` 记录不会自动顺延。
 - `status` 会在记录中返回，也可作为列表过滤参数，但不能通过公开 API 写入。
-- 通知设置仅开放 `enabled` 与 `daysBefore` 的写入；Bark URL、test push、timeZone、locale 仍由网页管理。
-- 分析端点按币种分别报告金额，不跨币种换算。
-- 审计端点暴露开放 API create、update 和 delete 的写操作历史。
-- 当字段可修正时，写操作会返回适合 AI 读取的校验错误。
+- 通知设置仅开放 `enabled` 与 `daysBefore` 的写入；Bark URL、测试推送、`timeZone` 和 `locale` 仍由网页端管理。
+- 分析端点按币种分别统计金额，不做跨币种换算。重复检测与优化建议需要终身高级版（Free 账户返回 `403 premium_required`）。
+- 审计端点暴露开放 API `subscription.create`、`subscription.update` 和 `subscription.delete` 的写操作历史。
+- 写操作在扣减限流配额前校验请求体，并返回带 `field`、`suggestedFix`、`allowedValues`、`writableFields` 的 AI 友好恢复提示。
 
-## 面向 AI 的交付物
+## AI 与 MCP 交付物
 
-接入 AI 助手或 Agent 框架时，优先使用这些文件：
+接入 AI 助手、MCP 客户端或 Agent 框架时，优先使用以下端点与文件：
 
 | 交付物 | 用途 |
 | --- | --- |
-| [OpenAPI schema](/api/openapi.yaml) | 接口 schema、示例、认证方式，以及 `x-ai` 任务元数据 |
-| [AI tool schema](/api/ai-tools.json) | function/tool 定义、风险等级和确认策略 |
-| [AI 工具使用指南](/api/ai-tools) | 调用选择、提示词和安全策略 |
+| `https://steadyrenew.com/api/mcp` | 托管的无状态 Streamable HTTP MCP 端点（使用 `Authorization: Bearer subm_…` 发送 `POST` 请求） |
+| `https://steadyrenew.com/downloads/steadyrenew-mcp.mjs` | 零依赖单文件本地 stdio MCP 脚本（需 Node.js 20+） |
+| [OpenAPI schema](/api/openapi.yaml) | 接口 schema、示例、认证方式，以及 `x-ai` 任务元数据（应用主域同样提供 `/agent/openapi.yaml`） |
+| [AI tool schema](/api/ai-tools.json) | function/tool 定义、风险等级和确认策略（应用主域同样提供 `/agent/ai-tools.json`） |
+| [AI 工具使用指南](/zh-CN/api/ai-tools) | 工具选择、提示词规则、写确认策略和错误恢复 |
 
 ## 默认套餐限额
 
-| 套餐 | Active keys | 请求量 |
-| --- | ---: | ---: |
-| Free | 5 | 每账户每分钟 60 次 |
-| Premium | 5 | 每账户每分钟 60 次 |
+| 套餐 | 有效 Key 上限 | 速率限制 | 分析端点权限 |
+| --- | ---: | --- | --- |
+| Free | 5 | 每账户每分钟 60 次 | `/api/v1/analytics/summary` |
+| Premium | 5 | 每账户每分钟 60 次 | `summary`、`duplicates` 与 `optimizations` |
 
-可以用服务端环境变量覆盖默认值：
+自托管部署可通过服务端环境变量覆盖默认值：
 
 ```bash
 API_RATE_LIMIT_PER_MINUTE=60
@@ -64,18 +68,21 @@ API_RATE_LIMIT_RETENTION_HOURS=48
 
 ## Endpoints
 
-| Method | Path | 说明 |
-| --- | --- | --- |
-| `GET` | `/api/v1/subscriptions` | 获取订阅列表 |
-| `GET` | `/api/v1/subscriptions/{id}` | 获取单个订阅 |
-| `POST` | `/api/v1/subscriptions` | 创建订阅 |
-| `PATCH` | `/api/v1/subscriptions/{id}` | 更新可写字段 |
-| `DELETE` | `/api/v1/subscriptions/{id}` | 删除订阅 |
-| `GET` | `/api/v1/analytics/summary` | 按币种/分类汇总支出并返回即将续费项 |
-| `GET` | `/api/v1/analytics/duplicates` | 查找重复订阅候选 |
-| `GET` | `/api/v1/analytics/optimizations` | 返回不虚构折扣的优化候选 |
-| `GET` | `/api/v1/audit` | 开放 API 写操作审计日志 |
+| Method | Path | Scope / 套餐 | 说明 |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/subscriptions` | `read` | 获取、过滤和排序订阅列表 |
+| `GET` | `/api/v1/subscriptions/{id}` | `read` | 按 UUID 获取单条订阅 |
+| `POST` | `/api/v1/subscriptions` | `write` | 创建订阅或免费试用记录 |
+| `PATCH` | `/api/v1/subscriptions/{id}` | `write` | 更新订阅可写字段 |
+| `DELETE` | `/api/v1/subscriptions/{id}` | `write` | 永久删除追踪订阅记录 |
+| `GET` | `/api/v1/notification-settings` | `read` | 读取全局提醒开关与提前天数 |
+| `PATCH` | `/api/v1/notification-settings` | `write` | 更新 `enabled` 与 `daysBefore`（`1`、`3`、`7`、`14`） |
+| `GET` | `/api/v1/analytics/summary` | `read` | 按币种/分类汇总支出并返回即将续费项 |
+| `GET` | `/api/v1/analytics/duplicates` | `read`（Premium） | 查找重复订阅候选 |
+| `GET` | `/api/v1/analytics/optimizations` | `read`（Premium） | 返回基于事实的优化候选（不臆造折扣） |
+| `GET` | `/api/v1/audit` | `read` | 开放 API 写操作审计日志 |
+| `POST` | `/api/mcp` | `read` / `write` | 无状态 Streamable HTTP MCP 传输端点 |
 
 ## API 参考
 
-接口 schema、参数和响应示例以生成的 [API 参考](/api-reference)为准。
+在顶部导航栏切换到 **API 参考** 标签页（由 [openapi.yaml](/api/openapi.yaml) 自动生成），即可查看完整的请求参数与响应示例。

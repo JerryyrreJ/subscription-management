@@ -175,6 +175,12 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/api/mcp"
+  to = "/.netlify/functions/api-mcp"
+  status = 200
+  force = true
+
 # Static blog HTML is emitted into dist/blog and dist/zh/blog at build time.
 # Keep these rewrites above the SPA fallback so unknown guide slugs
 # 404 instead of serving the React app shell.
@@ -302,6 +308,44 @@
   for = "/llms.txt"
   [headers.values]
     Content-Type = "text/plain; charset=utf-8"
+    Access-Control-Allow-Origin = "*"
+
+[[headers]]
+  for = "/agent/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=300"
+
+[[headers]]
+  for = "/agent/setup.md"
+  [headers.values]
+    Content-Type = "text/markdown; charset=utf-8"
+
+[[headers]]
+  for = "/agent/ai-tools.json"
+  [headers.values]
+    Content-Type = "application/json; charset=utf-8"
+
+[[headers]]
+  for = "/agent/openapi.yaml"
+  [headers.values]
+    Content-Type = "application/yaml; charset=utf-8"
+
+[[headers]]
+  for = "/downloads/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=300"
+
+[[headers]]
+  for = "/downloads/subscription-manager-mcp.tgz"
+  [headers.values]
+    Content-Type = "application/gzip"
+
+[[headers]]
+  for = "/downloads/steadyrenew-mcp.mjs"
+  [headers.values]
+    Content-Type = "text/javascript; charset=utf-8"
 
 # Explicit types so nosniff does not block Bing or IndexNow from reading
 # the verification files. These paths are static files, not rewrites.

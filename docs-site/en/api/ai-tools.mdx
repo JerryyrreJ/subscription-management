@@ -1,50 +1,54 @@
 ---
 title: "AI tool usage"
-description: "Use the public API as AI agent tools with operation semantics, confirmation rules, and recovery guidance."
+description: "Use the public API and MCP endpoints as AI agent tools with operation semantics, confirmation rules, and recovery guidance."
 ---
 
 # AI tool usage
 
-For guided setup, start with [Connect your agent](/en/user-guide/agent-setup). The app’s **Copy to Agent** button includes your site origin and links to the downloadable MCP package and API contract.
+For guided client setup, start with [Connect your agent](/en/user-guide/agent-setup). Under **Settings → API & MCP**, the **Copy to Agent** button generates an onboarding prompt with your site origin, remote Streamable HTTP MCP endpoint (`/api/mcp`), single-file local MCP download (`/downloads/steadyrenew-mcp.mjs`), and API contract links.
 
-The public API can be exposed to AI assistants as tools. Use the [AI tool schema](/api/ai-tools.json) when a framework accepts JSON tool definitions, and use the [OpenAPI schema](/api/openapi.yaml) when a framework imports OpenAPI directly.
+If you are integrating a custom agent framework directly, use the [AI tool schema](/api/ai-tools.json) for JSON tool definitions or the [OpenAPI schema](/api/openapi.yaml) for OpenAPI-based tool importers.
 
 ## Recommended agent policy
 
 Give the assistant this policy before allowing write access:
 
 ```text
-You can read subscriptions without confirmation.
-Before creating, updating, or deleting subscriptions, summarize the exact planned change and ask for confirmation.
-Before deleting, repeat the subscription name and id.
-Never send server-managed fields: id, createdAt, updatedAt. Use nextPaymentDate for the upcoming renewal.
+You can read subscriptions, spend summaries, notification settings, and audit history without confirmation.
+Before creating, updating, or deleting subscriptions—or changing notification settings—summarize the exact planned change and ask for confirmation.
+Before deleting, repeat the subscription name and id, and clarify that deleting removes the tracker entry without cancelling the merchant billing agreement.
+Never send server-managed fields: id, status, createdAt, updatedAt. Use nextPaymentDate for the upcoming renewal.
 If the API returns field, suggestedFix, allowedValues, or writableFields, revise the payload using those hints.
 ```
 
-## Tool selection
+## All 11 tools & selection guide
 
-| User intent | Tool |
-| --- | --- |
-| "Show my subscriptions" | `list_subscriptions` |
-| "Find my Netflix subscription" | `list_subscriptions`, then match by name/category |
-| "Show details for this id" | `get_subscription` |
-| "Add ChatGPT Plus" | Confirm, then `create_subscription` |
-| "Change Netflix to yearly" | `list_subscriptions`, confirm target/change, then `update_subscription` |
-| "Delete the duplicate Netflix record" | `list_subscriptions`, confirm exact name/id, then `delete_subscription` |
-| "Are reminders on / remind me 7 days ahead?" | `get_notification_settings` / confirm then `update_notification_settings` |
-| "Here is my Bark URL, configure it" | Refuse; point to the [reminders guide](/en/user-guide/reminders) |
+| User intent | Tool | Scope / Plan |
+| --- | --- | --- |
+| "Show my subscriptions" / "What renews soon?" | `list_subscriptions` | `read` |
+| "Show details for this subscription UUID" | `get_subscription` | `read` |
+| "Add ChatGPT Plus" / "Track a 7-day Figma trial" | Confirm, then `create_subscription` | `write` |
+| "Change Netflix to yearly" | `list_subscriptions`, confirm target/change, then `update_subscription` | `write` |
+| "Delete the duplicate Netflix record" | `list_subscriptions`, confirm exact name/id, then `delete_subscription` | `write` |
+| "Are reminders on?" | `get_notification_settings` | `read` |
+| "Remind me 7 days before renewals" | Confirm, then `update_notification_settings` | `write` |
+| "How much am I spending per month?" | `get_spend_summary` | `read` |
+| "Do I have duplicate subscriptions?" | `find_duplicate_subscriptions` | `read` (Premium) |
+| "Which plans could switch to annual?" | `get_optimization_suggestions` | `read` (Premium) |
+| "What did the agent change earlier?" | `list_audit_log` | `read` |
+| "Here is my Bark URL, configure it" | Refuse; point to **Settings → Notifications** and [reminders guide](/en/user-guide/reminders) | Web only |
 
 ## Risk levels
 
-| Risk | Operations | Agent behavior |
+| Risk | Tools | Agent behavior |
 | --- | --- | --- |
-| Low | List and get | Can run directly when the user asks |
-| Medium | Create and update | Confirm the planned write before calling |
-| High | Delete | Confirm the exact record name and id before calling |
+| Low | `list_subscriptions`, `get_subscription`, `get_notification_settings`, `get_spend_summary`, `find_duplicate_subscriptions`, `get_optimization_suggestions`, `list_audit_log` | Run directly when the user asks |
+| Medium | `create_subscription`, `update_subscription`, `update_notification_settings` | Summarize the planned write and ask for confirmation before calling |
+| High | `delete_subscription` | Confirm the exact subscription name and `id` before calling |
 
-The public API does not support soft cancel/pause/resume via `status`. If the user asks to cancel a subscription, clarify whether they mean deleting the local tracking record or cancelling the service outside this app.
+The public API does not support soft cancel/pause/resume via `status`. If the user asks to cancel a subscription, clarify whether they mean deleting the local tracking record or cancelling the service with the external provider.
 
-Bark URL, test push, timeZone, and locale also cannot be configured through the public API; point the user to the web app and the [reminders guide](/en/user-guide/reminders).
+Bark URL, test push, `timeZone`, and `locale` cannot be read or written through the public API; point the user to the web app and the [reminders guide](/en/user-guide/reminders).
 
 ## Example flow
 
@@ -92,4 +96,6 @@ Errors use a stable shape:
 }
 ```
 
-Use `field` and `suggestedFix` to correct the next request. For writes, ask for confirmation again if the corrected payload changes the effective action.
+- **Validation hints (`400`)**: Use `field`, `suggestedFix`, `allowedValues`, and `writableFields` to fix the payload. Ask for confirmation again if the corrected payload changes the effective action.
+- **Read-only key (`403 insufficient_scope`)**: Do not retry; explain that a key with `write` scope is required.
+- **Premium analytics (`403 premium_required`)**: Do not retry `find_duplicate_subscriptions` or `get_optimization_suggestions`; explain that those two tools require Lifetime Premium (`https://steadyrenew.com/pricing`), or fall back to `list_subscriptions` / `get_spend_summary`.

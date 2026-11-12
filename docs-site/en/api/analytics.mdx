@@ -5,11 +5,17 @@ description: "Computed spend summaries, duplicate detection, and optimization ca
 
 # Analytics
 
-The analytics endpoints return computed insights so an agent does not have to list and aggregate records itself. They are read-only (any key works) and **report money per currency** — amounts are never converted across currencies, so figures are always accurate.
+The analytics endpoints return computed insights so an agent does not have to list and aggregate records itself. They require only the `read` scope and **report money per currency** — amounts are never converted across currencies, so figures are always exact.
+
+| Endpoint | Plan requirement |
+| --- | --- |
+| `GET /api/v1/analytics/summary` | Free & Premium |
+| `GET /api/v1/analytics/duplicates` | Lifetime Premium (`403 premium_required` on Free) |
+| `GET /api/v1/analytics/optimizations` | Lifetime Premium (`403 premium_required` on Free) |
 
 ## Spend summary
 
-`GET /api/v1/analytics/summary`
+`GET /api/v1/analytics/summary` (available on Free and Premium)
 
 | Parameter | Default | Rule |
 | --- | --- | --- |
@@ -17,7 +23,7 @@ The analytics endpoints return computed insights so an agent does not have to li
 
 ```bash
 curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  "https://your-site.example/api/v1/analytics/summary?horizonDays=30"
+  "https://steadyrenew.com/api/v1/analytics/summary?horizonDays=30"
 ```
 
 ```json
@@ -25,7 +31,7 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   "summary": {
     "asOf": "2026-06-16T00:15:00.000Z",
     "horizonDays": 30,
-    "counts": { "total": 7, "active": 5, "paused": 1, "cancelled": 1 },
+    "counts": { "total": 8, "active": 6, "trials": 1, "paused": 1, "cancelled": 1 },
     "byCurrency": [
       { "currency": "USD", "activeSubscriptions": 4, "monthlyTotal": 234.99, "yearlyTotal": 2819.88 }
     ],
@@ -33,24 +39,31 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
       { "category": "Streaming", "activeSubscriptions": 2, "monthlyTotalsByCurrency": { "USD": 24.99 } }
     ],
     "upcomingRenewals": [
-      { "id": "...", "name": "Rakuten", "category": "Shopping", "amount": 1000, "currency": "JPY", "period": "monthly", "nextPaymentDate": "2026-06-18", "daysUntilRenewal": 2 }
+      { "id": "...", "name": "Rakuten", "category": "Shopping", "amount": 1000, "currency": "JPY", "period": "monthly", "nextPaymentDate": "2026-06-18", "daysUntilRenewal": 2, "isTrial": false },
+      { "id": "...", "name": "Figma Pro", "category": "Design", "amount": 15, "currency": "USD", "period": "monthly", "nextPaymentDate": "2026-06-22", "daysUntilRenewal": 6, "isTrial": true }
     ]
   },
   "requestId": "request-..."
 }
 ```
 
-Only `active` subscriptions contribute to `byCurrency`, `byCategory`, and `upcomingRenewals`. Totals are grouped by currency; do not sum across currencies.
+- Paid `active` subscriptions (`isTrial: false`) contribute to `byCurrency` and `byCategory`. Active free trials (`isTrial: true`) are counted in `counts.trials` (as part of `counts.active`) and appear in `upcomingRenewals` with `"isTrial": true`, without inflating current recurring spend totals before their first paid charge.
+- Overdue `active` non-trial subscriptions automatically advance `nextPaymentDate` to the current billing cycle before computing `upcomingRenewals` and `daysUntilRenewal`. Free trials (`isTrial: true`) do not auto-advance.
+- Custom billing intervals (`period: "custom"`, `customDate: "<days>"`) annualize using `amount × (365 / days)` and divide by `12` for monthly equivalents, matching the web dashboard and reports.
+- Totals are grouped by currency; do not sum across currencies.
 
-## Duplicate detection
+## Duplicate detection (Premium)
 
 `GET /api/v1/analytics/duplicates`
+
+> [!IMPORTANT]
+> Requires **Lifetime Premium**. Calling this endpoint on a Free account returns `403 premium_required`.
 
 Returns groups of non-cancelled subscriptions that share a normalized name (case- and whitespace-insensitive) — a strong signal of duplicate tracking or double billing.
 
 ```bash
 curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  "https://your-site.example/api/v1/analytics/duplicates"
+  "https://steadyrenew.com/api/v1/analytics/duplicates"
 ```
 
 ```json
@@ -70,9 +83,12 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
 
 This matches by name only; overlapping but differently named services are not detected.
 
-## Optimization candidates
+## Optimization candidates (Premium)
 
 `GET /api/v1/analytics/optimizations`
+
+> [!IMPORTANT]
+> Requires **Lifetime Premium**. Calling this endpoint on a Free account returns `403 premium_required`.
 
 Returns factual candidates with no invented discount rates:
 
@@ -81,7 +97,7 @@ Returns factual candidates with no invented discount rates:
 
 ```bash
 curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  "https://your-site.example/api/v1/analytics/optimizations"
+  "https://steadyrenew.com/api/v1/analytics/optimizations"
 ```
 
 ```json

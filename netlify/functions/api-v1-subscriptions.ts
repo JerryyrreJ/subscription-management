@@ -7,9 +7,11 @@ import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { recordAudit } from './_shared/audit';
 import { createSupabaseAdminClient } from './_shared/supabase';
+import { runtimeEnvironment } from './_shared/webHandler';
 import {
   calculateNextPaymentDate,
   calculatePreviousPaymentDate,
+  compareDateOnly,
   formatDateOnly,
   getDateOnlyDay,
   parseDateOnly,
@@ -21,6 +23,7 @@ import {
   subscriptionCreateInputSchema,
   subscriptionPatchInputSchema,
 } from '../../src/utils/subscriptionDomain';
+import { resolveSubscriptionRenewal } from '../../src/utils/subscriptionRenewal';
 
 interface SubscriptionRow {
   id: string;
@@ -97,11 +100,11 @@ const CORS_HEADERS = {
 };
 
 const createDefaultDependencies = (): SubscriptionsApiDependencies => {
-  const supabaseConfig = getSupabaseAdminConfig(process.env);
+  const supabaseConfig = getSupabaseAdminConfig(runtimeEnvironment);
 
   return {
     database: createSupabaseAdminClient(supabaseConfig),
-    limits: getApiLimitsConfig(process.env),
+    limits: getApiLimitsConfig(runtimeEnvironment),
     createRequestId: () => crypto.randomUUID(),
     now: () => new Date(),
   };
@@ -111,6 +114,7 @@ const idSchema = z.string().uuid();
 
 const DEFAULT_PAGE_LIMIT = 50;
 const MAX_PAGE_LIMIT = 100;
+const MAX_SUBSCRIPTIONS_SCAN = 1000;
 
 const paginationSchema = z.object({
   limit: z.coerce.number().int('limit must be a whole number')
@@ -155,10 +159,15 @@ const SORT_OPTIONS = [
   '-name',
 ] as const;
 
+const IS_TRIAL_OPTIONS = ['true', 'false'] as const;
+
 const listFiltersSchema = z.object({
   status: z.enum(SUBSCRIPTION_STATUSES).optional(),
   category: z.string().trim().min(1).max(80).optional(),
   period: z.enum(SUBSCRIPTION_PERIODS).optional(),
+  isTrial: z.enum(IS_TRIAL_OPTIONS)
+    .optional()
+    .transform(value => value === undefined ? undefined : value === 'true'),
   q: z.string().trim().min(1).max(120).optional(),
   expiringBefore: z.string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'expiringBefore must use YYYY-MM-DD')
@@ -191,10 +200,12 @@ const parseListFilters = (
         ? SUBSCRIPTION_STATUSES
         : field === 'period'
           ? SUBSCRIPTION_PERIODS
-          : field === 'sort'
-            ? SORT_OPTIONS
-            : undefined,
-      suggestedFix: 'Supported filters: status, category, period, q (name search), expiringBefore (YYYY-MM-DD), and sort (e.g. -nextPaymentDate).',
+          : field === 'isTrial'
+            ? IS_TRIAL_OPTIONS
+            : field === 'sort'
+              ? SORT_OPTIONS
+              : undefined,
+      suggestedFix: 'Supported filters: status, category, period, isTrial (true or false), q (name search), expiringBefore (YYYY-MM-DD), and sort (e.g. -nextPaymentDate).',
     });
   }
 
@@ -286,7 +297,7 @@ const parseSubscriptionPath = (path: string): string | null => {
   return segments[0] ?? null;
 };
 
-const toApiSubscription = (row: SubscriptionRow) => ({
+const toStoredApiSubscription = (row: SubscriptionRow) => ({
   id: row.id,
   name: row.name,
   category: row.category,
@@ -304,6 +315,39 @@ const toApiSubscription = (row: SubscriptionRow) => ({
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
+
+const toApiSubscription = (row: SubscriptionRow, now: Date) => {
+  const stored = toStoredApiSubscription(row);
+  if (stored.status !== 'active') {
+    return stored;
+  }
+
+  const renewal = resolveSubscriptionRenewal(
+    {
+      nextPaymentDate: stored.nextPaymentDate,
+      period: stored.period as 'monthly' | 'yearly' | 'custom',
+      customDate: stored.customDate,
+      billingAnchorDay: stored.billingAnchorDay,
+      isTrial: stored.isTrial,
+      trialEndsOn: stored.trialEndsOn,
+    },
+    'UTC',
+    now
+  );
+
+  if (!renewal.isAutoRenewed) {
+    return {
+      ...stored,
+      nextPaymentDate: renewal.effectiveNextPaymentDate,
+    };
+  }
+
+  return {
+    ...stored,
+    lastPaymentDate: renewal.effectiveLastPaymentDate,
+    nextPaymentDate: renewal.effectiveNextPaymentDate,
+  };
+};
 
 const doesAnchorDayMatchDate = (dateString: string, anchorDay: number): boolean => {
   const date = parseDateOnly(dateString);
@@ -399,8 +443,9 @@ const getSubscription = async (
 
 const parseCreateInput = (body: Record<string, unknown>) => {
   assertAllowedFields(body);
+  let parsed: z.infer<typeof subscriptionCreateInputSchema>;
   try {
-    return subscriptionCreateInputSchema.parse(body);
+    parsed = subscriptionCreateInputSchema.parse(body);
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new HttpError(
@@ -413,11 +458,27 @@ const parseCreateInput = (body: Record<string, unknown>) => {
     }
     throw error;
   }
+
+  if (
+    parsed.isTrial
+    && Object.hasOwn(body, 'trialEndsOn')
+    && Object.hasOwn(body, 'nextPaymentDate')
+    && parsed.trialEndsOn
+    && parsed.nextPaymentDate
+    && parsed.trialEndsOn !== parsed.nextPaymentDate
+  ) {
+    throw new HttpError(400, 'invalid_subscription', 'Trial end and next payment dates must agree', {}, {
+      field: 'trialEndsOn',
+      suggestedFix: subscriptionFieldGuidance.trialEndsOn,
+    });
+  }
+
+  return parsed;
 };
 
 const parsePatchInput = (
   body: Record<string, unknown>,
-  existing: ReturnType<typeof toApiSubscription>
+  existing: ReturnType<typeof toStoredApiSubscription>
 ) => {
   assertAllowedFields(body);
   if (Object.keys(body).length === 0) {
@@ -513,6 +574,7 @@ const parsePatchInput = (
       && patch.trialEndsOn && patch.trialEndsOn !== patch.nextPaymentDate) {
       throw new HttpError(400, 'invalid_subscription', 'Trial end and next payment dates must agree', {}, {
         field: 'trialEndsOn',
+        suggestedFix: subscriptionFieldGuidance.trialEndsOn,
       });
     }
     if (Object.hasOwn(body, 'trialEndsOn') && patch.trialEndsOn) {
@@ -596,7 +658,7 @@ export const createSubscriptionsApiHandler = (
     // write for POST/PATCH/DELETE. A 403 here never charges rate-limit budget.
     assertScope(identity.scopes, event.httpMethod === 'GET' ? 'read' : 'write');
 
-    // Charge the hourly quota only once the request is known to be well-formed,
+    // Charge the per-minute quota only once the request is known to be well-formed,
     // so malformed input (400s) never burns an agent's rate-limit budget.
     const consume = async (): Promise<ApiClientContext> => {
       const context = await consumeApiRateLimit(dependencies.database, identity, now);
@@ -623,39 +685,70 @@ export const createSubscriptionsApiHandler = (
       if (filters.period) {
         listQuery = listQuery.eq('period', filters.period);
       }
+      if (filters.isTrial !== undefined) {
+        listQuery = listQuery.eq('is_trial', filters.isTrial);
+      }
       if (filters.q) {
         listQuery = listQuery.ilike('name', `%${escapeLikePattern(filters.q)}%`);
       }
       if (filters.expiringBefore) {
+        // Stored next_payment_date is always <= effectiveNextPaymentDate, so SQL
+        // lte remains a safe superset pushdown before effective-date filtering.
         listQuery = listQuery.lte('next_payment_date', filters.expiringBefore);
       }
 
       const ascending = !filters.sort.startsWith('-');
-      const sortColumn = SORTABLE_COLUMNS[filters.sort.replace(/^-/, '')];
+      const sortField = filters.sort.replace(/^-/, '');
+      const sortColumn = SORTABLE_COLUMNS[sortField];
+      const needsEffectiveDatePass = Boolean(filters.expiringBefore) || sortField === 'nextPaymentDate';
+
       const { data, error } = await listQuery
         .order(sortColumn, { ascending })
-        .range(offset, offset + limit);
+        .range(
+          needsEffectiveDatePass ? 0 : offset,
+          needsEffectiveDatePass ? MAX_SUBSCRIPTIONS_SCAN - 1 : offset + limit
+        );
 
       if (error) {
         throw error;
       }
 
       const rows = (data ?? []) as unknown as SubscriptionRow[];
-      const hasMore = rows.length > limit;
-      const page = hasMore ? rows.slice(0, limit) : rows;
+      let pageItems: Array<ReturnType<typeof toApiSubscription>>;
+      let hasMore: boolean;
+
+      if (needsEffectiveDatePass) {
+        let resolved = rows.map(row => toApiSubscription(row, now));
+        if (filters.expiringBefore) {
+          resolved = resolved.filter(item => compareDateOnly(item.nextPaymentDate, filters.expiringBefore!) <= 0);
+        }
+        if (sortField === 'nextPaymentDate') {
+          resolved.sort((left, right) => {
+            const diff = compareDateOnly(left.nextPaymentDate, right.nextPaymentDate);
+            return ascending ? diff : -diff;
+          });
+        }
+        hasMore = resolved.length > offset + limit;
+        pageItems = resolved.slice(offset, offset + limit);
+      } else {
+        hasMore = rows.length > limit;
+        const page = hasMore ? rows.slice(0, limit) : rows;
+        pageItems = page.map(row => toApiSubscription(row, now));
+      }
 
       const appliedFilters = Object.fromEntries(
         Object.entries({
           status: filters.status,
           category: filters.category,
           period: filters.period,
+          isTrial: filters.isTrial,
           q: filters.q,
           expiringBefore: filters.expiringBefore,
         }).filter(([, value]) => value !== undefined)
       );
 
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
-        data: page.map(toApiSubscription),
+        data: pageItems,
         pagination: { limit, offset, hasMore },
         query: { sort: filters.sort, filters: appliedFilters },
         requestId,
@@ -667,7 +760,7 @@ export const createSubscriptionsApiHandler = (
       const context = await consume();
       const subscription = await getSubscription(dependencies.database, identity.userId, id);
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
-        data: toApiSubscription(subscription),
+        data: toApiSubscription(subscription, now),
         requestId,
       })));
     }
@@ -698,7 +791,7 @@ export const createSubscriptionsApiHandler = (
         subscriptionId: data.id,
       });
 
-      const created = toApiSubscription(data);
+      const created = toApiSubscription(data, now);
       await recordAudit(dependencies.database, {
         userId: identity.userId,
         apiKeyId: identity.apiKeyId,
@@ -721,9 +814,8 @@ export const createSubscriptionsApiHandler = (
     const id = parseSubscriptionId(subscriptionId);
 
     if (event.httpMethod === 'PATCH') {
-      const existing = toApiSubscription(
-        await getSubscription(dependencies.database, identity.userId, id)
-      );
+      const existingRow = await getSubscription(dependencies.database, identity.userId, id);
+      const existing = toStoredApiSubscription(existingRow);
       const body = parseJsonObject(event.body);
       const parsed = parsePatchInput(body, existing);
       const context = await consume();
@@ -742,7 +834,7 @@ export const createSubscriptionsApiHandler = (
         throw error;
       }
 
-      const updated = toApiSubscription(data);
+      const updated = toApiSubscription(data, now);
       await recordAudit(dependencies.database, {
         userId: identity.userId,
         apiKeyId: identity.apiKeyId,
@@ -758,7 +850,7 @@ export const createSubscriptionsApiHandler = (
       })));
     }
 
-    const existing = toApiSubscription(
+    const existing = toStoredApiSubscription(
       await getSubscription(dependencies.database, identity.userId, id)
     );
     const context = await consume();

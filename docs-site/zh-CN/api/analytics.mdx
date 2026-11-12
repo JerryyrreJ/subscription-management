@@ -5,11 +5,17 @@ description: "为 AI Agent 提供的支出汇总、重复检测和优化建议�
 
 # 分析
 
-分析端点返回已计算好的洞察，Agent 无需自己拉取并聚合记录。它们是只读的（任意 Key 都可调用），并且**按币种分别统计金额**——绝不做汇率换算，因此数字始终准确。
+分析端点返回已计算好的洞察，Agent 无需自己拉取并聚合记录。它们只需 `read` 权限，并且**按币种分别统计金额**——绝不做跨币种汇率换算，因此数字始终精确。
+
+| 端点 | 套餐要求 |
+| --- | --- |
+| `GET /api/v1/analytics/summary` | Free 与 Premium 均可用 |
+| `GET /api/v1/analytics/duplicates` | 需终身高级版（Free 账户返回 `403 premium_required`） |
+| `GET /api/v1/analytics/optimizations` | 需终身高级版（Free 账户返回 `403 premium_required`） |
 
 ## 支出汇总
 
-`GET /api/v1/analytics/summary`
+`GET /api/v1/analytics/summary`（Free 与 Premium 均可用）
 
 | 参数 | 默认值 | 规则 |
 | --- | --- | --- |
@@ -17,7 +23,7 @@ description: "为 AI Agent 提供的支出汇总、重复检测和优化建议�
 
 ```bash
 curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  "https://your-site.example/api/v1/analytics/summary?horizonDays=30"
+  "https://steadyrenew.com/api/v1/analytics/summary?horizonDays=30"
 ```
 
 ```json
@@ -25,7 +31,7 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
   "summary": {
     "asOf": "2026-06-16T00:15:00.000Z",
     "horizonDays": 30,
-    "counts": { "total": 7, "active": 5, "paused": 1, "cancelled": 1 },
+    "counts": { "total": 8, "active": 6, "trials": 1, "paused": 1, "cancelled": 1 },
     "byCurrency": [
       { "currency": "USD", "activeSubscriptions": 4, "monthlyTotal": 234.99, "yearlyTotal": 2819.88 }
     ],
@@ -33,24 +39,31 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
       { "category": "Streaming", "activeSubscriptions": 2, "monthlyTotalsByCurrency": { "USD": 24.99 } }
     ],
     "upcomingRenewals": [
-      { "id": "...", "name": "Rakuten", "category": "Shopping", "amount": 1000, "currency": "JPY", "period": "monthly", "nextPaymentDate": "2026-06-18", "daysUntilRenewal": 2 }
+      { "id": "...", "name": "Rakuten", "category": "Shopping", "amount": 1000, "currency": "JPY", "period": "monthly", "nextPaymentDate": "2026-06-18", "daysUntilRenewal": 2, "isTrial": false },
+      { "id": "...", "name": "Figma Pro", "category": "Design", "amount": 15, "currency": "USD", "period": "monthly", "nextPaymentDate": "2026-06-22", "daysUntilRenewal": 6, "isTrial": true }
     ]
   },
   "requestId": "request-..."
 }
 ```
 
-只有 `active` 订阅计入 `byCurrency`、`byCategory` 和 `upcomingRenewals`。金额按币种分组，不要跨币种相加。
+- 只有已付费的 `active` 订阅（`isTrial: false`）计入 `byCurrency` 和 `byCategory` 的经常性支出总额。活跃免费试用（`isTrial: true`）会记录在 `counts.trials`（同时属于 `counts.active`）中，并在到期窗口内以 `"isTrial": true` 出现在 `upcomingRenewals`，不会在首次正式扣款前虚增当前月度/年度支出。
+- 已过期的 `active` 非试用订阅会在计算 `upcomingRenewals` 与 `daysUntilRenewal` 前自动推进到当前计费周期；免费试用（`isTrial: true`）不会自动顺延。
+- 自定义周期订阅（`period: "custom"`，`customDate: "<天数>"`）按 `amount × (365 / days)` 折算年度支出，再除以 `12` 得到月度等效金额，与网页仪表盘和报表口径一致。
+- 金额按币种分组，不要跨币种相加。
 
-## 重复检测
+## 重复检测（Premium）
 
 `GET /api/v1/analytics/duplicates`
+
+> [!IMPORTANT]
+> 需要**终身高级版（Lifetime Premium）**。Free 账户调用此端点会返回 `403 premium_required`。
 
 返回名称规范化后相同（忽略大小写和空白）的非 cancelled 订阅分组——这通常意味着重复追踪或重复扣款。
 
 ```bash
 curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  "https://your-site.example/api/v1/analytics/duplicates"
+  "https://steadyrenew.com/api/v1/analytics/duplicates"
 ```
 
 ```json
@@ -70,9 +83,12 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
 
 仅按名称匹配；名称不同但功能重叠的服务不会被检出。
 
-## 优化建议
+## 优化建议（Premium）
 
 `GET /api/v1/analytics/optimizations`
+
+> [!IMPORTANT]
+> 需要**终身高级版（Lifetime Premium）**。Free 账户调用此端点会返回 `403 premium_required`。
 
 返回基于事实的候选项，不臆造折扣率：
 
@@ -81,7 +97,7 @@ curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
 
 ```bash
 curl -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  "https://your-site.example/api/v1/analytics/optimizations"
+  "https://steadyrenew.com/api/v1/analytics/optimizations"
 ```
 
 ```json

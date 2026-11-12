@@ -85,3 +85,20 @@ test('upstream outage returns 502 instead of the application', async t => {
   assert.equal(response.status, 502);
   assert.match(await response.text(), /temporarily unavailable/);
 });
+
+test('caches immutable Next.js static chunks and docs media while keeping HTML pages uncached', async t => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('asset', { status: 200 }));
+
+  const staticChunk = await docsProxy(new Request('https://steadyrenew.com/docs/_next/static/chunks/app.abc123.js'), context);
+  assert.equal(staticChunk.status, 200);
+  assert.equal(staticChunk.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+  assert.equal(staticChunk.headers.get('netlify-cdn-cache-control'), 'public, max-age=31536000, immutable');
+
+  const media = await docsProxy(new Request('https://steadyrenew.com/docs/images/dashboard-tour.mp4'), context);
+  assert.equal(media.status, 200);
+  assert.equal(media.headers.get('cache-control'), 'public, max-age=3600, stale-while-revalidate=86400');
+
+  const htmlPage = await docsProxy(new Request('https://steadyrenew.com/docs/en/api/overview'), context);
+  assert.equal(htmlPage.status, 200);
+  assert.equal(htmlPage.headers.get('cache-control'), 'no-store');
+});

@@ -1,15 +1,15 @@
 ---
 title: "Authentication"
-description: "Create Developer API keys and authenticate public API requests with Bearer tokens."
+description: "Create Developer API keys and authenticate public API and MCP requests with Bearer tokens."
 ---
 
 # Authentication
 
-Public API requests use Developer API keys.
+Public API (`/api/v1/*`) and remote MCP (`/api/mcp`) requests authenticate with Developer API keys.
 
 ## Create an API key
 
-Create an API key from **Developer API** in the user menu. The full key is shown only once. Store it like a password.
+Open **Settings → API & MCP** in the web app to create a key. Both Free and Premium accounts can hold up to **5 active API keys** (overrideable via `API_MAX_ACTIVE_KEYS` on self-hosted deployments).
 
 API keys use this shape:
 
@@ -17,17 +17,20 @@ API keys use this shape:
 subm_<public-id>.<secret>
 ```
 
-Only the SHA-256 hash of the full API key is stored on the server.
+- Only the SHA-256 hash of the full API key is stored on the server; the plaintext secret is displayed once at creation time.
+- Keys **never expire automatically** and remain valid until you revoke them (or delete your account).
 
 ## Send the key
 
-Send the key as a Bearer token:
+Send the key in the `Authorization` HTTP header as a Bearer token:
 
 ```bash
 curl \
   -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
-  https://your-site.example/api/v1/subscriptions
+  https://steadyrenew.com/api/v1/subscriptions
 ```
+
+Missing headers, malformed tokens, unknown keys, or revoked keys return `401` (`authentication_required` or `invalid_api_key`).
 
 ## Scopes
 
@@ -35,31 +38,21 @@ Each API key carries scopes that bound what it can do:
 
 | Scope | Allows |
 | --- | --- |
-| `read` | List and read subscriptions; read notification settings; call the analytics and audit endpoints |
+| `read` | List and read subscriptions; read notification settings; call analytics and audit endpoints |
 | `write` | Everything `read` allows, plus create, update, delete, and notification settings updates |
 
-`read` is always present. By default a new key is granted both `read` and `write`. To create a read-only key — useful for analysis agents that should never modify data — pass a `scopes` array when creating the key:
+`read` is always present. By default a new key is granted both `read` and `write`. To create a read-only key — recommended for analysis agents that should never modify data — select **Read only** in **Settings → API & MCP** (which sends `"scopes": ["read"]`).
 
-```json
-{ "name": "Analysis agent", "scopes": ["read"] }
-```
+A write operation attempted with a read-only key returns `403 insufficient_scope`. Note that duplicate detection (`/api/v1/analytics/duplicates`) and optimization candidates (`/api/v1/analytics/optimizations`) additionally require Lifetime Premium (`403 premium_required` on Free accounts).
 
-A write operation attempted with a read-only key returns `403 insufficient_scope`. The created key object includes its `scopes`.
+## Rate and failed-authentication limits
 
-## Failed authentication limits
-
-Invalid API key attempts are rate-limited per client identity. The default limit is:
-
-```text
-300 failed authentication attempts per hour
-```
-
-Set `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR` to override the default.
+- **Authenticated requests**: `60` requests per minute per account by default (`API_RATE_LIMIT_PER_MINUTE`), shared across all active keys for that user on both Free and Premium plans.
+- **Failed authentication attempts**: invalid API key attempts are rate-limited per client identity (`300` failed attempts per hour by default, configurable via `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR`).
 
 ## Security notes
 
-- Do not expose API keys in browser code.
+- Do not expose API keys in untrusted browser code or public repositories.
 - Treat API keys like passwords.
-- Revoke keys that are no longer needed.
-- Use one key per integration where possible.
-- Rotate keys if a secret may have been copied into logs or prompts.
+- Use one dedicated key per integration or MCP client so you can revoke it independently.
+- Rotate keys immediately if a secret may have been copied into logs or shared transcripts.

@@ -18,6 +18,7 @@ export interface InsightSubscription {
   period: InsightPeriod;
   customDate?: string;
   nextPaymentDate: string;
+  isTrial?: boolean;
   status: InsightStatus;
 }
 
@@ -43,6 +44,7 @@ export interface UpcomingRenewal {
   period: InsightPeriod;
   nextPaymentDate: string;
   daysUntilRenewal: number;
+  isTrial: boolean;
 }
 
 export interface SpendSummary {
@@ -51,6 +53,7 @@ export interface SpendSummary {
   counts: {
     total: number;
     active: number;
+    trials: number;
     paused: number;
     cancelled: number;
   };
@@ -68,6 +71,7 @@ export interface DuplicateGroup {
     amount: number;
     currency: string;
     period: InsightPeriod;
+    isTrial: boolean;
     status: InsightStatus;
   }>;
 }
@@ -115,7 +119,7 @@ export const monthlyEquivalent = (subscription: InsightSubscription): number => 
     case 'custom': {
       const days = Number.parseInt(subscription.customDate ?? '', 10);
       if (Number.isFinite(days) && days > 0) {
-        return (subscription.amount / days) * 30;
+        return (subscription.amount * 365) / (days * 12);
       }
       return subscription.amount;
     }
@@ -130,10 +134,13 @@ export const summarizeSpend = (
   horizonDays = 30
 ): SpendSummary => {
   const active = subscriptions.filter(sub => sub.status === 'active');
+  const paidActive = active.filter(sub => !sub.isTrial);
+  const activeTrials = active.filter(sub => Boolean(sub.isTrial));
 
   const counts = {
     total: subscriptions.length,
     active: active.length,
+    trials: activeTrials.length,
     paused: subscriptions.filter(sub => sub.status === 'paused').length,
     cancelled: subscriptions.filter(sub => sub.status === 'cancelled').length,
   };
@@ -141,7 +148,9 @@ export const summarizeSpend = (
   const currencyMap = new Map<string, { count: number; monthly: number }>();
   const categoryMap = new Map<string, { count: number; byCurrency: Map<string, number> }>();
 
-  for (const sub of active) {
+  // Exclude active free trials from paid monthly/yearly spend totals since they
+  // have not billed yet; they remain visible in counts.trials and upcomingRenewals.
+  for (const sub of paidActive) {
     const monthly = monthlyEquivalent(sub);
 
     const currencyEntry = currencyMap.get(sub.currency) ?? { count: 0, monthly: 0 };
@@ -197,6 +206,7 @@ export const summarizeSpend = (
       period: sub.period,
       nextPaymentDate: sub.nextPaymentDate,
       daysUntilRenewal: Math.round((renewalUtc - asOfUtc) / MS_PER_DAY),
+      isTrial: Boolean(sub.isTrial),
     }));
 
   return {
@@ -234,6 +244,7 @@ export const findDuplicates = (subscriptions: InsightSubscription[]): DuplicateG
         amount: sub.amount,
         currency: sub.currency,
         period: sub.period,
+        isTrial: Boolean(sub.isTrial),
         status: sub.status,
       })),
     }))
@@ -243,12 +254,13 @@ export const findDuplicates = (subscriptions: InsightSubscription[]): DuplicateG
 /**
  * Factual optimization candidates. No fabricated discount rates: monthly→annual
  * reports the current annualized cost, and "above average" is relative to the
- * per-currency mean so figures are never mixed across currencies.
+ * per-currency mean so figures are never mixed across currencies. Unbilled free
+ * trials are excluded so conversion prices do not skew paid spend baselines.
  */
 export const optimizationCandidates = (
   subscriptions: InsightSubscription[]
 ): OptimizationCandidates => {
-  const active = subscriptions.filter(sub => sub.status === 'active');
+  const active = subscriptions.filter(sub => sub.status === 'active' && !sub.isTrial);
 
   const monthlyToAnnual: AnnualSwitchCandidate[] = active
     .filter(sub => sub.period === 'monthly')

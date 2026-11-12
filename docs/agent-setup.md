@@ -1,39 +1,52 @@
 # Connect SteadyRenew to an agent
 
-Use the **site origin supplied by the user**, including its port for local development, as `BASE_URL`. All paths below are relative to that origin. Do not use the example host in a schema as the user's host.
+Use the **site origin supplied by the user**, including its port for local development, as `BASE_URL` (for SteadyRenew Cloud: `https://steadyrenew.com`). All paths below are relative to that origin.
 
 ## 1. Credentials and capabilities
 
-This connection manages the signed-in user's **cloud subscriptions**. Browser-only local data is not available through the API. The user creates a key in Settings → API & MCP. A public API key cannot create another key or log into the web app.
+This connection manages the signed-in user's **cloud subscriptions**. Browser-only local data is not available through the API. The user creates an API key in **Settings → API & MCP**. API keys do not expire automatically unless manually revoked or the account is deleted. A public API key cannot create another key or log into the web app.
 
 Use `SUBSCRIPTION_MANAGER_BASE_URL` and `SUBSCRIPTION_MANAGER_API_KEY` from the user's private environment or secret store. If no key is available, ask the user to create one and enter it through the client's secret input where possible. Full keys are shown only once; an old prefix cannot be recovered into a full key. Never print keys, commit them, or put them in shared configuration or logs.
 
-Read `/agent/ai-tools.json` and `/agent/openapi.yaml` for the API contract. Available tools include list/get/create/update/delete subscriptions, notification settings, spending analysis, duplicates, optimization suggestions, and audit history. Some analytics require Premium. A read-only key can connect successfully but cannot write.
+Read `/agent/ai-tools.json` and `/agent/openapi.yaml` for the canonical API contract. Available tools include:
 
-## 2. MCP (preferred when the client supports local stdio servers)
+- `list_subscriptions`, `get_subscription`, `create_subscription`, `update_subscription`, `delete_subscription`
+- `get_notification_settings`, `update_notification_settings` (`enabled` and `daysBefore` only)
+- `get_spend_summary` (included in Free), plus `find_duplicate_subscriptions` and `get_optimization_suggestions` (**Premium only**, `403 premium_required` on Free)
+- `list_audit_log`
 
-Requires Node.js 20 or newer. Download `/downloads/subscription-manager-mcp.tgz` from `BASE_URL` to a private persistent integration directory. This is a standalone npm package with its tool schema included; cloning the app repository is unnecessary. Install the downloaded file in an **empty directory** (not inside this repository, another npm project, or a workspace):
+Keys carry scopes: a **read-only** (`read`) key can list, inspect, read notification settings, run analytics, and read audit history, while a **read & write** (`read`, `write`) key additionally allows creating, updating, and deleting subscriptions and updating notification settings.
+
+## 2. Remote MCP (Streamable HTTP — ChatGPT, Claude Web/Desktop, Claude Code, Cursor)
+
+If the client supports remote Streamable HTTP MCP endpoints, connect directly with no local installation:
+
+- **Endpoint**: `<BASE_URL>/api/mcp` (`POST` JSON-RPC 2.0, stateless Streamable HTTP)
+- **Header**: `Authorization: Bearer <SUBSCRIPTION_MANAGER_API_KEY>`
+
+Example for Claude Code CLI:
 
 ```sh
-npm install --ignore-scripts ./subscription-manager-mcp.tgz
+claude mcp add --transport http steadyrenew "<BASE_URL>/api/mcp" \
+  --header "Authorization: Bearer <PRIVATE_API_KEY>"
 ```
 
-Use npm 10 or newer, which current Node.js 20 releases include. npm 9.2 fails in an existing project or workspace with `Tracker "idealTree" already exists`. If that happens, unpack the archive and install its dependencies with bun instead:
+## 3. Local stdio MCP (Desktop & CLI clients)
 
-```sh
-tar -xzf subscription-manager-mcp.tgz
-cd package
-bun install --ignore-scripts
-```
+Requires Node.js 20 or newer. Two local artifacts are served from `<BASE_URL>`:
 
-The npm install path is `node_modules/subscription-manager-mcp/src/server.mjs`. The unpacked bun path is `package/src/server.mjs`. Use that file as the server. Resolve its **absolute path** and the absolute path to Node. Merge a server named `subscription-manager` into the client's existing configuration using the client's supported format; preserve unrelated servers. JSON clients commonly accept:
+### Option A: Zero-dependency single-file script (recommended for local stdio)
+
+Download `<BASE_URL>/downloads/steadyrenew-mcp.mjs` into a private user directory (for example `~/.steadyrenew/steadyrenew-mcp.mjs`). No `npm install` or `node_modules` directory is needed.
+
+**Claude Desktop / Cursor / Windsurf (`mcpServers` JSON):**
 
 ```json
 {
   "mcpServers": {
     "subscription-manager": {
       "command": "/absolute/path/to/node",
-      "args": ["/absolute/path/to/integration/node_modules/subscription-manager-mcp/src/server.mjs"],
+      "args": ["/absolute/path/to/steadyrenew-mcp.mjs"],
       "env": {
         "SUBSCRIPTION_MANAGER_BASE_URL": "<BASE_URL>",
         "SUBSCRIPTION_MANAGER_API_KEY": "<PRIVATE_API_KEY>"
@@ -43,13 +56,48 @@ The npm install path is `node_modules/subscription-manager-mcp/src/server.mjs`. 
 }
 ```
 
-Those paths and values are placeholders. Use the target client's native configuration format if it does not use `mcpServers` JSON. Prefer environment or secret-store references where supported. If the client requires a literal secret, use private user-level configuration with restrictive file permissions, outside version control. Reload the MCP connection if needed, enumerate tools, and call `list_subscriptions` with `{"limit":1}`. Do not say MCP is connected merely because a configuration file was written. If the client must restart, explain that the handshake is still pending.
+**Codex (`~/.codex/config.toml`):**
 
-## 3. Direct API fallback
+```toml
+[mcp_servers.steadyrenew]
+command = "/absolute/path/to/node"
+args = ["/absolute/path/to/steadyrenew-mcp.mjs"]
 
-If this agent cannot run a local stdio MCP server but can make authenticated HTTP requests, use the REST API directly with the same key. No MCP download or Node installation is required for this mode. A client that only supports remote MCP URLs cannot use the `.tgz` URL as an MCP endpoint. There is currently no hosted remote MCP endpoint.
+[mcp_servers.steadyrenew.env]
+SUBSCRIPTION_MANAGER_BASE_URL = "<BASE_URL>"
+SUBSCRIPTION_MANAGER_API_KEY = "<PRIVATE_API_KEY>"
+```
 
-Example verification using an existing private environment (never echo the key):
+**Claude Code CLI (local stdio):**
+
+```sh
+claude mcp add steadyrenew \
+  -e SUBSCRIPTION_MANAGER_BASE_URL="<BASE_URL>" \
+  -e SUBSCRIPTION_MANAGER_API_KEY="<PRIVATE_API_KEY>" \
+  -- node /absolute/path/to/steadyrenew-mcp.mjs
+```
+
+### Option B: Standalone npm archive (`.tgz`)
+
+Download `<BASE_URL>/downloads/subscription-manager-mcp.tgz` into an **empty directory** (never inside this repository, another npm project, or a workspace):
+
+```sh
+npm install --ignore-scripts ./subscription-manager-mcp.tgz
+```
+
+Use npm 10 or newer (bundled with current Node.js 20+ releases). npm 9.2 fails inside an existing project or workspace with `Tracker "idealTree" already exists`; if that happens, unpack the archive and run bun instead:
+
+```sh
+tar -xzf subscription-manager-mcp.tgz
+cd package
+bun install --ignore-scripts
+```
+
+The entry script is `node_modules/subscription-manager-mcp/src/server.mjs` (or `package/src/server.mjs` after unpacking). Merge the `subscription-manager` entry into the client's existing configuration while preserving unrelated servers. Reload the MCP connection if needed, enumerate tools, and call `list_subscriptions` with `{"limit":1}`. Do not claim MCP is connected merely because a configuration file was written; if the client requires a restart, explain that verification is pending.
+
+## 4. Direct REST API fallback
+
+If this agent cannot use MCP but can make authenticated HTTP requests, call the REST API directly with the same key:
 
 ```sh
 curl --fail-with-body --silent --show-error \
@@ -57,26 +105,27 @@ curl --fail-with-body --silent --show-error \
   "${SUBSCRIPTION_MANAGER_BASE_URL}/api/v1/subscriptions?limit=1"
 ```
 
-Verify HTTP 200 and a JSON object with a `data` array and pagination. An empty array is a successful connection. Report which connection mode was actually verified. If the agent supports neither local processes nor HTTP tools, explain the missing capability.
+Verify HTTP 200 and a JSON object with a `data` array and `pagination`. An empty array is a successful connection. Report which connection mode (Remote MCP, Local stdio MCP, or REST API) was actually verified.
 
-## 4. Subscription operations
+## 5. Subscription operations
 
 - Read `/agent/ai-tools.json` for exact tools, parameters, enum values, and confirmation rules. Read all pages when the user requests all records (`pagination.hasMore`, `offset`, `limit`).
+- Active recurring subscriptions automatically roll overdue stored `nextPaymentDate` values forward to the current billing cycle when read; free trials (`isTrial: true`) keep their one-shot `trialEndsOn` date without auto-advancing.
 - Setup only reads data. Do not create or delete sample subscriptions to test a connection.
-- Before creating, updating, or deleting records, summarize the exact change and ask for confirmation. Before deletion, repeat the name and id.
+- Before creating, updating, or deleting records (with a read/write key), summarize the exact change and ask for confirmation. Before deletion, repeat the name and id.
 - Find the existing record before an update or deletion. Do not blindly retry a creation after an ambiguous timeout; check for an existing record first.
-- Send `nextPaymentDate` as YYYY-MM-DD; amounts are major currency units. Never send server-managed `id`, `createdAt`, or `updatedAt` in write payloads.
-- Deleting a tracking record does not cancel a paid service. The API cannot pause/resume/cancel via `status`, configure Bark credentials, send test pushes, change timezone/locale, or manage the category catalog. Those actions belong in the web app or the service provider.
+- Send `nextPaymentDate` as `YYYY-MM-DD`; amounts are major currency units. Never send server-managed `id`, `createdAt`, `updatedAt`, or `status` in write payloads.
+- Deleting a tracking record permanently removes the subscription from tracking (while recording a `subscription.delete` snapshot in `api_audit_log`), and does **not** cancel a paid service with the provider. The API cannot pause/resume/cancel via `status`, configure Bark credentials, send test pushes, change timezone/locale, or manage the category catalog. Those actions belong in the web app (`/docs/en/user-guide/reminders` or `/docs/zh-CN/user-guide/reminders`) or with the service provider.
 
 ## Recovery
 
-- 401: key is invalid or revoked. Ask for a valid key; do not retry repeatedly.
-- 403 `insufficient_scope`: a write needs a read/write key. Do not silently create or upgrade keys.
-- 403 on advanced analytics: inspect the error; some features require Premium. Basic CRUD remains available on Free.
-- 429: respect `Retry-After` before retrying. The default shared account limit is 60 requests per minute and 5 active keys; deployments may override limits.
-- HTML instead of JSON: check the origin and Functions deployment. For this project's local development use `npm run dev:full`, since Vite alone does not serve API functions.
-- `Tracker "idealTree" already exists` while installing the MCP package: leave the app repository, install in an empty directory with npm 10+, or unpack the archive and run `bun install --ignore-scripts` inside `package/`.
-- Validation errors: use `field`, `suggestedFix`, `allowedValues`, and `writableFields` to correct the request, then confirm a materially changed write again.
-- Connection works but records are missing: verify the account, host, pagination, and cloud sync; local-only records are not exposed.
+- **401 `invalid_api_key`**: key is missing, invalid, or revoked. Ask for a valid key; do not retry repeatedly.
+- **403 `insufficient_scope`**: a write needs a read/write key. Do not silently create or upgrade keys.
+- **403 `premium_required`**: `find_duplicate_subscriptions` and `get_optimization_suggestions` require SteadyRenew Premium (\$9 one-time lifetime). Fall back to `get_spend_summary` or `list_subscriptions`.
+- **404 `notification_settings_not_found`**: ask the user to configure Bark once in the web app under **Settings → Notifications** (`/docs/en/user-guide/reminders`).
+- **429 `rate_limit_exceeded`**: wait the number of seconds in `Retry-After` before retrying. Both Free and Premium accounts include up to **5 active keys** and **60 requests per minute** shared across the account (`400` validation errors do not consume quota).
+- **HTML instead of JSON**: check the origin and Functions deployment. For local development of this repository use `npm run dev:full`, since Vite alone does not serve API functions.
+- **`Tracker "idealTree" already exists`** while installing the `.tgz` package: use `/downloads/steadyrenew-mcp.mjs` instead, or install in an empty directory with npm 10+ / unpack and run `bun install --ignore-scripts`.
+- **Validation errors (`400`)**: use `field`, `suggestedFix`, `allowedValues`, and `writableFields` to correct the request, then confirm a materially changed write again.
 
-After setup, offer examples: “List my subscriptions”, “Add a monthly subscription”, “Change a subscription's amount”, and “Delete a duplicate record”. Ask for missing billing details rather than inventing them.
+After setup, offer examples appropriate to the key's scope: “List my subscriptions”, “What renews in the next two weeks?”, and (for read/write keys) “Add a monthly subscription” or “Update a subscription's amount”. Ask for missing billing details rather than inventing them.

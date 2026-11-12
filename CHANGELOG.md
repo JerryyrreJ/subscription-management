@@ -1,6 +1,25 @@
 # Changelog
 
-### v1.10.0 (Current - Offline Notification System)
+### v1.8.7 (Current — SteadyRenew Platform, Public API v1 & MCP)
+- **SteadyRenew Rebrand & Same-Origin Architecture**:
+  - Launched `steadyrenew.com` with prerendered bilingual marketing, pricing, and legal pages (`/`, `/zh`, `/pricing`, `/zh/pricing`, `/privacy`, `/terms`, `/zh/privacy`, `/zh/terms`), static SEO guides (`/blog`, `/zh/blog`), `smart-entry.ts` Edge routing, and `/docs` Mintlify reverse proxy (`docs-proxy.ts`) with static asset caching.
+- **Public REST API (`/api/v1/*`) & Developer API Keys**:
+  - Added SHA-256 hashed Developer API keys (`subm_…`) with `read` / `write` scopes, non-expiring lifecycle until revoked, `5` active keys, and `60` requests/minute per account across Free and Premium (`Retry-After` on all `429` responses, validation rejected before consuming quota).
+  - Added `/api/v1/subscriptions` CRUD (with `?isTrial` filtering and aligned free-trial date validation), `/api/v1/notification-settings`, `/api/v1/analytics/{summary,duplicates,optimizations}` (separating unbilled free trials from paid recurring totals via `counts.trials` and `upcomingRenewals[].isTrial`, and unifying `365 / days` custom-period annualization across dashboard, reports, and API), and `/api/v1/audit` write audit log.
+  - Dynamic renewal rollover on `GET /api/v1/subscriptions` and `GET /api/v1/analytics/summary` advances overdue `active` non-trial subscriptions to the current billing cycle while keeping free trials one-shot.
+- **Remote & Local MCP (`0.2.0`) + Copy to Agent**:
+  - Added stateless Streamable HTTP MCP endpoint (`/api/mcp`) for zero-install cloud and CLI MCP hosts alongside a zero-dependency single-file local stdio bundle (`/downloads/steadyrenew-mcp.mjs`) and standalone tarball (`/downloads/subscription-manager-mcp.tgz`).
+  - Migrated MCP server to `McpServer` (`@modelcontextprotocol/sdk` 1.32.1) with inlined JSON Schemas (`$defs` resolved) and scope-aware **Copy to Agent** + manual client snippets in **Settings → API & MCP**.
+- **AI Capture, Free Trials, Calendar Anchors & Passkeys**:
+  - Added natural-language and screenshot AI capture (`OpenRouter` / `Anthropic`) with review-before-save, one-click undo, monthly user quotas (`10/mo` Free, `300/mo` Premium), and atomic workspace monthly budget reservations.
+  - Added one-shot Free Trials (`isTrial` / `trialEndsOn`), monthly calendar-day anchors (`billingAnchorDay`), WebAuthn Passkey sign-in, and self-serve account deletion (`delete-account.ts`) with anonymized payment ledger retention.
+- **\$9 USD Lifetime Premium & Client-Side A4 PDF Reports**:
+  - Finalized one-time **\$9.00 USD** Lifetime Premium pricing with full Stripe payment/async/refund/dispute reconciliation (`20260927012800_payment_lifecycle.sql`) and `STRIPE_MODE` / `PRODUCTION_SUPABASE_URL` environment guards.
+  - Replaced earlier serverless Chromium PDF experiments with fast, zero-upload client-side A4 print-ready PDF exports (Snapshot & Annual reports).
+
+> **Note on historical entries below (`v1.10.0` / `v1.9.1` / `v1.9.0`)**: Those sections were drafted on feature branches in late 2025 before version numbers were consolidated onto the `1.8.x` line; specifically, the serverless Playwright/Chromium PDF approach in `v1.9.1` and the `$6` price draft in `v1.9.0` have been superseded by client-side A4 PDF export and `$9` Lifetime Premium above.
+
+### v1.10.0 (2025 Feature Draft - Offline Notification System)
 - **Backend-Driven Notification System** - Complete redesign for 24/7 offline push notifications
 - Removed frontend notification checking logic (browser notifications and periodic checks)
 - Implemented Netlify Scheduled Function for automatic hourly notification checks

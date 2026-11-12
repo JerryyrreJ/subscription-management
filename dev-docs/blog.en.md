@@ -1,6 +1,6 @@
 # Public guides (`/blog`)
 
-[English](blog.md) | [简体中文](../zh-CN/blog.md)
+[English](blog.en.md) | [简体中文](blog.zh-CN.md)
 
 The product site is a React SPA, but `/blog` is a **static HTML content hub** generated at build time from Markdown. Crawlers receive real HTML. Canonical URLs always use `https://steadyrenew.com` (not a `*.netlify.app` alias).
 

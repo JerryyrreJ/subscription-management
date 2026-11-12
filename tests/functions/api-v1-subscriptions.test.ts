@@ -704,7 +704,7 @@ test('returns AI recovery hints for invalid subscription payloads', async () => 
   assert.deepEqual(body.error.allowedValues, ['monthly', 'yearly', 'custom']);
 });
 
-test('returns 429 when an API key exceeds its hourly limit', async () => {
+test('returns 429 with Retry-After when an API key exceeds its minute limit', async () => {
   const database = createDatabase(() => ({
     data: [subscriptionRow],
     error: null,
@@ -713,7 +713,7 @@ test('returns 429 when an API key exceeds its hourly limit', async () => {
     database,
     limits,
     createRequestId: () => 'request-4',
-    now: () => new Date('2026-06-16T00:15:00.000Z'),
+    now: () => new Date('2026-06-16T00:59:30.000Z'),
   }));
 
   const response = expectHandlerResponse(await handler(event(
@@ -726,6 +726,7 @@ test('returns 429 when an API key exceeds its hourly limit', async () => {
   assert.equal(response.statusCode, 429);
   assert.equal(body.error.code, 'rate_limit_exceeded');
   assert.equal(response.headers?.['X-RateLimit-Remaining'], '0');
+  assert.equal(response.headers?.['Retry-After'], '30');
 });
 
 test('returns 429 when invalid API key attempts exceed the auth failure limit', async () => {
@@ -1310,4 +1311,208 @@ test('records an audit entry when a subscription is created', async () => {
   assert.equal(auditInsert?.user_id, userId);
   assert.equal(auditInsert?.api_key_id, apiKeyId);
   assert.ok(auditInsert?.metadata && typeof auditInsert.metadata === 'object');
+});
+
+test('advances overdue active recurring subscriptions while keeping trials and paused records un-rolled', async () => {
+  const overdueActive = {
+    ...subscriptionRow,
+    id: '77777777-7777-4777-8777-777777777777',
+    name: 'Spotify',
+    last_payment_date: '2026-01-05',
+    next_payment_date: '2026-02-05',
+    billing_anchor_day: 5,
+    status: 'active',
+  };
+  const expiredTrial = {
+    ...subscriptionRow,
+    id: '88888888-8888-4888-8888-888888888888',
+    name: 'Cursor Trial',
+    last_payment_date: '2026-05-01',
+    next_payment_date: '2026-06-01',
+    is_trial: true,
+    trial_ends_on: '2026-06-01',
+    status: 'active',
+  };
+  const overduePaused = {
+    ...subscriptionRow,
+    id: '99999999-9999-4999-8999-999999999999',
+    name: 'Paused Tool',
+    last_payment_date: '2026-01-10',
+    next_payment_date: '2026-02-10',
+    status: 'paused',
+  };
+
+  const database = createDatabase(() => ({
+    data: [overdueActive, expiredTrial, overduePaused],
+    error: null,
+  }));
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-rollover',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const listRes = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+  const listBody = parseJsonResponse<{
+    data: Array<{ id: string; lastPaymentDate: string; nextPaymentDate: string }>;
+  }>(listRes);
+
+  assert.equal(listRes.statusCode, 200);
+  const spotify = listBody.data.find(item => item.id === overdueActive.id);
+  const trial = listBody.data.find(item => item.id === expiredTrial.id);
+  const paused = listBody.data.find(item => item.id === overduePaused.id);
+  assert.equal(spotify?.lastPaymentDate, '2026-06-05');
+  assert.equal(spotify?.nextPaymentDate, '2026-07-05');
+  assert.equal(trial?.nextPaymentDate, '2026-06-01');
+  assert.equal(paused?.nextPaymentDate, '2026-02-10');
+
+  // When filtering expiringBefore=2026-06-30, Spotify (rolled to 2026-07-05) must not appear as a false positive.
+  const filteredRes = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` },
+    null,
+    { status: 'active', expiringBefore: '2026-06-30' }
+  ), {} as never));
+  const filteredBody = parseJsonResponse<{ data: Array<{ id: string }> }>(filteredRes);
+  assert.equal(filteredBody.data.some(item => item.id === overdueActive.id), false);
+});
+
+test('filters subscriptions by isTrial and rejects invalid isTrial query values', async () => {
+  let seenIsTrialFilter: unknown;
+  const trialRow = {
+    ...subscriptionRow,
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    name: 'Figma Trial',
+    is_trial: true,
+    trial_ends_on: '2026-07-10',
+    next_payment_date: '2026-07-10',
+  };
+  const database = createDatabase((state: QueryState) => {
+    seenIsTrialFilter = state.filters.is_trial;
+    return {
+      data: state.filters.is_trial === true ? [trialRow] : [subscriptionRow],
+      error: null,
+    };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-istrial',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const trialsOnly = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` },
+    null,
+    { isTrial: 'true' }
+  ), {} as never));
+  const trialsBody = parseJsonResponse<{
+    data: Array<{ id: string; isTrial: boolean }>;
+    query: { filters: Record<string, unknown> };
+  }>(trialsOnly);
+  assert.equal(trialsOnly.statusCode, 200);
+  assert.equal(seenIsTrialFilter, true);
+  assert.equal(trialsBody.data.length, 1);
+  assert.equal(trialsBody.data[0].isTrial, true);
+  assert.deepEqual(trialsBody.query.filters, { isTrial: true });
+
+  const nonTrials = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` },
+    null,
+    { isTrial: 'false' }
+  ), {} as never));
+  const nonTrialsBody = parseJsonResponse<{ query: { filters: Record<string, unknown> } }>(nonTrials);
+  assert.equal(nonTrials.statusCode, 200);
+  assert.equal(seenIsTrialFilter, false);
+  assert.deepEqual(nonTrialsBody.query.filters, { isTrial: false });
+
+  const invalid = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` },
+    null,
+    { isTrial: 'maybe' }
+  ), {} as never));
+  const invalidBody = parseJsonResponse<{
+    error: { code: string; field?: string; allowedValues?: string[] };
+  }>(invalid);
+  assert.equal(invalid.statusCode, 400);
+  assert.equal(invalidBody.error.code, 'invalid_query');
+  assert.equal(invalidBody.error.field, 'isTrial');
+  assert.deepEqual(invalidBody.error.allowedValues, ['true', 'false']);
+});
+
+test('POST allows creating a free trial with trialEndsOn alone and rejects conflicting trialEndsOn vs nextPaymentDate', async () => {
+  let insertPayload: Record<string, unknown> | undefined;
+  const createdTrialRow = {
+    ...subscriptionRow,
+    id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    name: 'Cursor Trial',
+    is_trial: true,
+    trial_ends_on: '2026-07-10',
+    next_payment_date: '2026-07-10',
+    last_payment_date: '2026-06-10',
+    billing_anchor_day: 10,
+  };
+  const database = createDatabase((state: QueryState) => {
+    insertPayload = state.payload as Record<string, unknown>;
+    return { data: createdTrialRow, error: null };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-trial-create',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const okRes = expectHandlerResponse(await handler(event(
+    'POST',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+    JSON.stringify({
+      name: 'Cursor Trial',
+      category: 'AI',
+      amount: 20,
+      currency: 'USD',
+      period: 'monthly',
+      isTrial: true,
+      trialEndsOn: '2026-07-10',
+    })
+  ), {} as never));
+  assert.equal(okRes.statusCode, 201);
+  assert.equal(insertPayload?.is_trial, true);
+  assert.equal(insertPayload?.trial_ends_on, '2026-07-10');
+  assert.equal(insertPayload?.next_payment_date, '2026-07-10');
+
+  const conflictRes = expectHandlerResponse(await handler(event(
+    'POST',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+    JSON.stringify({
+      name: 'Cursor Trial',
+      category: 'AI',
+      amount: 20,
+      currency: 'USD',
+      period: 'monthly',
+      isTrial: true,
+      trialEndsOn: '2026-07-10',
+      nextPaymentDate: '2026-08-10',
+    })
+  ), {} as never));
+  const conflictBody = parseJsonResponse<{ error: { code: string; field?: string; message: string } }>(conflictRes);
+  assert.equal(conflictRes.statusCode, 400);
+  assert.equal(conflictBody.error.code, 'invalid_subscription');
+  assert.equal(conflictBody.error.field, 'trialEndsOn');
+  assert.match(conflictBody.error.message, /agree/);
+  assert.equal(conflictRes.headers?.['X-RateLimit-Limit'], undefined);
 });

@@ -1,6 +1,6 @@
 {
   "name": "subscription-manager-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Model Context Protocol server for the SteadyRenew public API.",

@@ -127,8 +127,11 @@ export const formatDateOnly = (date: Date): string => {
  return `${year}-${month}-${day}`;
 };
 
-export const getTodayDateOnly = (timeZone: string = getCurrentTimeZone()): Date =>
- parseDateOnly(formatInstantToDateOnly(new Date(), timeZone));
+export const getTodayDateOnly = (
+ timeZone: string = getCurrentTimeZone(),
+ now: Date = new Date()
+): Date =>
+ parseDateOnly(formatInstantToDateOnly(now, timeZone));
 
 const addMonthsClamped = (date: Date, months: number, anchorDay: number = date.getUTCDate()): Date => {
  const targetMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
@@ -250,8 +253,9 @@ export const diffDateOnlyDays = (from: Date | string, to: Date | string): number
 
 export const getDaysUntil = (
  dateString: string,
- timeZone: string = getCurrentTimeZone()
-): number => diffDateOnlyDays(getTodayDateOnly(timeZone), parseDateOnly(dateString));
+ timeZone: string = getCurrentTimeZone(),
+ now: Date = new Date()
+): number => diffDateOnlyDays(getTodayDateOnly(timeZone, now), parseDateOnly(dateString));
 
 export interface BillingCycleUsage {
  daysUsed: number;
@@ -263,9 +267,10 @@ export interface BillingCycleUsage {
 export const getBillingCycleUsage = (
  lastPaymentDate: string,
  nextPaymentDate: string,
- timeZone: string = getCurrentTimeZone()
+ timeZone: string = getCurrentTimeZone(),
+ now: Date = new Date()
 ): BillingCycleUsage => {
- const today = formatDateOnly(getTodayDateOnly(timeZone));
+ const today = formatDateOnly(getTodayDateOnly(timeZone, now));
  const daysTotal = Math.max(0, diffDateOnlyDays(lastPaymentDate, nextPaymentDate));
  const daysUntil = diffDateOnlyDays(today, nextPaymentDate);
  // used = cycleLength - daysUntil. lastPayment is derived from nextPayment
@@ -282,9 +287,10 @@ export const getAutoRenewedDates = (
  period: string,
  customDate?: string,
  billingAnchorDay?: number,
- timeZone: string = getCurrentTimeZone()
+ timeZone: string = getCurrentTimeZone(),
+ now: Date = new Date()
 ): { lastPaymentDate: string; nextPaymentDate: string } => {
- const today = formatDateOnly(getTodayDateOnly(timeZone));
+ const today = formatDateOnly(getTodayDateOnly(timeZone, now));
  const effectiveAnchorDay = (period === 'monthly' || period === 'yearly')
   ? (billingAnchorDay ?? getDateOnlyDay(nextPaymentDate))
   : undefined;

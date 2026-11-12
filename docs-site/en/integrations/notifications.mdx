@@ -1,66 +1,43 @@
 ---
 title: "Renewal reminders with Bark"
-description: "Configure scheduled Bark push notifications for upcoming subscription renewals."
+description: "Configure scheduled Bark push notifications for upcoming subscription renewals and free-trial endings."
 ---
 
 # Renewal reminders with Bark
 
-SteadyRenew can send renewal reminders through Bark. The hosted reminder flow uses a Netlify Scheduled Function and Supabase-backed notification settings.
+SteadyRenew sends server-driven renewal and free-trial ending reminders to iPhone and iPad devices through [Bark](https://apps.apple.com/app/bark-customed-notifications/id1403753865). The hosted reminder pipeline uses a Netlify Scheduled Function and Supabase-backed notification settings, so reminders arrive even when the browser is closed.
 
 ## What users configure
 
-Users configure Bark settings in the app:
+Signed-in users configure Bark in **Settings → Notifications** (see the end-user [Reminders guide](/en/user-guide/reminders)):
 
-- Bark server URL.
-- Bark device key.
-- Reminder timing.
-- Per-subscription notification toggle.
+- Bark push URL (server URL + device key).
+- Global reminder switch (`enabled`) and lead time (`1`, `3`, `7`, or `14` days ahead).
+- Per-subscription reminder toggle (`notificationEnabled`).
 
-## Required hosted services
+## Eligibility & free-trial rules
 
-- Supabase for notification settings and subscriptions.
-- Netlify Functions for scheduled checks.
-- Bark official server or a self-hosted Bark server.
+- Only **`active`** subscriptions with `notificationEnabled: true` trigger scheduled pushes; **`paused`** and **`cancelled`** subscriptions are always skipped.
+- **Standard recurring subscriptions** automatically roll overdue `nextPaymentDate` values forward to the current billing cycle before checking the reminder window.
+- **Free trials (`isTrial: true`)** use their one-shot `trialEndsOn` / first-charge date and send trial-ending copy so users can cancel or keep the plan in time. Once `trialEndsOn` passes, it is never auto-advanced.
 
-## Required environment variables
+## Required hosted services & variables
 
-```bash
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-SUPABASE_SECRET_KEY=
-```
-
-The legacy `SUPABASE_SERVICE_ROLE_KEY` name remains supported as an alias.
+- Supabase (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SECRET_KEY`).
+- Netlify Scheduled Functions.
+- Official Bark server (`https://api.day.app`) or a publicly reachable self-hosted Bark instance.
 
 ## SQL setup
 
-Notification tables and constraints are included in the Supabase migrations. For current deployments, use:
+Notification tables, delivery locks, and trial columns are managed via `supabase/migrations/` (notably `20260615000100_baseline.sql`, `20260615000200_harden_existing_schema.sql`, and `20260916000100_subscription_trials.sql`).
 
-```text
-supabase/migrations/20260615000100_baseline.sql
-supabase/migrations/20260615000200_harden_existing_schema.sql
-```
+## Scheduled function & local testing
 
-Older setup notes and legacy migration files are kept in `supabase/legacy/`.
+The scheduled worker lives at `netlify/functions/send-scheduled-notifications.ts`. It evaluates eligible renewals in each user's configured `timeZone`, sends localized Bark notifications, records delivery history, and acquires delivery locks to prevent duplicate sends.
 
-## Scheduled function
-
-The scheduled function lives at:
-
-```text
-netlify/functions/send-scheduled-notifications.ts
-```
-
-It checks eligible subscriptions, sends Bark messages, records delivery history, and avoids duplicate sends.
-
-## Local testing
+Test locally with:
 
 ```bash
 npm run test:notifications
-```
-
-Use Netlify Dev when testing the full function runtime:
-
-```bash
 npm run dev:full
 ```

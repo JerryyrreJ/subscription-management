@@ -5,6 +5,12 @@ const upstreamOrigin = 'https://subscriptionmanager.mintlify.site';
 const LEGACY_HOST = 'sub.jerrylu.xyz';
 const isDocsPath = (path: string) => path === '/docs' || path.startsWith('/docs/') || path.startsWith('/.well-known/vercel/');
 const isPublicDocsPath = (path: string) => path === '/docs' || path.startsWith('/docs/');
+const isImmutableDocsAsset = (path: string) => path.startsWith('/docs/_next/static/');
+const isStaticDocsMedia = (path: string) =>
+  path.startsWith('/docs/images/') ||
+  path.startsWith('/docs/logo/') ||
+  path === '/docs/favicon.svg' ||
+  path === '/docs/favicon.ico';
 
 /**
  * Edge Functions run before redirect rules and end the chain when they
@@ -52,9 +58,23 @@ export default async function docsProxy(request: Request, context: Pick<Context,
     }
     // These public docs do not need to set cookies on the application's domain.
     responseHeaders.delete('set-cookie');
-    responseHeaders.set('Cache-Control', 'no-store');
-    responseHeaders.set('CDN-Cache-Control', 'no-store');
-    responseHeaders.set('Netlify-CDN-Cache-Control', 'no-store');
+    const canCacheAsset =
+      (request.method === 'GET' || request.method === 'HEAD') && upstream.status === 200;
+    if (canCacheAsset && isImmutableDocsAsset(incoming.pathname)) {
+      const immutablePolicy = 'public, max-age=31536000, immutable';
+      responseHeaders.set('Cache-Control', immutablePolicy);
+      responseHeaders.set('CDN-Cache-Control', immutablePolicy);
+      responseHeaders.set('Netlify-CDN-Cache-Control', immutablePolicy);
+    } else if (canCacheAsset && isStaticDocsMedia(incoming.pathname)) {
+      const mediaPolicy = 'public, max-age=3600, stale-while-revalidate=86400';
+      responseHeaders.set('Cache-Control', mediaPolicy);
+      responseHeaders.set('CDN-Cache-Control', mediaPolicy);
+      responseHeaders.set('Netlify-CDN-Cache-Control', mediaPolicy);
+    } else {
+      responseHeaders.set('Cache-Control', 'no-store');
+      responseHeaders.set('CDN-Cache-Control', 'no-store');
+      responseHeaders.set('Netlify-CDN-Cache-Control', 'no-store');
+    }
     return new Response(upstream.body, {
       status: upstream.status,
       statusText: upstream.statusText,

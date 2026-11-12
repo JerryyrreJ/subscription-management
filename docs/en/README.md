@@ -1,24 +1,25 @@
-# Documentation
+# English Documentation
 
 [English](README.md) | [简体中文](../zh-CN/README.md)
 
-These docs cover the public setup and operating surface for SteadyRenew. Development notes, implementation summaries, and older planning documents live in [`dev-docs/`](../../dev-docs/README.md).
+All public English guides are maintained in [`docs-site/en/`](../../docs-site/en/) and served online at [steadyrenew.com/docs/en](https://steadyrenew.com/docs/en).
 
-## Start Here
+## Quick links
 
-- [Getting started](getting-started.md)
-- [Configuration](configuration.md)
-- [Deployment](deployment.md)
-- [Public guides (`/blog`)](blog.md)
+- [Introduction](../../docs-site/en/index.mdx)
+- [User guide overview](../../docs-site/en/user-guide/overview.mdx)
+- [Connect your agent (MCP & API)](../../docs-site/en/user-guide/agent-setup.mdx)
+- [Getting started (self-hosting)](../../docs-site/en/getting-started.mdx)
+- [Configuration](../../docs-site/en/configuration.mdx)
+- [Deployment](../../docs-site/en/deployment.mdx)
+- [Cloud sync with Supabase & Passkeys](../../docs-site/en/integrations/supabase.mdx)
+- [AI capture](../../docs-site/en/integrations/ai-capture.mdx)
+- [Renewal reminders with Bark](../../docs-site/en/integrations/notifications.mdx)
+- [Payments with Stripe](../../docs-site/en/integrations/payments.mdx)
+- [Public API overview](../../docs-site/en/api/overview.mdx)
 
-## Optional Services
+## Maintainer & operations docs
 
-- [Cloud sync with Supabase](supabase.md)
-- [AI capture](ai-capture.md)
-- [Renewal reminders with Bark](notifications.md)
-- [Payments with Stripe](payments.md)
-- [Public API](api.md)
-
-## Notes
-
-The core app works without any hosted services. Optional services add account sync, scheduled reminders, payments, and API automation when you deploy your own instance.
+- [Agent setup reference (`docs/agent-setup.md`)](../agent-setup.md)
+- [Public blog authoring (`dev-docs/blog.en.md`)](../../dev-docs/blog.en.md)
+- [Operations runbooks (`docs/operations/`)](../operations/)

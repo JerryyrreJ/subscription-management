@@ -1,53 +1,62 @@
 ---
 title: "API 认证"
-description: "使用 Bearer token 格式的 Developer API Key 调用开放 API。"
+description: "创建 Developer API Key，并使用 Bearer token 调用开放 API 与远程 MCP。"
 ---
 
 # API 认证
 
-开放 API 使用 Developer API Key。请求时把 key 放在 `Authorization` header 里。
+开放 API（`/api/v1/*`）与远程 MCP（`/api/mcp`）均使用 Developer API Key 进行认证。
 
-```bash
-curl https://your-site.example/api/v1/subscriptions \
-  -H "Authorization: Bearer subm_your_key_here"
-```
+## 创建 API Key
 
-## Header 格式
+在网页端打开 **设置 → API 与 MCP** 创建 API Key。Free 与 Premium 账户默认都最多可同时保留 **5 个有效 API Key**（自托管可通过 `API_MAX_ACTIVE_KEYS` 调整）。
+
+API Key 格式如下：
 
 ```text
-Authorization: Bearer <api-key>
+subm_<public-id>.<secret>
 ```
 
-缺少 header、格式错误、key 不存在或 key 已撤销时，API 会返回 `401 Unauthorized`。
+- 服务端仅存储完整 API Key 的 SHA-256 哈希值，明文密钥只在创建成功时展示一次。
+- API Key **不会自动过期**，在你手动撤销（或注销账号）之前持续有效。
 
-## Key 归属
+## 发送 Key
 
-API Key 绑定到创建它的用户。所有订阅查询、创建、更新和删除都会限制在这个用户范围内。
+在请求头中使用 `Authorization: Bearer <api-key>` 发送密钥：
+
+```bash
+curl \
+  -H "Authorization: Bearer $SUBSCRIPTION_MANAGER_API_KEY" \
+  https://steadyrenew.com/api/v1/subscriptions
+```
+
+缺少请求头、格式错误、Key 不存在或已撤销时，API 会返回 `401`（`authentication_required` 或 `invalid_api_key`）。
+
+## Key 归属与数据隔离
+
+每个 API Key 绑定到创建它的账户。所有订阅读取、创建、修改、删除、通知设置和审计日志查询都严格限制在该用户的数据范围内。
 
 ## 权限范围（Scopes）
 
-每个 API Key 带有 scopes，用来限定它能做什么：
+每个 API Key 带有 `scopes` 权限标记：
 
-| 范围 | 允许 |
+| 范围 | 允许的操作 |
 | --- | --- |
-| `read` | 查询、读取订阅；读取通知设置；调用分析与审计端点 |
-| `write` | 在 `read` 基础上，额外允许创建、更新、删除，以及更新通知设置 |
+| `read` | 查询和读取订阅；读取通知设置；调用分析与审计端点 |
+| `write` | 包含 `read` 的全部权限，并允许创建、更新、删除订阅以及更新通知设置 |
 
-`read` 始终存在。新建 Key 默认同时拥有 `read` 和 `write`。如果要创建只读 Key（适合只做分析、绝不应修改数据的 Agent），在创建 Key 时传入 `scopes` 数组：
+`read` 权限始终存在。新建 Key 默认同时包含 `read` 与 `write`。如果只用于只读分析 Agent，可在 **设置 → API 与 MCP** 中选择**仅读取**（对应 `"scopes": ["read"]`）。
 
-```json
-{ "name": "Analysis agent", "scopes": ["read"] }
-```
+用只读 Key 执行写操作会返回 `403 insufficient_scope`。此外，重复检测（`/api/v1/analytics/duplicates`）与优化建议（`/api/v1/analytics/optimizations`）需要终身高级版，Free 账户调用会返回 `403 premium_required`。
 
-用只读 Key 执行写操作会返回 `403 insufficient_scope`。返回的 Key 对象会包含其 `scopes`。
+## 速率与失败认证限流
+
+- **已认证请求限流**：默认每账户每分钟 `60` 次请求（`API_RATE_LIMIT_PER_MINUTE`），Free 与 Premium 相同，同一账户下的多个 Key 共享配额。
+- **失败认证限流**：无效 API Key 尝试按客户端身份限流，默认每小时最多 `300` 次失败尝试（可通过 `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR` 覆盖）。
 
 ## 安全建议
 
-- 不要把 API Key 提交到代码仓库。
-- 不要在浏览器前端硬编码 Developer API Key。
-- 给脚本或 Agent 使用专用 key，方便撤销。
-- 怀疑泄露时立即删除旧 key 并重新创建。
-
-## 失败认证限流
-
-认证失败也会被限流，避免无效 key 或爆破请求消耗系统资源。默认值可以用 `API_FAILED_AUTH_RATE_LIMIT_PER_HOUR` 调整。
+- 不要把 API Key 提交到代码仓库或硬编码在公开前端代码中。
+- 将 API Key 视为密码妥善保管。
+- 为每个脚本或 MCP 客户端单独创建专用 Key，便于独立撤销。
+- 一旦怀疑密钥泄露到日志或对话记录中，请立即撤销旧 Key 并重新生成。

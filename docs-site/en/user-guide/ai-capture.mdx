@@ -1,43 +1,46 @@
 ---
 title: "AI capture"
-description: "Use natural language or screenshots to propose subscription changes."
+description: "Use natural language or screenshots to propose subscription creates, updates, and deletes."
 ---
 
 # AI capture
 
-AI capture helps turn text or screenshots into subscription actions. It can propose adding, updating, deleting, or batch updating subscriptions. You review the proposed action before anything changes.
+AI capture turns natural-language notes, billing emails, or screenshots into structured subscription actions — adding, updating, deleting, or batch-updating records. You always review the proposed command before anything is saved.
+
+## Requirements & monthly quotas
+
+AI capture requires a **signed-in SteadyRenew account** (so provider keys stay server-side and monthly quotas can be tracked):
+
+| Plan | Monthly AI captures |
+| --- | --- |
+| Free | **10** successful captures / month |
+| Lifetime Premium (\$9 one-time) | **300** successful captures / month |
+
+Only requests that return a valid structured command count toward your monthly quota; failed parses or network errors are not charged.
 
 ## Start an AI request
 
-1. Open **AI Assistant** or **Add with AI**.
-2. Type what you want to do, paste a statement excerpt, or upload a screenshot.
+1. Sign in and open **AI Assistant** / **Add with AI**.
+2. Type what changed, paste a receipt excerpt, or upload a screenshot (up to 4 MB).
 3. Click **Ask AI**.
-4. Review the proposed action.
+4. Review the proposed fields (name, amount, currency, period, next renewal or free-trial end date, category).
 5. Confirm, edit, discard, or retry.
 
 Examples:
 
 ```text
-Netflix $15.99 monthly since June 1
-Delete Warmcar
+Netflix $15.99 monthly, next charge July 1
+Figma Pro 7-day free trial ending 2026-07-10, then $15/month
 Change Tencent Cloud to ¥74 yearly
+Delete Warmcar
 ```
 
-## Review before saving
+## Review and undo
 
-AI capture may highlight fields that need review, such as missing category, guessed payment date, unclear notification setting, or custom interval. Check those fields before applying the action.
-
-AI does not write directly to your data. The app applies the action only after you confirm.
-
-## Undo
-
-After an AI create, update, delete, or batch update, the app may show an undo prompt. Use it immediately if the confirmed action was not what you intended.
+- AI never writes directly to your subscription list; changes are applied only after you click confirm.
+- Fields that were inferred or need attention (such as category or custom day intervals) are highlighted for review.
+- Right after confirming an AI action, an **Undo** banner appears so you can revert creates, updates, deletes, or batch updates in one click.
 
 ## Privacy
 
-The text or screenshot you submit is sent once to the configured model provider for extraction. SteadyRenew does not store or log that content. It keeps only usage counters for quota and budget control.
-
-## When AI cannot help
-
-AI capture may return no action when the target subscription is ambiguous, absent, or the input is not clear enough. Try a more specific name, include the amount and date, or use the manual form.
-
+The text or screenshot you submit is sent once to the configured model provider solely to extract subscription fields. SteadyRenew does **not** store or log your raw text, screenshots, or parsed items on the server — only per-user monthly capture counts and aggregate token budget counters.
