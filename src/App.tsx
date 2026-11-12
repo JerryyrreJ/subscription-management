@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
-import { Plus, BarChart3, RotateCcw } from 'lucide-react';
+import { Plus, BarChart3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
  Subscription,
@@ -8,9 +8,6 @@ import {
  SortConfig,
  ReminderSettings,
  Currency,
- ExchangeRates,
- ExchangeRateSource,
- ExchangeRateLoadResult
 } from './types';
 // Core subscription flows load with the home page so opening them never waits on a chunk.
 import { AddSubscriptionModal } from './components/AddSubscriptionModal';
@@ -19,6 +16,8 @@ import { SubscriptionDetailsModal } from './components/SubscriptionDetailsModal'
 import { EditSubscriptionModal } from './components/EditSubscriptionModal';
 import { Dashboard } from './components/Dashboard';
 import { SubscriptionCard } from './components/SubscriptionCard';
+import { LazyModalFallback } from './components/LazyModalFallback';
+import { UndoToast } from './components/UndoToast';
 import './styles/settings.css';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -29,14 +28,11 @@ import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
 import { useInitialAccountSync } from './hooks/useInitialAccountSync';
 import { useCategorySync } from './hooks/useCategorySync';
+import { useExchangeRates } from './hooks/useExchangeRates';
 import { loadSubscriptions } from './utils/storage';
 import { loadCategories } from './utils/categories';
 import { CategoryService } from './services/categoryService';
-import {
- DEFAULT_CURRENCY,
- getStoredExchangeRatesSnapshot,
- refreshExchangeRatesWithStatus
-} from './utils/currency';
+import { DEFAULT_CURRENCY } from './utils/currency';
 import {
  buildCategoryImportPlan,
  buildSubscriptionImportPlan,
@@ -52,7 +48,6 @@ import { LegacyDomainNotice } from './components/LegacyDomainNotice';
 import { config } from './lib/config';
 import { sortSubscriptions } from './utils/subscriptionSorting';
 import { GUEST_DATA_SCOPE, getUserDataScope, setActiveDataScope } from './utils/dataScope';
-import { createScopedTaskGate } from './utils/scopedTaskGate';
 import { normalizeLocale } from './utils/locale';
 import { isBarkReady } from './utils/barkSettings';
 import { getCurrentTimeZone } from './utils/dates';
@@ -83,37 +78,6 @@ const ImportDataModal = lazy(() =>
 const PricingModal = lazy(() =>
  import('./components/PricingModal').then(module => ({ default: module.PricingModal }))
 );
-
-const exchangeRateTaskGate = createScopedTaskGate<'exchange-rates'>();
-const EXCHANGE_RATE_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
-
-function LazyModalFallback({
- title,
- description,
- onClose,
-}: {
- title: string;
- description: string;
- onClose: () => void;
-}) {
- const { t } = useTranslation(['app']);
-
- return (
- <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
- <div className="w-full max-w-md rounded-3xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-[#1a1c1e]/95 shadow-apple-xl p-8 text-center">
- <div className="w-10 h-10 border-4 border-emerald-600 dark:border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
- <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{title}</h2>
- <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">{description}</p>
- <button
- onClick={onClose}
- className="px-5 py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white transition-colors"
- >
- {t('app:cancel')}
- </button>
- </div>
- </div>
- );
-}
 
 export function App() {
  const { t, i18n } = useTranslation(['app', 'auth', 'importData', 'settingsHub', 'userMenu', 'aiCapture']);
@@ -166,12 +130,13 @@ export function App() {
  };
  const [isPricingModalOpen, setIsPricingModalOpen] = useState(() => window.location.pathname === "/pricing" || (new URLSearchParams(window.location.search).has("payment") || new URLSearchParams(window.location.search).get("pricing") === "1"));
  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
- const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
-const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');
-const [exchangeRatesUpdatedAt, setExchangeRatesUpdatedAt] = useState<number | null>(null);
-const [, setIsExchangeRatesRefreshing] = useState(false);
-const [exchangeRatesStale, setExchangeRatesStale] = useState(false);
-const [exchangeRateError, setExchangeRateError] = useState<string | undefined>();
+ const {
+  exchangeRates,
+  exchangeRateSource,
+  exchangeRatesUpdatedAt,
+  exchangeRatesStale,
+  exchangeRateError,
+ } = useExchangeRates(baseCurrency);
  const [undoAction, setUndoAction] = useState<UndoableAiAction | null>(null);
  const [undoError, setUndoError] = useState<string | null>(null);
  const undoTimerRef = useRef<number | null>(null);
@@ -282,94 +247,6 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  // 获取排序后的订阅列表
  const sortedSubscriptions = sortSubscriptions(filteredSubscriptions, sortConfig, baseCurrency, exchangeRates);
-
- const applyExchangeRateResult = useCallback((result: ExchangeRateLoadResult) => {
- setExchangeRates(result.rates);
- setExchangeRateSource(result.source);
- setExchangeRatesUpdatedAt(result.updatedAt ?? null);
- setExchangeRatesStale(Boolean(result.stale));
- setExchangeRateError(result.error);
- }, []);
-
- const refreshExchangeRates = useCallback(async (currency: Currency) => {
- const taskToken = exchangeRateTaskGate.claim('exchange-rates');
- setIsExchangeRatesRefreshing(true);
- console.log(`[Exchange Rates] Refresh started for base currency: ${currency}`);
-
- try {
- const result = await refreshExchangeRatesWithStatus(currency);
- if (!exchangeRateTaskGate.isCurrent('exchange-rates', taskToken)) {
-  return;
- }
-
- console.log('[Exchange Rates] Refresh completed:', {
-  currency,
-  source: result.source,
-  stale: Boolean(result.stale),
-  updatedAt: result.updatedAt,
-  error: result.error
- });
- applyExchangeRateResult(result);
- } catch (error) {
- if (!exchangeRateTaskGate.isCurrent('exchange-rates', taskToken)) {
-  return;
- }
-
- console.error(`[Exchange Rates] Refresh failed for ${currency}:`, error);
- setExchangeRateSource('fallback');
- setExchangeRatesStale(true);
- setExchangeRateError(error instanceof Error ? error.message : 'Failed to refresh exchange rates');
- } finally {
- if (exchangeRateTaskGate.isCurrent('exchange-rates', taskToken)) {
-  setIsExchangeRatesRefreshing(false);
- }
- }
- }, [applyExchangeRateResult]);
-
- useEffect(() => {
- const cachedSnapshot = getStoredExchangeRatesSnapshot(baseCurrency);
- if (cachedSnapshot) {
-  applyExchangeRateResult(cachedSnapshot);
- } else {
-  setExchangeRates({});
-  setExchangeRateSource('fallback');
-  setExchangeRatesUpdatedAt(null);
-  setExchangeRatesStale(true);
-  setExchangeRateError(undefined);
- }
-
- void refreshExchangeRates(baseCurrency);
- }, [applyExchangeRateResult, baseCurrency, refreshExchangeRates]);
-
- useEffect(() => {
-  const refreshIfVisibleAndOnline = () => {
-   if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-    return;
-   }
-
-   if (typeof navigator !== 'undefined' && 'onLine' in navigator && !navigator.onLine) {
-    return;
-   }
-
-   void refreshExchangeRates(baseCurrency);
-  };
-
-  const handleVisibilityChange = () => {
-   if (document.visibilityState === 'visible') {
-    refreshIfVisibleAndOnline();
-   }
-  };
-
-  const intervalId = window.setInterval(refreshIfVisibleAndOnline, EXCHANGE_RATE_REFRESH_INTERVAL_MS);
-  window.addEventListener('online', refreshIfVisibleAndOnline);
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-
-  return () => {
-   window.clearInterval(intervalId);
-   window.removeEventListener('online', refreshIfVisibleAndOnline);
-   document.removeEventListener('visibilitychange', handleVisibilityChange);
-  };
- }, [baseCurrency, refreshExchangeRates]);
 
  // 根据当前用户切换本地数据作用域
  useEffect(() => {
@@ -1121,56 +998,8 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  )}
 
  {undoAction && (
-        <div className="fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4 pointer-events-none animate-drawer-up">
-          <button
-            onClick={handleUndoAction}
-            className="pointer-events-auto relative flex items-center justify-between gap-3 bg-gray-900/95 dark:bg-[#1a1c1e]/95 text-white shadow-apple-xl backdrop-blur-xl px-5 py-3 rounded-2xl max-w-sm w-full group transition-all hover:bg-gray-800/95 dark:hover:bg-[#25282c]/95 active:scale-[0.98] focus:outline-none"
-            aria-label={undoAction.undoLabel}
-            title={undoAction.undoLabel}
-          >
-            <div className="absolute inset-0 rounded-2xl border border-gray-800/80 dark:border-gray-700/80 pointer-events-none" />
-
-            <svg
-              className="absolute inset-px h-[calc(100%-2px)] w-[calc(100%-2px)] pointer-events-none overflow-visible"
-              aria-hidden="true"
-            >
-              <rect
-                x="0"
-                y="0"
-                width="100%"
-                height="100%"
-                rx="15"
-                className="fill-none stroke-emerald-400 opacity-20"
-                strokeWidth="2"
-              />
-              <rect
-                x="0"
-                y="0"
-                width="100%"
-                height="100%"
-                rx="15"
-                className="fill-none stroke-emerald-400 animate-undo-perimeter"
-                strokeWidth="2"
-                pathLength="100"
-                strokeDasharray="100"
-                strokeDashoffset="0"
-              />
-            </svg>
-
-            {/* Content Area */}
-            <div className="min-w-0 flex-1 text-left relative z-10 pl-1">
-              <p className="text-sm font-medium truncate">{undoAction.message}</p>
-              {undoError && <p className="text-xs text-red-400 mt-0.5">{undoError}</p>}
-            </div>
-
-            {/* Undo Indicator */}
-            <div className="flex items-center gap-1.5 text-emerald-400 relative z-10 font-semibold text-sm pr-1">
-              <RotateCcw className="w-4 h-4 group-hover:-rotate-12 transition-transform" />
-              {undoAction.undoLabel}
-            </div>
-          </button>
-        </div>
-      )}
+  <UndoToast undoAction={undoAction} undoError={undoError} onUndo={handleUndoAction} />
+ )}
 
  </div>
 
