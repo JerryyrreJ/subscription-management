@@ -1,5 +1,6 @@
+import { lookup } from 'node:dns/promises'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { BARK_NOTIFICATION_ICON_URL, sendBarkNotification } from '../../src/utils/barkPush'
+import { BARK_NOTIFICATION_ICON_URL, isPublicBarkIpAddress, sendBarkNotification, validateBarkConfig } from '../../src/utils/barkPush'
 import { formatDateOnly, getTodayDateOnly, normalizeTimeZone } from '../../src/utils/dates'
 import { cleanupNotificationHistoryEntries, mergeNotificationHistoryEntries, wasNotifiedToday } from '../../src/utils/notificationHistory'
 import { buildSubscriptionReminderContent } from '../../src/utils/notificationContent'
@@ -12,6 +13,7 @@ import type { Currency, Period } from '../../src/types'
 import type { Config } from '@netlify/functions'
 import { getSupabaseAdminConfig } from './_shared/env'
 import { createSupabaseAdminClient } from './_shared/supabase'
+import { runtimeEnvironment } from './_shared/webHandler'
 
 interface Subscription {
   id: string
@@ -125,6 +127,57 @@ async function releaseNotificationDelivery(
   }
 }
 
+export type DnsAddressLookup = (hostname: string) => Promise<Array<{ address: string }>>
+
+const defaultDnsLookup: DnsAddressLookup = async (hostname: string) =>
+  lookup(hostname, { all: true, verbatim: true })
+
+export const createServerBarkSender = (
+  resolveAddresses: DnsAddressLookup = defaultDnsLookup,
+  sendPush: typeof sendBarkNotification = sendBarkNotification
+): typeof sendBarkNotification => async (
+  serverUrl,
+  deviceKey,
+  title,
+  body,
+  options,
+  timeoutMs
+) => {
+  const validation = validateBarkConfig(serverUrl, deviceKey)
+  if (!validation.valid) {
+    console.error('[Scheduled Notifications] Blocked invalid Bark configuration before dispatch:', validation.error)
+    return false
+  }
+
+  let hostname: string
+  try {
+    hostname = new URL(serverUrl.trim()).hostname
+  } catch {
+    return false
+  }
+
+  // Literal IPs are already validated by validateBarkConfig; resolve domain names to prevent DNS SSRF.
+  if (!isPublicBarkIpAddress(hostname)) {
+    let records: Array<{ address: string }>
+    try {
+      records = await resolveAddresses(hostname)
+    } catch (error) {
+      console.error(`[Scheduled Notifications] Failed to resolve Bark server host ${hostname}:`, error)
+      return false
+    }
+
+    if (
+      records.length === 0 ||
+      records.some(record => !isPublicBarkIpAddress(record.address))
+    ) {
+      console.error(`[Scheduled Notifications] Blocked Bark server host resolving to non-public IP: ${hostname}`)
+      return false
+    }
+  }
+
+  return sendPush(serverUrl, deviceKey, title, body, options, timeoutMs)
+}
+
 export interface ScheduledNotificationsDependencies {
   createSupabase?: () => SupabaseClient
   sendNotification?: typeof sendBarkNotification
@@ -140,8 +193,8 @@ export const createScheduledNotificationsHandler = (
   console.log('[Scheduled Notifications] Starting notification check...', new Date().toISOString())
 
   const getSupabase = dependencies.createSupabase
-    ?? (() => createSupabaseAdminClient(getSupabaseAdminConfig()))
-  const deliverBarkNotification = dependencies.sendNotification ?? sendBarkNotification
+    ?? (() => createSupabaseAdminClient(getSupabaseAdminConfig(runtimeEnvironment)))
+  const deliverBarkNotification = dependencies.sendNotification ?? createServerBarkSender()
 
   let supabase: SupabaseClient
   try {
@@ -429,7 +482,7 @@ export const createScheduledNotificationsHandler = (
   } catch (error) {
     console.error('[Scheduled Notifications] Fatal error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
