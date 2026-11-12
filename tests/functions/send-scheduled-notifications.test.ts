@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createScheduledNotificationsHandler } from '../../netlify/functions/send-scheduled-notifications.ts';
+import {
+ createScheduledNotificationsHandler,
+ createServerBarkSender,
+} from '../../netlify/functions/send-scheduled-notifications.ts';
 import { createFakeSupabaseClient, type QueryState } from './apiTestHelpers.ts';
 
 const withMockedNow = async (isoDateTime: string, run: () => Promise<void>) => {
@@ -232,4 +235,87 @@ test('send-scheduled-notifications releases delivery lock when Bark push fails a
   assert.equal(summary.totalNotificationsSent, 0);
   assert.equal(summary.totalErrors, 1);
  });
+});
+
+test('send-scheduled-notifications skips SSRF bark_server_url rows and redacts fatal 500 error details', async () => {
+ await withMockedNow('2026-04-04T09:00:00.000Z', async () => {
+  let pushCalls = 0;
+
+  const supabase = createFakeSupabaseClient((state: QueryState) => {
+   if (state.table === 'user_notification_settings' && state.operation === 'select') {
+    return {
+     data: [
+      createSettingsRow({ bark_server_url: 'http://169.254.169.254' }),
+     ],
+     error: null,
+    };
+   }
+   return { data: [], error: null };
+  });
+
+  const handler = createScheduledNotificationsHandler({
+   createSupabase: () => supabase,
+   sendNotification: async () => {
+    pushCalls += 1;
+    return true;
+   },
+  });
+
+  const response = await handler(new Request('https://example.com/.netlify/functions/send-scheduled-notifications'));
+  const summary = await response.json() as { totalNotificationsSent: number; totalErrors: number };
+  assert.equal(response.status, 200);
+  assert.equal(pushCalls, 0);
+  assert.equal(summary.totalErrors, 1);
+
+  const fatalHandler = createScheduledNotificationsHandler({
+   createSupabase: () => ({
+    from() {
+     throw new Error('secret-db-connection-string');
+    },
+   }) as never,
+  });
+
+  const fatalResponse = await fatalHandler(new Request('https://example.com/.netlify/functions/send-scheduled-notifications'));
+  const fatalBody = await fatalResponse.json() as Record<string, unknown>;
+  assert.equal(fatalResponse.status, 500);
+  assert.deepEqual(fatalBody, { error: 'Internal server error' });
+  assert.equal(Object.hasOwn(fatalBody, 'details'), false);
+ });
+});
+
+test('createServerBarkSender blocks hostnames resolving to private or link-local IP addresses', async () => {
+ let sentCalls = 0;
+ const senderWithPrivateDns = createServerBarkSender(
+  async () => [{ address: '169.254.169.254' }],
+  async () => {
+   sentCalls += 1;
+   return true;
+  }
+ );
+
+ const blocked = await senderWithPrivateDns(
+  'https://evil.attacker.org',
+  'valid-device-key-12345',
+  'Title',
+  'Body'
+ );
+ assert.equal(blocked, false);
+ assert.equal(sentCalls, 0);
+
+ const senderWithPublicDns = createServerBarkSender(
+  async () => [{ address: '104.26.10.228' }],
+  async () => {
+   sentCalls += 1;
+   return true;
+  }
+ );
+
+ const allowed = await senderWithPublicDns(
+  'https://api.day.app',
+  'valid-device-key-12345',
+  'Title',
+  'Body'
+ );
+ assert.equal(allowed, true);
+ assert.equal(sentCalls, 1);
 });

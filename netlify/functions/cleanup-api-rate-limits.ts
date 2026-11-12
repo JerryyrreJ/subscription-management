@@ -2,6 +2,7 @@ import type { Config } from '@netlify/functions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getApiLimitsConfig, getSupabaseAdminConfig } from './_shared/env';
 import { createSupabaseAdminClient } from './_shared/supabase';
+import { runtimeEnvironment } from './_shared/webHandler';
 
 const RATE_LIMIT_TABLES = [
   'api_user_rate_limit_windows',
@@ -18,8 +19,8 @@ interface CleanupApiRateLimitsDependencies {
 type CleanupApiRateLimitsHandler = (_request: Request) => Promise<Response>;
 
 const createDefaultDependencies = (): CleanupApiRateLimitsDependencies => ({
-  database: createSupabaseAdminClient(getSupabaseAdminConfig()),
-  retentionHours: getApiLimitsConfig().rateLimitRetentionHours,
+  database: createSupabaseAdminClient(getSupabaseAdminConfig(runtimeEnvironment)),
+  retentionHours: getApiLimitsConfig(runtimeEnvironment).rateLimitRetentionHours,
   now: () => new Date(),
 });
 
