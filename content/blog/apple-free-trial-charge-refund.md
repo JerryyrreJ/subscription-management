@@ -6,6 +6,8 @@ description: "Forgot to cancel an App Store free trial before it renewed? How to
 date: 2026-11-12
 status: published
 lang: en
+cluster: trials-refunds
+cta: trial
 canonical: https://steadyrenew.com/blog/apple-free-trial-charge-refund/
 ---
 
@@ -102,6 +104,8 @@ Treat bank chargebacks as a last resort reserved for actual unauthorized fraud. 
 
 ## Related reading
 
+- [Charged after a Google Play free trial? How to cancel and request a refund](https://steadyrenew.com/blog/google-play-free-trial-cancel-refund/)
+- [How to find and cancel PayPal automatic payments (billing agreements)](https://steadyrenew.com/blog/paypal-automatic-payments-cancel-find/)
 - [How to do a subscription audit (keep / cancel / remind)](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/)
 - [Rocket Money alternatives that don’t ask for your bank login](https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/)
 - [自动扣费在哪里看、怎么关？微信 / 支付宝 / Apple / Google 入口速查（中文）](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/)

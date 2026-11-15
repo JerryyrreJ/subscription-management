@@ -1,5 +1,26 @@
 export type BlogStatus = 'draft' | 'published';
 
+export const BLOG_CLUSTERS = [
+  'audit-cleanup',
+  'trials-refunds',
+  'no-bank-alternatives',
+  'multi-currency-ai',
+  'mcp-automation',
+] as const;
+
+export type BlogCluster = (typeof BLOG_CLUSTERS)[number];
+
+export const BLOG_CTA_VARIANTS = [
+  'audit',
+  'trial',
+  'alternative',
+  'multi-currency',
+  'mcp',
+  'none',
+] as const;
+
+export type BlogCtaVariant = (typeof BLOG_CTA_VARIANTS)[number];
+
 export type BlogFrontmatter = {
   title: string;
   /** Document title for <title>, og:title, and twitter:title. Falls back to title. */
@@ -10,6 +31,8 @@ export type BlogFrontmatter = {
   updated?: string;
   status: BlogStatus;
   lang: string;
+  cluster?: BlogCluster;
+  cta?: BlogCtaVariant;
 };
 
 const REQUIRED_FIELDS = ['title', 'slug', 'description', 'date', 'status'] as const;
@@ -60,6 +83,16 @@ export function toFrontmatter(data: Record<string, string>): BlogFrontmatter {
     throw new Error(`Invalid slug "${data.slug}"`);
   }
 
+  const clusterRaw = data.cluster?.trim();
+  if (clusterRaw && !BLOG_CLUSTERS.includes(clusterRaw as BlogCluster)) {
+    throw new Error(`Invalid cluster "${clusterRaw}"`);
+  }
+
+  const ctaRaw = data.cta?.trim();
+  if (ctaRaw && !BLOG_CTA_VARIANTS.includes(ctaRaw as BlogCtaVariant)) {
+    throw new Error(`Invalid cta "${ctaRaw}"`);
+  }
+
   return {
     title: data.title,
     seoTitle: data.seoTitle?.trim() || undefined,
@@ -69,6 +102,8 @@ export function toFrontmatter(data: Record<string, string>): BlogFrontmatter {
     updated: data.updated,
     status: data.status,
     lang: data.lang?.trim() || 'en',
+    ...(clusterRaw ? { cluster: clusterRaw as BlogCluster } : {}),
+    ...(ctaRaw ? { cta: ctaRaw as BlogCtaVariant } : {}),
   };
 }
 

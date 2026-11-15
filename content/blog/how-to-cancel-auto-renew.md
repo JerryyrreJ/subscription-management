@@ -7,6 +7,8 @@ status: published
 date: 2026-09-16
 updated: 2026-11-12
 lang: zh
+cluster: audit-cleanup
+cta: audit
 canonical: https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/
 ---
 
@@ -98,5 +100,8 @@ canonical: https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/
 
 ## 相关阅读
 
+- [苹果自动扣费怎么查明细、申请退款？APPLE.COM/BILL 自助退订指南](https://steadyrenew.com/zh/blog/apple-subscription-refund-guide/)：账单只写 `APPLE.COM/BILL` 时怎么查出具体软件、先关续费再申请退款。
+- [ChatGPT、Claude、Cursor 等海外软件订阅怎么盘点？多币种折算与防忘续费指南](https://steadyrenew.com/zh/blog/track-ai-and-overseas-subscriptions/)：海外 AI 与工具订阅散落在不同付款渠道和币种时怎么一次理清。
+- [怎么用 Bark 给订阅续费和免费试用设到期推送提醒（iPhone 免后台方案）](https://steadyrenew.com/zh/blog/bark-subscription-renewal-alerts/)：配合 Apple 原生推送在试用到期或年费扣款前几天收到提醒。
 - [How to do a subscription audit（英文）](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/)：花半小时把银行卡、应用商店和钱包里的周期扣款一次盘清。
 - [Charged after an Apple free trial?（英文）](https://steadyrenew.com/blog/apple-free-trial-charge-refund/)：Apple 免费试用忘关被扣费后，怎么查清账单并在官网申请退款。

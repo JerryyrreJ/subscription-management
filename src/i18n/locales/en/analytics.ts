@@ -68,6 +68,10 @@ export const analytics = {
  suggestionAnnualDescriptionOther: 'You have {{count}} monthly subscriptions. If these services offer annual billing, you can typically save 10-20% on costs.',
 
  // ===== PDF report =====
+ previewBadge: 'Preview',
+ previewBannerTitle: 'Unlock full 12-month charts, renewal heatmap & A4 PDF reports',
+ previewBannerBody: 'Your live overview above is calculated from your list. Upgrade once ($9 USD lifetime, no subscription) for interactive charts, optimization insights, print-ready A4 PDF exports, and 300 AI captures/month.',
+ previewUnlockCta: 'Unlock Pro & PDF · $9 once',
  pdfExportSnapshot: 'Export snapshot',
  pdfExportAnnual: 'Export annual report',
  pdfSnapshotKicker: 'SUBSCRIPTION SUMMARY',

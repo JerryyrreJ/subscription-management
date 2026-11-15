@@ -6,6 +6,8 @@ date: 2026-09-17
 updated: 2026-11-12
 status: published
 lang: en
+cluster: mcp-automation
+cta: mcp
 canonical: https://steadyrenew.com/blog/manage-subscriptions-with-mcp/
 ---
 
@@ -197,6 +199,7 @@ Both Free and Premium accounts support up to 5 active API keys and 60 requests p
 
 ## Related reading
 
+- [How to track AI subscriptions (ChatGPT, Claude, Cursor, Midjourney) before they pile up](https://steadyrenew.com/blog/track-ai-subscriptions-chatgpt-claude-cursor/)
 - [How to choose a subscription tracker without linking your bank](https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/)
 - [Rocket Money alternatives that don’t ask for your bank login](https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/)
 - [How to do a subscription audit (keep / cancel / remind)](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/)

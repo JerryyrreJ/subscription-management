@@ -46,6 +46,7 @@ interface AiCaptureModalProps {
   onDelete: (subscriptionId: string) => Promise<void>;
   onShowUndo: (action: UndoableAiAction) => void;
   onManualFallback: () => void;
+  onUpgrade?: () => void;
 }
 
 type Phase = 'capture' | 'parsing' | 'review';
@@ -125,6 +126,7 @@ export function AiCaptureModal({
   onDelete,
   onShowUndo,
   onManualFallback,
+  onUpgrade,
 }: AiCaptureModalProps) {
  useModalScrollLock(isOpen);
   const { t } = useTranslation(['aiCapture', 'addSubscription', 'app', 'categoryLabels']);
@@ -1092,9 +1094,21 @@ export function AiCaptureModal({
 
         <div className="ai-capture-body space-y-4">
           {errorCode && (
-            <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3 text-sm text-amber-800 dark:text-amber-200">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <span>{errorMessage(errorCode)}</span>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3 text-sm text-amber-800 dark:text-amber-200">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{errorMessage(errorCode)}</span>
+              </div>
+              {errorCode === 'ai_quota_exceeded' && onUpgrade && (
+                <button
+                  type="button"
+                  onClick={onUpgrade}
+                  className="self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-xs font-medium transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{t('aiCapture:upgradeQuotaCta')}</span>
+                </button>
+              )}
             </div>
           )}
 

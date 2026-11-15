@@ -47,7 +47,7 @@ function blogMiddleware(rootDir: string): Connect.NextHandleFunction {
           send(res, 'Not found', 'text/plain; charset=utf-8', 404);
           return;
         }
-        send(res, renderBlogPost(post, postLanguageAlternates(post, posts)), 'text/html; charset=utf-8');
+        send(res, renderBlogPost(post, postLanguageAlternates(post, posts), posts), 'text/html; charset=utf-8');
         return;
       }
 
@@ -65,7 +65,7 @@ function blogMiddleware(rootDir: string): Connect.NextHandleFunction {
           send(res, 'Not found', 'text/plain; charset=utf-8', 404);
           return;
         }
-        send(res, renderBlogPost(post, postLanguageAlternates(post, posts)), 'text/html; charset=utf-8');
+        send(res, renderBlogPost(post, postLanguageAlternates(post, posts), posts), 'text/html; charset=utf-8');
         return;
       }
     } catch (error) {

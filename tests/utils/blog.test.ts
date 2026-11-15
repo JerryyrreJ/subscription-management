@@ -5,7 +5,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractFaqs, markdownToHtml, parseFrontmatter, toFrontmatter } from '../../scripts/blog/markdown.ts';
 import { buildPublicFiles } from '../../scripts/blog/generate.ts';
-import { postLanguageAlternates, renderBlogPost } from '../../scripts/blog/render.ts';
+import {
+  postLanguageAlternates,
+  renderBlogPost,
+  renderClusterRelated,
+  renderPostCta,
+} from '../../scripts/blog/render.ts';
 import type { BlogPost } from '../../scripts/blog/posts.ts';
 import { loadPosts } from '../../scripts/blog/posts.ts';
 import {
@@ -193,8 +198,8 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.doesNotMatch(article, /hreflang=/);
 
   assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>\s*<lastmod>2026-11-15<\/lastmod>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog\/<\/loc>\s*<lastmod>2026-11-15<\/lastmod>/);
   assert.match(
     sitemap,
     /<loc>https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/
@@ -293,4 +298,159 @@ test('Chinese cancel guide is published, human-toned, and only cross-links the E
   assert.match(related, /how-to-do-a-subscription-audit/);
   assert.doesNotMatch(related, /yearly-spend/);
   assert.doesNotMatch(related, /free-trial-reminders\]\(/);
+});
+
+test('cluster and cta frontmatter validate cleanly and reject unknown values', () => {
+  const valid = toFrontmatter({
+    title: 'Test',
+    slug: 'test-post',
+    description: 'Desc',
+    date: '2026-11-15',
+    status: 'published',
+    lang: 'en',
+    cluster: 'trials-refunds',
+    cta: 'trial',
+  });
+  assert.equal(valid.cluster, 'trials-refunds');
+  assert.equal(valid.cta, 'trial');
+
+  assert.throws(
+    () =>
+      toFrontmatter({
+        title: 'Test',
+        slug: 'test-post',
+        description: 'Desc',
+        date: '2026-11-15',
+        status: 'published',
+        cluster: 'unknown-cluster',
+      }),
+    /Invalid cluster/
+  );
+
+  assert.throws(
+    () =>
+      toFrontmatter({
+        title: 'Test',
+        slug: 'test-post',
+        description: 'Desc',
+        date: '2026-11-15',
+        status: 'published',
+        cta: 'unknown-cta',
+      }),
+    /Invalid cta/
+  );
+});
+
+test('contextual CTA card renders before FAQ with attribution ref and can be suppressed with cta: none', () => {
+  const enPost: BlogPost = {
+    title: 'Trial check',
+    slug: 'trial-check',
+    description: 'Desc',
+    date: '2026-11-15',
+    status: 'published',
+    lang: 'en',
+    cluster: 'trials-refunds',
+    bodyHtml: '<p>Steps</p>\n<h2 id="faq">FAQ</h2>\n<p>Answer</p>',
+    faqs: [],
+    sourcePath: 'memory',
+  };
+  const enHtml = renderBlogPost(enPost);
+  const ctaIndex = enHtml.indexOf('<aside class="cta"');
+  const faqIndex = enHtml.indexOf('<h2 id="faq">');
+  assert.ok(ctaIndex > -1 && faqIndex > ctaIndex);
+  assert.match(enHtml, /href="\/app\?ref=blog-trial-check"/);
+
+  const zhPost: BlogPost = {
+    ...enPost,
+    slug: 'zh-trial-check',
+    lang: 'zh',
+    bodyHtml: '<p>步骤</p>\n<h2 id="常见问题">常见问题</h2>\n<p>回答</p>',
+  };
+  const zhHtml = renderBlogPost(zhPost);
+  assert.ok(zhHtml.indexOf('<aside class="cta"') < zhHtml.indexOf('<h2 id="常见问题">'));
+  assert.match(zhHtml, /href="\/app\?ref=zh-blog-zh-trial-check"/);
+
+  const suppressed = renderPostCta({ ...enPost, cta: 'none' });
+  assert.equal(suppressed, '');
+});
+
+test('renderClusterRelated recommends unlinked same-language cluster guides without duplicating prose links', () => {
+  const current: BlogPost = {
+    title: 'Current',
+    slug: 'current-guide',
+    description: 'Current desc',
+    date: '2026-11-15',
+    status: 'published',
+    lang: 'en',
+    cluster: 'trials-refunds',
+    bodyHtml: '<p>See <a href="https://steadyrenew.com/blog/already-linked/">already</a>.</p>',
+    faqs: [],
+    sourcePath: 'memory',
+  };
+  const all: BlogPost[] = [
+    current,
+    { ...pairedPost('en', 'published', 'already-linked'), cluster: 'trials-refunds', date: '2026-11-14' },
+    { ...pairedPost('en', 'published', 'same-cluster-new'), cluster: 'trials-refunds', date: '2026-11-13' },
+    { ...pairedPost('zh', 'published', 'zh-same-cluster'), cluster: 'trials-refunds', date: '2026-11-15' },
+    { ...pairedPost('en', 'draft', 'draft-same-cluster'), cluster: 'trials-refunds', date: '2026-11-15' },
+    { ...pairedPost('en', 'published', 'other-cluster'), cluster: 'audit-cleanup', date: '2026-11-15' },
+  ];
+
+  const relatedHtml = renderClusterRelated(current, all);
+  assert.doesNotMatch(relatedHtml, /already-linked/);
+  assert.doesNotMatch(relatedHtml, /zh-same-cluster/);
+  assert.doesNotMatch(relatedHtml, /draft-same-cluster/);
+  assert.match(relatedHtml, /href="\/blog\/same-cluster-new\/"/);
+  assert.match(relatedHtml, /href="\/blog\/other-cluster\/"/);
+  assert.ok(
+    relatedHtml.indexOf('same-cluster-new') < relatedHtml.indexOf('other-cluster'),
+    'same-cluster guide should rank before newer post from another cluster'
+  );
+});
+
+test('every published post meets FAQ, intro-honesty, and orphan-free internal linking invariants', () => {
+  const posts = loadPosts(rootDir);
+  const published = posts.filter(post => post.status === 'published');
+  assert.ok(published.length >= 16);
+
+  const files = Object.fromEntries(
+    buildPublicFiles(posts, '2026-11-15').map(file => [file.filePath, file.contents])
+  );
+
+  for (const post of published) {
+    assert.ok(post.faqs.length >= 3, `${post.slug} should have at least 3 FAQs`);
+
+    const currentFilePath = post.lang.startsWith('zh')
+      ? `zh/blog/${post.slug}/index.html`
+      : `blog/${post.slug}/index.html`;
+    assert.doesNotMatch(
+      files[currentFilePath] ?? '',
+      /href="(?:https:\/\/steadyrenew\.com)?(?:\/zh)?\/blog(?:\/[a-z0-9-]+)?"/,
+      `${currentFilePath} has an internal blog link without a trailing slash`
+    );
+
+    if (post.slug !== 'manage-subscriptions-with-mcp') {
+      const raw = readFileSync(post.sourcePath, 'utf8');
+      const afterFrontmatter = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+      const beforeFirstHeading = afterFrontmatter.split(/^##\s+/m)[0] ?? '';
+      assert.equal(
+        beforeFirstHeading.includes('SteadyRenew'),
+        false,
+        `${post.slug} should not mention SteadyRenew before its first ## heading`
+      );
+    }
+
+    const expectedPath = post.lang.startsWith('zh')
+      ? `/zh/blog/${post.slug}/`
+      : `/blog/${post.slug}/`;
+    const incomingCount = published.filter(other => {
+      if (other.slug === post.slug && other.lang === post.lang) return false;
+      const filePath = other.lang.startsWith('zh')
+        ? `zh/blog/${other.slug}/index.html`
+        : `blog/${other.slug}/index.html`;
+      return (files[filePath] ?? '').includes(expectedPath);
+    }).length;
+
+    assert.ok(incomingCount >= 1, `${expectedPath} is an orphan page with 0 incoming links`);
+  }
 });

@@ -15,6 +15,7 @@ import {
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent, maskEmail } from './_shared/logging';
 import { createSupabaseAdminClient, createSupabaseAuthClient } from './_shared/supabase';
+import { sanitizeAttributionRef } from '../../src/utils/attribution';
 import { PREMIUM_PRICE_CURRENCY, PREMIUM_UNIT_AMOUNT_CENTS } from '../../src/utils/pricingFacts';
 
 interface CheckoutSession {
@@ -98,6 +99,18 @@ export const createCheckoutHandler = (
       }
     }
     const productType = isPremiumPurchase ? 'premium_lifetime' : 'support_donation';
+    let attributionRef: string | undefined;
+    if (event.body) {
+      try {
+        const parsedBody = JSON.parse(event.body) as { attributionRef?: unknown } | null;
+        attributionRef = sanitizeAttributionRef(
+          typeof parsedBody?.attributionRef === 'string' ? parsedBody.attributionRef : null
+        ) ?? undefined;
+      } catch {
+        // Ignore malformed optional checkout metadata body.
+      }
+    }
+
     const params: Stripe.Checkout.SessionCreateParams = {
       line_items: [{ price: dependencies.stripeConfig.priceId, quantity: 1 }],
       mode: 'payment',
@@ -109,6 +122,7 @@ export const createCheckoutHandler = (
         userId,
         productType,
         priceId: dependencies.stripeConfig.priceId,
+        ...(attributionRef ? { attributionRef } : {}),
       },
     };
     let session: CheckoutSession;
@@ -128,6 +142,7 @@ export const createCheckoutHandler = (
       productType,
       userId,
       email: maskEmail(userEmail),
+      ...(attributionRef ? { attributionRef } : {}),
     });
 
     return jsonResponse(200, {

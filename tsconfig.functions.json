@@ -21,6 +21,7 @@
     "netlify/edge-functions/**/*.ts",
     "src/i18n/types.ts",
     "src/types.ts",
+    "src/utils/attribution.ts",
     "src/utils/barkPush.ts",
     "src/utils/barkSettings.ts",
     "src/utils/dates.ts",

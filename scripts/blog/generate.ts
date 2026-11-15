@@ -18,7 +18,7 @@ export function buildPublicFiles(posts: BlogPost[], generatedAt = new Date().toI
     { filePath: 'zh/blog/index.html', contents: renderBlogIndex(zhPosts, 'zh') },
     ...posts.map(post => ({
       filePath: postOutputPath(post.slug, post.lang),
-      contents: renderBlogPost(post, postLanguageAlternates(post, posts)),
+      contents: renderBlogPost(post, postLanguageAlternates(post, posts), posts),
     })),
     { filePath: 'sitemap.xml', contents: renderSitemap(posts, generatedAt) },
     { filePath: 'robots.txt', contents: renderRobotsTxt() },

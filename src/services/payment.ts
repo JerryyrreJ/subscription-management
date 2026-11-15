@@ -1,3 +1,5 @@
+import { getStoredAttributionRef } from '../utils/attribution';
+
 export interface CheckoutSessionResponse {
  url: string;
  sessionId: string;
@@ -15,11 +17,13 @@ export async function createCheckoutSession(
  headers.Authorization = `Bearer ${accessToken}`;
  }
 
+ const attributionRef = getStoredAttributionRef();
+
  try {
  const response = await fetch('/.netlify/functions/create-checkout-session', {
  method: 'POST',
  headers,
- body: JSON.stringify({}),
+ body: JSON.stringify(attributionRef ? { attributionRef } : {}),
  });
 
  if (!response.ok) {

@@ -241,11 +241,89 @@ h1 {
 }
 
 .cta {
+  margin: 2rem 0;
+  display: grid;
+  gap: 10px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 24px;
-  padding: 18px 20px;
+  padding: 20px 22px;
   box-shadow: var(--shadow);
+}
+
+.cta p {
+  margin: 0;
+}
+
+.cta-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.cta-title {
+  font-size: 1.12rem;
+  line-height: 1.35;
+}
+
+.cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.cta-secondary {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.related-cluster {
+  margin: 0 0 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.related-cluster h2 {
+  margin: 0 0 14px;
+  font-size: 1.15rem;
+}
+
+.related-cluster-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.related-cluster-grid a {
+  display: grid;
+  gap: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px 16px;
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.related-cluster-grid a:hover {
+  text-decoration: none;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.related-cluster-grid strong {
+  color: var(--accent-strong);
+  font-size: 0.98rem;
+}
+
+.related-cluster-grid span {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .table-wrap {

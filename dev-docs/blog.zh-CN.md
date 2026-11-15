@@ -17,7 +17,7 @@
 | `/sitemap.xml` | 首页 + 两个索引 + 每篇文章 |
 | `/robots.txt` | 指向 canonical sitemap |
 
-应用页脚（无需登录）会按界面语言链到 `/blog` 或 `/zh/blog`。文章里的软 CTA 链回 `/`。
+应用页脚（无需登录）会按界面语言链到 `/blog` 或 `/zh/blog`。正文中的软 CTA 与文末自动渲染的场景化 CTA 卡片（`<aside class="cta">`）统一链回 `/app`（并附带轻量 `?ref=blog-<slug>` / `?ref=zh-blog-<slug>` 来源标识用于 Stripe Checkout 归因）。
 
 中英文是**独立页面**，不是同一 URL 切语言。除非两篇是真正的对应译本，否则不要加 `hreflang`。
 
@@ -35,19 +35,21 @@ description: 一两句搜索摘要。
 date: YYYY-MM-DD
 status: draft
 lang: zh
+cluster: audit-cleanup # 可选: audit-cleanup | trials-refunds | no-bank-alternatives | multi-currency-ai | mcp-automation
+cta: audit # 可选: audit | trial | alternative | multi-currency | mcp | none
 ---
 ```
 
-中文稿使用 `lang: zh`，公开路径是 `/zh/blog/<slug>`，不是 `/blog/<slug>`。
+中文稿使用 `lang: zh`，公开路径是 `/zh/blog/<slug>`，不是 `/blog/<slug>`。`cluster` 用于在文末自动补充同语言、同主题簇且正文未重复链接的指南卡片，避免出现孤岛页；`cta` 默认按 `cluster` 自动选择，也可显式指定或设为 `none` 关闭自动 CTA 卡片。
 
 4. 写 Markdown（标题、列表、表格、链接）。成品完成前用 `status: draft`——页面仍然公开，并显示草稿横幅。改成 `status: published` 后横幅消失。
 5. 运行 `npm run dev`，打开 `http://localhost:5173/blog/<slug>` 或 `http://localhost:5173/zh/blog/<slug>`。
-6. 表述要诚实：不要声称产品会银行抓取、代为取消或账单议价。软 CTA 指向 `/`，且放在读者能独立做完 how-to 之后。
+6. 表述要诚实：不要声称产品会银行抓取、代为取消或账单议价。正文软 CTA 指向 `https://steadyrenew.com/app`，且放在读者能独立做完 how-to 之后。
 
 `npm run build` 会生成 `dist/blog/<slug>/index.html` 或 `dist/zh/blog/<slug>/index.html`。Netlify 会在 SPA 回退之前提供这些静态文件。
 
 ## 软 CTA 规则
 
 - 在清单本身可独立完成之前，不要在导语里提 SteadyRenew。
-- CTA 链到 `https://steadyrenew.com/app`。
+- CTA 链到 `https://steadyrenew.com/app`（构建期会在 FAQ 前自动插入带 `?ref=` 归因的 `<aside class="cta">` 卡片）。
 - 不要声称应用会从银行自动发现扣款、替用户取消商家，或代为议价。

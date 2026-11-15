@@ -10,7 +10,7 @@ import { CategoryPieChart } from './CategoryPieChart';
 import { TopSubscriptionsChart } from './TopSubscriptionsChart';
 import { RenewalHeatmap } from './RenewalHeatmap';
 import { InsightsSection } from './InsightsSection';
-import { X, TrendingUp, Calendar, DollarSign, Package, HelpCircle, Download } from 'lucide-react';
+import { X, TrendingUp, Calendar, DollarSign, Package, HelpCircle, Download, Lock, Sparkles } from 'lucide-react';
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +21,8 @@ interface AdvancedReportProps {
  baseCurrency: Currency;
  exchangeRates: ExchangeRates;
  exchangeRatesUpdatedAt?: number | null;
+ isPreview?: boolean;
+ onUpgrade?: () => void;
  onClose: () => void;
 }
 
@@ -29,6 +31,8 @@ export function AdvancedReport({
  baseCurrency,
  exchangeRates,
  exchangeRatesUpdatedAt,
+ isPreview = false,
+ onUpgrade,
  onClose,
 }: AdvancedReportProps) {
  useModalScrollLock(true);
@@ -112,7 +116,7 @@ export function AdvancedReport({
         <h2 className="text-2xl font-medium text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
           {t('analytics:title')}
           <span className="px-2.5 py-1 rounded-full border border-gray-200 dark:border-white/10 text-xs text-gray-500 dark:text-gray-400 font-normal tracking-normal bg-white/50 dark:bg-white/5">
-            Pro
+            {isPreview ? t('analytics:previewBadge') : 'Pro'}
           </span>
         </h2>
         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mt-1.5 font-light">
@@ -208,23 +212,55 @@ export function AdvancedReport({
 
       {/* Main Content Area */}
       <div className="p-8 space-y-8">
- {/* Spending Trend Chart */}
- <SpendingTrendChart data={reportData.spendingTrend} baseCurrency={baseCurrency} />
+        {isPreview && (
+          <div className="rounded-2xl border border-emerald-200/80 dark:border-emerald-500/30 bg-white dark:bg-white/[0.04] p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="inline-flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Pro · $9 USD</span>
+              </div>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+                {t('analytics:previewBannerTitle')}
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                {t('analytics:previewBannerBody')}
+              </p>
+            </div>
+            {onUpgrade && (
+              <button
+                type="button"
+                onClick={onUpgrade}
+                className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium shadow-sm transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{t('analytics:previewUnlockCta')}</span>
+              </button>
+            )}
+          </div>
+        )}
 
- {/* Category Analysis and Top Subscriptions */}
- <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
- <CategoryPieChart data={reportData.categoryAnalysis} baseCurrency={baseCurrency} />
- <TopSubscriptionsChart data={reportData.topSubscriptions} baseCurrency={baseCurrency} />
- </div>
+        <div
+          className={isPreview ? 'space-y-8 select-none pointer-events-none blur-[5px] opacity-60' : 'space-y-8'}
+          aria-hidden={isPreview || undefined}
+        >
+          {/* Spending Trend Chart */}
+          <SpendingTrendChart data={reportData.spendingTrend} baseCurrency={baseCurrency} />
 
- {/* Renewal Heatmap */}
- <RenewalHeatmap data={reportData.renewalHeatmap} baseCurrency={baseCurrency} />
+          {/* Category Analysis and Top Subscriptions */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <CategoryPieChart data={reportData.categoryAnalysis} baseCurrency={baseCurrency} />
+            <TopSubscriptionsChart data={reportData.topSubscriptions} baseCurrency={baseCurrency} />
+          </div>
 
- {/* Insights Section */}
- <InsightsSection
- suggestions={reportData.optimizationSuggestions}
- baseCurrency={baseCurrency}
- />
+          {/* Renewal Heatmap */}
+          <RenewalHeatmap data={reportData.renewalHeatmap} baseCurrency={baseCurrency} />
+
+          {/* Insights Section */}
+          <InsightsSection
+            suggestions={reportData.optimizationSuggestions}
+            baseCurrency={baseCurrency}
+          />
+        </div>
         {/* Elegant Action Buttons */}
         <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200/50 dark:border-white/5">
           <button
@@ -234,16 +270,16 @@ export function AdvancedReport({
             {t('analytics:closeReport')}
           </button>
           <button
-            onClick={() => setPrintVariant('snapshot')}
-            disabled={printVariant !== null}
+            onClick={() => (isPreview ? onUpgrade?.() : setPrintVariant('snapshot'))}
+            disabled={!isPreview && printVariant !== null}
             className="px-6 py-2.5 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-white/10 rounded-xl hover:bg-gray-50 dark:hover:bg-white/10 transition-all text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <Download className="w-4 h-4"/>
             <span>{t('analytics:pdfExportSnapshot')}</span>
           </button>
           <button
-            onClick={() => setPrintVariant('annual')}
-            disabled={printVariant !== null}
+            onClick={() => (isPreview ? onUpgrade?.() : setPrintVariant('annual'))}
+            disabled={!isPreview && printVariant !== null}
             className="px-6 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-all text-sm font-medium shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <Download className="w-4 h-4"/>
@@ -255,7 +291,7 @@ export function AdvancedReport({
  </div>
 
  {/* 打印文档挂在 body 下：@media print 会隐藏 body 的其他直接子节点 */}
- {pdfData && printVariant
+ {!isPreview && pdfData && printVariant
   ? createPortal(
      <PdfReportDocument data={pdfData} variant={printVariant} onReady={handlePrintDocumentReady} />,
      document.body

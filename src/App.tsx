@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
-import { Plus, BarChart3, RotateCcw } from 'lucide-react';
+import { Plus, BarChart3, RotateCcw, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
  Subscription,
@@ -156,13 +156,23 @@ export function App() {
  const [notificationSettings, setNotificationSettings] = useState<ReminderSettings>(loadNotificationSettings());
  const [isAdvancedReportOpen, setIsAdvancedReportOpen] = useState(false);
  const canUseAdvancedReport = !config.features.cloudSync || Boolean(userProfile?.is_premium);
+ const canOfferAiCapture = config.features.authentication && config.hasSupabaseConfig;
 
  const openAdvancedReport = () => {
-  if (canUseAdvancedReport) {
-   setIsAdvancedReportOpen(true);
+  setIsAdvancedReportOpen(true);
+ };
+
+ const openAiCapture = () => {
+  if (appUser && appSession?.access_token && config.hasSupabaseConfig) {
+   setIsAiCaptureOpen(true);
    return;
   }
-  setIsPricingModalOpen(true);
+  if (canOfferAiCapture) {
+   sessionStorage.setItem('ai-capture-return', '1');
+   setIsAuthModalOpen(true);
+   return;
+  }
+  setIsAddModalOpen(true);
  };
  const [isPricingModalOpen, setIsPricingModalOpen] = useState(() => window.location.pathname === "/pricing" || (new URLSearchParams(window.location.search).has("payment") || new URLSearchParams(window.location.search).get("pricing") === "1"));
  const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
@@ -200,8 +210,14 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
    sessionStorage.removeItem('pricing-return');
    setIsAuthModalOpen(false);
    setIsPricingModalOpen(true);
+   return;
   }
- }, [appUser]);
+  if (appUser && appSession?.access_token && sessionStorage.getItem('ai-capture-return') === '1') {
+   sessionStorage.removeItem('ai-capture-return');
+   setIsAuthModalOpen(false);
+   setIsAiCaptureOpen(true);
+  }
+ }, [appSession?.access_token, appUser]);
 
  useEffect(() => {
   if (loading) {
@@ -806,6 +822,16 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  <h1 className="text-2xl sm:text-2xl font-semibold tracking-tight text-gray-900 dark:text-white app-theme-text-primary">
  {t('app:title')}
  </h1>
+ {canOfferAiCapture && (
+ <button
+ onClick={openAiCapture}
+ className="flex items-center gap-2 px-3.5 py-2 bg-emerald-50/80 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-500/30 rounded-2xl hover:bg-emerald-100/80 dark:hover:bg-emerald-500/20 transition-all text-sm font-medium"
+ title={t('app:aiAssistTooltip')}
+ >
+ <Sparkles className="w-4 h-4"/>
+ <span className="hidden sm:inline">{t('app:aiAssist')}</span>
+ </button>
+ )}
  {subscriptions.length > 0 && (
  <button
  onClick={openAdvancedReport}
@@ -872,6 +898,35 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  exchangeRateError={exchangeRateError}
  />
 
+ {subscriptions.length === 0 && canOfferAiCapture && (
+ <div className="rounded-3xl border border-emerald-200/70 dark:border-emerald-500/25 bg-white/80 dark:bg-[#1a1c1e]/80 backdrop-blur-xl p-5 sm:p-6 shadow-fey flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 app-theme-panel">
+  <div className="space-y-1">
+   <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white app-theme-text-primary">
+    {t('app:emptyQuickStartTitle')}
+   </h3>
+   <p className="text-sm text-gray-600 dark:text-gray-300 app-theme-text-secondary">
+    {t('app:emptyQuickStartSubtitle')}
+   </p>
+  </div>
+  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+   <button
+    onClick={openAiCapture}
+    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-sm font-medium transition-colors"
+   >
+    <Sparkles className="w-4 h-4"/>
+    <span>{t('app:emptyAiAction')}</span>
+   </button>
+   <button
+    onClick={() => setIsAddModalOpen(true)}
+    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium transition-colors app-theme-chip"
+   >
+    <Plus className="w-4 h-4"/>
+    <span>{t('app:emptyManualAction')}</span>
+   </button>
+  </div>
+ </div>
+ )}
+
  <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
  {sortedSubscriptions.map((subscription, index) => (
  <SubscriptionCard
@@ -930,6 +985,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   onDelete={deleteSubscription}
   onShowUndo={showUndoAction}
   onManualFallback={() => { setIsAiCaptureOpen(false); setIsAddModalOpen(true); }}
+  onUpgrade={config.features.payment && config.features.cloudSync ? () => { setIsAiCaptureOpen(false); setIsPricingModalOpen(true); } : undefined}
   />
  )}
 
@@ -968,7 +1024,10 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  >
   <AuthModal
   isOpen={isAuthModalOpen}
-  onClose={() => setIsAuthModalOpen(false)}
+  onClose={() => {
+   sessionStorage.removeItem('ai-capture-return');
+   setIsAuthModalOpen(false);
+  }}
  />
  </Suspense>
  )}
@@ -1074,7 +1133,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  />
 
  {/* 高级报表 */}
- {isAdvancedReportOpen && canUseAdvancedReport && (
+ {isAdvancedReportOpen && (
  <Suspense
  fallback={(
   <LazyModalFallback
@@ -1089,6 +1148,11 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   baseCurrency={baseCurrency}
   exchangeRates={exchangeRates}
   exchangeRatesUpdatedAt={exchangeRatesUpdatedAt}
+  isPreview={!canUseAdvancedReport}
+  onUpgrade={() => {
+   setIsAdvancedReportOpen(false);
+   setIsPricingModalOpen(true);
+  }}
   onClose={() => setIsAdvancedReportOpen(false)}
   />
  </Suspense>

@@ -1,11 +1,14 @@
 ---
 title: "How to choose a subscription tracker without linking your bank"
+seoTitle: "Best Subscription Trackers Without Bank Login (No Plaid, Free or $9)"
 slug: best-subscription-trackers-without-bank-login
-description: "Compare spreadsheets and manual subscription trackers without Plaid or bank logins: how reminders, multi-currency totals, local storage, and data exports actually work."
+description: "Compare spreadsheets, mobile apps, self-hosted tools, and browser subscription trackers without Plaid or bank logins—free or $9 one-time, multi-currency, and renewal alerts."
 date: 2026-09-21
-updated: 2026-11-12
+updated: 2026-11-15
 status: published
 lang: en
+cluster: no-bank-alternatives
+cta: alternative
 canonical: https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/
 ---
 
@@ -86,6 +89,10 @@ SteadyRenew stores your list locally in your browser by default with no sign-up 
 ## Related reading
 
 - [Rocket Money alternatives that don’t ask for your bank login](https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/)
+- [Copilot Money and Monarch alternatives when you only want to track subscriptions](https://steadyrenew.com/blog/copilot-monarch-alternatives-for-subscriptions/)
+- [Bobby app alternatives for iPhone, Android, and desktop web](https://steadyrenew.com/blog/bobby-app-alternatives/)
+- [How to catch subscription price increases before annual plans auto-renew](https://steadyrenew.com/blog/track-subscription-price-increases/)
+- [How to track AI subscriptions (ChatGPT, Claude, Cursor, Midjourney) before they pile up](https://steadyrenew.com/blog/track-ai-subscriptions-chatgpt-claude-cursor/)
 - [How to do a subscription audit (keep / cancel / remind)](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/)
 - [Charged after an Apple free trial? How to check what billed you and request a refund](https://steadyrenew.com/blog/apple-free-trial-charge-refund/)
 - [Connect SteadyRenew to an MCP client](https://steadyrenew.com/blog/manage-subscriptions-with-mcp/)

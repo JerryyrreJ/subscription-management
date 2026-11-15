@@ -1,11 +1,13 @@
 ---
 title: "Rocket Money alternatives that don’t ask for your bank login"
-seoTitle: "Rocket Money Alternatives Without Bank Login (No Plaid)"
+seoTitle: "Rocket Money Alternatives Without Bank Login (No Plaid or Monthly Fee)"
 slug: rocket-money-alternatives-without-bank-login
-description: "Looking for a Rocket Money alternative without linking your bank? Compare privacy-focused manual trackers, self-hosted open-source apps, and spreadsheets."
+description: "Looking for a Rocket Money alternative without Plaid or monthly fees? Compare free and $9 one-time manual trackers, self-hosted open-source apps, and spreadsheets."
 date: 2026-11-12
 status: published
 lang: en
+cluster: no-bank-alternatives
+cta: alternative
 canonical: https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/
 ---
 
@@ -104,5 +106,9 @@ Yes. Because it does not rely on US bank aggregators, SteadyRenew works in any c
 ## Related reading
 
 - [How to choose a subscription tracker without linking your bank](https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/)
+- [Copilot Money and Monarch alternatives when you only want to track subscriptions](https://steadyrenew.com/blog/copilot-monarch-alternatives-for-subscriptions/)
+- [Bobby app alternatives for iPhone, Android, and desktop web](https://steadyrenew.com/blog/bobby-app-alternatives/)
+- [How to catch subscription price increases before annual plans auto-renew](https://steadyrenew.com/blog/track-subscription-price-increases/)
+- [How to find and cancel PayPal automatic payments (billing agreements)](https://steadyrenew.com/blog/paypal-automatic-payments-cancel-find/)
 - [How to do a subscription audit (keep / cancel / remind)](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/)
 - [Charged after an Apple free trial? How to check what billed you and request a refund](https://steadyrenew.com/blog/apple-free-trial-charge-refund/)

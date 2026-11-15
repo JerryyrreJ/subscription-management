@@ -15,6 +15,7 @@ export const aiCapture = {
   manualFallback: '手动填写',
   privacyNote: '你粘贴或上传的内容仅用于本次识别，不会被保存或记录。',
   quotaRemaining: '本月 AI 录入剩余 {{remaining}}/{{limit}} 次',
+  upgradeQuotaCta: '解锁 300 次/月 · $9 买断',
   reviewTitle: '识别到 {{count}} 项，请确认',
   commandReviewTitle: '确认 AI 操作',
   reviewHint: '核对标注的字段，再保存你需要的。',

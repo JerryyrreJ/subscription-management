@@ -1,4 +1,9 @@
-import { escapeHtml, type FaqItem } from './markdown.ts';
+import {
+  escapeHtml,
+  type BlogCluster,
+  type BlogCtaVariant,
+  type FaqItem,
+} from './markdown.ts';
 import type { BlogPost } from './posts.ts';
 import {
   BLOG_INDEX_DESCRIPTION,
@@ -268,13 +273,229 @@ function faqJsonLd(canonical: string, faqs: FaqItem[]): Record<string, unknown> 
   };
 }
 
-export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] | null = null): string {
+function appEntryWithRef(ref: string): string {
+  const [base, hash] = APP_ENTRY_URL.split('#');
+  const separator = base.includes('?') ? '&' : '?';
+  const suffix = hash !== undefined ? `#${hash}` : '';
+  return `${base}${separator}ref=${encodeURIComponent(ref)}${suffix}`;
+}
+
+function clusterToCta(cluster?: BlogCluster): Exclude<BlogCtaVariant, 'none'> {
+  switch (cluster) {
+    case 'trials-refunds':
+      return 'trial';
+    case 'no-bank-alternatives':
+      return 'alternative';
+    case 'multi-currency-ai':
+      return 'multi-currency';
+    case 'mcp-automation':
+      return 'mcp';
+    case 'audit-cleanup':
+    default:
+      return 'audit';
+  }
+}
+
+type CtaTemplate = {
+  eyebrow: string;
+  title: string;
+  body: string;
+  primaryLabel: string;
+  secondaryLabel?: string;
+  secondaryHref?: string;
+};
+
+function getCtaTemplate(variant: Exclude<BlogCtaVariant, 'none'>, lang: BlogUiLang): CtaTemplate {
+  if (lang === 'zh') {
+    switch (variant) {
+      case 'trial':
+        return {
+          eyebrow: '免费试用防忘提醒',
+          title: '开试用当天顺手记一笔，别等到扣完年费才想起来',
+          body: '支持文字或截图草稿录入，无需绑银行卡或强制注册。登录并配置 Bark 后，可在免费试用结束前 2–3 天收到提醒（不会代为向平台申请退款或自动退订）。',
+          primaryLabel: '记下试用截止日',
+        };
+      case 'alternative':
+        return {
+          eyebrow: '免绑银行卡 · 拒绝订阅套娃',
+          title: '在浏览器里管理全部订阅，不必再多付一份月费',
+          body: '默认本地保存、不连接银行账户。免费版（$0）即含不限订阅、多设备同步、Bark 提醒、JSON 备份与每月 10 次 AI 录入；需要每月 300 次 AI 录入与 A4 PDF 报表，可一次买断（$9 USD）。',
+          primaryLabel: '免费打开使用',
+          secondaryLabel: '查看免费版与 $9 买断对比',
+          secondaryHref: '/zh/pricing/',
+        };
+      case 'multi-currency':
+        return {
+          eyebrow: '多币种换算与截图录入',
+          title: '把美元、日元、港币和人民币订阅折算到同一张账单里',
+          body: '保留每笔服务原本的计费币种与金额，同时换算为常用币种月度总开销。支持截图或一句话 AI 提取草稿、核对后保存，全程不连接银行卡。',
+          primaryLabel: '开始汇总海外订阅',
+          secondaryLabel: '查看免费版与 $9 买断对比',
+          secondaryHref: '/zh/pricing/',
+        };
+      case 'mcp':
+        return {
+          eyebrow: '免费版即含 API 与 MCP',
+          title: '把你的订阅清单接入 Claude、ChatGPT 或 Cursor',
+          body: '在应用内生成只读或读写 API Key，通过远程 Streamable HTTP（/api/mcp）或本地脚本即可查询近期续费与各币种开销。',
+          primaryLabel: '前往应用获取 API Key',
+          secondaryLabel: '查看 MCP 接入文档',
+          secondaryHref: '/docs/zh-CN/user-guide/agent-setup',
+        };
+      case 'audit':
+      default:
+        return {
+          eyebrow: 'STEADYRENEW · 本地优先订阅管理',
+          title: '把盘点好的订阅留在一个地方，到期前收到提醒',
+          body: '无需注册，也不关联银行账户，打开浏览器就能记录续费日期并接入 Bark 推送。免费版支持不限订阅数、多币种汇总与 JSON 导入导出。',
+          primaryLabel: '打开 SteadyRenew',
+        };
+    }
+  }
+
+  switch (variant) {
+    case 'trial':
+      return {
+        eyebrow: 'CATCH FREE TRIALS EARLY',
+        title: 'Track the trial end date the minute you sign up',
+        body: 'Log a 7-day or 30-day trial by typing a note or uploading a screenshot—SteadyRenew stays local in your browser by default and reminds you via Bark before billing hits. It does not cancel subscriptions for you.',
+        primaryLabel: 'Log a free trial',
+      };
+    case 'alternative':
+      return {
+        eyebrow: 'NO BANK LOGIN · ONE-TIME UPGRADE',
+        title: 'Try a browser-first tracker without Plaid or another monthly bill',
+        body: 'Start locally with no sign-up, export clean JSON anytime, and pay $0 for unlimited tracking, cloud sync, Bark alerts, and 10 monthly AI captures. Need 300 AI captures and printable A4 PDFs? Premium is $9 once.',
+        primaryLabel: 'Start tracking free',
+        secondaryLabel: 'Compare Free & $9 Lifetime',
+        secondaryHref: '/pricing/',
+      };
+    case 'multi-currency':
+      return {
+        eyebrow: 'MULTI-CURRENCY & SCREENSHOT CAPTURE',
+        title: 'See USD, EUR, JPY, and CNY subscriptions in one converted monthly total',
+        body: 'Keep each bill in its original currency while tracking a single converted total. Paste a billing snippet or screenshot to draft an entry, verify the numbers, and save with no bank login.',
+        primaryLabel: 'Track multi-currency bills',
+        secondaryLabel: 'Compare Free & $9 Lifetime',
+        secondaryHref: '/pricing/',
+      };
+    case 'mcp':
+      return {
+        eyebrow: 'REST API & MCP INCLUDED IN FREE',
+        title: 'Query upcoming renewals straight from Claude, ChatGPT, or Cursor',
+        body: 'Generate a scoped API key in SteadyRenew, connect via remote Streamable HTTP (/api/mcp) or local stdio, and inspect spending or upcoming trials without exposing bank credentials.',
+        primaryLabel: 'Open API & MCP setup',
+        secondaryLabel: 'Read MCP setup docs',
+        secondaryHref: '/docs/en/user-guide/agent-setup',
+      };
+    case 'audit':
+    default:
+      return {
+        eyebrow: 'STEADYRENEW · LOCAL-FIRST TRACKER',
+        title: 'Keep your subscription list where it reminds you',
+        body: 'Start logging renewals directly in your browser with no account and no bank login. Free includes unlimited subscriptions, multi-currency totals, JSON export, and Bark reminders.',
+        primaryLabel: 'Open SteadyRenew',
+      };
+  }
+}
+
+export function renderPostCta(post: BlogPost): string {
+  const variant = post.cta ?? clusterToCta(post.cluster);
+  if (variant === 'none') return '';
+
+  const lang = uiLang(post.lang);
+  const template = getCtaTemplate(variant, lang);
+  const ref = `${isZhLang(post.lang) ? 'zh-blog-' : 'blog-'}${post.slug}`;
+  const appHref = appEntryWithRef(ref);
+  const secondary =
+    template.secondaryLabel && template.secondaryHref
+      ? `<a class="cta-secondary" href="${escapeHtml(template.secondaryHref)}">${escapeHtml(template.secondaryLabel)}</a>`
+      : '';
+
+  return `<aside class="cta" aria-label="${escapeHtml(template.title)}">
+  <p class="cta-eyebrow">${escapeHtml(template.eyebrow)}</p>
+  <p class="cta-title"><strong>${escapeHtml(template.title)}</strong></p>
+  <p>${escapeHtml(template.body)}</p>
+  <div class="cta-actions">
+    <a class="button" href="${escapeHtml(appHref)}">${escapeHtml(template.primaryLabel)}</a>
+    ${secondary}
+  </div>
+</aside>`;
+}
+
+function injectCtaBeforeFaq(bodyHtml: string, ctaHtml: string): string {
+  if (!ctaHtml) return bodyHtml;
+  const faqMatch = bodyHtml.match(/<h2 id="(?:faq|常见问题)">/i);
+  if (faqMatch && faqMatch.index !== undefined) {
+    return `${bodyHtml.slice(0, faqMatch.index)}${ctaHtml}\n${bodyHtml.slice(faqMatch.index)}`;
+  }
+  return `${bodyHtml}\n${ctaHtml}`;
+}
+
+function isSlugAlreadyLinked(bodyHtml: string, slug: string): boolean {
+  return (
+    bodyHtml.includes(`/${slug}/`) ||
+    bodyHtml.includes(`/${slug}"`) ||
+    bodyHtml.includes(`/${slug}'`)
+  );
+}
+
+export function renderClusterRelated(post: BlogPost, allPosts: BlogPost[]): string {
+  if (!allPosts.length) return '';
+  const langIsZh = isZhLang(post.lang);
+  const candidates = allPosts
+    .filter(
+      other =>
+        other.status === 'published' &&
+        other.slug !== post.slug &&
+        isZhLang(other.lang) === langIsZh &&
+        !isSlugAlreadyLinked(post.bodyHtml, other.slug)
+    )
+    .sort((left, right) => {
+      const leftSameCluster = post.cluster && left.cluster === post.cluster ? 0 : 1;
+      const rightSameCluster = post.cluster && right.cluster === post.cluster ? 0 : 1;
+      if (leftSameCluster !== rightSameCluster) return leftSameCluster - rightSameCluster;
+      if (left.date !== right.date) return right.date.localeCompare(left.date);
+      return left.slug.localeCompare(right.slug);
+    })
+    .slice(0, 3);
+
+  if (candidates.length === 0) return '';
+
+  const heading = langIsZh ? '更多相关指南' : 'More guides in this topic';
+  const items = candidates
+    .map(other => {
+      const href = publicPath(postPath(other.slug, other.lang));
+      return `<li>
+        <a href="${escapeHtml(href)}">
+          <strong>${escapeHtml(other.title)}</strong>
+          <span>${escapeHtml(other.description)}</span>
+        </a>
+      </li>`;
+    })
+    .join('\n');
+
+  return `<nav class="related-cluster" aria-label="${escapeHtml(heading)}">
+  <h2>${escapeHtml(heading)}</h2>
+  <ul class="related-cluster-grid">
+    ${items}
+  </ul>
+</nav>`;
+}
+
+export function renderBlogPost(
+  post: BlogPost,
+  alternates: LanguageAlternate[] | null = null,
+  allPosts: BlogPost[] = []
+): string {
   const canonical = postCanonicalUrl(post.slug, post.lang);
   const copy = uiCopy(post.lang);
   const indexPath = publicPath(blogPath(post.lang));
   const draftNotice = post.status === 'draft' ? copy.draftBanner : '';
   const documentTitle = post.seoTitle?.trim() || post.title;
   const logoUrl = `${CANONICAL_ORIGIN}/icon.png`;
+  const bodyWithCta = injectCtaBeforeFaq(post.bodyHtml, renderPostCta(post));
+  const clusterRelatedHtml = renderClusterRelated(post, allPosts);
 
   const jsonLd = [
     {
@@ -325,8 +546,9 @@ export function renderBlogPost(post: BlogPost, alternates: LanguageAlternate[] |
           ${draftNotice}
         </header>
         <div class="prose">
-          ${post.bodyHtml}
+          ${bodyWithCta}
         </div>
+        ${clusterRelatedHtml}
       </article>
     `,
   });

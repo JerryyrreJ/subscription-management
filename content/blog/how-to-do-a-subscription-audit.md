@@ -6,6 +6,8 @@ date: 2026-09-16
 updated: 2026-11-12
 status: published
 lang: en
+cluster: audit-cleanup
+cta: audit
 canonical: https://steadyrenew.com/blog/how-to-do-a-subscription-audit/
 ---
 
@@ -145,4 +147,6 @@ Save the cancellation email or confirmation screen, leave a note of the old bill
 - [How to choose a subscription tracker without linking your bank](https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/)
 - [Subscription tracker alternatives without linking your bank](https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/)
 - [Charged after an Apple free trial? How to check what billed you and request a refund](https://steadyrenew.com/blog/apple-free-trial-charge-refund/)
+- [Charged after a Google Play free trial? How to cancel and request a refund](https://steadyrenew.com/blog/google-play-free-trial-cancel-refund/)
+- [How to find and cancel PayPal automatic payments (billing agreements)](https://steadyrenew.com/blog/paypal-automatic-payments-cancel-find/)
 - [Connect SteadyRenew to an MCP client](https://steadyrenew.com/blog/manage-subscriptions-with-mcp/)

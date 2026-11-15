@@ -68,6 +68,10 @@ export const analytics = {
  suggestionAnnualDescriptionOther: '你有 {{count}} 个按月付费的订阅。如果这些服务支持年付，通常可以节省 10%-20% 的费用。',
 
  // ===== PDF 报表 =====
+ previewBadge: '预览',
+ previewBannerTitle: '解锁完整 12 个月趋势图、续费热力图与 A4 PDF 报告',
+ previewBannerBody: '上方概览已按你的真实订阅实时折算。一次买断（$9 USD 终身，无月费）即可解锁完整趋势图表、优化建议、可打印 A4 PDF 导出与每月 300 次 AI 录入。',
+ previewUnlockCta: '解锁高级报表与 PDF · $9 买断',
  pdfExportSnapshot: '导出快照',
  pdfExportAnnual: '导出年度报告',
  pdfSnapshotKicker: '订阅汇总',

@@ -15,6 +15,7 @@ export const aiCapture = {
   manualFallback: 'Fill in manually',
   privacyNote: 'What you paste or upload is sent once for this extraction only — it is never stored or logged.',
   quotaRemaining: '{{remaining}} of {{limit}} AI captures left this month',
+  upgradeQuotaCta: 'Unlock 300/mo · $9 once',
   reviewTitle: 'Review {{count}} found',
   commandReviewTitle: 'Review AI action',
   reviewHint: 'Check the highlighted fields, then save the ones you want to keep.',

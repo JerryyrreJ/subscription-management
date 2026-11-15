@@ -20,6 +20,10 @@ dist-ssr
 .env.test
 .env*.local
 
+# Local service account credentials (never commit)
+*service-account*.json
+subscription-manager-*.json
+
 # Local Supabase email template drafts
 email/
 

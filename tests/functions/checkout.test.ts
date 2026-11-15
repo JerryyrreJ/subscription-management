@@ -167,3 +167,59 @@ test('existing Premium account cannot buy it again', async () => {
  }));
  assert.equal((await handler(event({ authorization: 'Bearer valid-token' }), {} as never))?.statusCode, 409);
 });
+
+test('checkout attaches valid attributionRef to Stripe metadata and ignores malformed values', async () => {
+ const capturedMetadata: Array<Record<string, string> | undefined> = [];
+ const makeHandler = () =>
+  createCheckoutHandler(() => ({
+   stripeConfig,
+   database: checkoutDatabase(),
+   supabaseConfig: { url: 'https://supabase.test', publishableKey: 'publishable' },
+   isPremium: async () => false,
+   stripe: {
+    ...paymentStripeFixture,
+    prices: {
+     retrieve: async () => ({
+      active: true,
+      currency: 'usd',
+      unit_amount: 900,
+      type: 'one_time',
+      livemode: false,
+     }),
+    },
+    checkout: {
+     sessions: {
+      ...checkoutSessionsFixture,
+      create: async params => {
+       capturedMetadata.push(params.metadata as Record<string, string> | undefined);
+       return { id: 'cs_attr', url: 'https://checkout.test' };
+      },
+     },
+    },
+   },
+   createAuthClient: () => ({
+    auth: { getUser: async () => ({ data: { user: authenticatedUser }, error: null }) },
+   }),
+   createRequestId: () => 'attr-test',
+  }));
+
+ const validRes = await makeHandler()(
+  event(
+   { authorization: 'Bearer valid-token' },
+   JSON.stringify({ attributionRef: 'blog-apple-free-trial-charge-refund' })
+  ),
+  {} as never
+ );
+ assert.equal(validRes?.statusCode, 200);
+ assert.equal(capturedMetadata[0]?.attributionRef, 'blog-apple-free-trial-charge-refund');
+
+ const invalidRes = await makeHandler()(
+  event(
+   { authorization: 'Bearer valid-token' },
+   JSON.stringify({ attributionRef: 'INVALID <script>!' })
+  ),
+  {} as never
+ );
+ assert.equal(invalidRes?.statusCode, 200);
+ assert.equal('attributionRef' in (capturedMetadata[1] ?? {}), false);
+});

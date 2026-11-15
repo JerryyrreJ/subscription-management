@@ -19,9 +19,19 @@ Free includes unlimited subscriptions and free trials, cloud sync, Bark renewal 
 - [How to do a subscription audit](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/)
 - [How to choose a subscription tracker without linking your bank](https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/)
 - [Rocket Money alternatives that don’t ask for your bank login](https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/)
+- [Copilot Money and Monarch alternatives when you only want to track subscriptions](https://steadyrenew.com/blog/copilot-monarch-alternatives-for-subscriptions/)
+- [Bobby app alternatives for iPhone, Android, and desktop web](https://steadyrenew.com/blog/bobby-app-alternatives/)
+- [How to catch subscription price increases before annual plans auto-renew](https://steadyrenew.com/blog/track-subscription-price-increases/)
+- [How to create an annual software subscription expense report (spreadsheet or A4 PDF)](https://steadyrenew.com/blog/software-subscription-expense-report-pdf/)
 - [Charged after an Apple free trial? How to check what billed you and request a refund](https://steadyrenew.com/blog/apple-free-trial-charge-refund/)
+- [Charged after a Google Play free trial? How to cancel and request a refund](https://steadyrenew.com/blog/google-play-free-trial-cancel-refund/)
+- [How to find and cancel PayPal automatic payments (billing agreements)](https://steadyrenew.com/blog/paypal-automatic-payments-cancel-find/)
+- [How to track AI subscriptions (ChatGPT, Claude, Cursor, Midjourney) before they pile up](https://steadyrenew.com/blog/track-ai-subscriptions-chatgpt-claude-cursor/)
 - [Connect SteadyRenew to an MCP client](https://steadyrenew.com/blog/manage-subscriptions-with-mcp/)
 - [自动扣费在哪里看、怎么关？微信 / 支付宝 / Apple / Google 入口速查（2026）](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/)
+- [苹果自动扣费怎么查明细、申请退款？APPLE.COM/BILL 自助退订指南](https://steadyrenew.com/zh/blog/apple-subscription-refund-guide/)
+- [ChatGPT、Claude、Cursor 等海外软件订阅怎么盘点？多币种折算与防忘续费指南](https://steadyrenew.com/zh/blog/track-ai-and-overseas-subscriptions/)
+- [怎么用 Bark 给订阅续费和免费试用设到期推送提醒（iPhone 免后台方案）](https://steadyrenew.com/zh/blog/bark-subscription-renewal-alerts/)
 
 ## API and MCP
 

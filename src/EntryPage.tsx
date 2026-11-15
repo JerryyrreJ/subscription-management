@@ -3,6 +3,7 @@ import type { SupportedLocale } from './i18n/types';
 import { getPublicPage } from './utils/publicPages';
 import { setStoredLocale } from './utils/locale';
 import { isApplicationEntry, resolveAppUrl } from './utils/siteRouting';
+import { captureEntryAttribution } from './utils/attribution';
 import { rememberApplicationEntry, shouldOpenApplication } from './lib/entryPreference';
 
 import type { LegalKind, LegalLocale } from './components/legal/content';
@@ -33,6 +34,9 @@ if (applicationEntry && window.location.pathname === '/') {
     '',
     '/app' + window.location.search + window.location.hash,
   );
+}
+if (typeof window !== 'undefined') {
+  captureEntryAttribution();
 }
 
 let ResolvedLandingPage: ComponentType<LandingPageProps> | null = null;
