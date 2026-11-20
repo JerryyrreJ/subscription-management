@@ -28,10 +28,12 @@ test('marketing JSON-LD names SteadyRenew, the GitHub project, and the real pric
   const organization = graph.find(item => item['@type'] === 'Organization');
   const website = graph.find(item => item['@type'] === 'WebSite');
   const application = graph.find(item => item['@type'] === 'SoftwareApplication');
+  const breadcrumb = graph.find(item => item['@type'] === 'BreadcrumbList');
   const faqPage = graph.find(item => item['@type'] === 'FAQPage');
   assert.ok(organization);
   assert.ok(website);
   assert.ok(application);
+  assert.ok(breadcrumb);
   assert.ok(faqPage);
   assert.equal(organization.name, 'SteadyRenew');
   assert.equal(organization.url, 'https://steadyrenew.com/');
@@ -39,6 +41,15 @@ test('marketing JSON-LD names SteadyRenew, the GitHub project, and the real pric
   assert.equal(organization.sameAs, STEADYRENEW_SAME_AS);
   assert.equal(website.name, 'SteadyRenew');
   assert.equal(website.url, 'https://steadyrenew.com/');
+  assert.equal(application.applicationCategory, 'FinanceApplication');
+  assert.equal(application.isAccessibleForFree, true);
+  assert.equal(application.screenshot, 'https://steadyrenew.com/product-en-light.jpg');
+  assert.ok(Array.isArray(application.featureList) && application.featureList.length >= 5);
+  assert.deepEqual(application.author, {
+    '@type': 'Person',
+    name: 'Jerry Lu',
+    url: 'https://github.com/JerryyrreJ',
+  });
   assert.equal(application.url, 'https://steadyrenew.com/pricing/');
   assert.equal(application.sameAs, 'https://github.com/JerryyrreJ/subscription-management');
   assert.deepEqual(application.offers, [

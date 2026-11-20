@@ -1,6 +1,6 @@
 ---
 title: "Copilot Money and Monarch alternatives when you only want to track subscriptions"
-seoTitle: "Copilot & Monarch Money Alternatives for Subscriptions (No Plaid, One-Time)"
+seoTitle: "Copilot & Monarch Alternatives (No Plaid)"
 slug: copilot-monarch-alternatives-for-subscriptions
 description: "Paying $95–$100/year for Copilot or Monarch just to watch recurring bills? Compare lighter, no-bank-login subscription trackers with free tiers or one-time pricing."
 date: 2026-11-15

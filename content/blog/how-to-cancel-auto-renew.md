@@ -98,6 +98,14 @@ canonical: https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/
 
 苹果会把 App Store 软件内购、iCloud 云空间甚至同一周里的好几笔小额消费合并成一笔 `APPLE.COM/BILL` 入账。直接在 iPhone 上打开「设置 → 你的姓名 → 媒体与购买项目 → 显示账户 → 购买记录」，或者用浏览器登录 `reportaproblem.apple.com`，就能看到每一笔钱对应的真实软件名字。
 
+### 把 App 卸载了为什么月底还会继续扣费？
+
+卸载软件只会删掉手机本地的安装包，不会通知微信支付、支付宝、Apple 或 Google Play 终止扣款协议。只要在支付通道里的自动续费状态还是「生效中」，下一个计费周期依然会自动划款，必须按上表进入对应的支付平台手动关闭。
+
+### 自动续费已经扣款了，还能申请退款吗？
+
+这取决于当初签约的扣款通道：如果是通过苹果 App Store 扣费，可以尽快在 `reportaproblem.apple.com` 提交退款申请；如果是 Google Play 扣费，需在订单页或帮助中心提交申请；如果是微信或支付宝直连的第三方会员，则需要先在支付记录里找到商户客服电话或在线入口协商退费，同时立刻关闭后续免密协议。
+
 ## 相关阅读
 
 - [苹果自动扣费怎么查明细、申请退款？APPLE.COM/BILL 自助退订指南](https://steadyrenew.com/zh/blog/apple-subscription-refund-guide/)：账单只写 `APPLE.COM/BILL` 时怎么查出具体软件、先关续费再申请退款。

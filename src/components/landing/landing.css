@@ -97,6 +97,15 @@
 .landing-faq summary svg { color: var(--app-muted); flex-shrink: 0; }
 .landing-faq details[open] summary svg { transform: rotate(45deg); }
 .landing-faq details p { font-size: 14px; color: var(--app-secondary); line-height: 1.9; padding: 0 24px 20px 0; margin: 0; }
+.landing-guides { padding-block: 56px; border-bottom: 1px solid var(--app-border); }
+.landing-guides-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.landing-guide-card { display: flex; flex-direction: column; gap: 10px; padding: 22px 24px; background: var(--app-surface); border: 1px solid var(--app-border); border-radius: 16px; box-shadow: 0 1px 2px rgb(0 0 0 / 3%); transition: border-color .2s; }
+.landing-guide-card:hover { border-color: var(--app-border-hover); }
+.landing-guide-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.landing-guide-card h3 { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--app-ink); }
+.landing-guide-card:hover h3 { color: var(--lp-accent); }
+.landing-guide-head svg { color: var(--app-muted); flex-shrink: 0; margin-top: 3px; }
+.landing-guide-card p { margin: 0; font-size: 13px; line-height: 1.8; color: var(--app-secondary); }
 .landing-closing { text-align: center; padding-block: 64px; }
 .landing-closing>p { font-size: 14px; line-height: 1.9; color: var(--app-secondary); margin: 20px 0 24px; }
 .landing-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-block: 28px; border-top: 1px solid var(--app-border); }
@@ -135,7 +144,9 @@
   .landing-benefits>span { font-size: 12px; }
   .landing-section-heading { flex-direction: column; align-items: flex-start; gap: 16px; }
   .landing-features { padding-block: 40px; }
-  .landing-feature-grid, .landing-plans, .landing-faq { grid-template-columns: 1fr; }
+  .landing-feature-grid, .landing-plans, .landing-faq, .landing-guides-grid { grid-template-columns: 1fr; }
+  .landing-guides { padding-block: 40px; }
+  .landing-guide-card { padding: 20px; }
   .landing-feature-grid { gap: 16px; }
   .landing-feature-card { padding: 24px; }
   .landing-small-features { grid-template-columns: 1fr; gap: 28px; }

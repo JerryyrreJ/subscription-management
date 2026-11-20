@@ -23,10 +23,12 @@ const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('"',
 function head(html: string, title: string, description: string, canonical: string, locale: string, index: boolean) {
   const ogLocale = locale === 'zh-CN' ? 'zh_CN' : 'en_US';
   const ogLocaleAlternate = locale === 'zh-CN' ? 'en_US' : 'zh_CN';
+  const socialImage = `${origin}/product-${locale === 'zh-CN' ? 'zh-CN' : 'en'}-light.jpg`;
   return html.replace('<html lang="en">', `<html lang="${locale}">`)
     .replace(/<title>[^<]*<\/title>/, `<title>${escape(title)}</title>`)
     .replace(/(<meta (?:name="description"|property="og:description"|name="twitter:description") content=")[^"]*/g, `$1${escape(description)}`)
     .replace(/(<meta (?:property="og:title"|name="twitter:title") content=")[^"]*/g, `$1${escape(title)}`)
+    .replace(/(<meta (?:property="og:image"|name="twitter:image") content=")[^"]*/g, `$1${socialImage}`)
     .replace(/(<meta property="og:url" content=")[^"]*/, `$1${canonical}`)
     .replace(/(<link rel="canonical" href=")[^"]*/, `$1${canonical}`)
     .replace('</head>', `<meta property="og:locale" content="${ogLocale}" />\n<meta property="og:locale:alternate" content="${ogLocaleAlternate}" />\n<meta name="robots" content="${index ? 'index, follow' : 'noindex, follow'}" />\n</head>`);

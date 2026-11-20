@@ -1,6 +1,6 @@
 ---
 title: "How to catch subscription price increases before annual plans auto-renew"
-seoTitle: "Subscription Price-Change Tracker Workflow: Catch Renewal Hikes Early"
+seoTitle: "Track Subscription Price Increases Before Renewal"
 slug: track-subscription-price-increases
 description: "Streaming plans, cloud tools, and SaaS seats raise prices quietly. Learn how to log baseline rates, set pre-renewal lead alerts, and spot annual spend creep."
 date: 2026-11-15

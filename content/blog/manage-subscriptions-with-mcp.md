@@ -1,5 +1,6 @@
 ---
 title: "Connect SteadyRenew to an MCP client"
+seoTitle: "Manage Subscriptions with Claude & Cursor (MCP)"
 slug: manage-subscriptions-with-mcp
 description: "Connect Claude, ChatGPT, Cursor, Claude Code, Codex, or another MCP client to your SteadyRenew subscription list via remote Streamable HTTP or local stdio."
 date: 2026-09-17

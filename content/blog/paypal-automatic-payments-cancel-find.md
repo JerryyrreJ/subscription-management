@@ -1,6 +1,6 @@
 ---
 title: "How to find and cancel PayPal automatic payments (billing agreements)"
-seoTitle: "How to Find & Cancel PayPal Automatic Payments (Billing Agreements)"
+seoTitle: "How to Find & Cancel PayPal Automatic Payments"
 slug: paypal-automatic-payments-cancel-find
 description: "Stop surprise PayPal recurring charges: where to find active billing agreements on web and mobile, cancel automatic payments, and avoid backup-card fallbacks."
 date: 2026-11-15

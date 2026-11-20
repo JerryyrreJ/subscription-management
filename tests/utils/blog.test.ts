@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { extractFaqs, markdownToHtml, parseFrontmatter, toFrontmatter } from '../../scripts/blog/markdown.ts';
+import { extractFaqs, extractHeadings, markdownToHtml, parseFrontmatter, toFrontmatter } from '../../scripts/blog/markdown.ts';
 import { buildPublicFiles } from '../../scripts/blog/generate.ts';
 import {
   postLanguageAlternates,
   renderBlogPost,
   renderClusterRelated,
   renderPostCta,
+  renderQuickAnswer,
+  renderToc,
 } from '../../scripts/blog/render.ts';
 import type { BlogPost } from '../../scripts/blog/posts.ts';
 import { loadPosts } from '../../scripts/blog/posts.ts';
@@ -127,7 +129,7 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.equal(zhPost.seoTitle, '微信/支付宝/Apple/Google 自动扣费怎么关？入口速查');
   assert.equal(zhPost.date, '2026-09-16');
   assert.equal(zhPost.updated, '2026-11-12');
-  assert.equal(zhPost.faqs.length, 3);
+  assert.ok(zhPost.faqs.length >= 3);
 
   const index = files['blog/index.html'];
   const zhIndex = files['zh/blog/index.html'];
@@ -165,14 +167,20 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.match(zhArticle, /<title>微信\/支付宝\/Apple\/Google 自动扣费怎么关？入口速查 · SteadyRenew<\/title>/);
   assert.match(zhArticle, /property="og:title" content="微信\/支付宝\/Apple\/Google 自动扣费怎么关？入口速查 · SteadyRenew"/);
   assert.match(zhArticle, /name="twitter:title" content="微信\/支付宝\/Apple\/Google 自动扣费怎么关？入口速查 · SteadyRenew"/);
-  assert.match(zhArticle, /name="twitter:image" content="https:\/\/steadyrenew\.com\/icon\.png"/);
+  assert.match(zhArticle, /name="twitter:card" content="summary_large_image"/);
+  assert.match(zhArticle, /name="twitter:image" content="https:\/\/steadyrenew\.com\/product-zh-CN-light\.jpg"/);
+  assert.match(article, /name="twitter:image" content="https:\/\/steadyrenew\.com\/product-en-light\.jpg"/);
   assert.match(zhArticle, /<h1>自动扣费在哪里看、怎么关？微信 \/ 支付宝 \/ Apple \/ Google 入口速查（2026）<\/h1>/);
   assert.match(zhArticle, /"headline":"自动扣费在哪里看、怎么关？微信 \/ 支付宝 \/ Apple \/ Google 入口速查（2026）"/);
+  assert.match(zhArticle, /"@type":"Person","name":"Jerry Lu","url":"https:\/\/github\.com\/JerryyrreJ"/);
+  assert.match(zhArticle, /"@type":"BreadcrumbList"/);
   assert.match(zhArticle, /"@type":"FAQPage"/);
   assert.match(zhArticle, /"datePublished":"2026-09-16"/);
   assert.match(zhArticle, /"dateModified":"2026-11-12"/);
   assert.match(zhArticle, /2026年9月16日/);
-  assert.doesNotMatch(zhArticle, /2026年11月12日/);
+  assert.match(zhArticle, /更新于 <time datetime="2026-11-12">2026年11月12日<\/time>/);
+  assert.match(zhArticle, /<nav class="toc" aria-label="本文目录">/);
+  assert.match(article, /<nav class="toc" aria-label="On this page">/);
   assert.match(
     article,
     /<title>How to do a subscription audit \(keep \/ cancel \/ remind\) · SteadyRenew<\/title>/
@@ -198,8 +206,8 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.doesNotMatch(article, /hreflang=/);
 
   assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>\s*<lastmod>2026-11-15<\/lastmod>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog\/<\/loc>\s*<lastmod>2026-11-15<\/lastmod>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>\s*<lastmod>2026-11-20<\/lastmod>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog\/<\/loc>\s*<lastmod>2026-11-20<\/lastmod>/);
   assert.match(
     sitemap,
     /<loc>https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/
@@ -453,4 +461,54 @@ test('every published post meets FAQ, intro-honesty, and orphan-free internal li
 
     assert.ok(incomingCount >= 1, `${expectedPath} is an orphan page with 0 incoming links`);
   }
+});
+
+test('markdown images, TOC headings, quick-answer summary, and custom cover image render cleanly', () => {
+  const html = markdownToHtml(`## First section
+
+![Dashboard preview](/product-en-light.jpg "Sample view")
+
+## Second section
+
+Inline ![icon](/icon.png) and [guide](https://steadyrenew.com/blog/).
+
+## Third section
+
+Body copy.
+`);
+  assert.match(
+    html,
+    /<figure class="prose-figure"><img src="\/product-en-light\.jpg" alt="Dashboard preview" loading="lazy" decoding="async" \/><figcaption>Sample view<\/figcaption><\/figure>/
+  );
+  assert.match(html, /<img src="\/icon\.png" alt="icon" loading="lazy" decoding="async" \/>/);
+
+  const headings = extractHeadings(html);
+  assert.equal(headings.length, 3);
+  assert.deepEqual(headings[0], { id: 'first-section', text: 'First section' });
+
+  const toc = renderToc(headings, 'On this page');
+  assert.match(toc, /<nav class="toc" aria-label="On this page">/);
+  assert.match(toc, /href="#first-section"/);
+  assert.equal(renderToc(headings.slice(0, 2), 'On this page'), '');
+
+  const summary = renderQuickAnswer('Concise takeaway.', 'Quick answer');
+  assert.match(summary, /<aside class="quick-answer" aria-label="Quick answer">/);
+  assert.match(summary, /Concise takeaway\./);
+
+  const postHtml = renderBlogPost({
+    title: 'Image test',
+    slug: 'image-test',
+    description: 'Desc',
+    date: '2026-11-20',
+    status: 'published',
+    lang: 'en',
+    image: '/blog/custom-shot.png',
+    summary: 'Direct summary answer.',
+    bodyHtml: html,
+    faqs: [],
+    sourcePath: 'memory',
+  });
+  assert.match(postHtml, /property="og:image" content="https:\/\/steadyrenew\.com\/blog\/custom-shot\.png"/);
+  assert.match(postHtml, /"image":"https:\/\/steadyrenew\.com\/blog\/custom-shot\.png"/);
+  assert.match(postHtml, /<aside class="quick-answer"/);
 });

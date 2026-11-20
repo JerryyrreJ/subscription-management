@@ -1,8 +1,10 @@
 import {
   escapeHtml,
+  extractHeadings,
   type BlogCluster,
   type BlogCtaVariant,
   type FaqItem,
+  type HeadingItem,
 } from './markdown.ts';
 import type { BlogPost } from './posts.ts';
 import {
@@ -23,10 +25,14 @@ import {
   publicPath,
 } from './site.ts';
 
+const AUTHOR_NAME = 'Jerry Lu';
+const AUTHOR_URL = 'https://github.com/JerryyrreJ';
+
 type BlogUiLang = 'en' | 'zh';
 
 type BlogUiCopy = {
   skip: string;
+  home: string;
   guides: string;
   openApp: string;
   openAppFooter: string;
@@ -37,10 +43,26 @@ type BlogUiCopy = {
   otherLangLabel: string;
   otherLangHref: string;
   draftBanner: string;
+  breadcrumbLabel: string;
+  authorPrefix: string;
+  updatedPrefix: string;
+  tocLabel: string;
+  quickAnswerLabel: string;
 };
 
 function uiLang(lang?: string | null): BlogUiLang {
   return isZhLang(lang) ? 'zh' : 'en';
+}
+
+function defaultSocialImage(lang?: string | null): string {
+  return `${CANONICAL_ORIGIN}/product-${isZhLang(lang) ? 'zh-CN' : 'en'}-light.jpg`;
+}
+
+function resolvePostImage(image?: string, lang?: string | null): string {
+  if (!image) return defaultSocialImage(lang);
+  if (/^https:\/\//i.test(image)) return image;
+  const normalized = image.startsWith('/') ? image : `/${image}`;
+  return `${CANONICAL_ORIGIN}${normalized}`;
 }
 
 function uiCopy(lang?: string | null): BlogUiCopy {
@@ -48,6 +70,7 @@ function uiCopy(lang?: string | null): BlogUiCopy {
   if (uiLang(lang) === 'zh') {
     return {
       skip: '跳到正文',
+      home: '首页',
       guides: '指南',
       openApp: '打开应用',
       openAppFooter: `打开 ${SITE_NAME}`,
@@ -59,11 +82,17 @@ function uiCopy(lang?: string | null): BlogUiCopy {
       otherLangHref: BLOG_PATH,
       draftBanner:
         '<p class="draft-banner" role="note"><strong>草稿提纲。</strong> 本文仍在整理中，部分内容可能会调整。</p>',
+      breadcrumbLabel: '页面导航',
+      authorPrefix: '作者：',
+      updatedPrefix: '更新于 ',
+      tocLabel: '本文目录',
+      quickAnswerLabel: '核心结论',
     };
   }
 
   return {
     skip: 'Skip to content',
+    home: 'Home',
     guides: 'Guides',
     openApp: 'Open app',
     openAppFooter: `Open ${SITE_NAME}`,
@@ -75,6 +104,11 @@ function uiCopy(lang?: string | null): BlogUiCopy {
     otherLangHref: ZH_BLOG_PATH,
     draftBanner:
       '<p class="draft-banner" role="note"><strong>Draft outline.</strong> This article is still being written. Some details may change.</p>',
+    breadcrumbLabel: 'Breadcrumb',
+    authorPrefix: 'By ',
+    updatedPrefix: 'Updated ',
+    tocLabel: 'On this page',
+    quickAnswerLabel: 'Quick answer',
   };
 }
 
@@ -133,6 +167,7 @@ function layout(options: {
   lang?: string;
   type?: 'website' | 'article';
   robots?: string;
+  image?: string;
   jsonLd?: unknown[];
   alternates?: LanguageAlternate[] | null;
   bodyClass?: string;
@@ -141,6 +176,7 @@ function layout(options: {
   const lang = options.lang ?? 'en';
   const type = options.type ?? 'website';
   const robots = options.robots ?? 'index,follow';
+  const socialImage = options.image ?? defaultSocialImage(lang);
   const copy = uiCopy(lang);
   const guidesHref = publicPath(blogPath(lang));
   const homeHref = isZhLang(lang) ? '/zh/' : '/';
@@ -164,11 +200,11 @@ function layout(options: {
     <meta property="og:title" content="${escapeHtml(options.title)}" />
     <meta property="og:description" content="${escapeHtml(options.description)}" />
     <meta property="og:url" content="${escapeHtml(options.canonical)}" />
-    <meta property="og:image" content="${escapeHtml(`${CANONICAL_ORIGIN}/icon.png`)}" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="${escapeHtml(socialImage)}" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(options.title)}" />
     <meta name="twitter:description" content="${escapeHtml(options.description)}" />
-    <meta name="twitter:image" content="${escapeHtml(`${CANONICAL_ORIGIN}/icon.png`)}" />
+    <meta name="twitter:image" content="${escapeHtml(socialImage)}" />
     <link rel="icon" type="image/png" href="/icon.png" />
     <link rel="stylesheet" href="/blog.css" />
     ${jsonLdBlocks}
@@ -197,10 +233,24 @@ function layout(options: {
 `;
 }
 
+function breadcrumbJsonLd(items: Array<{ name: string; url: string }>): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, idx) => ({
+      '@type': 'ListItem',
+      position: idx + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  };
+}
+
 export function renderBlogIndex(posts: BlogPost[], lang: string = 'en'): string {
   const copy = uiCopy(lang);
   const indexPath = blogPath(lang);
   const canonical = canonicalUrl(indexPath);
+  const homeCanonical = isZhLang(lang) ? canonicalUrl('/zh') : canonicalUrl('/');
   const pageTitle = uiLang(lang) === 'zh' ? ZH_BLOG_INDEX_TITLE : BLOG_INDEX_TITLE;
   const items = posts
     .map(post => {
@@ -238,6 +288,10 @@ export function renderBlogIndex(posts: BlogPost[], lang: string = 'en'): string 
           url: `${CANONICAL_ORIGIN}/`,
         },
       },
+      breadcrumbJsonLd([
+        { name: copy.home, url: homeCanonical },
+        { name: copy.guides, url: canonical },
+      ]),
     ],
     content: `
       <header class="page-header">
@@ -483,6 +537,35 @@ export function renderClusterRelated(post: BlogPost, allPosts: BlogPost[]): stri
 </nav>`;
 }
 
+export function renderToc(headings: HeadingItem[], label: string): string {
+  if (headings.length < 3) {
+    return '';
+  }
+
+  const items = headings
+    .map(heading => `<li><a href="#${escapeHtml(heading.id)}">${escapeHtml(heading.text)}</a></li>`)
+    .join('\n    ');
+
+  return `<nav class="toc" aria-label="${escapeHtml(label)}">
+  <p class="toc-title">${escapeHtml(label)}</p>
+  <ol>
+    ${items}
+  </ol>
+</nav>`;
+}
+
+export function renderQuickAnswer(summary: string | undefined, label: string): string {
+  const trimmed = summary?.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  return `<aside class="quick-answer" aria-label="${escapeHtml(label)}">
+  <p class="quick-answer-label">${escapeHtml(label)}</p>
+  <p>${escapeHtml(trimmed)}</p>
+</aside>`;
+}
+
 export function renderBlogPost(
   post: BlogPost,
   alternates: LanguageAlternate[] | null = null,
@@ -490,12 +573,22 @@ export function renderBlogPost(
 ): string {
   const canonical = postCanonicalUrl(post.slug, post.lang);
   const copy = uiCopy(post.lang);
+  const homeHref = isZhLang(post.lang) ? '/zh/' : '/';
+  const homeCanonical = isZhLang(post.lang) ? canonicalUrl('/zh') : canonicalUrl('/');
   const indexPath = publicPath(blogPath(post.lang));
+  const indexCanonical = canonicalUrl(blogPath(post.lang));
   const draftNotice = post.status === 'draft' ? copy.draftBanner : '';
   const documentTitle = post.seoTitle?.trim() || post.title;
   const logoUrl = `${CANONICAL_ORIGIN}/icon.png`;
+  const articleImage = resolvePostImage(post.image, post.lang);
   const bodyWithCta = injectCtaBeforeFaq(post.bodyHtml, renderPostCta(post));
   const clusterRelatedHtml = renderClusterRelated(post, allPosts);
+  const tocHtml = renderToc(extractHeadings(post.bodyHtml), copy.tocLabel);
+  const quickAnswerHtml = renderQuickAnswer(post.summary, copy.quickAnswerLabel);
+  const updatedHtml =
+    post.updated && post.updated !== post.date
+      ? `<span aria-hidden="true">·</span><span>${escapeHtml(copy.updatedPrefix)}<time datetime="${escapeHtml(post.updated)}">${escapeHtml(formatDate(post.updated, post.lang))}</time></span>`
+      : '';
 
   const jsonLd = [
     {
@@ -504,15 +597,15 @@ export function renderBlogPost(
       headline: post.title,
       description: post.description,
       url: canonical,
-      image: logoUrl,
+      image: articleImage,
       datePublished: post.date,
       dateModified: post.updated ?? post.date,
       inLanguage: post.lang,
       mainEntityOfPage: canonical,
       author: {
-        '@type': 'Organization',
-        name: SITE_NAME,
-        url: `${CANONICAL_ORIGIN}/`,
+        '@type': 'Person',
+        name: AUTHOR_NAME,
+        url: AUTHOR_URL,
       },
       publisher: {
         '@type': 'Organization',
@@ -524,6 +617,11 @@ export function renderBlogPost(
         },
       },
     },
+    breadcrumbJsonLd([
+      { name: copy.home, url: homeCanonical },
+      { name: copy.guides, url: indexCanonical },
+      { name: post.title, url: canonical },
+    ]),
     faqJsonLd(canonical, post.faqs),
   ].filter((block): block is Record<string, unknown> => Boolean(block));
 
@@ -534,17 +632,30 @@ export function renderBlogPost(
     lang: post.lang,
     type: 'article',
     robots: post.status === 'published' ? 'index,follow' : 'noindex,follow',
+    image: articleImage,
     jsonLd,
     alternates,
     bodyClass: 'blog-body article-body',
     content: `
       <article class="article">
         <header class="page-header">
-          <p class="eyebrow"><a href="${indexPath}">${escapeHtml(copy.guides)}</a> · ${escapeHtml(formatDate(post.date, post.lang))}</p>
+          <nav class="breadcrumb" aria-label="${escapeHtml(copy.breadcrumbLabel)}">
+            <a href="${homeHref}">${escapeHtml(copy.home)}</a>
+            <span aria-hidden="true">/</span>
+            <a href="${indexPath}">${escapeHtml(copy.guides)}</a>
+          </nav>
           <h1>${escapeHtml(post.title)}</h1>
           <p class="lede">${escapeHtml(post.description)}</p>
+          <p class="article-meta">
+            <span>${escapeHtml(copy.authorPrefix)}<a href="${AUTHOR_URL}" target="_blank" rel="noopener noreferrer">${escapeHtml(AUTHOR_NAME)}</a></span>
+            <span aria-hidden="true">·</span>
+            <time datetime="${escapeHtml(post.date)}">${escapeHtml(formatDate(post.date, post.lang))}</time>
+            ${updatedHtml}
+          </p>
           ${draftNotice}
         </header>
+        ${quickAnswerHtml}
+        ${tocHtml}
         <div class="prose">
           ${bodyWithCta}
         </div>

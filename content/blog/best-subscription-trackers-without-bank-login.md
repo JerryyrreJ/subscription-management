@@ -1,90 +1,102 @@
 ---
 title: "How to choose a subscription tracker without linking your bank"
-seoTitle: "Best Subscription Trackers Without Bank Login (No Plaid, Free or $9)"
+seoTitle: "Best Subscription Trackers Without Bank Login"
 slug: best-subscription-trackers-without-bank-login
 description: "Compare spreadsheets, mobile apps, self-hosted tools, and browser subscription trackers without Plaid or bank logins—free or $9 one-time, multi-currency, and renewal alerts."
+summary: "If you have under 10 single-currency subscriptions, a private Google Sheet plus calendar alerts is still the best free choice. Once date rollover, mixed currencies (USD/EUR/CNY/JPY), or trial reminders become annoying, choose between an iPhone-only manual app (Bobby), self-hosted Docker software (Wallos), or a browser-first tracker with optional cloud sync and one-time pricing (SteadyRenew, $0 Free / $9 once)."
 date: 2026-09-21
-updated: 2026-11-15
+updated: 2026-11-20
 status: published
 lang: en
 cluster: no-bank-alternatives
 cta: alternative
+image: /blog/ai-capture-en.png
 canonical: https://steadyrenew.com/blog/best-subscription-trackers-without-bank-login/
 ---
 
-Skipping bank sync keeps your transaction history private, with one obvious trade-off: a tracker only knows about the bills you tell it about. Once you are fine typing in your own list, the real decision is whether a plain spreadsheet is enough or whether a dedicated manual tracker saves enough hassle to justify using another tool.
+Most people look for a no-bank-login subscription tracker after running into the same snag: they just want to know what renews next week, not hand over checking-account credentials to Plaid or pay $6–$12 a month for a budgeting suite.
 
-## What manual tracking means in practice
+Skipping bank sync comes with one clear trade-off—a manual tool only knows about the subscriptions you enter. Once you accept that initial 20-minute setup, the real question is whether a plain spreadsheet is already enough or whether a manual tracker actually saves you maintenance work.
 
-Without access to your checking account or credit cards, no app can spot a forgotten streaming trial or an annual domain bill on its own. You build the starting list yourself from bank PDFs, Apple and Google Play settings, PayPal, and email receipts. Our [manual subscription audit guide](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/) walks through doing that first sweep in about half an hour.
+## What manual tracking can (and cannot) do
 
-Deleting or editing a row in a tracker never touches the real billing agreement either. Whenever you drop a plan, you still cancel directly with Apple, Google, PayPal, or the merchant.
+Without access to your bank feed, no app can automatically discover a forgotten streaming trial or an old domain renewal on its own. You build your starting list once from card PDFs, Apple and Google Play subscriptions, PayPal, and email receipts. If you have never done that sweep before, this [30-minute manual subscription audit checklist](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/) covers every billing rail in order.
 
-## Spreadsheet vs. dedicated manual tracker
+Just as important: deleting a row in any manual tracker never cancels the real merchant charge. You always cancel directly with Apple, Google Play, PayPal, or the vendor.
 
-| Everyday job | Plain spreadsheet | Manual tracker app |
-| --- | --- | --- |
-| Logging prices and cycles | Build whatever columns and formulas you prefer | Ready-made fields for price, billing cycle, trial end, and category |
-| Rolling renewal dates forward | Update past dates yourself or write date formulas | Advances monthly, quarterly, and annual dates automatically |
-| Getting warned before a charge | Requires separate calendar events for every bill | Built-in push, email, or webhook reminders ahead of renewal |
-| Mixing currencies (USD, EUR, CNY, etc.) | Manual exchange rates or `GOOGLEFINANCE` formulas | Converts totals into one display currency while keeping the billed price |
-| Moving or backing up your data | Already a file you own (`.xlsx` or `.csv`) | Depends on the app; always check for free CSV or JSON export |
+## Four no-bank-login options compared
 
-### Stick with a spreadsheet when your list is short
+Here is how the four realistic manual setups actually differ day to day:
 
-If you pay for fewer than a dozen recurring services in a single currency and already live in Google Calendar or Apple Reminders, a spreadsheet is hard to beat. Make columns for the service name, amount, currency, cycle, next charge date, and payment method, then put calendar alerts on the two or three annual bills you might actually cancel.
+| Option | Runs on | Bank login / Plaid | Pricing model | Best fit | Main drawback |
+| --- | --- | --- | --- | --- | --- |
+| **Google Sheets / Excel + Calendar** | Everywhere | None | Free | Under 10 single-currency bills | Dates never roll forward automatically; tedious to edit on a phone |
+| **Bobby** | iPhone & iPad only | None | Free tier + one-time IAP unlocks | Apple-only users with a compact list | No Android app and no desktop web workspace for auditing statements |
+| **Wallos** (open source) | Self-hosted web (Docker) | None | Free (you pay for your VPS/homelab) | Developers already running Docker | You maintain upgrades, HTTPS, and backups yourself |
+| **Browser-first manual tracker** (e.g., [SteadyRenew](https://steadyrenew.com/app)) | Any desktop or mobile browser | None | Free ($0) or $9 USD once for Premium | Mixed devices, multi-currency lists, AI/SaaS heavy users | Manual initial audit; push alerts currently use Bark (iOS) |
 
-Sheets start feeling clunky later on, usually when you try to edit dates on a phone screen, mix monthly and yearly math across currencies, or realize six months went by without updating a single renewal date.
+If you are specifically leaving a bank-linked app like Rocket Money and want a deeper app-by-app breakdown, see our [Rocket Money alternatives without bank login](https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/) comparison.
 
-### Pick a manual tracker app when upkeep gets annoying
+### Stick with a spreadsheet when your list is small
 
-A dedicated tracker earns its spot when it handles date rollover, currency math, and renewal reminders in one step. If you are specifically moving off an automated bank-sync app and want a side-by-side look at concrete tools (mobile apps like Bobby, self-hosted options like Wallos, and browser trackers), see our [comparison of Rocket Money alternatives without a bank login](https://steadyrenew.com/blog/rocket-money-alternatives-without-bank-login/).
+Honestly, if you pay for fewer than ten services in one currency and already trust Google Calendar or Apple Reminders, do not add another app. Six columns—service, price, currency, cycle, next renewal date, and payment channel—plus calendar alerts on your two or three annual bills will beat most apps on simplicity.
 
-## Five things to test before moving your whole list
+Spreadsheets only start breaking down once you mix USD, EUR, JPY, or CNY bills, change AI tiers mid-month, or realize half your renewal dates in the sheet are from six months ago.
 
-Before you spend twenty minutes typing thirty subscriptions into a new app, enter just three test items: one monthly bill, one annual plan, and one 7-day free trial. Check how the app handles five friction points:
+## Five quick checks before migrating your list
 
-- **Reminder timing:** Can it notify you several days *before* a trial or annual plan renews, and do push notifications work on the free tier?
-- **Original vs. converted currency:** If you pay for services in EUR, JPY, or CNY alongside USD, can you still see the exact billed amount next to your converted monthly estimate?
-- **Where "no bank login" data actually sits:** Skipping bank sync does not automatically mean offline-only. Check whether your list stays in local device/browser storage, syncs to an account server, or sends receipt screenshots to an external AI model.
-- **Data export on day one:** Export your three test rows right away. If exporting requires a paid subscription or outputs an unreadable format, find out before you depend on it.
-- **Price-change edits:** Streaming and software prices creep up constantly. Changing $15.99 to $17.99 should take two taps, not deleting and recreating the entry.
+Instead of typing thirty bills into a new tool on day one, test it with **three rows**: one monthly plan, one annual bill, and one 7-day free trial. Check five things:
 
-## Where SteadyRenew fits
+1. **Advance reminder lead time:** Can it warn you 3 days before a trial ends and 1–2 weeks before an annual charge—without locking basic reminders behind a subscription?
+2. **Billed currency vs. converted total:** If you pay `$20 USD` for Cursor and `€12 EUR` for cloud storage, can you keep each exact invoice currency while reading one converted monthly total?
+3. **Where "no bank login" data actually lives:** "No Plaid" does not automatically mean offline-only. Check whether records stay in local browser storage by default, sync when you opt in, and whether pasted receipts are stored or discarded after parsing.
+4. **Day-one export:** Export your three test rows immediately. If clean JSON or CSV export is locked behind a paywall, walk away before your list grows.
+5. **Fast entry and price edits:** Updating a streaming hike from `$15.99` to `$17.99`—or adding a new tool—should take seconds, not a five-screen wizard.
 
-[SteadyRenew](https://steadyrenew.com/app) is built for people who want a browser-based tracker that starts locally without forcing an account or a monthly fee. By default, records stay in your browser; signing in unlocks optional cloud sync across devices, Bark push reminders, and screenshot or short-text draft entry so you have less typing to do.
+## How SteadyRenew approaches manual tracking
 
-It handles multiple currencies, exports and imports clean JSON backups on the Free plan, and includes [REST API and MCP tools](https://steadyrenew.com/blog/manage-subscriptions-with-mcp/) if you like querying your upcoming bills from an AI assistant or script. It does not connect to banks, cancel services on your behalf, or negotiate bills.
+[SteadyRenew](https://steadyrenew.com/app) is built around keeping manual entry fast enough that you actually maintain it, without asking for bank logins or charging a recurring fee:
 
-## Putting your list together
+- **Starts locally with zero account:** Open `/app` and save records directly in your browser. Create a free account only if you want cloud sync across devices, Bark push reminders, AI draft capture, or API/MCP access.
+- **Less typing via one-line or screenshot drafts:** Instead of filling six fields by hand, open **AI Assist**, type a line like `Cursor Pro $20 monthly, renews on the 18th`, or upload a receipt screenshot. It prepares a draft for you to verify before saving (the pasted text or screenshot is sent once for extraction and never stored or logged).
 
-1. Pull your active recurring charges from card statements, Apple and Google Play subscriptions, and PayPal. (If you use WeChat Pay or Alipay, our [Chinese auto-renewal guide](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/) lists the menu paths for both.)
-2. Cancel anything you have stopped using and save the confirmation email or screen. If a forgotten App Store trial already billed you, check how to [trace an Apple charge and request a refund](https://steadyrenew.com/blog/apple-free-trial-charge-refund/).
-3. Enter the plans you are keeping with their real billing currency, cycle, and next renewal date.
-4. Set reminders a few days ahead of monthly renewals and two to three weeks ahead of annual ones.
-5. Add new free trials the day you start them so your list stays current without another full audit.
+![SteadyRenew AI Assistant modal showing one-line subscription entry and screenshot upload without bank linking](/blog/ai-capture-en.png "AI Assist turns a one-line note or billing screenshot into a reviewable draft—no Plaid or card feed required")
+
+- **Honest Free vs. one-time $9 Premium split:** Free (`$0`) covers unlimited subscriptions, multi-currency totals across 10 currencies, cloud sync, Bark reminders, free JSON import/export, 10 AI captures/month, and full REST API & MCP access. Premium is a single **$9 USD one-time payment** for 300 AI captures/month, advanced spending reports, and print-ready A4 PDF reports.
+- **Query from your AI tools when you want:** On the Free plan, **Settings → API & MCP** lets you connect Claude, ChatGPT, or Cursor to your own ledger (starting with a read-only key) to ask what renews this month—see the [MCP client setup guide](https://steadyrenew.com/blog/manage-subscriptions-with-mcp/).
+
+![SteadyRenew Settings API & MCP panel for connecting Claude, ChatGPT, or Cursor to your subscription list](/blog/mcp-settings-en.png "Settings → API & MCP lets you copy agent setup instructions or manual client configs right from the Free tier")
+
+Clear boundaries: SteadyRenew does **not** connect to banks, scan credit-card feeds, cancel subscriptions on your behalf, or negotiate bills.
+
+## Putting your list together in one sitting
+
+1. Gather active recurring charges from 12 months of card PDFs, Apple and Google Play subscriptions, and PayPal. (If you also pay through WeChat Pay or Alipay, our [Chinese auto-renewal guide](https://steadyrenew.com/zh/blog/how-to-cancel-auto-renew/) lists both menu paths.)
+2. Cancel unused plans first and keep the confirmation. If a forgotten App Store trial already billed you, follow our guide to [trace an `APPLE.COM/BILL` charge and request a refund](https://steadyrenew.com/blog/apple-free-trial-charge-refund/).
+3. Log the plans you are keeping with their real billed currency, cycle, and next renewal date.
+4. Set reminders 2–3 days ahead of free trials and 1–2 weeks ahead of annual renewals, then add new trials the day you start them.
 
 ## FAQ
 
 ### What is the best subscription tracker without linking my bank?
 
-For fewer than ten single-currency bills, a spreadsheet paired with calendar alerts is free and completely under your control. Once you want automatic date rollover, multi-currency totals, or renewal push alerts without maintaining formulas, a manual tracker app (mobile-only, self-hosted, or browser-based like SteadyRenew) is much easier to keep current.
+For fewer than ten single-currency bills, a private spreadsheet paired with calendar alerts is free and completely under your control. Once you want automatic date rollover, multi-currency totals, or renewal alerts without maintaining formulas, choose between an iPhone-only manual app (Bobby), self-hosted Docker software (Wallos), or a cross-device browser tracker like SteadyRenew ($0 Free or $9 once).
 
 ### How can I find forgotten subscriptions without connecting my bank?
 
-Download up to 12 months of card and bank PDF statements so yearly renewals show up at least once, check Apple Subscriptions and Google Play Subscriptions directly on your phone, review PayPal automatic payments, and search your inbox for `receipt`, `renewal`, or `trial`.
+Download up to 12 months of card and bank PDF statements so yearly renewals appear at least once, check Apple Subscriptions and Google Play Subscriptions directly on your phone, review PayPal automatic payments, and search your inbox for `receipt`, `renewal`, or `trial`.
 
 ### Is a Google Sheet safe enough for subscription tracking?
 
-Yes, since a manual subscription list only holds service names, prices, and dates rather than card numbers or bank logins. Keep standard two-factor authentication on your Google account and check that the file’s sharing setting is set to private rather than anyone-with-the-link.
+Yes, because a manual list only holds service names, prices, and renewal dates rather than card numbers or banking passwords. Keep two-factor authentication enabled on your Google account and verify the file is set to private.
 
 ### Does SteadyRenew cancel subscriptions for me?
 
-No. You cancel directly with Apple, Google Play, PayPal, or the merchant that bills you. SteadyRenew keeps track of your list, estimates spending, and reminds you before renewals hit.
+No. Because it never holds your bank login or merchant credentials, you cancel directly with Apple, Google Play, PayPal, or the merchant that bills you. SteadyRenew tracks your list, estimates totals across currencies, and reminds you before renewals hit.
 
 ### Can I keep data locally in my browser or sync across devices?
 
-SteadyRenew stores your list locally in your browser by default with no sign-up required, and offers optional account sign-in if you want cloud sync across your phone and laptop. Neither mode asks for bank credentials.
+SteadyRenew stores your list locally in your browser by default with no sign-up required, and offers optional free account sign-in if you want cloud sync across your phone and laptop. Neither mode asks for bank credentials.
 
 ## Related reading
 

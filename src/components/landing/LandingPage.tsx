@@ -365,6 +365,34 @@ export default function LandingPage({
             ))}
           </div>
         </section>
+        {!pricingOnly && (
+          <section
+            className="landing-guides landing-shell"
+            aria-labelledby="guides-title"
+          >
+            <div className="landing-section-heading">
+              <div>
+                <p className="landing-eyebrow">{c.guidesLabel}</p>
+                <h2 id="guides-title">{c.guidesTitle}</h2>
+              </div>
+              <a className="landing-text-link" href={guidesUrl}>
+                {c.guidesAll}
+                <ArrowRight size={15} />
+              </a>
+            </div>
+            <div className="landing-guides-grid">
+              {c.featuredGuides.map((guide) => (
+                <a key={guide.href} className="landing-guide-card" href={guide.href}>
+                  <div className="landing-guide-head">
+                    <h3>{guide.title}</h3>
+                    <ArrowUpRight size={16} />
+                  </div>
+                  <p>{guide.summary}</p>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
         <section className="landing-closing landing-shell">
           <h2>
             {c.closing}

@@ -1,6 +1,6 @@
 ---
 title: "苹果自动扣费怎么查明细、申请退款？APPLE.COM/BILL 自助退订指南"
-seoTitle: "苹果扣费怎么查、怎么退？APPLE.COM/BILL 账单明细与退款申请指南"
+seoTitle: "苹果扣费怎么查和退款？APPLE.COM/BILL 退订指南"
 slug: apple-subscription-refund-guide
 description: "微信、支付宝或银行卡出现 APPLE.COM/BILL 陌生扣款怎么查？按顺序先看购买记录核对 App、关闭自动订阅防二次扣费，再去 reportaproblem.apple.com 申请退款。"
 date: 2026-11-15

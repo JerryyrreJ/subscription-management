@@ -1,6 +1,6 @@
 ---
 title: "Rocket Money alternatives that don’t ask for your bank login"
-seoTitle: "Rocket Money Alternatives Without Bank Login (No Plaid or Monthly Fee)"
+seoTitle: "Rocket Money Alternatives (No Bank Login)"
 slug: rocket-money-alternatives-without-bank-login
 description: "Looking for a Rocket Money alternative without Plaid or monthly fees? Compare free and $9 one-time manual trackers, self-hosted open-source apps, and spreadsheets."
 date: 2026-11-12

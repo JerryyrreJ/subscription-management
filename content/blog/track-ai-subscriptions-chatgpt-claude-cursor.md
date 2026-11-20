@@ -1,77 +1,86 @@
 ---
 title: "How to track AI subscriptions (ChatGPT, Claude, Cursor, Midjourney) before they pile up"
-seoTitle: "How to Track AI Subscriptions & Free Trials Without Bank Sync"
+seoTitle: "How to Track AI Subscriptions (ChatGPT & Claude)"
 slug: track-ai-subscriptions-chatgpt-claude-cursor
 description: "Stop paying for overlapping $20 AI plans, forgotten annual upgrades, and silent API auto-reloads. Audit and track ChatGPT, Claude, Cursor, and API tools in one list."
+summary: "AI subscriptions creep up because consumer chat seats ($20/month), temporary $100–$200 coding upgrades, mobile in-app purchases, and API auto-recharge thresholds live on separate billing rails. Audit five billing channels first, disable silent API auto-top-ups, and track fixed seats with pre-renewal alerts in one currency view."
 date: 2026-11-15
+updated: 2026-11-20
 status: published
 lang: en
 cluster: multi-currency-ai
 cta: multi-currency
+image: /blog/ai-dashboard-en.png
 canonical: https://steadyrenew.com/blog/track-ai-subscriptions-chatgpt-claude-cursor/
 ---
 
-A single `$20/month` AI plan feels trivial. The surprise hits three months later when you realize you are still paying `$20` for ChatGPT Plus on the web, `$20` for Claude Pro via Apple, `$20` for Cursor, `$30` for an image generator you barely opened, `$15` for a meeting note-taker trial that converted, plus silent `$10` API credit auto-top-ups running in the background.
+Nobody notices a single `$20/month` AI seat. What actually blows up a developer or creator budget is stacking four `$20` tools—ChatGPT Plus, Claude Pro, Cursor Pro, Perplexity Pro—on top of cloud hosting (`Supabase`, `Vercel`, `Netlify`), an image generator you barely opened this month, and silent `$10` API credit auto-reloads running in the background.
 
-Before you switch models or downgrade a tier, you need one clear map of every AI tool billing you, which payment rail owns the renewal switch, and which charges are fixed seats versus usage top-ups.
+Before you cancel anything blindly, map every AI and cloud charge by **which payment rail controls the cancel button** and separate fixed calendar renewals from usage-based API top-ups.
 
-## Why AI subscriptions sneak past normal budgeting
+## Four traps specific to AI tool billing
 
-AI tools break standard subscription habits in four predictable ways:
+AI subscriptions drift out of control faster than Netflix or Spotify for four concrete reasons:
 
-- **Split billing rails:** Half of your tools bill directly through Stripe or Link in a web browser, while mobile apps bill through Apple (`APPLE.COM/BILL`) or Google Play (`GOOGLE *`)—sometimes at a higher price to cover store commissions, and almost always with a separate cancellation menu.
-- **Seat plans mixed with prepaid API credits:** Paying `$20/month` for Claude Pro or ChatGPT Plus is a recurring subscription. Adding `$10` whenever your OpenAI, Anthropic, or OpenRouter balance drops below `$5` is an **auto-reload threshold**—canceling the web chat plan never turns off API auto-recharge.
-- **Quiet tier jumps and annual promos:** Moving from a `$20` plan to a `$100` or `$200` pro/max coding tier for one intense sprint—or picking an annual discount on an AI writer—leaves big charges ticking until you explicitly step back down.
-- **Multi-currency invoices:** Teams and solo builders outside the US routinely mix USD SaaS tools with EUR, GBP, JPY, or CNY local subscriptions, making mental monthly math unreliable.
+- **Web Stripe vs. Apple / Google Play splits:** Buying ChatGPT or Claude inside the iOS app bills through `APPLE.COM/BILL` (often at a markup) and must be canceled in iPhone **Settings → Subscriptions**, not on `chatgpt.com` or `claude.ai`.
+- **Chat seats vs. API auto-recharge:** Canceling a `$20/month` chat plan does **not** touch `platform.openai.com`, `console.anthropic.com`, or OpenRouter. If **Auto top-up** is turned on, an agent script or IDE plugin can still trigger `$10`–`$50` card charges overnight.
+- **Sprint-month tier upgrades:** Bumping from a `$20` tier to a `$100` or `$200` high-usage coding plan for one busy deadline—and forgetting to downgrade before the next billing date—turns a one-off sprint into a permanent bill.
+- **Mixed currencies outside the US:** Solo builders paying USD for AI/cloud tools alongside EUR, GBP, JPY, or CNY local subscriptions rarely know their true monthly burn without converting everything into one display currency.
 
-## Run a 10-minute AI subscription sweep
+## The 10-minute AI billing sweep
 
-Open a blank spreadsheet or manual tracker and check these five places in order:
+Check these five billing rails in order rather than guessing from memory:
 
-| Channel | Where to look | Common AI culprits |
+| Billing rail | Where to check | Typical AI & dev culprits |
 | --- | --- | --- |
-| **Apple / Google Play** | iPhone **Settings → Subscriptions** / Google Play **Subscriptions** | Voice note apps, ChatGPT/Claude mobile IAP, AI photo & PDF apps |
-| **Stripe Link & browser billing** | Check email for `receipt from OpenAI`, `Anthropic`, `Cursor`, `Midjourney`, `Vercel` | ChatGPT, Claude, Cursor, Midjourney, Perplexity, v0 |
-| **PayPal Automatic Payments** | PayPal **Settings → Payments → Automatic payments** | Annual AI writing, transcription, and browser-extension tools |
-| **API billing dashboards** | OpenAI Platform, Anthropic Console, OpenRouter **Credits / Auto top-up** | Silent `$5–$50` auto-reloads triggered by scripts or coding agents |
-| **Work vs. personal emails** | Search secondary Gmail / work inbox for `invoice`, `seat`, `renewal` | Duplicate seats started during a hackathon or client project |
+| **Apple / Google Play** | iPhone **Settings → Subscriptions** / Google Play **Subscriptions** | Mobile chat IAPs, voice note apps, AI photo & PDF editors |
+| **Direct web (Stripe / Link)** | Search inbox for `receipt from OpenAI`, `Anthropic`, `Cursor`, `Midjourney`, `Vercel` | ChatGPT, Claude, Cursor, Perplexity, Midjourney, v0, hosting |
+| **PayPal Automatic Payments** | PayPal **Settings → Payments → Automatic payments** | Annual AI writers, transcription tools, browser extensions |
+| **API billing consoles** | OpenAI Platform, Anthropic Console, OpenRouter **Billing → Auto-recharge** | Silent `$5–$50` credit reloads triggered by scripts or agents |
+| **Secondary / work inboxes** | Search alternate Gmail or work email for `invoice`, `seat`, `renewal` | Duplicate seats opened during a client project or hackathon |
 
-Write down each item’s **real billed currency**, **billing cycle**, **where it bills**, and whether you want to **Keep**, **Downgrade/Pause**, or **Cancel** before its next renewal date. If you want a full step-by-step sweep across non-AI bills too, follow the [30-minute manual subscription audit](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/).
+For each active item, record the **original billed currency**, **billing cycle**, **which rail owns it**, and one decision: **Keep**, **Downgrade before renewal**, or **Cancel now**. If you want to sweep non-AI household bills at the same time, run the full [30-minute manual subscription audit](https://steadyrenew.com/blog/how-to-do-a-subscription-audit/).
 
-## Separate fixed subscriptions from API auto-reloads
+## Split fixed seats from API top-ups
 
-When organizing your list, split AI spending into two distinct buckets:
+Keep your tracker clean by drawing a hard line between two categories:
 
-1. **Fixed recurring seats & trials:** Tools that charge on a calendar date (weekly, monthly, yearly, or a 7-day trial). Put an alert **2–3 days ahead** of free trials and **a week ahead** of monthly/annual seats so you can downgrade right after a heavy project ends.
-2. **Usage-based API balances:** Check **Billing → Auto-recharge** inside OpenAI, Anthropic, or OpenRouter. Either turn off auto-recharge completely (so you only pay when you manually top up) or set a hard monthly budget ceiling in each dashboard.
+1. **Calendar renewals & trials (put these in your tracker):** Fixed monthly/yearly AI seats, cloud tiers, and 7-day trials. Set reminders **2–3 days ahead** of trials and **at least 3–7 days ahead** of high-tier monthly seats so you can step down before renewal hits.
+2. **Usage-based API credits (cap these at the provider):** Turn **Auto-recharge** off completely—or set a strict monthly spending limit inside OpenAI, Anthropic, and OpenRouter—so a runaway loop never bills your card silently.
 
-## Keep AI subscriptions visible across currencies and tools
+## What a real AI + cloud ledger looks like
 
-Once your trimmed list is clean, you do not need another `$10/month` bank-linked tracker just to watch `$20` AI tools:
+If you only keep three USD AI plans, a simple spreadsheet works fine. Once your list spans a dozen mixed-currency AI tools, hosting accounts, and personal subscriptions, seeing exact renewal urgency and converted totals in one screen makes trim decisions obvious.
 
-- **Spreadsheets** work fine if all your tools bill in USD and you manually update calendar reminders when switching plans.
-- **[SteadyRenew](https://steadyrenew.com/app)** is useful if you want browser-first tracking with zero bank connection, converted multi-currency totals (USD, EUR, GBP, CNY, JPY, HKD, CAD, AUD, CHF, SGD), and **AI screenshot or one-line draft capture**—paste a Stripe receipt screenshot or type `Cursor Pro $20 monthly next 18th`, inspect the draft, and save. Free ($0) includes unlimited subscriptions, sync, Bark reminders, JSON export, 10 monthly AI captures, and API/MCP access; Premium is $9 USD once for 300 monthly AI captures and printable A4 PDF reports.
-- **Query from your coding assistant:** Because SteadyRenew includes [REST API and MCP support](https://steadyrenew.com/blog/manage-subscriptions-with-mcp/) on the Free plan, you can connect Claude, ChatGPT, or Cursor directly to your own subscription ledger and ask *"How much am I spending on AI tools this month?"* or *"Which trials end this week?"*
+Here is a sample 19-item developer ledger in [SteadyRenew](https://steadyrenew.com/app) mixing USD AI/cloud tools (`Supabase Pro`, `Perplexity Pro`, `Netlify Pro`, `ChatGPT Plus`, `Claude Pro`, `Cursor Pro`) with local-currency services (`CN¥` cloud and media) converted into one `$254.72/month` USD view:
 
-As always, SteadyRenew does **not** connect to your bank, read credit card feeds, cancel AI plans for you, or monitor live API token usage.
+![SteadyRenew English multi-currency dashboard tracking 19 AI, cloud, and media subscriptions](/blog/ai-dashboard-en.png "Sample ledger: 19 mixed-currency subscriptions converted to USD with renewal countdown badges (Due today / Due in 2 days)")
+
+Why a lightweight browser tracker fits AI-heavy stacks better than a `$10/month` bank-sync app:
+
+- **No bank login or recurring tracker fee:** Starts locally in your browser on Free (`$0` for unlimited items, multi-currency conversion across 10 currencies, cloud sync, Bark alerts, JSON export, 10 AI captures/month, and API/MCP). Optional Premium is **$9 USD once** for 300 monthly AI captures and print-ready A4 PDF expense reports.
+- **Fast updates when you swap models:** Type `Cursor Pro $20 monthly, renews on the 18th` or upload a Stripe receipt screenshot in **AI Assist** to pre-fill a draft instead of filling forms manually.
+- **Ask your own AI assistant about your AI spend:** Because Free includes [REST API and MCP support](https://steadyrenew.com/blog/manage-subscriptions-with-mcp/), you can connect Claude, ChatGPT, or Cursor directly to your ledger and ask *"How much am I paying for AI Tools this month?"* or *"Which subscriptions renew in the next 7 days?"*
+
+SteadyRenew does **not** connect to your bank, pull credit-card feeds, cancel AI plans for you, or track live API token usage.
 
 ## FAQ
 
 ### How do I tell if ChatGPT or Claude is billing me through Apple instead of the website?
 
-Check your card statement descriptor and email receipts. `APPLE.COM/BILL` charges live in **iPhone Settings → [your name] → Subscriptions**, whereas web subscriptions email a Stripe/OpenAI or Anthropic receipt and must be canceled inside your browser account settings.
+Check your card statement descriptor and email receipts. `APPLE.COM/BILL` charges live in **iPhone Settings → [your name] → Subscriptions**, whereas web plans email a Stripe/OpenAI or Anthropic receipt and must be canceled inside your browser account settings.
 
 ### Does canceling ChatGPT Plus or Claude Pro stop OpenAI or Anthropic API billing?
 
-No. Consumer chat subscriptions (`chatgpt.com` or `claude.ai`) and developer API consoles (`platform.openai.com` or `console.anthropic.com`) have completely separate billing systems. Always check API **Billing / Auto-recharge** settings separately.
+No. Consumer chat subscriptions (`chatgpt.com` or `claude.ai`) and developer API consoles (`platform.openai.com` or `console.anthropic.com`) use separate billing systems. Always check API **Billing / Auto-recharge** settings independently.
 
 ### Can I downgrade an expensive AI coding plan before renewal without losing the rest of the month?
 
-Most major web AI subscriptions let you cancel or schedule a downgrade immediately while keeping paid features active until the current billing period ends. Still read the confirmation prompt carefully, especially for prepaid annual plans or usage credits.
+Most major web AI subscriptions let you cancel or schedule a downgrade immediately while keeping paid access through the end of the current billing period. Double-check the confirmation screen, especially for prepaid annual plans or credit packs.
 
 ### What is the easiest way to track AI bills in multiple currencies without sharing bank logins?
 
-Log each tool in its original billed currency inside a spreadsheet or a privacy-focused manual tracker like SteadyRenew, set converted display totals in your home currency, and pair annual or trial rows with reminders a few days before renewal.
+Log each tool in its real invoice currency inside a spreadsheet or a no-bank-login tracker like SteadyRenew, view converted totals in your home currency, and pair trials and high-tier seats with alerts a few days before renewal.
 
 ## Related reading
 

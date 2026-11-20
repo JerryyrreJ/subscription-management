@@ -33,6 +33,10 @@ export type BlogFrontmatter = {
   lang: string;
   cluster?: BlogCluster;
   cta?: BlogCtaVariant;
+  /** Optional relative (/...) or absolute HTTPS cover image for OG/Article JSON-LD. */
+  image?: string;
+  /** Optional concise answer-first takeaway rendered above the body for readers and AI summaries. */
+  summary?: string;
 };
 
 const REQUIRED_FIELDS = ['title', 'slug', 'description', 'date', 'status'] as const;
@@ -93,6 +97,13 @@ export function toFrontmatter(data: Record<string, string>): BlogFrontmatter {
     throw new Error(`Invalid cta "${ctaRaw}"`);
   }
 
+  const imageRaw = data.image?.trim();
+  if (imageRaw && !/^(?:\/|https:\/\/)/i.test(imageRaw)) {
+    throw new Error(`Invalid image "${imageRaw}" (use a root-relative path or https:// URL)`);
+  }
+
+  const summaryRaw = data.summary?.trim();
+
   return {
     title: data.title,
     seoTitle: data.seoTitle?.trim() || undefined,
@@ -104,6 +115,8 @@ export function toFrontmatter(data: Record<string, string>): BlogFrontmatter {
     lang: data.lang?.trim() || 'en',
     ...(clusterRaw ? { cluster: clusterRaw as BlogCluster } : {}),
     ...(ctaRaw ? { cta: ctaRaw as BlogCtaVariant } : {}),
+    ...(imageRaw ? { image: imageRaw } : {}),
+    ...(summaryRaw ? { summary: summaryRaw } : {}),
   };
 }
 
@@ -130,6 +143,17 @@ function renderInline(text: string): string {
   const escaped = escapeHtml(text);
   return escaped
     .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(
+      /!\[([^\]]*)\]\(([^)\s]+)(?:\s+&quot;([^&]*)&quot;)?\)/g,
+      (_match, alt: string, src: string, title?: string) => {
+        const safe = safeHref(src.replace(/&amp;/g, '&'));
+        if (!safe) {
+          return alt;
+        }
+        const titleAttr = title ? ` title="${title}"` : '';
+        return `<img src="${escapeHtml(safe)}" alt="${alt}"${titleAttr} loading="lazy" decoding="async" />`;
+      }
+    )
     .replace(
       /\[([^\]]+)\]\(([^)]+)\)/g,
       (_match, label: string, href: string) => {
@@ -215,6 +239,21 @@ export function markdownToHtml(markdown: string): string {
       continue;
     }
 
+    const standaloneImage = line.trim().match(/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)$/);
+    if (standaloneImage) {
+      const alt = standaloneImage[1] ?? '';
+      const safe = safeHref(standaloneImage[2] ?? '');
+      const caption = standaloneImage[3]?.trim();
+      if (safe) {
+        const figcaption = caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : '';
+        html.push(
+          `<figure class="prose-figure"><img src="${escapeHtml(safe)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" />${figcaption}</figure>`
+        );
+      }
+      index += 1;
+      continue;
+    }
+
     if (line.trim().startsWith('<')) {
       const block: string[] = [];
       while (index < lines.length && !isBlank(peek())) {
@@ -276,6 +315,7 @@ export function markdownToHtml(markdown: string): string {
       if (
         /^\s*[-*]\s+/.test(peek()) ||
         /^\s*\d+\.\s+/.test(peek()) ||
+        /^!\[[^\]]*\]\([^)\s]+(?:\s+"[^"]+")?\)$/.test(peek().trim()) ||
         peek().trim().startsWith('>') ||
         peek().trim().startsWith('```')
       ) {
@@ -299,6 +339,11 @@ export type FaqItem = {
   answer: string;
 };
 
+export type HeadingItem = {
+  id: string;
+  text: string;
+};
+
 function decodeHtmlEntities(value: string): string {
   return value
     .replace(/&quot;/g, '"')
@@ -306,6 +351,22 @@ function decodeHtmlEntities(value: string): string {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&');
+}
+
+export function extractHeadings(html: string): HeadingItem[] {
+  const headings: HeadingItem[] = [];
+  const pattern = /<h2 id="([^"]+)">([\s\S]*?)<\/h2>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(html))) {
+    const id = match[1]?.trim();
+    const text = decodeHtmlEntities((match[2] ?? '').replace(/<[^>]+>/g, '').trim());
+    if (id && text) {
+      headings.push({ id, text });
+    }
+  }
+
+  return headings;
 }
 
 export function extractFaqs(html: string): FaqItem[] {

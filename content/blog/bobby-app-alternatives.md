@@ -1,6 +1,6 @@
 ---
 title: "Bobby app alternatives for iPhone, Android, and desktop web"
-seoTitle: "Bobby App Alternatives for Web, Android & iPhone (No Bank Login)"
+seoTitle: "Bobby App Alternatives for Web & Android"
 slug: bobby-app-alternatives
 description: "Outgrowing Bobby’s iPhone-only manual subscription list? Compare cross-platform manual trackers, spreadsheets, self-hosted tools, and browser-first options without bank sync."
 date: 2026-11-15

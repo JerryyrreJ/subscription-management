@@ -92,7 +92,7 @@ main {
   border-radius: 8px;
 }
 
-nav {
+.site-header nav {
   display: flex;
   align-items: center;
   gap: 14px;
@@ -135,6 +135,117 @@ h1 {
 
 .lede {
   font-size: 1.05rem;
+  color: var(--muted);
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+.breadcrumb a {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.breadcrumb a:hover {
+  color: var(--accent-strong);
+}
+
+.article-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.article-meta a {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.quick-answer {
+  margin: 18px 0 20px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  box-shadow: var(--shadow);
+}
+
+.quick-answer p {
+  margin: 0;
+  font-size: 0.96rem;
+}
+
+.quick-answer-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px !important;
+  font-weight: 700;
+  color: var(--accent-strong);
+  margin-bottom: 6px !important;
+}
+
+.toc {
+  margin: 16px 0 24px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.toc-title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.toc ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 6px;
+  font-size: 0.93rem;
+}
+
+.toc a {
+  color: var(--text);
+}
+
+.toc a:hover {
+  color: var(--accent-strong);
+}
+
+.prose-figure {
+  margin: 1.5rem 0;
+}
+
+.prose-figure img,
+.prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.prose-figure figcaption {
+  margin-top: 8px;
+  font-size: 0.85rem;
   color: var(--muted);
 }
 
@@ -356,5 +467,5 @@ th { background: color-mix(in srgb, var(--card) 70%, var(--bg-accent)); }
 
 @media (max-width: 640px) {
   .site-header { align-items: flex-start; flex-direction: column; }
-  nav { width: 100%; justify-content: space-between; }
+  .site-header nav { width: 100%; justify-content: space-between; }
 }

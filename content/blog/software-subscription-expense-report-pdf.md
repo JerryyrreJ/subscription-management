@@ -1,6 +1,6 @@
 ---
 title: "How to create an annual software subscription expense report (spreadsheet or A4 PDF)"
-seoTitle: "Software Subscription Expense Report: Free Checklist & Print-Ready PDF"
+seoTitle: "Software Subscription Expense Report & PDF"
 slug: software-subscription-expense-report-pdf
 description: "Need a clean summary of recurring SaaS, AI, and cloud bills for year-end review or bookkeeping? Build a multi-currency table or export a print-ready A4 PDF report."
 date: 2026-11-15
