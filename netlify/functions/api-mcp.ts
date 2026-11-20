@@ -105,18 +105,31 @@ const describeTool = (tool: RawToolDef): string => {
 
 const schemaTools = aiToolsSchema.tools as unknown as RawToolDef[];
 
-const mcpTools = schemaTools.map(tool => ({
-  name: tool.name,
-  description: describeTool(tool),
-  inputSchema: inlineSchemaRefs(
-    tool.parameters ?? { type: 'object', properties: {}, additionalProperties: false }
-  ) as Record<string, unknown>,
-  annotations: {
-    readOnlyHint: tool.method === 'GET',
-    destructiveHint: tool.method !== 'GET' && tool.method !== 'POST',
-    openWorldHint: false,
-  },
-}));
+const formatToolTitle = (name: string): string =>
+  name
+    .split('_')
+    .filter(Boolean)
+    .map(part => part[0].toUpperCase() + part.slice(1))
+    .join(' ');
+
+const mcpTools = schemaTools.map(tool => {
+  const title = formatToolTitle(tool.name);
+  return {
+    name: tool.name,
+    title,
+    description: describeTool(tool),
+    inputSchema: inlineSchemaRefs(
+      tool.parameters ?? { type: 'object', properties: {}, additionalProperties: false }
+    ) as Record<string, unknown>,
+    annotations: {
+      title,
+      readOnlyHint: tool.method === 'GET',
+      destructiveHint: tool.method !== 'GET' && tool.method !== 'POST',
+      idempotentHint: tool.method === 'GET',
+      openWorldHint: false,
+    },
+  };
+});
 
 const toolByName = new Map(schemaTools.map(tool => [tool.name, tool]));
 

@@ -189,6 +189,10 @@ test('remote Streamable HTTP MCP handles preflight, 405 GET, 401 invalid auth, a
     const serialized = JSON.stringify(tool.inputSchema);
     assert.equal(serialized.includes('"$defs"'), false, `${tool.name} should inline all $defs`);
     assert.equal(serialized.includes('"$ref"'), false, `${tool.name} should inline all $refs`);
+    assert.ok(tool.title && tool.title.length > 0, `${tool.name} should expose a human-readable title`);
+    assert.equal(tool.annotations?.title, tool.title);
+    assert.equal(typeof tool.annotations?.readOnlyHint, 'boolean');
+    assert.equal(typeof tool.annotations?.destructiveHint, 'boolean');
     assert.equal(tool.annotations?.openWorldHint, false);
     assert.match(tool.description ?? '', /Use when:/);
   }
