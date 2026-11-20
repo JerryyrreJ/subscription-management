@@ -111,15 +111,61 @@ test('remote Streamable HTTP MCP handles preflight, 405 GET, 401 invalid auth, a
   );
   assert.equal(getRes.status, 405);
 
-  const unauth = await mcpHandler(
+  // Anonymous discovery (initialize + tools/list) succeeds without touching the database so
+  // MCP directories (e.g. Glama, Smithery) can list tools and verify server health.
+  const discoveryTransport = new StreamableHTTPClientTransport(
+    new URL('https://steadyrenew.com/api/mcp'),
+    {
+      fetch: async (input, init) => mcpHandler(new Request(input, init)),
+    }
+  );
+  const discoveryClient = new Client({ name: 'mcp-directory-healthcheck', version: '1.0.0' });
+  t.after(() => discoveryClient.close());
+  await discoveryClient.connect(discoveryTransport);
+  const { tools: publicTools } = await discoveryClient.listTools();
+  assert.equal(publicTools.length, 11);
+
+  // Unauthenticated tools/call is still rejected with HTTP 401.
+  const unauthCall = await mcpHandler(
     new Request('https://steadyrenew.com/api/mcp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: { name: 'list_subscriptions', arguments: {} },
+      }),
     })
   );
-  assert.equal(unauth.status, 401);
-  assert.match(unauth.headers.get('www-authenticate') ?? '', /Bearer/);
+  assert.equal(unauthCall.status, 401);
+  assert.match(unauthCall.headers.get('www-authenticate') ?? '', /Bearer/);
+
+  // Mixed batch containing a tool call cannot bypass authentication.
+  const unauthBatch = await mcpHandler(
+    new Request('https://steadyrenew.com/api/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([
+        { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+        { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'list_subscriptions', arguments: {} } },
+      ]),
+    })
+  );
+  assert.equal(unauthBatch.status, 401);
+
+  // Supplying an invalid Bearer token fails fast even on tools/list.
+  const invalidKeyList = await mcpHandler(
+    new Request('https://steadyrenew.com/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer subm_invalid_key',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/list' }),
+    })
+  );
+  assert.equal(invalidKeyList.status, 401);
 
   const transport = new StreamableHTTPClientTransport(
     new URL('https://steadyrenew.com/api/mcp'),

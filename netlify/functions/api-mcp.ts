@@ -217,6 +217,29 @@ const handlerResponseToWeb = (res: HandlerResponse): Response => {
   }));
 };
 
+const PUBLIC_MCP_DISCOVERY_METHODS = new Set([
+  'initialize',
+  'notifications/initialized',
+  'notifications/cancelled',
+  'ping',
+  'tools/list',
+]);
+
+const isPublicDiscoveryMessage = (item: unknown): boolean => {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    return false;
+  }
+  const method = (item as Record<string, unknown>).method;
+  return typeof method === 'string' && PUBLIC_MCP_DISCOVERY_METHODS.has(method);
+};
+
+const isPublicDiscoveryPayload = (payload: unknown): boolean => {
+  if (Array.isArray(payload)) {
+    return payload.length > 0 && payload.every(isPublicDiscoveryMessage);
+  }
+  return isPublicDiscoveryMessage(payload);
+};
+
 export const createApiMcpHandler = (
   dependenciesFactory: () => ApiMcpDependencies = createDefaultDependencies
 ) => async (request: Request): Promise<Response> => {
@@ -250,26 +273,51 @@ export const createApiMcpHandler = (
   let requestId: string = crypto.randomUUID();
 
   try {
-    const dependencies = dependenciesFactory();
-    requestId = dependencies.createRequestId();
-    const now = dependencies.now();
+    const rawBody = await request.text();
+    let parsedBody: unknown = null;
+    try {
+      parsedBody = rawBody ? JSON.parse(rawBody) : null;
+    } catch {
+      parsedBody = null;
+    }
+
     const incomingHeaders = Object.fromEntries(request.headers);
+    const hasAuthHeader = Boolean(request.headers.get('authorization')?.trim());
+    const allowAnonymousDiscovery = !hasAuthHeader && isPublicDiscoveryPayload(parsedBody);
 
-    // Authenticate the API key upfront on every MCP request (initialize, tools/list,
-    // tools/call). Per-minute tool call quota is charged inside the target API route
-    // handler only when tools/call executes a valid request.
-    await identifyApiKey(
-      incomingHeaders,
-      dependencies.database,
-      dependencies.limits,
-      now,
-      requestId
-    );
+    let dependencies: ApiMcpDependencies | null = null;
+    let authenticated = false;
 
-    const subscriptionsHandler = createSubscriptionsApiHandler(() => dependencies);
-    const analyticsHandler = createAnalyticsApiHandler(() => dependencies);
-    const auditHandler = createAuditApiHandler(() => dependencies);
-    const notificationSettingsHandler = createNotificationSettingsApiHandler(() => dependencies);
+    if (!allowAnonymousDiscovery) {
+      dependencies = dependenciesFactory();
+      requestId = dependencies.createRequestId();
+      const now = dependencies.now();
+
+      // Authenticate the API key upfront on every tool call and whenever an
+      // Authorization header is supplied (so invalid keys fail fast even on
+      // initialize or tools/list). Per-minute quota is charged inside the
+      // target API route handler when tools/call executes.
+      await identifyApiKey(
+        incomingHeaders,
+        dependencies.database,
+        dependencies.limits,
+        now,
+        requestId
+      );
+      authenticated = true;
+    }
+
+    const getDependencies = (): ApiMcpDependencies => {
+      if (!dependencies) {
+        dependencies = dependenciesFactory();
+      }
+      return dependencies;
+    };
+
+    const subscriptionsHandler = createSubscriptionsApiHandler(getDependencies);
+    const analyticsHandler = createAnalyticsApiHandler(getDependencies);
+    const auditHandler = createAuditApiHandler(getDependencies);
+    const notificationSettingsHandler = createNotificationSettingsApiHandler(getDependencies);
 
     const resolveRouteHandler = (path: string): Handler => {
       if (path.startsWith('/api/v1/subscriptions')) return subscriptionsHandler;
@@ -293,6 +341,13 @@ export const createApiMcpHandler = (
     }));
 
     mcpServer.server.setRequestHandler(CallToolRequestSchema, async mcpReq => {
+      if (!authenticated) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Authentication required. Provide an Authorization: Bearer subm_... header.' }],
+        };
+      }
+
       const tool = toolByName.get(mcpReq.params.name);
       if (!tool) {
         return {
@@ -355,13 +410,16 @@ export const createApiMcpHandler = (
 
     // Ensure simple JSON-RPC HTTP clients that send Accept: application/json or */*
     // work alongside strict MCP clients that send Accept: application/json, text/event-stream.
-    let normalizedRequest = request;
+    const patchedHeaders = new Headers(request.headers);
     const accept = request.headers.get('accept') ?? '';
     if (!accept.includes('application/json') || !accept.includes('text/event-stream')) {
-      const patchedHeaders = new Headers(request.headers);
       patchedHeaders.set('Accept', 'application/json, text/event-stream');
-      normalizedRequest = new Request(request, { headers: patchedHeaders });
     }
+    const normalizedRequest = new Request(request.url, {
+      method: 'POST',
+      headers: patchedHeaders,
+      body: rawBody,
+    });
 
     const mcpResponse = await transport.handleRequest(normalizedRequest);
     return withMcpHeaders(mcpResponse);
