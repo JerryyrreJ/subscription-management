@@ -7,6 +7,7 @@ import {
   type HeadingItem,
 } from './markdown.ts';
 import type { BlogPost } from './posts.ts';
+import { STEADYRENEW_SAME_AS } from '../../src/utils/structuredData.ts';
 import {
   BLOG_INDEX_DESCRIPTION,
   BLOG_INDEX_TITLE,
@@ -615,6 +616,7 @@ export function renderBlogPost(
           '@type': 'ImageObject',
           url: logoUrl,
         },
+        sameAs: [...STEADYRENEW_SAME_AS],
       },
     },
     breadcrumbJsonLd([

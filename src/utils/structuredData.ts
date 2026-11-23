@@ -1,7 +1,11 @@
 import { FREE_PRICE_USD, PREMIUM_PRICE_USD } from './pricingFacts.ts';
 import { MARKETING_ORIGIN } from './siteUrls.ts';
 
-export const STEADYRENEW_SAME_AS = 'https://github.com/JerryyrreJ/subscription-management';
+export const STEADYRENEW_SAME_AS = [
+  'https://github.com/JerryyrreJ/subscription-management',
+  'https://www.saashub.com/steadyrenew',
+  'https://glama.ai/mcp/connectors/com.steadyrenew/steady-renew',
+] as const;
 export const STEADYRENEW_AUTHOR_NAME = 'Jerry Lu';
 export const STEADYRENEW_AUTHOR_URL = 'https://github.com/JerryyrreJ';
 
@@ -43,7 +47,7 @@ export function marketingStructuredData(options: {
       name: 'SteadyRenew',
       url: homeUrl,
       logo: `${siteOrigin}/icon.png`,
-      sameAs: STEADYRENEW_SAME_AS,
+      sameAs: [...STEADYRENEW_SAME_AS],
     },
     {
       '@type': 'WebSite',
@@ -82,7 +86,7 @@ export function marketingStructuredData(options: {
           priceCurrency: 'USD',
         },
       ],
-      sameAs: STEADYRENEW_SAME_AS,
+      sameAs: [...STEADYRENEW_SAME_AS],
     },
   ];
 

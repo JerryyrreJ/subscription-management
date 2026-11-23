@@ -38,7 +38,7 @@ test('marketing JSON-LD names SteadyRenew, the GitHub project, and the real pric
   assert.equal(organization.name, 'SteadyRenew');
   assert.equal(organization.url, 'https://steadyrenew.com/');
   assert.equal(organization.logo, 'https://steadyrenew.com/icon.png');
-  assert.equal(organization.sameAs, STEADYRENEW_SAME_AS);
+  assert.deepEqual(organization.sameAs, [...STEADYRENEW_SAME_AS]);
   assert.equal(website.name, 'SteadyRenew');
   assert.equal(website.url, 'https://steadyrenew.com/');
   assert.equal(application.applicationCategory, 'FinanceApplication');
@@ -51,7 +51,11 @@ test('marketing JSON-LD names SteadyRenew, the GitHub project, and the real pric
     url: 'https://github.com/JerryyrreJ',
   });
   assert.equal(application.url, 'https://steadyrenew.com/pricing/');
-  assert.equal(application.sameAs, 'https://github.com/JerryyrreJ/subscription-management');
+  assert.deepEqual(application.sameAs, [
+    'https://github.com/JerryyrreJ/subscription-management',
+    'https://www.saashub.com/steadyrenew',
+    'https://glama.ai/mcp/connectors/com.steadyrenew/steady-renew',
+  ]);
   assert.deepEqual(application.offers, [
     { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' },
     { '@type': 'Offer', name: 'Premium', price: '9', priceCurrency: 'USD' },
