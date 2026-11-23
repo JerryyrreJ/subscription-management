@@ -119,8 +119,16 @@ export function loadCategories(scope?: DataScope): Category[] {
  const stored = localStorage.getItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope))
 
  if (stored) {
- const categories: Category[] = JSON.parse(stored)
- return categories
+  const parsed: unknown = JSON.parse(stored)
+  if (Array.isArray(parsed)) {
+   return parsed.map((category, index) => ({
+    id: typeof category?.id === 'string' ? category.id : `invalid-${index}`,
+    name: typeof category?.name === 'string' ? category.name : 'Unnamed',
+    order: typeof category?.order === 'number' ? category.order : index,
+    isBuiltIn: Boolean(category?.isBuiltIn),
+    isHidden: Boolean(category?.isHidden),
+   }))
+  }
  }
 
  // 数据迁移：检查是否有旧版本数据
