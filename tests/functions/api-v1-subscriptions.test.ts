@@ -1516,3 +1516,61 @@ test('POST allows creating a free trial with trialEndsOn alone and rejects confl
   assert.match(conflictBody.error.message, /agree/);
   assert.equal(conflictRes.headers?.['X-RateLimit-Limit'], undefined);
 });
+
+test('caps pagination offset and rejects invalid PATCH bodies before reading subscriptions', async () => {
+  let subscriptionsQueried = false;
+  const database = createDatabase(() => {
+    subscriptionsQueried = true;
+    return { data: [], error: null };
+  });
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-offset-and-patch-guard',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const offsetRes = expectHandlerResponse(await handler(event(
+    'GET',
+    '/api/v1/subscriptions',
+    { authorization: `Bearer ${apiKey}` },
+    null,
+    { offset: '10001' }
+  ), {} as never));
+  const offsetBody = parseJsonResponse<{ error: { code: string; field?: string } }>(offsetRes);
+  assert.equal(offsetRes.statusCode, 400);
+  assert.equal(offsetBody.error.code, 'invalid_pagination');
+  assert.equal(offsetBody.error.field, 'offset');
+  assert.equal(subscriptionsQueried, false);
+
+  const patchRes = expectHandlerResponse(await handler(event(
+    'PATCH',
+    `/api/v1/subscriptions/${subscriptionRow.id}`,
+    { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+    JSON.stringify({ amount: -10 })
+  ), {} as never));
+  const patchBody = parseJsonResponse<{ error: { code: string; field?: string } }>(patchRes);
+  assert.equal(patchRes.statusCode, 400);
+  assert.equal(patchBody.error.code, 'invalid_subscription');
+  assert.equal(patchBody.error.field, 'amount');
+  assert.equal(subscriptionsQueried, false);
+});
+
+test('DELETE consumes rate limit before looking up non-existent subscriptions', async () => {
+  const database = createDatabase(() => ({ data: null, error: null }));
+  const handler = createSubscriptionsApiHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'request-delete-404-rate',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const res = expectHandlerResponse(await handler(event(
+    'DELETE',
+    `/api/v1/subscriptions/${subscriptionRow.id}`,
+    { authorization: `Bearer ${apiKey}` }
+  ), {} as never));
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.headers?.['X-RateLimit-Limit'], '60');
+  assert.equal(res.headers?.['X-RateLimit-Remaining'], '59');
+});

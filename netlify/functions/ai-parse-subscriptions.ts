@@ -170,7 +170,7 @@ const parseCaptureInput = (
     }
     const image = record.image as Record<string, unknown>;
     const mediaType = typeof image.mediaType === 'string' ? image.mediaType : '';
-    const dataBase64 = typeof image.dataBase64 === 'string' ? image.dataBase64 : '';
+    const dataBase64 = typeof image.dataBase64 === 'string' ? image.dataBase64.trim() : '';
     if (!ALLOWED_IMAGE_TYPES.has(mediaType)) {
       throw new HttpError(400, 'invalid_capture', 'Unsupported image type', {}, {
         field: 'image.mediaType',
@@ -179,6 +179,12 @@ const parseCaptureInput = (
     }
     if (!dataBase64) {
       throw new HttpError(400, 'invalid_capture', 'image.dataBase64 is required', {}, { field: 'image.dataBase64' });
+    }
+    if (dataBase64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(dataBase64)) {
+      throw new HttpError(400, 'invalid_capture', 'image.dataBase64 must be valid base64', {}, {
+        field: 'image.dataBase64',
+        suggestedFix: 'Pass only the raw base64 payload without a data:image/...;base64, prefix.',
+      });
     }
     if (base64Bytes(dataBase64) > config.maxImageBytes) {
       throw new HttpError(400, 'image_too_large', `image exceeds the ${config.maxImageBytes}-byte limit`, {}, {

@@ -301,3 +301,37 @@ test('convertCurrencySafe returns unchanged amount with isAccurate true when sou
  assert.equal(result.isAccurate, true);
 });
 
+test('getStoredExchangeRatesSnapshot safely ignores malformed JSON, arrays, and invalid rate entries', () => {
+ const localStorageMock = createLocalStorageMock();
+ const originalLocalStorage = globalThis.localStorage;
+ globalThis.localStorage = localStorageMock as Storage;
+
+ try {
+  localStorage.setItem('exchange-rates-timestamp-USD', '50000');
+  localStorage.setItem('exchange-rates-source-USD', 'live');
+
+  localStorage.setItem('exchange-rates-USD', '{corrupted');
+  assert.equal(getStoredExchangeRatesSnapshot('USD'), null);
+
+  localStorage.setItem('exchange-rates-USD', '[1,2,3]');
+  assert.equal(getStoredExchangeRatesSnapshot('USD'), null);
+
+  localStorage.setItem(
+   'exchange-rates-USD',
+   '{"USD":1,"EUR":0.84,"BAD":"nope","ZERO":0,"NEG":-2,"__proto__":99}'
+  );
+  const snapshot = getStoredExchangeRatesSnapshot('USD');
+  assert.deepEqual(snapshot, {
+   rates: { USD: 1, EUR: 0.84 },
+   updatedAt: 50000,
+   source: 'live',
+  });
+ } finally {
+  if (originalLocalStorage) {
+   globalThis.localStorage = originalLocalStorage;
+  } else {
+   delete (globalThis as { localStorage?: Storage }).localStorage;
+  }
+ }
+});
+

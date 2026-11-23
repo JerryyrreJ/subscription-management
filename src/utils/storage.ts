@@ -18,7 +18,10 @@ export const loadSubscriptions = (scope?: DataScope): Subscription[] => {
  const data = localStorage.getItem(resolveScopedStorageKey(STORAGE_KEY, scope));
  if (!data) return [];
 
- const subscriptions = JSON.parse(data);
+ const subscriptions = JSON.parse(data) as unknown;
+ if (!Array.isArray(subscriptions)) {
+  return [];
+ }
 
  return subscriptions.map((subscription: Partial<Subscription>) => normalizeSubscription(subscription));
  } catch (error) {
@@ -53,8 +56,12 @@ export const loadPendingSyncOperations = (scope?: DataScope): PendingSyncOperati
    return [];
   }
 
-  const operations = JSON.parse(data) as PendingSyncOperation[];
-  return operations
+  const operations = JSON.parse(data) as unknown;
+  if (!Array.isArray(operations)) {
+   return [];
+  }
+
+  return (operations as PendingSyncOperation[])
    .filter(operation => operation?.id && operation?.type && operation?.subscriptionId && operation?.queuedAt)
    .map(operation => ({
     ...operation,

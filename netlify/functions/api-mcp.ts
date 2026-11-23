@@ -7,7 +7,7 @@ import {
 import type { Config, Handler, HandlerEvent, HandlerResponse } from '@netlify/functions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import aiToolsSchema from '../../docs-site/api/ai-tools.json' with { type: 'json' };
-import { identifyApiKey } from './_shared/apiKeys';
+import { identifyApiKey, type ApiKeyIdentity } from './_shared/apiKeys';
 import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
 import { errorResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
@@ -39,6 +39,8 @@ interface RawToolDef {
   fixedBody?: Record<string, unknown>;
   parameters?: Record<string, unknown>;
 }
+
+const MAX_MCP_REQUEST_BYTES = 256 * 1024;
 
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
@@ -285,11 +287,33 @@ export const createApiMcpHandler = (
 
   let requestId: string = crypto.randomUUID();
 
+  const payloadTooLargeResponse = () => withMcpHeaders(new Response(JSON.stringify({
+    jsonrpc: '2.0',
+    error: {
+      code: -32600,
+      message: `Request body exceeds ${MAX_MCP_REQUEST_BYTES} bytes.`,
+    },
+    id: null,
+  }), {
+    status: 413,
+    headers: { 'Content-Type': 'application/json' },
+  }));
+
   try {
-    const rawBody = await request.text();
+    const declaredLength = Number(request.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_MCP_REQUEST_BYTES) {
+      return payloadTooLargeResponse();
+    }
+
+    const rawBody = await request.arrayBuffer();
+    if (rawBody.byteLength > MAX_MCP_REQUEST_BYTES) {
+      return payloadTooLargeResponse();
+    }
+
+    const rawText = new TextDecoder().decode(rawBody);
     let parsedBody: unknown = null;
     try {
-      parsedBody = rawBody ? JSON.parse(rawBody) : null;
+      parsedBody = rawText ? JSON.parse(rawText) : null;
     } catch {
       parsedBody = null;
     }
@@ -299,6 +323,7 @@ export const createApiMcpHandler = (
     const allowAnonymousDiscovery = !hasAuthHeader && isPublicDiscoveryPayload(parsedBody);
 
     let dependencies: ApiMcpDependencies | null = null;
+    let authenticatedIdentity: ApiKeyIdentity | undefined;
     let authenticated = false;
 
     if (!allowAnonymousDiscovery) {
@@ -310,7 +335,7 @@ export const createApiMcpHandler = (
       // Authorization header is supplied (so invalid keys fail fast even on
       // initialize or tools/list). Per-minute quota is charged inside the
       // target API route handler when tools/call executes.
-      await identifyApiKey(
+      authenticatedIdentity = await identifyApiKey(
         incomingHeaders,
         dependencies.database,
         dependencies.limits,
@@ -320,11 +345,13 @@ export const createApiMcpHandler = (
       authenticated = true;
     }
 
-    const getDependencies = (): ApiMcpDependencies => {
+    const getDependencies = () => {
       if (!dependencies) {
         dependencies = dependenciesFactory();
       }
-      return dependencies;
+      return authenticatedIdentity
+        ? { ...dependencies, authenticatedIdentity }
+        : dependencies;
     };
 
     const subscriptionsHandler = createSubscriptionsApiHandler(getDependencies);

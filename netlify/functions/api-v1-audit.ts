@@ -6,6 +6,7 @@ import {
   consumeApiRateLimit,
   identifyApiKey,
   type ApiClientContext,
+  type ApiKeyIdentity,
 } from './_shared/apiKeys';
 import { getApiLimitsConfig, getSupabaseAdminConfig, type ApiLimitsConfig } from './_shared/env';
 import { errorResponse, HttpError, jsonResponse } from './_shared/http';
@@ -28,6 +29,7 @@ interface AuditApiDependencies {
   limits: ApiLimitsConfig;
   createRequestId(): string;
   now(): Date;
+  authenticatedIdentity?: ApiKeyIdentity;
 }
 
 const AUDIT_COLUMNS = [
@@ -42,6 +44,7 @@ const AUDIT_COLUMNS = [
 
 const DEFAULT_PAGE_LIMIT = 50;
 const MAX_PAGE_LIMIT = 100;
+const MAX_PAGE_OFFSET = 10_000;
 
 const ALLOWED_METHODS = 'GET, OPTIONS';
 
@@ -58,6 +61,7 @@ const querySchema = z.object({
     .default(DEFAULT_PAGE_LIMIT),
   offset: z.coerce.number().int('offset must be a whole number')
     .min(0, 'offset cannot be negative')
+    .max(MAX_PAGE_OFFSET, `offset cannot exceed ${MAX_PAGE_OFFSET}`)
     .default(0),
   subscriptionId: z.string().uuid('subscriptionId must be a valid UUID').optional(),
 });
@@ -132,7 +136,7 @@ export const createAuditApiHandler = (
     const now = dependencies.now();
     const { limit, offset, subscriptionId } = parseQuery(event.queryStringParameters);
 
-    const identity = await identifyApiKey(
+    const identity = dependencies.authenticatedIdentity ?? await identifyApiKey(
       event.headers,
       dependencies.database,
       dependencies.limits,

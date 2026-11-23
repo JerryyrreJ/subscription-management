@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import smartEntry from '../../netlify/edge-functions/smart-entry.ts';
+import { marketingUrl } from '../../src/utils/siteUrls.ts';
 
 const cookie = 'steadyrenew_entry=app';
 const page = () => new Response('<html>page</html>', { headers: { 'Content-Type': 'text/html', Vary: 'Accept-Encoding', 'Cache-Control': 'public, max-age=3600' } });
@@ -99,6 +100,16 @@ test('the legacy host redirects to the same path on the marketing origin', async
   });
   assert.equal(app.status, 301);
   assert.equal(app.headers.get('location'), 'https://steadyrenew.com/app/?pricing=1');
+
+  const protocolRelative = await smartEntry(new Request('https://sub.jerrylu.xyz//evil.example/phish?x=1'), {
+    next: async () => { throw new Error('legacy host must not render'); },
+  });
+  assert.equal(protocolRelative.status, 301);
+  assert.equal(protocolRelative.headers.get('location'), 'https://steadyrenew.com/evil.example/phish?x=1');
+  assert.equal(
+    marketingUrl('//evil.example/phish', 'https://sub.jerrylu.xyz'),
+    'https://steadyrenew.com/evil.example/phish'
+  );
 
   const current = await smartEntry(new Request('https://steadyrenew.com/'), { next });
   assert.equal(current.status, 200);

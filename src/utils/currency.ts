@@ -115,6 +115,25 @@ export const formatCurrency = (
 };
 
 const EXCHANGE_RATE_API_URL = 'https://api.exchangerate-api.com/v4/latest';
+const DANGEROUS_OBJECT_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+const sanitizeExchangeRatesMap = (raw: unknown): ExchangeRates | null => {
+ if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+  return null;
+ }
+
+ const sanitized: ExchangeRates = {};
+ for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+  if (DANGEROUS_OBJECT_KEYS.has(key)) {
+   continue;
+  }
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+   sanitized[key] = value;
+  }
+ }
+
+ return sanitized;
+};
 
 export const fetchExchangeRatesWithStatus = async (baseCurrency: Currency = 'USD'): Promise<ExchangeRateLoadResult> => {
  try {
@@ -125,7 +144,7 @@ export const fetchExchangeRatesWithStatus = async (baseCurrency: Currency = 'USD
  }
 
  const data = await response.json();
- const rates = data.rates || {};
+ const rates = sanitizeExchangeRatesMap(data?.rates) ?? {};
 
  // 确保基准货币本身的汇率为1.0
  rates[baseCurrency] = 1.0;
@@ -420,25 +439,34 @@ const getExchangeRatesStorageKeys = (baseCurrency: Currency) => ({
 });
 
 export const getStoredExchangeRatesSnapshot = (baseCurrency: Currency): ExchangeRateLoadResult | null => {
- const keys = getExchangeRatesStorageKeys(baseCurrency);
- const cachedRates = localStorage.getItem(keys.rates);
- const cachedTimestamp = localStorage.getItem(keys.timestamp);
- const cachedSource = localStorage.getItem(keys.source);
+ try {
+  const keys = getExchangeRatesStorageKeys(baseCurrency);
+  const cachedRates = localStorage.getItem(keys.rates);
+  const cachedTimestamp = localStorage.getItem(keys.timestamp);
+  const cachedSource = localStorage.getItem(keys.source);
 
- if (!cachedRates || !cachedTimestamp) {
+  if (!cachedRates || !cachedTimestamp) {
+   return null;
+  }
+
+  const timestamp = parseInt(cachedTimestamp, 10);
+  if (!Number.isFinite(timestamp)) {
+   return null;
+  }
+
+  const rates = sanitizeExchangeRatesMap(JSON.parse(cachedRates));
+  if (!rates) {
+   return null;
+  }
+
+  return {
+   rates,
+   updatedAt: timestamp,
+   source: cachedSource === 'fallback' ? 'fallback' : 'live'
+  };
+ } catch {
   return null;
  }
-
- const timestamp = parseInt(cachedTimestamp, 10);
- if (!Number.isFinite(timestamp)) {
-  return null;
- }
-
- return {
-  rates: JSON.parse(cachedRates),
-  updatedAt: timestamp,
-  source: cachedSource === 'fallback' ? 'fallback' : 'live'
- };
 };
 
 const persistExchangeRatesSnapshot = (
