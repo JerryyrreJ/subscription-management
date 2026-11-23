@@ -27,6 +27,7 @@ export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error'
 interface UseSyncReturn {
  syncStatus: SyncStatus
  lastSyncTime: Date | null
+ pendingSyncCount: number
  syncSubscriptions: () => Promise<Subscription[]>
  uploadLocalData: (subscriptions: Subscription[]) => Promise<Subscription[]>
  createSubscription: (subscription: Subscription | Omit<Subscription, 'id'>) => Promise<Subscription>
@@ -53,17 +54,26 @@ export function useSubscriptionSync(
 ): UseSyncReturn {
  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
+ const [pendingSyncCount, setPendingSyncCount] = useState<number>(() =>
+  user ? loadPendingSyncOperations(getUserDataScope(user.id)).length : 0
+ )
  const activeCloudTaskRef = useRef<CloudTask | null>(null)
  const statusResetTimeoutRef = useRef<number | null>(null)
  const isCurrentAccount = useAccountTaskGuard(user?.id)
 
+ const refreshPendingCount = useCallback((scope: DataScope) => {
+  if (!isCurrentAccount()) return
+  setPendingSyncCount(user ? loadPendingSyncOperations(scope).length : 0)
+ }, [isCurrentAccount, user])
+
  useLayoutEffect(() => {
   setSyncStatus('idle')
   setLastSyncTime(null)
+  setPendingSyncCount(user ? loadPendingSyncOperations(getUserDataScope(user.id)).length : 0)
   return () => {
    if (statusResetTimeoutRef.current !== null) window.clearTimeout(statusResetTimeoutRef.current)
   }
- }, [isCurrentAccount])
+ }, [isCurrentAccount, user])
 
  const scheduleStatusReset = useCallback((nextStatus: SyncStatus, delayMs: number) => {
   if (!isCurrentAccount()) return
@@ -118,12 +128,14 @@ export function useSubscriptionSync(
 
      const reconciled = reconcileSubscriptionSync(snapshot, readLocalState(scope), result)
      savePendingSyncOperations(reconciled.pendingOperations, scope)
+     refreshPendingCount(scope)
      persistSubscriptions(scope, reconciled.subscriptions)
      setLastSyncTime(new Date())
      scheduleStatusReset(reconciled.pendingOperations.length ? 'error' : 'success', 3000)
      return reconciled.subscriptions
     } catch (error) {
      console.error('Cloud subscription task failed:', error)
+     refreshPendingCount(scope)
      if (isCurrent()) scheduleStatusReset('error', 5000)
      return loadSubscriptions(scope)
     } finally {
@@ -134,7 +146,7 @@ export function useSubscriptionSync(
   }
   activeCloudTaskRef.current = activeTask
   return activeTask.promise
- }, [isCurrentAccount, persistSubscriptions, scheduleStatusReset])
+ }, [isCurrentAccount, persistSubscriptions, refreshPendingCount, scheduleStatusReset])
 
  const syncSubscriptions = useCallback(async (): Promise<Subscription[]> => {
   const scope = user ? getUserDataScope(user.id) : resolveCurrentLocalDataScope(undefined)
@@ -189,6 +201,7 @@ export function useSubscriptionSync(
     cloudSynced = true
    } catch (error) {
     console.error('Failed to save subscription online:', error)
+    scheduleStatusReset('error', 5000)
    }
   }
   if (cloudSynced) {
@@ -198,9 +211,10 @@ export function useSubscriptionSync(
    queueOperation(scope, { type: 'create', subscriptionId: saved.id, subscription: saved,
     queuedAt: saved.updatedAt || new Date().toISOString() })
   }
+  refreshPendingCount(scope)
   persistSubscriptions(scope, [...loadSubscriptions(scope).filter(sub => sub.id !== saved.id), saved])
   return saved
- }, [isCurrentAccount, persistSubscriptions, user])
+ }, [isCurrentAccount, persistSubscriptions, refreshPendingCount, scheduleStatusReset, user])
 
  const updateSubscription = useCallback(async (subscription: Subscription): Promise<Subscription> => {
   const scope = resolveCurrentLocalDataScope(user?.id)
@@ -215,6 +229,7 @@ export function useSubscriptionSync(
     cloudSynced = true
    } catch (error) {
     console.error('Failed to update subscription online:', error)
+    scheduleStatusReset('error', 5000)
    }
   }
   if (cloudSynced) {
@@ -224,9 +239,10 @@ export function useSubscriptionSync(
    queueOperation(scope, { type: 'update', subscriptionId: saved.id, subscription: saved,
     baseUpdatedAt: existing?.updatedAt, queuedAt: saved.updatedAt || new Date().toISOString() })
   }
+  refreshPendingCount(scope)
   persistSubscriptions(scope, loadSubscriptions(scope).map(sub => sub.id === saved.id ? saved : sub))
   return saved
- }, [isCurrentAccount, persistSubscriptions, user])
+ }, [isCurrentAccount, persistSubscriptions, refreshPendingCount, scheduleStatusReset, user])
 
  const updateSubscriptionsBatch = useCallback(async (subscriptions: Subscription[]): Promise<Subscription[]> => {
   const scope = resolveCurrentLocalDataScope(user?.id)
@@ -247,6 +263,7 @@ export function useSubscriptionSync(
     cloudSynced = true
    } catch (error) {
     console.error('Failed to delete subscription online:', error)
+    scheduleStatusReset('error', 5000)
    }
   }
   if (cloudSynced) {
@@ -263,11 +280,12 @@ export function useSubscriptionSync(
    queueOperation(scope, { type: 'delete', subscriptionId: id,
     baseUpdatedAt: existing?.updatedAt, queuedAt: new Date().toISOString() })
   }
+  refreshPendingCount(scope)
   persistSubscriptions(scope, loadSubscriptions(scope).filter(sub => sub.id !== id))
- }, [isCurrentAccount, persistSubscriptions, user])
+ }, [isCurrentAccount, persistSubscriptions, refreshPendingCount, scheduleStatusReset, user])
 
  return {
-  syncStatus, lastSyncTime, syncSubscriptions, uploadLocalData,
+  syncStatus, lastSyncTime, pendingSyncCount, syncSubscriptions, uploadLocalData,
   createSubscription, updateSubscription, updateSubscriptionsBatch, deleteSubscription
  }
 }

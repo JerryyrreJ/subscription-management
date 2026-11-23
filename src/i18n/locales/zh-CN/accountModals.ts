@@ -5,6 +5,8 @@ export const accountModals = {
  displayNameHint: '2 到 30 个字符，将显示为你的昵称而不是邮箱',
  nicknameUpdatedSuccess: '昵称更新成功！',
  nicknameUpdateFailed: '更新昵称失败，请稍后再试。',
+ nicknameRequired: '昵称不能为空。',
+ nicknameLengthInvalid: '昵称长度需在 2 到 30 个字符之间。',
  profileNotFound: '未找到个人资料，请尝试退出后重新登录。',
  update: '更新',
  updating: '更新中...',

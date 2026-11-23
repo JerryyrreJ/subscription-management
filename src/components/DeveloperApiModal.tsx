@@ -1,6 +1,6 @@
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Clipboard, Code2, KeyRound, Trash2, X } from 'lucide-react';
+import { Check, Clipboard, Code2, KeyRound, Loader2, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AgentSetupCard } from './settings/AgentSetupCard';
 import {
@@ -18,12 +18,12 @@ interface DeveloperApiModalProps {
  isStandalone?: boolean;
 }
 
-const formatDateTime = (value: string | null, emptyLabel: string): string => {
+const formatDateTime = (value: string | null, emptyLabel: string, locale: string): string => {
  if (!value) {
   return emptyLabel;
  }
 
- return new Intl.DateTimeFormat(undefined, {
+ return new Intl.DateTimeFormat(locale || undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
  }).format(new Date(value));
@@ -55,7 +55,7 @@ export function DeveloperApiModal({
  isStandalone = true
 }: DeveloperApiModalProps) {
  useModalScrollLock(isOpen && isStandalone);
- const { t } = useTranslation(['developerApi']);
+ const { t, i18n } = useTranslation(['developerApi', 'app']);
  const defaultKeyName = t('developerApi:defaultKeyName');
  const [keys, setKeys] = useState<ApiKeyMetadata[]>([]);
  const [limits, setLimits] = useState<ApiKeyLimits | null>(null);
@@ -67,6 +67,8 @@ export function DeveloperApiModal({
  const [copied, setCopied] = useState(false);
  const [loading, setLoading] = useState(false);
  const [submitting, setSubmitting] = useState(false);
+ const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
+ const [revokingId, setRevokingId] = useState<string | null>(null);
  const [error, setError] = useState<string | null>(null);
  const sessionEpoch = useRef(0);
 
@@ -101,6 +103,8 @@ export function DeveloperApiModal({
   setLimits(null);
   setCopied(false);
   setSubmitting(false);
+  setConfirmRevokeId(null);
+  setRevokingId(null);
   if (!isOpen) {
    return;
   }
@@ -153,16 +157,14 @@ export function DeveloperApiModal({
    return;
   }
 
-  if (!window.confirm(t('developerApi:revokeConfirm', { name: key.name }))) {
-   return;
-  }
-
   setError(null);
+  setRevokingId(key.id);
   const epoch = sessionEpoch.current;
 
   try {
    await ApiKeyService.revokeApiKey(accessToken, key.id);
    if (epoch !== sessionEpoch.current) return;
+   setConfirmRevokeId(null);
    if (key.id === createdKeyId) {
     setCreatedApiKey(null);
     setCreatedKeyScopes(undefined);
@@ -171,6 +173,8 @@ export function DeveloperApiModal({
   } catch (revokeError) {
    if (epoch !== sessionEpoch.current) return;
    setError(getErrorMessage(revokeError, t('developerApi:revokeFailed'), t));
+  } finally {
+   if (epoch === sessionEpoch.current) setRevokingId(null);
   }
  };
 
@@ -205,6 +209,7 @@ export function DeveloperApiModal({
         <button
           type="button"
           onClick={onClose}
+          aria-label={t('app:cancel')}
           className="p-2 rounded-2xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-800 transition-colors"
         >
           <X className="w-5 h-5"/>
@@ -257,7 +262,7 @@ export function DeveloperApiModal({
          </div>
          <div className="settings-card p-4">
           <p className="text-xs uppercase tracking-[0.16em] app-theme-text-muted">{t('developerApi:requests')}</p>
-          <p className="mt-2 text-lg font-semibold app-theme-text-primary">{limits.requestsPerMinute}/min</p>
+          <p className="mt-2 text-lg font-semibold app-theme-text-primary">{t('developerApi:requestsPerMinute', { count: limits.requestsPerMinute })}</p>
          </div>
         </div>
        )}
@@ -351,19 +356,45 @@ export function DeveloperApiModal({
              <span className="text-xs app-theme-text-muted">{t(key.scopes.includes('write') ? 'developerApi:readWrite' : 'developerApi:readOnly')}</span>
             </div>
             <p className="text-xs app-theme-text-muted mt-1">
-             {t('developerApi:createdAt', { date: formatDateTime(key.createdAt, t('developerApi:never')) })}
+             {t('developerApi:createdAt', { date: formatDateTime(key.createdAt, t('developerApi:never'), i18n.language) })}
              {' · '}
-             {t('developerApi:lastUsedAt', { date: formatDateTime(key.lastUsedAt, t('developerApi:never')) })}
+             {t('developerApi:lastUsedAt', { date: formatDateTime(key.lastUsedAt, t('developerApi:never'), i18n.language) })}
             </p>
            </div>
-           <button
-            type="button"
-            onClick={() => void handleRevoke(key)}
-            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-           >
-            <Trash2 className="w-4 h-4"/>
-            {t('developerApi:revoke')}
-           </button>
+           {confirmRevokeId === key.id ? (
+            <div className="flex flex-wrap items-center gap-2">
+             <span className="text-xs text-red-600 dark:text-red-400">
+              {t('developerApi:revokeConfirmShort')}
+             </span>
+             <button
+              type="button"
+              onClick={() => setConfirmRevokeId(null)}
+              disabled={revokingId === key.id}
+              className="px-3 py-1.5 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
+             >
+              {t('app:cancel')}
+             </button>
+             <button
+              type="button"
+              onClick={() => void handleRevoke(key)}
+              disabled={revokingId === key.id}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+             >
+              {revokingId === key.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              {revokingId === key.id ? t('developerApi:revoking') : t('developerApi:confirmRevoke')}
+             </button>
+            </div>
+           ) : (
+            <button
+             type="button"
+             onClick={() => setConfirmRevokeId(key.id)}
+             disabled={Boolean(revokingId)}
+             className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors disabled:opacity-50"
+            >
+             <Trash2 className="w-4 h-4"/>
+             {t('developerApi:revoke')}
+            </button>
+           )}
           </div>
          ))
         )}

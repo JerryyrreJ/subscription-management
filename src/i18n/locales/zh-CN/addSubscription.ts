@@ -39,6 +39,8 @@ export const addSubscription = {
  notificationsLabel: '启用通知',
  notificationsEnabledHint: '你将收到这个订阅的提醒',
  notificationsDisabledHint: '这个订阅不会发送提醒',
+ notificationsNotConfiguredHint: '尚未配置全局推送通知，可先去设置（当前已填内容会保留）。',
+ configureNotificationsAction: '去配置通知',
  notificationSetupValidation: '请先完成这个订阅，再设置通知。',
  submit: '添加订阅',
  submitting: '添加中...',

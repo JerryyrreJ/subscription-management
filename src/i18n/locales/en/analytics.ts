@@ -53,7 +53,7 @@ export const analytics = {
  potentialSavings: 'Potential Savings: {{amount}}/yr',
  opportunitiesFoundOne: "Based on your subscription data, we've identified {{count}} optimization opportunity",
  opportunitiesFoundOther: "Based on your subscription data, we've identified {{count}} optimization opportunities",
- saveAmount: 'Save {{amount}}',
+ saveAmount: 'Save {{amount}}/yr',
  affectedSubscriptions: 'Affected subscriptions:',
  moreSubscriptions: '+{{count}} more',
  insightsFootnote: 'These suggestions are generated based on data analysis. Please evaluate based on your actual needs.',
@@ -69,9 +69,10 @@ export const analytics = {
 
  // ===== PDF report =====
  previewBadge: 'Preview',
+ premiumPlanLabel: 'Premium · $9 USD',
  previewBannerTitle: 'Unlock full 12-month charts, renewal heatmap & A4 PDF reports',
  previewBannerBody: 'Your live overview above is calculated from your list. Upgrade once ($9 USD lifetime, no subscription) for interactive charts, optimization insights, print-ready A4 PDF exports, and 300 AI captures/month.',
- previewUnlockCta: 'Unlock Pro & PDF · $9 once',
+ previewUnlockCta: 'Unlock Premium & PDF · $9 once',
  pdfExportSnapshot: 'Export snapshot',
  pdfExportAnnual: 'Export annual report',
  pdfSnapshotKicker: 'SUBSCRIPTION SUMMARY',

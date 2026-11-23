@@ -18,6 +18,7 @@ interface CategorySyncMethods {
   updateCategory: (category: Category) => Promise<CloudMutationResult<Category>>;
   deleteCategory: (categoryId: string) => Promise<CloudMutationResult<void>>;
   updateCategoriesOrder: (categories: Category[]) => Promise<CloudMutationResult<Category[]>>;
+  restoreDefaultCategories?: () => Promise<CloudMutationResult<Category[]>>;
 }
 
 interface SettingsHubModalProps {
@@ -53,7 +54,7 @@ interface SettingsHubModalProps {
   
   // Notification Props
   notificationSettings: ReminderSettings;
-  onSaveNotificationSettings: (settings: ReminderSettings) => void;
+  onSaveNotificationSettings: (settings: ReminderSettings) => void | Promise<void | { cloudSynced: boolean }>;
 }
 
 export function SettingsHubModal({

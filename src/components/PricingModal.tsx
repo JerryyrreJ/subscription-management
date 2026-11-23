@@ -113,7 +113,7 @@ export function PricingModal({ isOpen, onClose, onUpgrade }: PricingModalProps) 
      </section>
      <section id="pricing-compare" className="pricing-comparison">
       <div className="pricing-section-heading"><p className="pricing-eyebrow">{c.detailLabel}</p><h2>{c.detailTitle}</h2><p>{c.detailIntro}</p></div>
-      <div className="pricing-table-wrap"><table><thead><tr><th scope="col">{c.capability}</th><th scope="col">Free <small>${`$${FREE_PRICE_USD}`}</small></th><th scope="col">Premium <small>${`$${PREMIUM_PRICE_USD}`}</small></th></tr></thead><tbody>
+      <div className="pricing-table-wrap"><table><thead><tr><th scope="col">{c.capability}</th><th scope="col">Free <small>${FREE_PRICE_USD}</small></th><th scope="col">Premium <small>${PREMIUM_PRICE_USD}</small></th></tr></thead><tbody>
        {c.rows.map((row, index) => <tr key={row}><th scope="row">{row}</th><td>{index === 0 ? c.unlimited : index === 5 ? c.api : index === 6 ? '10' : index === 7 ? c.no : <><Check size={17} aria-hidden="true" /><span className="pricing-sr">{c.yes}</span></>}</td><td>{index === 0 ? c.unlimited : index === 5 ? c.api : index === 6 ? '300' : <><Check size={17} aria-hidden="true" /><span className="pricing-sr">{c.yes}</span></>}</td></tr>)}
       </tbody></table></div>
       <div className="pricing-smallprint"><p>{c.limits}</p><p>{c.quota}</p></div>

@@ -1,6 +1,8 @@
 export const auth = {
  loginTitle: 'Login Account',
  signUpTitle: 'Create Account',
+ closeModal: 'Close dialog',
+ aiAssistLoginHint: 'Sign in to use AI Assist (10 free captures/month). After signing in, AI Assist will open automatically.',
  nicknameLabel: 'Nickname',
  nicknamePlaceholder: 'Your display name',
  nicknameHint: 'This will be displayed instead of your email',
@@ -8,7 +10,7 @@ export const auth = {
  emailPlaceholder: 'your@email.com',
  passwordLabel: 'Password',
  passwordPlaceholder: '••••••••',
- passwordHint: 'Password must be at least 6 characters',
+ passwordHint: 'At least 8 characters with uppercase, lowercase, and a number',
  rememberMe: 'Remember me (trust this device)',
  forgotPassword: 'Forgot password?',
  resetPasswordTitle: 'Reset Password',

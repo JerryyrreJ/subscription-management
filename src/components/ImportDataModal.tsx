@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
-import { X, AlertTriangle, Upload } from 'lucide-react';
+import { X, AlertTriangle, Upload, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ExportData } from '../utils/exportImport';
 import { formatDateByLocale } from '../utils/dates';
@@ -7,35 +8,64 @@ import { formatDateByLocale } from '../utils/dates';
 interface ImportDataModalProps {
  isOpen: boolean;
  onClose: () => void;
- onConfirm: () => void;
+ onConfirm: () => void | Promise<void>;
  previewData: ExportData | null;
+ isImporting?: boolean;
 }
 
 export function ImportDataModal({
  isOpen,
  onClose,
  onConfirm,
- previewData
+ previewData,
+ isImporting = false,
 }: ImportDataModalProps) {
  useModalScrollLock(isOpen);
- const { t, i18n } = useTranslation(['importData', 'app']);
+ const { t, i18n } = useTranslation(['importData', 'app', 'addSubscription']);
+
+ useEffect(() => {
+  if (!isOpen) return undefined;
+  const handleKeyDown = (event: KeyboardEvent) => {
+   if (event.key === 'Escape' && !isImporting) {
+    onClose();
+   }
+  };
+  document.addEventListener('keydown', handleKeyDown);
+  return () => document.removeEventListener('keydown', handleKeyDown);
+ }, [isImporting, isOpen, onClose]);
+
  if (!isOpen) return null;
 
  return (
- <div className="fixed inset-0 mobile-modal-viewport bg-black/50 flex items-center justify-center z-50 p-4">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full mobile-modal-panel animate-scale-in">
+ <div
+  className="fixed inset-0 mobile-modal-viewport bg-black/50 flex items-center justify-center z-50 p-4"
+  onMouseDown={event => {
+   if (event.target === event.currentTarget && !isImporting) {
+    onClose();
+   }
+  }}
+ >
+ <div
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="import-data-title"
+  className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full mobile-modal-panel animate-scale-in"
+ >
  <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
  <div className="flex items-center gap-3">
  <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
  <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-500"/>
  </div>
- <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+ <h2 id="import-data-title" className="text-xl font-semibold text-gray-900 dark:text-white">
  {t('importData:title')}
  </h2>
  </div>
  <button
+ type="button"
  onClick={onClose}
- className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+ disabled={isImporting}
+ aria-label={t('addSubscription:closeForm')}
+ className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
  >
  <X className="w-6 h-6"/>
  </button>
@@ -86,17 +116,21 @@ export function ImportDataModal({
 
  <div className="flex gap-3 pt-4">
  <button
+ type="button"
  onClick={onClose}
- className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+ disabled={isImporting}
+ className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
  >
  {t('app:cancel')}
  </button>
  <button
- onClick={onConfirm}
- className="flex-1 px-4 py-2.5 bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white rounded-2xl font-medium transition-colors flex items-center justify-center gap-2"
+ type="button"
+ onClick={() => void onConfirm()}
+ disabled={isImporting}
+ className="flex-1 px-4 py-2.5 bg-emerald-600 dark:bg-emerald-500 hover:bg-emerald-700 dark:hover:bg-emerald-600 text-white rounded-2xl font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
  >
- <Upload className="w-4 h-4"/>
- {t('importData:import')}
+ {isImporting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Upload className="w-4 h-4"/>}
+ {isImporting ? t('importData:importing') : t('importData:import')}
  </button>
  </div>
  </div>

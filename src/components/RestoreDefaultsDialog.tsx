@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { X, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useModalScrollLock } from '../hooks/useModalScrollLock'
 
 interface RestoreDefaultsDialogProps {
  isOpen: boolean
@@ -12,28 +14,54 @@ export function RestoreDefaultsDialog({
  onConfirm,
  onCancel
 }: RestoreDefaultsDialogProps) {
+ useModalScrollLock(isOpen)
  const { t } = useTranslation(['categorySettings', 'app'])
+
+ useEffect(() => {
+  if (!isOpen) return undefined
+  const handleKeyDown = (event: KeyboardEvent) => {
+   if (event.key !== 'Escape' || event.defaultPrevented) return
+   event.stopPropagation()
+   onCancel()
+  }
+  document.addEventListener('keydown', handleKeyDown)
+  return () => document.removeEventListener('keydown', handleKeyDown)
+ }, [isOpen, onCancel])
+
  if (!isOpen) return null
 
  return (
- <div className="fixed inset-0 bg-black bg-opacity-60 dark:bg-opacity-80 flex items-center justify-center p-4 z-[60]">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-xl max-w-md w-full">
+ <div
+  className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-60 dark:bg-opacity-80 flex items-center justify-center p-4 z-[110]"
+  onMouseDown={event => {
+   if (event.target === event.currentTarget) onCancel()
+  }}
+ >
+ <div
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="restore-defaults-title"
+  data-restore-defaults-dialog
+  className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-xl max-w-md w-full mobile-modal-panel"
+ >
  {/* Header */}
  <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
  <div className="flex items-start justify-between">
  <div className="flex items-center gap-3">
- <div className="p-2 bg-[#e5e7eb] dark:bg-[#2a2d31] dark:bg-zinc-800/50 rounded-2xl">
- <RotateCcw className="w-6 h-6 text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400"/>
+ <div className="p-2 bg-[#e5e7eb] dark:bg-[#2a2d31] rounded-2xl">
+ <RotateCcw className="w-6 h-6 text-emerald-700 dark:text-emerald-400"/>
  </div>
  <div>
- <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+ <h3 id="restore-defaults-title" className="text-lg font-bold text-gray-900 dark:text-white">
  {t('categorySettings:restoreDefaultsTitle')}
  </h3>
  </div>
  </div>
  <button
+ type="button"
  onClick={onCancel}
- className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+ aria-label={t('app:cancel')}
+ className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
  >
  <X className="w-5 h-5"/>
  </button>

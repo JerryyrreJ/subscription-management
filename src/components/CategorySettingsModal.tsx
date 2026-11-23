@@ -1,16 +1,19 @@
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useState, useEffect } from 'react'
-import { X, Trash2, GripVertical, Plus, RotateCcw, Eye, EyeOff } from 'lucide-react'
+import { X, Trash2, GripVertical, Plus, RotateCcw, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CloudMutationResult } from '../types'
 import {
  Category,
+ CategoryValidationErrorCode,
+ addOrRestoreCustomCategory,
  getAllCategoriesWithDetails,
  updateCategoriesOrder,
- addCustomCategory,
  deleteCategory,
  restoreCategory,
  restoreDefaultCategories,
+ reorderCategoriesById,
+ moveVisibleCategory,
  FALLBACK_CATEGORY,
  getCategoryDisplayName
 } from '../utils/categories'
@@ -23,6 +26,7 @@ interface CategorySyncMethods {
  updateCategory: (category: Category) => Promise<CloudMutationResult<Category>>
  deleteCategory: (categoryId: string) => Promise<CloudMutationResult<void>>
  updateCategoriesOrder: (categories: Category[]) => Promise<CloudMutationResult<Category[]>>
+ restoreDefaultCategories?: () => Promise<CloudMutationResult<Category[]>>
 }
 
 interface CategorySettingsModalProps {
@@ -58,8 +62,25 @@ export function CategorySettingsModal({
  category: null
  })
  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
- const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
- const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+ const [draggedId, setDraggedId] = useState<string | null>(null)
+ const [dragOverId, setDragOverId] = useState<string | null>(null)
+
+ const resolveValidationError = (errorCode?: CategoryValidationErrorCode) => {
+  switch (errorCode) {
+   case 'required':
+    return t('categorySettings:enterCategoryName')
+   case 'tooLong':
+    return t('categorySettings:categoryTooLong')
+   case 'invalidCharacters':
+    return t('categorySettings:categoryInvalidCharacters')
+   case 'duplicate':
+    return t('categorySettings:categoryAlreadyExists')
+   case 'reserved':
+    return t('categorySettings:categoryReserved', { category: getCategoryDisplayName(FALLBACK_CATEGORY, t) })
+   default:
+    return t('categorySettings:failedToAddCategory')
+  }
+ }
 
  const applyCloudSyncFeedback = (result: CloudMutationResult<unknown>) => {
   if (result.cloudSynced) {
@@ -94,30 +115,28 @@ export function CategorySettingsModal({
  return
  }
 
- // 使用本地函数添加类别（包含验证逻辑）
- const success = addCustomCategory(trimmed)
- if (success) {
+ // 使用本地函数添加或恢复隐藏的内置类别（包含完整验证逻辑）
+ const addResult = addOrRestoreCustomCategory(trimmed)
+ if (addResult.success && addResult.category) {
   setError('')
-  // 如果有云同步，则同步到云端
+  // 如果有云同步，则同步到云端（恢复内置分类走 update，新建走 create）
   if (categorySync) {
-   const allCategories = getAllCategoriesWithDetails()
-   const newCategory = allCategories.find(cat => cat.name === trimmed)
-   if (newCategory) {
-    try {
-     const result = await categorySync.createCategory(newCategory)
-     applyCloudSyncFeedback(result)
-    } catch (error) {
-     console.error('Failed to sync new category to cloud:', error)
-     setError(t('categorySettings:cloudSyncPending'))
-    }
+   try {
+    const syncResult = addResult.action === 'restored'
+     ? await categorySync.updateCategory(addResult.category)
+     : await categorySync.createCategory(addResult.category)
+    applyCloudSyncFeedback(syncResult)
+   } catch (error) {
+    console.error('Failed to sync new category to cloud:', error)
+    setError(t('categorySettings:cloudSyncPending'))
    }
   }
 
- setNewCategoryName('')
- loadCategories()
- onCategoriesChanged?.()
-} else {
- setError(t('categorySettings:failedToAddCategory'))
+  setNewCategoryName('')
+  loadCategories()
+  onCategoriesChanged?.()
+ } else {
+  setError(resolveValidationError(addResult.errorCode))
  }
  }
 
@@ -198,68 +217,89 @@ export function CategorySettingsModal({
  setRestoreDialogOpen(true)
  }
 
- const handleConfirmRestore = () => {
- restoreDefaultCategories()
+ const handleConfirmRestore = async () => {
+ setRestoreDialogOpen(false)
+ if (categorySync?.restoreDefaultCategories) {
+  try {
+   const result = await categorySync.restoreDefaultCategories()
+   applyCloudSyncFeedback(result)
+  } catch (error) {
+   console.error('Failed to sync restored default categories to cloud:', error)
+   setError(t('categorySettings:cloudSyncPending'))
+  }
+ } else {
+  restoreDefaultCategories()
+ }
  loadCategories()
  onCategoriesChanged?.()
- setRestoreDialogOpen(false)
  }
 
  const handleCancelRestore = () => {
  setRestoreDialogOpen(false)
  }
 
- // 拖拽处理函数
- const handleDragStart = (index: number) => {
- setDraggedIndex(index)
+ const commitCategoriesOrder = async (nextCategories: Category[]) => {
+  setCategories(nextCategories)
+  setError('')
+  updateCategoriesOrder(nextCategories)
+
+  if (categorySync) {
+   try {
+    const result = await categorySync.updateCategoriesOrder(nextCategories)
+    applyCloudSyncFeedback(result)
+   } catch (error) {
+    console.error('Failed to sync categories order to cloud:', error)
+    setError(t('categorySettings:cloudSyncPending'))
+   }
+  }
+
+  onCategoriesChanged?.()
  }
 
- const handleDragOver = (e: React.DragEvent, index: number) => {
+ // 拖拽处理函数（按分类 ID 定位，避免隐藏项过滤导致的下标错位）
+ const handleDragStart = (categoryId: string) => {
+ setDraggedId(categoryId)
+ }
+
+ const handleDragOver = (e: React.DragEvent, categoryId: string) => {
  e.preventDefault()
- setDragOverIndex(index)
+ setDragOverId(categoryId)
  }
 
  const handleDragLeave = () => {
- setDragOverIndex(null)
+ setDragOverId(null)
  }
 
- const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+ const handleDrop = async (e: React.DragEvent, targetId: string) => {
  e.preventDefault()
 
- if (draggedIndex === null || draggedIndex === dropIndex) {
- setDraggedIndex(null)
- setDragOverIndex(null)
+ if (!draggedId || draggedId === targetId) {
+ setDraggedId(null)
+ setDragOverId(null)
  return
  }
 
- const newCategories = [...categories]
- const [draggedItem] = newCategories.splice(draggedIndex, 1)
- newCategories.splice(dropIndex, 0, draggedItem)
-
- setCategories(newCategories)
- setError('')
- updateCategoriesOrder(newCategories)
-
- // 如果有云同步，则同步到云端
- if (categorySync) {
-  try {
-   const result = await categorySync.updateCategoriesOrder(newCategories)
-   applyCloudSyncFeedback(result)
-  } catch (error) {
-   console.error('Failed to sync categories order to cloud:', error)
-   setError(t('categorySettings:cloudSyncPending'))
-  }
+ const newCategories = reorderCategoriesById(categories, draggedId, targetId)
+ setDraggedId(null)
+ setDragOverId(null)
+ if (newCategories === categories) {
+  return
  }
 
- onCategoriesChanged?.()
-
- setDraggedIndex(null)
- setDragOverIndex(null)
+ await commitCategoriesOrder(newCategories)
  }
 
  const handleDragEnd = () => {
- setDraggedIndex(null)
- setDragOverIndex(null)
+ setDraggedId(null)
+ setDragOverId(null)
+ }
+
+ const handleMoveCategory = async (categoryId: string, direction: 'up' | 'down') => {
+  const newCategories = moveVisibleCategory(categories, categoryId, direction, showHidden)
+  if (newCategories === categories) {
+   return
+  }
+  await commitCategoriesOrder(newCategories)
  }
 
  const handleClose = () => {
@@ -285,7 +325,9 @@ export function CategorySettingsModal({
               {t('categorySettings:title')}
             </h2>
             <button
+              type="button"
               onClick={handleClose}
+              aria-label={t('app:cancel')}
               className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
             >
               <X className="w-5 h-5 sm:w-6 sm:h-6"/>
@@ -309,9 +351,10 @@ export function CategorySettingsModal({
  setNewCategoryName(e.target.value)
  setError('')
  }}
- onKeyPress={(e) => {
+ onKeyDown={(e) => {
  if (e.key === 'Enter') {
- handleAddCategory()
+ e.preventDefault()
+ void handleAddCategory()
  }
  }}
  aria-label={t('categorySettings:addNewCategory')}
@@ -359,19 +402,19 @@ export function CategorySettingsModal({
  <div
  key={category.id}
  draggable={!category.isHidden}
- onDragStart={() => handleDragStart(index)}
- onDragOver={(e) => handleDragOver(e, index)}
+ onDragStart={() => handleDragStart(category.id)}
+ onDragOver={(e) => handleDragOver(e, category.id)}
  onDragLeave={handleDragLeave}
- onDrop={(e) => handleDrop(e, index)}
+ onDrop={(e) => void handleDrop(e, category.id)}
  onDragEnd={handleDragEnd}
  data-hidden={category.isHidden || undefined}
- data-drag-over={dragOverIndex === index && draggedIndex !== index || undefined}
- className={`settings-category-row ${draggedIndex === index ? 'opacity-50 cursor-grabbing' : category.isHidden ? 'cursor-default' : 'cursor-grab'}`}
+ data-drag-over={dragOverId === category.id && draggedId !== category.id || undefined}
+ className={`settings-category-row ${draggedId === category.id ? 'opacity-50 cursor-grabbing' : category.isHidden ? 'cursor-default' : 'cursor-grab'}`}
  >
  {/* Drag handle */}
  <div className={`flex items-center justify-center ${
  category.isHidden ? 'text-gray-300 dark:text-gray-600' : 'text-gray-400 dark:text-gray-500'
- }`}>
+ }`} aria-hidden="true">
  <GripVertical className="w-5 h-5"/>
  </div>
 
@@ -394,19 +437,47 @@ export function CategorySettingsModal({
 
  {/* Actions */}
  <div className="flex items-center gap-1">
+ {!category.isHidden && (
+ <>
+ <button
+ type="button"
+ onClick={() => void handleMoveCategory(category.id, 'up')}
+ disabled={index === 0}
+ className="p-1.5 app-theme-text-muted hover:text-gray-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+ aria-label={t('categorySettings:moveUp')}
+ title={t('categorySettings:moveUp')}
+ >
+ <ChevronUp className="w-4 h-4"/>
+ </button>
+ <button
+ type="button"
+ onClick={() => void handleMoveCategory(category.id, 'down')}
+ disabled={index === displayedCategories.length - 1}
+ className="p-1.5 app-theme-text-muted hover:text-gray-900 dark:hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+ aria-label={t('categorySettings:moveDown')}
+ title={t('categorySettings:moveDown')}
+ >
+ <ChevronDown className="w-4 h-4"/>
+ </button>
+ </>
+ )}
  {category.isHidden ? (
  <button
- onClick={() => handleRestoreCategory(category)}
+ type="button"
+ onClick={() => void handleRestoreCategory(category)}
  className="p-1.5 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 transition-colors"
+ aria-label={t('categorySettings:restoreCategory')}
  title={t('categorySettings:restoreCategory')}
  >
  <RotateCcw className="w-4 h-4"/>
  </button>
  ) : (
  <button
+ type="button"
  onClick={() => handleDeleteCategory(category)}
  disabled={category.name === FALLBACK_CATEGORY}
  className="p-1.5 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+ aria-label={category.isBuiltIn ? t('categorySettings:hideCategory') : t('categorySettings:deleteCategory')}
  title={category.isBuiltIn ? t('categorySettings:hideCategory') : t('categorySettings:deleteCategory')}
  >
  <Trash2 className="w-4 h-4"/>

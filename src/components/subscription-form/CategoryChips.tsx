@@ -81,6 +81,9 @@ export function CategoryChips({
         void handleCreate();
        }
        if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.nativeEvent.stopPropagation();
         setIsAdding(false);
         setDraft('');
        }

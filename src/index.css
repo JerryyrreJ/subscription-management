@@ -57,6 +57,12 @@ body {
   border-color: var(--app-border-hover) !important;
   transform: none;
 }
+.app-theme-card[data-trial-expired="true"] {
+  border-color: rgb(244 63 94 / 45%) !important;
+}
+.dark .app-theme-card[data-trial-expired="true"] {
+  border-color: rgb(251 113 133 / 40%) !important;
+}
 .app-theme-card:focus-visible {
   outline: 2px solid #059669;
   outline-offset: 3px;
@@ -213,6 +219,20 @@ button.app-theme-chip:hover { background: var(--app-hover) !important; }
 
 .animate-undo-perimeter {
   animation: undo-perimeter-countdown 5s linear forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay,
+  .modal-content,
+  .subscription-form-sheet,
+  .animate-dropdown,
+  .animate-dropdown-close,
+  .animate-drawer-up,
+  .animate-drawer-down,
+  .subscription-card-enter {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* Mobile input focus should not trigger readability zoom. Keep pinch zoom

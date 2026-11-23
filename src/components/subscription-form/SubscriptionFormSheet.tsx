@@ -61,9 +61,14 @@ export function SubscriptionFormSheet({
 
 
   const handleKeyDown = (event: KeyboardEvent) => {
-   if (event.key === 'Escape' && !isSubmitting) {
-    onClose();
+   if (event.key !== 'Escape' || event.defaultPrevented || isSubmitting) {
+    return;
    }
+   // Ignore Escape when another modal (e.g., Settings or Auth) is stacked above this sheet.
+   if (document.querySelector('[aria-modal="true"]:not([data-subscription-form-dialog])')) {
+    return;
+   }
+   onClose();
   };
 
   document.addEventListener('keydown', handleKeyDown);
@@ -95,6 +100,7 @@ export function SubscriptionFormSheet({
      role="dialog"
      aria-modal="true"
      aria-labelledby="subscription-form-title"
+     data-subscription-form-dialog
      className="subscription-form-sheet pointer-events-auto w-full max-w-md max-h-[calc(var(--app-viewport-height,100dvh)*0.9)] overflow-y-auto bg-white dark:bg-[#1a1c1e] rounded-t-2xl sm:rounded-2xl shadow-apple-lg pb-[env(safe-area-inset-bottom)]"
     >
      <div className="sm:hidden flex justify-center pt-2">

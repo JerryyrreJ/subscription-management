@@ -19,194 +19,269 @@ export function RenewalHeatmap({ data, baseCurrency }: RenewalHeatmapProps) {
 
  // 计算颜色强度（GitHub 风格：5个级别 - 红色系）
  const getColorClass = (amount: number) => {
- if (amount === 0) return 'bg-gray-100 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700';
- const intensity = amount / maxAmount;
- if (intensity <= 0.2) return 'bg-red-200 dark:bg-red-900/40';
- if (intensity <= 0.4) return 'bg-red-300 dark:bg-red-800/60';
- if (intensity <= 0.6) return 'bg-red-400 dark:bg-red-700/70';
- if (intensity <= 0.8) return 'bg-red-500 dark:bg-red-600/80';
- return 'bg-red-600 dark:bg-red-500';
+  if (amount === 0) return 'bg-gray-100 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700';
+  const intensity = amount / maxAmount;
+  if (intensity <= 0.2) return 'bg-red-200 dark:bg-red-900/40';
+  if (intensity <= 0.4) return 'bg-red-300 dark:bg-red-800/60';
+  if (intensity <= 0.6) return 'bg-red-400 dark:bg-red-700/70';
+  if (intensity <= 0.8) return 'bg-red-500 dark:bg-red-600/80';
+  return 'bg-red-600 dark:bg-red-500';
+ };
+
+ const getCellTextColorClass = (amount: number) => {
+  if (amount === 0) return 'text-gray-500 dark:text-gray-400';
+  const intensity = amount / maxAmount;
+  if (intensity > 0.4) return 'text-white font-semibold';
+  return 'text-red-900 dark:text-red-100 font-medium';
+ };
+
+ const getCellAriaLabel = (item: RenewalHeatmapData) => {
+  const dayText = t('analytics:dayNumber', { day: item.date });
+  if (item.count === 0) {
+   return `${dayText}: ${t('analytics:noRenewals')}`;
+  }
+  const countText = t(
+   item.count === 1 ? 'analytics:subscriptionsCountOne' : 'analytics:subscriptionsCountOther',
+   { count: item.count }
+  );
+  return `${dayText}: ${countText}, ${formatCurrency(item.amount, baseCurrency)}`;
+ };
+
+ const getTooltipAlignClasses = (day: number) => {
+  if (day <= 4) {
+   return { box: 'left-0', arrow: 'left-2' };
+  }
+  if (day >= 28) {
+   return { box: 'right-0', arrow: 'right-2' };
+  }
+  return { box: 'left-1/2 -translate-x-1/2', arrow: 'left-1/2 -translate-x-1/2' };
+ };
+
+ const handleSelectDay = (item: RenewalHeatmapData) => {
+  if (item.count === 0) {
+   setSelectedDay(null);
+   return;
+  }
+  setSelectedDay(prev => (prev?.date === item.date ? null : item));
  };
 
  return (
-  <div className="bg-white dark:bg-white/5 rounded-2xl p-6 border border-gray-200 dark:border-white/10">
-    <div className="flex items-center justify-between mb-8">
-      <h3 className="text-base font-medium text-gray-900 dark:text-white">
-        {t('analytics:renewalHeatmapTitle')}
-      </h3>
+  <div className="bg-white dark:bg-white/5 rounded-2xl p-4 sm:p-6 border border-gray-200 dark:border-white/10">
+   <div className="flex items-center justify-between mb-4 sm:mb-6">
+    <h3 className="text-base font-medium text-gray-900 dark:text-white">
+     {t('analytics:renewalHeatmapTitle')}
+    </h3>
+   </div>
+
+   <p className="text-sm text-gray-600 dark:text-gray-400 mb-5 sm:mb-6">
+    {t('analytics:renewalHeatmapDescription')}
+   </p>
+
+   {/* Mobile: 7-column tappable calendar grid */}
+   <div className="sm:hidden mb-6">
+    <div className="grid grid-cols-7 gap-1.5">
+     {data.map((item) => {
+      const isSelected = selectedDay?.date === item.date;
+      return (
+       <button
+        key={item.date}
+        type="button"
+        onClick={() => handleSelectDay(item)}
+        aria-label={getCellAriaLabel(item)}
+        aria-pressed={isSelected}
+        className={`
+         min-h-[42px] rounded-lg flex flex-col items-center justify-center transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500
+         ${getColorClass(item.amount)}
+         ${getCellTextColorClass(item.amount)}
+         ${isSelected ? 'ring-2 ring-orange-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-900' : ''}
+        `}
+       >
+        <span className="text-xs leading-none">{item.date}</span>
+        {item.count > 0 && (
+         <span className="mt-1 text-[10px] leading-none opacity-90">
+          {item.count}
+         </span>
+        )}
+       </button>
+      );
+     })}
+    </div>
+   </div>
+
+   {/* Desktop: GitHub-style 31-day horizontal heatmap with keyboard & edge-safe tooltips */}
+   <div className="hidden sm:block mb-6">
+    {/* Date labels (every 5 days) */}
+    <div className="grid grid-cols-[repeat(31,1fr)] gap-[3px] mb-1 pl-8">
+     {data.map((item) => (
+      <div key={item.date} className="text-center">
+       {item.date % 5 === 1 && (
+        <span className="text-[10px] text-gray-500 dark:text-gray-400">
+         {item.date}
+        </span>
+       )}
+      </div>
+     ))}
     </div>
 
- <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
- {t('analytics:renewalHeatmapDescription')}
- </p>
+    {/* Heatmap grid */}
+    <div className="flex items-center gap-2">
+     <span className="text-xs text-gray-500 dark:text-gray-400 w-6">{t('analytics:dayLabel')}</span>
+     <div className="grid grid-cols-[repeat(31,1fr)] gap-[3px] flex-1">
+      {data.map((item) => {
+       const isHovered = hoveredDay?.date === item.date;
+       const isSelected = selectedDay?.date === item.date;
+       const tooltipAlign = getTooltipAlignClasses(item.date);
 
- {/* GitHub-style compact heatmap */}
- <div className="mb-6">
- {/* Date labels (every 5 days) */}
- <div className="grid grid-cols-[repeat(31,1fr)] gap-[3px] mb-1 pl-8">
- {data.map((item) => (
- <div key={item.date} className="text-center">
- {item.date % 5 === 1 && (
- <span className="text-[10px] text-gray-500 dark:text-gray-400">
- {item.date}
- </span>
- )}
- </div>
- ))}
- </div>
+       return (
+        <button
+         key={item.date}
+         type="button"
+         aria-label={getCellAriaLabel(item)}
+         aria-pressed={isSelected}
+         className={`
+          aspect-square w-full rounded-sm cursor-pointer transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:z-10
+          ${getColorClass(item.amount)}
+          ${isHovered ? 'ring-2 ring-red-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-800 scale-110 z-10' : ''}
+          ${isSelected ? 'ring-2 ring-orange-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-800' : ''}
+          relative group
+         `}
+         onMouseEnter={() => setHoveredDay(item)}
+         onMouseLeave={() => setHoveredDay(null)}
+         onFocus={() => setHoveredDay(item)}
+         onBlur={() => setHoveredDay(null)}
+         onClick={() => handleSelectDay(item)}
+        >
+         {/* Hover / Focus Tooltip */}
+         {isHovered && (
+          <div className={`absolute bottom-full ${tooltipAlign.box} mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-2xl shadow-fey whitespace-nowrap z-50 pointer-events-none text-left`}>
+           <div className="font-semibold mb-1">{t('analytics:dayNumber', { day: item.date })}</div>
+           {item.count > 0 ? (
+            <>
+             <div>
+              {t(
+               item.count === 1
+                ? 'analytics:subscriptionsCountOne'
+                : 'analytics:subscriptionsCountOther',
+               { count: item.count }
+              )}
+             </div>
+             <div className="text-red-300">{formatCurrency(item.amount, baseCurrency)}</div>
+            </>
+           ) : (
+            <div className="text-gray-400">{t('analytics:noRenewals')}</div>
+           )}
+           {/* Arrow */}
+           <div className={`absolute top-full ${tooltipAlign.arrow} -mt-px`}>
+            <div className="border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+           </div>
+          </div>
+         )}
+        </button>
+       );
+      })}
+     </div>
+    </div>
+   </div>
 
- {/* Heatmap grid */}
- <div className="flex items-center gap-2">
- <span className="text-xs text-gray-500 dark:text-gray-400 w-6">{t('analytics:dayLabel')}</span>
- <div className="grid grid-cols-[repeat(31,1fr)] gap-[3px] flex-1">
- {data.map((item) => {
- const isHovered = hoveredDay?.date === item.date;
- const isSelected = selectedDay?.date === item.date;
+   {/* Compact legend */}
+   <div className="flex flex-wrap items-center justify-between gap-2 mb-6 text-xs">
+    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+     <span>{t('analytics:spendingLabel')}</span>
+     <div className="flex items-center gap-1">
+      <span className="text-gray-500">{t('analytics:less')}</span>
+      <div className="flex gap-1">
+       <div className="w-3 h-3 rounded-sm bg-gray-100 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700"></div>
+       <div className="w-3 h-3 rounded-sm bg-red-200 dark:bg-red-900/40"></div>
+       <div className="w-3 h-3 rounded-sm bg-red-300 dark:bg-red-800/60"></div>
+       <div className="w-3 h-3 rounded-sm bg-red-400 dark:bg-red-700/70"></div>
+       <div className="w-3 h-3 rounded-sm bg-red-500 dark:bg-red-600/80"></div>
+       <div className="w-3 h-3 rounded-sm bg-red-600 dark:bg-red-500"></div>
+      </div>
+      <span className="text-gray-500">{t('analytics:more')}</span>
+     </div>
+    </div>
+    <div className="text-gray-500 dark:text-gray-400">
+     {t('analytics:clickCellsForDetails')}
+    </div>
+   </div>
 
- return (
- <div
- key={item.date}
- className={`
- aspect-square rounded-sm cursor-pointer transition-all duration-150
- ${getColorClass(item.amount)}
- ${isHovered ? 'ring-2 ring-red-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-800 scale-110 z-10' : ''}
- ${isSelected ? 'ring-2 ring-orange-500 ring-offset-1 ring-offset-white dark:ring-offset-gray-800' : ''}
- relative group
- `}
- onMouseEnter={() => setHoveredDay(item)}
- onMouseLeave={() => setHoveredDay(null)}
- onClick={() => item.count > 0 && setSelectedDay(item)}
- >
- {/* Hover Tooltip */}
- {isHovered && (
- <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-2xl shadow-fey whitespace-nowrap z-50 pointer-events-none">
- <div className="font-semibold mb-1">{t('analytics:dayNumber', { day: item.date })}</div>
- {item.count > 0 ? (
- <>
- <div>
- {t(
-  item.count === 1
-   ? 'analytics:subscriptionsCountOne'
-   : 'analytics:subscriptionsCountOther',
-  { count: item.count }
- )}
- </div>
- <div className="text-red-300">{formatCurrency(item.amount, baseCurrency)}</div>
- </>
- ) : (
- <div className="text-gray-400">{t('analytics:noRenewals')}</div>
- )}
- {/* Arrow */}
- <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
- <div className="border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
- </div>
- </div>
- )}
- </div>
- );
- })}
- </div>
- </div>
- </div>
+   {/* Selected date details */}
+   {selectedDay && selectedDay.count > 0 && (
+    <div className="p-4 bg-gray-50 dark:bg-white/[0.02] rounded-xl border border-gray-200 dark:border-white/10">
+     <div className="flex items-center justify-between mb-4">
+      <h4 className="font-medium text-sm text-gray-900 dark:text-white">
+       {t('analytics:renewalDetailsTitle', { day: selectedDay.date })}
+      </h4>
+      <button
+       type="button"
+       onClick={() => setSelectedDay(null)}
+       className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors p-1"
+       aria-label={t('analytics:closeDetailsAria')}
+      >
+       ✕
+      </button>
+     </div>
 
- {/* Compact legend */}
- <div className="flex items-center justify-between mb-6 text-xs">
- <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
- <span>{t('analytics:spendingLabel')}</span>
- <div className="flex items-center gap-1">
- <span className="text-gray-500">{t('analytics:less')}</span>
- <div className="flex gap-1">
- <div className="w-3 h-3 rounded-sm bg-gray-100 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700"></div>
- <div className="w-3 h-3 rounded-sm bg-red-200 dark:bg-red-900/40"></div>
- <div className="w-3 h-3 rounded-sm bg-red-300 dark:bg-red-800/60"></div>
- <div className="w-3 h-3 rounded-sm bg-red-400 dark:bg-red-700/70"></div>
- <div className="w-3 h-3 rounded-sm bg-red-500 dark:bg-red-600/80"></div>
- <div className="w-3 h-3 rounded-sm bg-red-600 dark:bg-red-500"></div>
- </div>
- <span className="text-gray-500">{t('analytics:more')}</span>
- </div>
- </div>
- <div className="text-gray-500 dark:text-gray-400">
- {t('analytics:clickCellsForDetails')}
- </div>
- </div>
+     <div className="grid grid-cols-2 gap-4 mb-3">
+      <div className="flex flex-col">
+       <span className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('analytics:subscriptionsLabel')}</span>
+       <span className="text-lg font-semibold text-gray-900 dark:text-white">
+        {selectedDay.count}
+       </span>
+      </div>
+      <div className="flex flex-col">
+       <span className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('analytics:totalAmount')}</span>
+       <span className="text-lg font-semibold text-red-600 dark:text-red-400">
+        {formatCurrency(selectedDay.amount, baseCurrency)}
+       </span>
+      </div>
+     </div>
 
- {/* Selected date details */}
- {selectedDay && selectedDay.count > 0 && (
-      <div className="p-4 bg-gray-50 dark:bg-white/[0.02] rounded-xl border border-gray-200 dark:border-white/10">
-        <div className="flex items-center justify-between mb-4">
-          <h4 className="font-medium text-sm text-gray-900 dark:text-white">
-            {t('analytics:renewalDetailsTitle', { day: selectedDay.date })}
-          </h4>
- <button
- onClick={() => setSelectedDay(null)}
- className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
- aria-label={t('analytics:closeDetailsAria')}
- >
- ✕
- </button>
- </div>
+     <div className="pt-3 border-t border-red-200 dark:border-red-800">
+      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">{t('analytics:subscriptionList')}</p>
+      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+       {selectedDay.subscriptions.map((sub, index) => (
+        <div
+         key={`${sub.name}-${index}`}
+         className="flex justify-between items-center text-sm bg-white dark:bg-white/5 border border-gray-200/50 dark:border-white/10 px-3 py-2 rounded-lg"
+        >
+         <span className="text-gray-700 dark:text-gray-300 font-light truncate mr-3">{sub.name}</span>
+         <span className="text-gray-900 dark:text-white font-medium shrink-0">
+          {formatCurrency(sub.cost, baseCurrency)}
+         </span>
+        </div>
+       ))}
+      </div>
+     </div>
+    </div>
+   )}
 
- <div className="grid grid-cols-2 gap-4 mb-3">
- <div className="flex flex-col">
- <span className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('analytics:subscriptionsLabel')}</span>
- <span className="text-lg font-semibold text-gray-900 dark:text-white">
- {selectedDay.count}
- </span>
- </div>
- <div className="flex flex-col">
- <span className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('analytics:totalAmount')}</span>
- <span className="text-lg font-semibold text-red-600 dark:text-red-400">
- {formatCurrency(selectedDay.amount, baseCurrency)}
- </span>
- </div>
- </div>
-
- <div className="pt-3 border-t border-red-200 dark:border-red-800">
- <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">{t('analytics:subscriptionList')}</p>
- <div className="space-y-1.5 max-h-40 overflow-y-auto">
- {selectedDay.subscriptions.map((sub, index) => (
- <div
-                  key={index}
-                  className="flex justify-between items-center text-sm bg-white dark:bg-white/5 border border-gray-200/50 dark:border-white/10 px-3 py-2 rounded-lg"
-                >
-                  <span className="text-gray-700 dark:text-gray-300 font-light">{sub.name}</span>
-                  <span className="text-gray-900 dark:text-white font-medium">
- {formatCurrency(sub.cost, baseCurrency)}
- </span>
- </div>
- ))}
- </div>
- </div>
- </div>
- )}
-
- {/* Compact statistics */}
- <div className="mt-6 grid grid-cols-3 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
- <div className="text-center">
- <p className="text-2xl font-bold text-red-600 dark:text-red-400 tracking-tight">
- {data.filter(d => d.count > 0).length}
- </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('analytics:daysWithRenewals')}</p>
- </div>
- <div className="text-center">
- <p className="text-2xl font-bold text-red-600 dark:text-red-400 tracking-tight">
- {data.reduce((sum, d) => sum + d.count, 0)}
- </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('analytics:totalMonthlyRenewals')}</p>
- </div>
- <div className="text-center">
- <p className="text-2xl font-bold text-red-600 dark:text-red-400 tracking-tight">
- {data.filter(d => d.count > 0).length > 0
- ? Math.round(
- data.reduce((sum, d) => sum + d.count, 0) /
- data.filter(d => d.count > 0).length
- )
- : 0}
- </p>
- <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('analytics:avgRenewalsPerDay')}</p>
- </div>
- </div>
- </div>
+   {/* Compact statistics */}
+   <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+    <div className="text-center">
+     <p className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400 tracking-tight">
+      {data.filter(d => d.count > 0).length}
+     </p>
+     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('analytics:daysWithRenewals')}</p>
+    </div>
+    <div className="text-center">
+     <p className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400 tracking-tight">
+      {data.reduce((sum, d) => sum + d.count, 0)}
+     </p>
+     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('analytics:totalMonthlyRenewals')}</p>
+    </div>
+    <div className="text-center">
+     <p className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400 tracking-tight">
+      {data.filter(d => d.count > 0).length > 0
+       ? Math.round(
+        data.reduce((sum, d) => sum + d.count, 0) /
+        data.filter(d => d.count > 0).length
+       )
+       : 0}
+     </p>
+     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{t('analytics:avgRenewalsPerDay')}</p>
+    </div>
+   </div>
+  </div>
  );
 }

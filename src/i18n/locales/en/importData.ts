@@ -8,6 +8,7 @@ export const importData = {
  exportDate: 'Export Date:',
  version: 'Version:',
  import: 'Import',
+ importing: 'Importing...',
  exportFailed: 'Failed to export data. Please try again.',
  importSuccess: 'Data imported successfully.',
  importFailed: 'Failed to import data.',

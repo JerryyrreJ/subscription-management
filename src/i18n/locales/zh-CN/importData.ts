@@ -8,6 +8,7 @@ export const importData = {
  exportDate: '导出日期：',
  version: '版本：',
  import: '导入',
+ importing: '导入中...',
  exportFailed: '导出数据失败，请稍后重试。',
  importSuccess: '数据导入成功。',
  importFailed: '导入数据失败。',

@@ -39,6 +39,8 @@ export const addSubscription = {
  notificationsLabel: 'Enable notifications',
  notificationsEnabledHint: 'You will receive reminders for this subscription',
  notificationsDisabledHint: 'No reminders will be sent for this subscription',
+ notificationsNotConfiguredHint: 'Set up global push notifications to enable reminders (your draft will be kept).',
+ configureNotificationsAction: 'Set up notifications',
  notificationSetupValidation: 'Finish this subscription first, then set up notifications.',
  submit: 'Add Subscription',
  submitting: 'Adding...',

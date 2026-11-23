@@ -12,6 +12,7 @@ export const userMenu = {
  syncedDaysAgo: '{{count}} 天前已同步',
  syncing: '同步中...',
  syncFailed: '同步失败',
+ pendingSyncChanges: '{{count}} 项待同步变更',
  syncNow: '立即同步',
  loginToSync: '登录后同步',
  editNickname: '修改昵称',

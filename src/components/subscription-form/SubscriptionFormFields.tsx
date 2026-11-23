@@ -1,11 +1,13 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Bell, BellOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Currency, Period, Subscription } from '../../types';
 import {
- addCustomCategory,
+ FALLBACK_CATEGORY,
+ addOrRestoreCustomCategory,
  getAllCategories,
- getAllCategoriesWithDetails,
+ getCategoryDisplayName,
+ type CategoryValidationErrorCode,
 } from '../../utils/categories';
 import { compareDateOnly, formatDateOnly, getDateOnlyDay, getTodayDateOnly } from '../../utils/dates';
 import { createSubscriptionRecord, getSubscriptionValidationMessage, updateSubscriptionRecord } from '../../utils/subscriptionDomain';
@@ -63,23 +65,42 @@ export function SubscriptionFormFields({
  onOpenNotificationSettings,
  existingSubscription,
 }: SubscriptionFormFieldsProps) {
- const { t } = useTranslation(['addSubscription', 'editSubscription', 'app', 'categoryLabels']);
+ const { t } = useTranslation(['addSubscription', 'editSubscription', 'app', 'categoryLabels', 'categorySettings']);
  const [formData, setFormData] = useState<FormValues>(initialValues);
  const [categories, setCategories] = useState<string[]>(() => mergeCurrentCategory(getAllCategories(), initialValues.category));
  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
  const [formError, setFormError] = useState<string | null>(null);
  const [categoryNotice, setCategoryNotice] = useState<string | null>(null);
- const [notificationValidationError, setNotificationValidationError] = useState(false);
  const [isSubmitting, setIsSubmitting] = useState(false);
+ const pendingEnableNotificationRef = useRef(false);
 
+ // Preserve user draft when notification readiness or external props change;
+ // only auto-enable notifications if the user clicked through to set them up.
  useEffect(() => {
-  setFormData(initialValues);
-  setCategories(mergeCurrentCategory(getAllCategories(), initialValues.category));
-  setFieldErrors({});
-  setFormError(null);
-  setCategoryNotice(null);
-  setNotificationValidationError(false);
- }, [initialValues]);
+  if (isNotificationReady && pendingEnableNotificationRef.current) {
+   pendingEnableNotificationRef.current = false;
+   setFormData(prev => ({ ...prev, notificationEnabled: true }));
+  }
+ }, [isNotificationReady]);
+
+ const resolveCategoryError = (errorCode?: CategoryValidationErrorCode): string => {
+  switch (errorCode) {
+   case 'required':
+    return t('categorySettings:enterCategoryName');
+   case 'tooLong':
+    return t('categorySettings:categoryTooLong');
+   case 'invalidCharacters':
+    return t('categorySettings:categoryInvalidCharacters');
+   case 'duplicate':
+    return t('categorySettings:categoryAlreadyExists');
+   case 'reserved':
+    return t('categorySettings:categoryReserved', {
+     category: getCategoryDisplayName(FALLBACK_CATEGORY, t),
+    });
+   default:
+    return t('addSubscription:failedToAddCategory');
+  }
+ };
 
  const clearFieldError = (field: keyof FieldErrors) => {
   setFieldErrors(prev => {
@@ -139,38 +160,46 @@ export function SubscriptionFormFields({
  const handleCreateCategory = async (rawName: string): Promise<boolean> => {
   const trimmed = rawName.trim();
   if (!trimmed) {
+   setCategoryNotice(null);
+   setFieldErrors(prev => ({ ...prev, category: t('categorySettings:enterCategoryName') }));
    return false;
   }
 
-  const success = addCustomCategory(trimmed);
-  if (!success) {
+  const addResult = addOrRestoreCustomCategory(trimmed);
+  if (!addResult.success || !addResult.category) {
    setCategoryNotice(null);
-   setFieldErrors(prev => ({ ...prev, category: t('addSubscription:failedToAddCategory') }));
+   setFieldErrors(prev => ({ ...prev, category: resolveCategoryError(addResult.errorCode) }));
    return false;
   }
 
   let notice: string | null = null;
   if (categorySync) {
-   const allCategories = getAllCategoriesWithDetails();
-   const newCategory = allCategories.find(cat => cat.name === trimmed);
-   if (newCategory) {
-    try {
-     const result = await categorySync.createCategory(newCategory);
-     if (!result.cloudSynced && result.queuedForRetry) {
-      notice = t('addSubscription:categoryCloudSyncPending');
-     }
-    } catch (error) {
-     console.error('Failed to sync new category to cloud:', error);
+   try {
+    const syncResult = addResult.action === 'restored' && categorySync.updateCategory
+     ? await categorySync.updateCategory(addResult.category)
+     : await categorySync.createCategory(addResult.category);
+    if (!syncResult.cloudSynced && syncResult.queuedForRetry) {
      notice = t('addSubscription:categoryCloudSyncPending');
     }
+   } catch (error) {
+    console.error('Failed to sync new category to cloud:', error);
+    notice = t('addSubscription:categoryCloudSyncPending');
    }
   }
 
-  setCategories(mergeCurrentCategory(getAllCategories(), trimmed));
-  updateForm({ category: trimmed });
+  setCategories(mergeCurrentCategory(getAllCategories(), addResult.category.name));
+  updateForm({ category: addResult.category.name });
   clearFieldError('category');
   setCategoryNotice(notice);
   return true;
+ };
+
+ const handleOpenNotificationSetup = () => {
+  if (isSubmitting || !onOpenNotificationSettings) {
+   return;
+  }
+  pendingEnableNotificationRef.current = true;
+  onOpenNotificationSettings();
  };
 
  const handleNotificationToggle = () => {
@@ -178,9 +207,8 @@ export function SubscriptionFormFields({
    return;
   }
 
-  setNotificationValidationError(false);
-
   if (formData.notificationEnabled) {
+   pendingEnableNotificationRef.current = false;
    updateForm({ notificationEnabled: false });
    return;
   }
@@ -190,9 +218,8 @@ export function SubscriptionFormFields({
    return;
   }
 
-  if (mode === 'add') {
-   setNotificationValidationError(true);
-   onOpenNotificationSettings?.();
+  if (onOpenNotificationSettings) {
+   handleOpenNotificationSetup();
   }
  };
 
@@ -240,7 +267,7 @@ export function SubscriptionFormFields({
  };
 
  const chipCategories = mergeCurrentCategory(categories, formData.category);
- const canEnableNotifications = mode === 'add' || isNotificationReady || formData.notificationEnabled;
+ const canToggleNotification = isNotificationReady || formData.notificationEnabled || Boolean(onOpenNotificationSettings);
  const allowPastTrialDate = formData.isTrial && mode === 'edit';
 
  return (
@@ -310,11 +337,13 @@ export function SubscriptionFormFields({
      </label>
      <button
       type="button"
+      role="switch"
+      aria-checked={formData.isTrial}
+      aria-label={t('addSubscription:trialToggleLabel')}
       onClick={() => {
        updateForm({ isTrial: !formData.isTrial });
        clearFieldError('nextPaymentDate');
       }}
-      aria-pressed={formData.isTrial}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
        formData.isTrial ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'
       }`}
@@ -427,11 +456,14 @@ export function SubscriptionFormFields({
        </label>
        <button
         type="button"
+        role="switch"
+        aria-checked={formData.notificationEnabled}
+        aria-label={t('addSubscription:notificationsLabel')}
         onClick={handleNotificationToggle}
-        disabled={isSubmitting || !canEnableNotifications}
+        disabled={isSubmitting || !canToggleNotification}
         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
          formData.notificationEnabled ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-600'
-        } ${isSubmitting || !canEnableNotifications ? 'opacity-50 cursor-not-allowed' : ''}`}
+        } ${isSubmitting || !canToggleNotification ? 'opacity-50 cursor-not-allowed' : ''}`}
        >
         <span
          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -440,10 +472,24 @@ export function SubscriptionFormFields({
         />
        </button>
       </div>
-      {mode === 'edit' && !isNotificationReady ? (
-       <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-        {t('editSubscription:globalNotificationsDisabled')}
-       </p>
+      {!isNotificationReady ? (
+       <div className="mt-1 space-y-1">
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+         {mode === 'edit'
+          ? t('editSubscription:globalNotificationsDisabled')
+          : t('addSubscription:notificationsNotConfiguredHint')}
+        </p>
+        {onOpenNotificationSettings && (
+         <button
+          type="button"
+          onClick={handleOpenNotificationSetup}
+          disabled={isSubmitting}
+          className="text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline disabled:opacity-50"
+         >
+          {t('addSubscription:configureNotificationsAction')}
+         </button>
+        )}
+       </div>
       ) : (
        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
         {formData.notificationEnabled
@@ -451,11 +497,6 @@ export function SubscriptionFormFields({
           ? t('addSubscription:trialNotificationsEnabledHint')
           : t('addSubscription:notificationsEnabledHint'))
          : t('addSubscription:notificationsDisabledHint')}
-       </p>
-      )}
-      {notificationValidationError && (
-       <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">
-        {t('addSubscription:notificationSetupValidation')}
        </p>
       )}
      </div>

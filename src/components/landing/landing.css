@@ -20,6 +20,8 @@
 .landing-nav { display: flex; gap: 26px; margin-left: auto; font-size: 14px; color: var(--app-secondary); }
 .landing-nav a:hover, .landing-footer a:hover { color: var(--lp-accent); }
 .landing-header-actions { display: flex; align-items: center; gap: 8px; }
+.landing-menu-toggle { display: none; }
+.landing-mobile-nav { display: none; }
 .landing-icon-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 36px; min-width: 36px; font-size: 12px; border-radius: 10px; color: var(--app-secondary); background: var(--app-control); }
 .landing-icon-button:hover { background: var(--app-hover); }
 .landing-language { padding-inline: 8px; }
@@ -124,8 +126,12 @@
 }
 @media (max-width: 640px) {
   .landing-shell { width: calc(100% - 32px); }
-  .landing-header { padding: 12px; margin-top: 16px; gap: 8px; justify-content: space-between; }
+  .landing-header { padding: 12px; margin-top: 16px; gap: 8px; justify-content: space-between; flex-wrap: wrap; }
   .landing-nav { display: none; }
+  .landing-menu-toggle { display: inline-flex; }
+  .landing-mobile-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex-basis: 100%; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--app-border); }
+  .landing-mobile-nav a { display: flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 12px; border-radius: 10px; background: var(--app-control); color: var(--app-secondary); font-size: 14px; font-weight: 500; }
+  .landing-mobile-nav a:hover { background: var(--app-hover); color: var(--lp-accent); }
   .landing-brand { font-size: 16px; gap: 7px; }
   .landing-brand img { width: 28px; height: 28px; }
   .landing-header-actions { gap: 5px; }

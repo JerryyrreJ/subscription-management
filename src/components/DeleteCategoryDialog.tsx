@@ -1,5 +1,5 @@
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CustomSelect } from './CustomSelect'
@@ -30,21 +30,43 @@ export function DeleteCategoryDialog({
  const { t } = useTranslation(['categorySettings', 'app', 'categoryLabels'])
  const [moveToCategory, setMoveToCategory] = useState<string>('')
 
+ const handleCancel = useCallback(() => {
+  setMoveToCategory('')
+  onCancel()
+ }, [onCancel])
+
+ useEffect(() => {
+  if (!isOpen) return undefined
+  const handleKeyDown = (event: KeyboardEvent) => {
+   if (event.key !== 'Escape' || event.defaultPrevented) return
+   event.stopPropagation()
+   handleCancel()
+  }
+  document.addEventListener('keydown', handleKeyDown)
+  return () => document.removeEventListener('keydown', handleKeyDown)
+ }, [handleCancel, isOpen])
+
  if (!isOpen) return null
 
  const handleConfirm = () => {
- onConfirm(moveToCategory || undefined)
- setMoveToCategory('')
- }
-
- const handleCancel = () => {
- setMoveToCategory('')
- onCancel()
+  onConfirm(moveToCategory || undefined)
+  setMoveToCategory('')
  }
 
  return (
- <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-60 dark:bg-opacity-80 flex items-center justify-center p-4 z-[60]">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-xl max-w-md w-full">
+ <div
+  className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-60 dark:bg-opacity-80 flex items-center justify-center p-4 z-[110]"
+  onMouseDown={event => {
+   if (event.target === event.currentTarget) handleCancel()
+  }}
+ >
+ <div
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="delete-category-title"
+  data-delete-category-dialog
+  className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-xl max-w-md w-full mobile-modal-panel"
+ >
  {/* Header */}
  <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
  <div className="flex items-start justify-between">
@@ -53,7 +75,7 @@ export function DeleteCategoryDialog({
  <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400"/>
  </div>
  <div>
- <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+ <h3 id="delete-category-title" className="text-lg font-bold text-gray-900 dark:text-white">
  {isBuiltIn ? t('categorySettings:deleteDialogHideTitle') : t('categorySettings:deleteDialogDeleteTitle')}
  </h3>
  <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -62,8 +84,10 @@ export function DeleteCategoryDialog({
  </div>
  </div>
  <button
+ type="button"
  onClick={handleCancel}
- className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+ aria-label={t('app:cancel')}
+ className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
  >
  <X className="w-5 h-5"/>
  </button>

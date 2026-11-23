@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { AlertCircle, CheckCircle, Eye, EyeOff, X, LockKeyhole, ArrowLeft, Check } from 'lucide-react';
 import './PasswordRecoveryModal.css';
 import { useTranslation } from 'react-i18next';
+import { getPasswordValidationKey, validateStrongPassword } from '../utils/passwordValidation';
 
 interface PasswordRecoveryModalProps {
  isOpen: boolean;
@@ -23,19 +24,8 @@ export function PasswordRecoveryModal({ isOpen, onClose, onUpdatePassword, stand
  const [success, setSuccess] = useState(false);
 
  const validatePassword = (password: string) => {
- if (password.length < 8) {
- return t('accountModals:passwordTooShort');
- }
-
- if (!/(?=.*[a-z])(?=.*[A-Z])/.test(password)) {
- return t('accountModals:passwordNeedsCase');
- }
-
- if (!/(?=.*\d)/.test(password)) {
- return t('accountModals:passwordNeedsNumber');
- }
-
- return null;
+  const code = validateStrongPassword(password);
+  return code ? t(getPasswordValidationKey(code)) : null;
  };
 
  const resetForm = () => {

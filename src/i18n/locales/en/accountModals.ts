@@ -5,6 +5,8 @@ export const accountModals = {
  displayNameHint: '2-30 characters, this will be displayed instead of your email',
  nicknameUpdatedSuccess: 'Nickname updated successfully!',
  nicknameUpdateFailed: 'Failed to update nickname. Please try again.',
+ nicknameRequired: 'Nickname cannot be empty.',
+ nicknameLengthInvalid: 'Nickname must be between 2 and 30 characters.',
  profileNotFound: 'Profile not found. Please try signing out and back in.',
  update: 'Update',
  updating: 'Updating...',

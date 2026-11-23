@@ -8,10 +8,12 @@ import {
   Cloud,
   Download,
   Globe2,
+  Menu,
   Moon,
   Plus,
   Sparkles,
   Sun,
+  X,
 } from 'lucide-react';
 import type { SupportedLocale } from '../../i18n/types';
 import { shouldOpenApplication } from '../../lib/entryPreference';
@@ -60,6 +62,7 @@ export default function LandingPage({
   const language = locale ?? getCurrentLocale();
   const c = landingCopy[language];
   const [enHomeUrl, setEnHomeUrl] = useState('/');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'light';
     const saved = localStorage.getItem('theme');
@@ -110,6 +113,17 @@ export default function LandingPage({
       ?.setAttribute('content', pageDescription);
   }, [c, language, pricingOnly]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [mobileMenuOpen]);
+
   return (
     <div className="landing-page" lang={language}>
       <a className="landing-skip" href="#main">
@@ -158,7 +172,51 @@ export default function LandingPage({
             {c.open}
             <ArrowUpRight size={15} />
           </a>
+          <button
+            className="landing-icon-button landing-menu-toggle"
+            type="button"
+            onClick={() => setMobileMenuOpen(open => !open)}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="landing-mobile-nav"
+            aria-label={
+              language === 'zh-CN'
+                ? mobileMenuOpen
+                  ? '关闭导航菜单'
+                  : '打开导航菜单'
+                : mobileMenuOpen
+                  ? 'Close navigation menu'
+                  : 'Open navigation menu'
+            }
+          >
+            {mobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
+          </button>
         </div>
+        {mobileMenuOpen && (
+          <nav
+            id="landing-mobile-nav"
+            className="landing-mobile-nav"
+            aria-label={language === 'zh-CN' ? '移动端导航' : 'Mobile navigation'}
+          >
+            <a
+              href={pricingOnly ? `${homeUrl}#features` : '#features'}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {c.features}
+            </a>
+            <a href={publicPricingUrl} onClick={() => setMobileMenuOpen(false)}>
+              {c.pricing}
+            </a>
+            <a href={guidesUrl} onClick={() => setMobileMenuOpen(false)}>
+              {c.guides}
+            </a>
+            <a
+              href={getDocumentationUrl("index", language)}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {c.docs}
+            </a>
+          </nav>
+        )}
       </header>
       <main id="main">
         {!pricingOnly && <>

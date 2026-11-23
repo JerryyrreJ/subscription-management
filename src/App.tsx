@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
-import { Plus, BarChart3, RotateCcw, Sparkles } from 'lucide-react';
+import { useState, useEffect, useRef, lazy, Suspense, useCallback, useMemo } from 'react';
+import { Plus, BarChart3, RotateCcw, Sparkles, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
  Subscription,
@@ -19,6 +19,7 @@ import { SubscriptionDetailsModal } from './components/SubscriptionDetailsModal'
 import { EditSubscriptionModal } from './components/EditSubscriptionModal';
 import { Dashboard } from './components/Dashboard';
 import { SubscriptionCard } from './components/SubscriptionCard';
+import { AppToast, type AppToastMessage, type AppToastVariant } from './components/AppToast';
 import './styles/settings.css';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -30,13 +31,20 @@ import { useSubscriptionSync } from './hooks/useSubscriptionSync';
 import { useInitialAccountSync } from './hooks/useInitialAccountSync';
 import { useCategorySync } from './hooks/useCategorySync';
 import { loadSubscriptions } from './utils/storage';
-import { loadCategories } from './utils/categories';
+import { getCategoryDisplayName, getVisibleCategories, loadCategories } from './utils/categories';
 import { CategoryService } from './services/categoryService';
 import {
- DEFAULT_CURRENCY,
  getStoredExchangeRatesSnapshot,
  refreshExchangeRatesWithStatus
 } from './utils/currency';
+import {
+ loadBaseCurrency,
+ saveBaseCurrency,
+ loadViewMode,
+ saveViewMode,
+ loadSortConfig,
+ saveSortConfig,
+} from './utils/dashboardPreferences';
 import {
  buildCategoryImportPlan,
  buildSubscriptionImportPlan,
@@ -51,6 +59,12 @@ import { Footer } from './components/Footer';
 import { LegacyDomainNotice } from './components/LegacyDomainNotice';
 import { config } from './lib/config';
 import { sortSubscriptions } from './utils/subscriptionSorting';
+import { isTrialSubscription } from './utils/subscriptionReminder';
+import {
+ buildConvertedPaidSubscription,
+ isExpiredTrial,
+ resolveSubscriptionRenewal,
+} from './utils/subscriptionRenewal';
 import { GUEST_DATA_SCOPE, getUserDataScope, setActiveDataScope } from './utils/dataScope';
 import { createScopedTaskGate } from './utils/scopedTaskGate';
 import { normalizeLocale } from './utils/locale';
@@ -86,6 +100,9 @@ const PricingModal = lazy(() =>
 
 const exchangeRateTaskGate = createScopedTaskGate<'exchange-rates'>();
 const EXCHANGE_RATE_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
+const UNDO_TIMEOUT_MS = 5000;
+const TOAST_TIMEOUT_MS = 4500;
+type QuickFilter = 'all' | 'upcoming' | 'trials';
 
 function LazyModalFallback({
  title,
@@ -116,7 +133,7 @@ function LazyModalFallback({
 }
 
 export function App() {
- const { t, i18n } = useTranslation(['app', 'auth', 'importData', 'settingsHub', 'userMenu', 'aiCapture']);
+ const { t, i18n } = useTranslation(['app', 'auth', 'importData', 'settingsHub', 'userMenu', 'aiCapture', 'categoryLabels']);
  const {
  user,
  userProfile,
@@ -132,25 +149,26 @@ export function App() {
  dismissPasswordRecovery
  } = useAuth();
  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
- const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+ const [viewMode, setViewMode] = useState<ViewMode>(() => loadViewMode());
  const [theme, setTheme] = useState<Theme>(() => {
   const savedTheme = localStorage.getItem('theme');
   if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
  });
- const [sortConfig, setSortConfig] = useState<SortConfig>({
- sortBy: 'nextPaymentDate',
- sortOrder: 'asc'
- });
+ const [sortConfig, setSortConfig] = useState<SortConfig>(() => loadSortConfig());
  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
  const [isAiCaptureOpen, setIsAiCaptureOpen] = useState(false);
  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+ const [authModalContext, setAuthModalContext] = useState<'ai-capture' | null>(null);
  const [isSettingsHubOpen, setIsSettingsHubOpen] = useState(false);
  const [settingsHubTab, setSettingsHubTab] = useState<SettingsTab>('general');
  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+ const [searchQuery, setSearchQuery] = useState('');
+ const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+ const [isImporting, setIsImporting] = useState(false);
  const [importPreviewData, setImportPreviewData] = useState<ExportData | null>(null);
  const fileInputRef = useRef<HTMLInputElement>(null);
  const [notificationSettings, setNotificationSettings] = useState<ReminderSettings>(loadNotificationSettings());
@@ -169,13 +187,14 @@ export function App() {
   }
   if (canOfferAiCapture) {
    sessionStorage.setItem('ai-capture-return', '1');
+   setAuthModalContext('ai-capture');
    setIsAuthModalOpen(true);
    return;
   }
   setIsAddModalOpen(true);
  };
  const [isPricingModalOpen, setIsPricingModalOpen] = useState(() => window.location.pathname === "/pricing" || (new URLSearchParams(window.location.search).has("payment") || new URLSearchParams(window.location.search).get("pricing") === "1"));
- const [baseCurrency, setBaseCurrency] = useState<Currency>(DEFAULT_CURRENCY);
+ const [baseCurrency, setBaseCurrency] = useState<Currency>(() => loadBaseCurrency(i18n.language));
  const [exchangeRates, setExchangeRates] = useState<ExchangeRates>({});
 const [exchangeRateSource, setExchangeRateSource] = useState<ExchangeRateSource>('live');
 const [exchangeRatesUpdatedAt, setExchangeRatesUpdatedAt] = useState<number | null>(null);
@@ -184,12 +203,42 @@ const [exchangeRatesStale, setExchangeRatesStale] = useState(false);
 const [exchangeRateError, setExchangeRateError] = useState<string | undefined>();
  const [undoAction, setUndoAction] = useState<UndoableAiAction | null>(null);
  const [undoError, setUndoError] = useState<string | null>(null);
+ const [isUndoPaused, setIsUndoPaused] = useState(false);
  const undoTimerRef = useRef<number | null>(null);
+ const undoRemainingMsRef = useRef<number>(UNDO_TIMEOUT_MS);
+ const undoStartedAtRef = useRef<number>(0);
+ const [toast, setToast] = useState<AppToastMessage | null>(null);
+ const toastTimerRef = useRef<number | null>(null);
  const appLocale = normalizeLocale(i18n.language);
  const appUser = passwordRecoveryPending ? null : user;
  const appSession = passwordRecoveryPending ? null : session;
  const notificationReady = isBarkReady(notificationSettings);
  const notificationScope = appUser ? getUserDataScope(appUser.id) : GUEST_DATA_SCOPE;
+
+ const dismissToast = useCallback(() => {
+  if (toastTimerRef.current) {
+   window.clearTimeout(toastTimerRef.current);
+   toastTimerRef.current = null;
+  }
+  setToast(null);
+ }, []);
+
+ const showToast = useCallback((variant: AppToastVariant, message: string) => {
+  if (toastTimerRef.current) {
+   window.clearTimeout(toastTimerRef.current);
+  }
+  setToast({ id: crypto.randomUUID(), variant, message });
+  toastTimerRef.current = window.setTimeout(() => {
+   setToast(null);
+   toastTimerRef.current = null;
+  }, TOAST_TIMEOUT_MS);
+ }, []);
+
+ useEffect(() => () => {
+  if (toastTimerRef.current) {
+   window.clearTimeout(toastTimerRef.current);
+  }
+ }, []);
 
  useEffect(() => {
  document.title = t('app:documentTitle');
@@ -208,12 +257,14 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  useEffect(() => {
   if (appUser && sessionStorage.getItem('pricing-return') === '1') {
    sessionStorage.removeItem('pricing-return');
+   setAuthModalContext(null);
    setIsAuthModalOpen(false);
    setIsPricingModalOpen(true);
    return;
   }
   if (appUser && appSession?.access_token && sessionStorage.getItem('ai-capture-return') === '1') {
    sessionStorage.removeItem('ai-capture-return');
+   setAuthModalContext(null);
    setIsAuthModalOpen(false);
    setIsAiCaptureOpen(true);
   }
@@ -270,6 +321,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  const {
  syncStatus,
  lastSyncTime,
+ pendingSyncCount,
  syncSubscriptions,
  uploadLocalData,
  createSubscription,
@@ -285,19 +337,81 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  createCategory,
  updateCategory,
  deleteCategory: deleteCategorySync,
- updateCategoriesOrder
+ updateCategoriesOrder,
+ restoreDefaultCategories
  } = useCategorySync(appUser, () => {
- // 类别变更时触发UI更新
+ // 类别变更时触发UI更新，若当前筛选分类已被隐藏或删除则回退到全部
  setSubscriptions(current => [...current]);
+ setSelectedCategory(current => {
+  if (!current) return null;
+  const visible = getVisibleCategories();
+  return visible.some(cat => cat.name === current) ? current : null;
+ });
  });
 
+ const { upcomingCount, trialsCount, expiredTrialsCount } = useMemo(() => {
+  let upcoming = 0;
+  let trials = 0;
+  let expiredTrials = 0;
+  for (const sub of subscriptions) {
+   const renewal = resolveSubscriptionRenewal(sub);
+   if (renewal.daysUntilEffectiveNextPayment >= 0 && renewal.daysUntilEffectiveNextPayment <= 7) {
+    upcoming += 1;
+   }
+   if (isTrialSubscription(sub)) {
+    trials += 1;
+    if (isExpiredTrial(sub)) {
+     expiredTrials += 1;
+    }
+   }
+  }
+  return { upcomingCount: upcoming, trialsCount: trials, expiredTrialsCount: expiredTrials };
+ }, [subscriptions]);
+
+ const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+ const hasActiveFilters = Boolean(selectedCategory || quickFilter !== 'all' || normalizedSearchQuery);
+
+ const clearAllFilters = () => {
+  setSelectedCategory(null);
+  setQuickFilter('all');
+  setSearchQuery('');
+ };
+
  // 获取筛选后的订阅列表
- const filteredSubscriptions = selectedCategory
- ? subscriptions.filter(sub => sub.category === selectedCategory)
- : subscriptions;
+ const filteredSubscriptions = useMemo(() => {
+  return subscriptions.filter(sub => {
+   if (selectedCategory && sub.category !== selectedCategory) {
+    return false;
+   }
+   if (quickFilter === 'upcoming') {
+    const days = resolveSubscriptionRenewal(sub).daysUntilEffectiveNextPayment;
+    if (days < 0 || days > 7) {
+     return false;
+    }
+   } else if (quickFilter === 'trials') {
+    if (!isTrialSubscription(sub)) {
+     return false;
+    }
+   }
+   if (normalizedSearchQuery) {
+    const localizedCategory = getCategoryDisplayName(sub.category, t).toLowerCase();
+    const matches =
+     sub.name.toLowerCase().includes(normalizedSearchQuery) ||
+     sub.category.toLowerCase().includes(normalizedSearchQuery) ||
+     localizedCategory.includes(normalizedSearchQuery);
+    if (!matches) {
+     return false;
+    }
+   }
+   return true;
+  });
+ }, [normalizedSearchQuery, quickFilter, selectedCategory, subscriptions, t]);
 
  // 获取排序后的订阅列表
- const sortedSubscriptions = sortSubscriptions(filteredSubscriptions, sortConfig, baseCurrency, exchangeRates);
+ const sortedSubscriptions = useMemo(
+  () => sortSubscriptions(filteredSubscriptions, sortConfig, baseCurrency, exchangeRates),
+  [filteredSubscriptions, sortConfig, baseCurrency, exchangeRates]
+ );
 
  const applyExchangeRateResult = useCallback((result: ExchangeRateLoadResult) => {
  setExchangeRates(result.rates);
@@ -510,16 +624,27 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setIsAddModalOpen(false);
  } catch (error) {
  console.error('Failed to add subscription:', error);
- // 错误处理已在Hook中完成，这里只是确保模态框关闭
- setIsAddModalOpen(false);
+ throw error;
  }
  };
 
  const handleDeleteSubscription = async () => {
  if (selectedSubscription) {
+ const deletedSnapshot = selectedSubscription;
  try {
- await deleteSubscription(selectedSubscription.id);
+ await deleteSubscription(deletedSnapshot.id);
  setSelectedSubscription(null);
+ let didUndo = false;
+ showUndoAction({
+  id: crypto.randomUUID(),
+  message: t('aiCapture:undo.deleted', { name: deletedSnapshot.name }),
+  undoLabel: t('aiCapture:undo.action'),
+  undo: async () => {
+   if (didUndo) return;
+   didUndo = true;
+   await createSubscription(deletedSnapshot);
+  },
+ });
  } catch (error) {
  console.error('Failed to delete subscription:', error);
  // 错误处理已在Hook中完成
@@ -535,9 +660,30 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setIsEditModalOpen(false);
  } catch (error) {
  console.error('Failed to edit subscription:', error);
- // 错误处理已在Hook中完成
+ throw error;
+ }
+ };
+
+ const handleConvertTrialToPaid = async (subscription: Subscription) => {
+ const originalSnapshot = subscription;
+ const converted = buildConvertedPaidSubscription(subscription);
+ try {
+ await updateSubscription(converted);
  setSelectedSubscription(null);
- setIsEditModalOpen(false);
+ let didUndo = false;
+ showUndoAction({
+  id: crypto.randomUUID(),
+  message: t('app:trialConvertedUndo', { name: originalSnapshot.name }),
+  undoLabel: t('aiCapture:undo.action'),
+  undo: async () => {
+   if (didUndo) return;
+   didUndo = true;
+   await updateSubscription(originalSnapshot);
+  },
+ });
+ } catch (error) {
+ console.error('Failed to convert trial to paid:', error);
+ throw error;
  }
  };
 
@@ -578,8 +724,19 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
  };
 
+ const handleViewModeChange = (nextMode: ViewMode) => {
+ setViewMode(nextMode);
+ saveViewMode(nextMode);
+ };
+
+ const handleBaseCurrencyChange = (nextCurrency: Currency) => {
+ setBaseCurrency(nextCurrency);
+ saveBaseCurrency(nextCurrency);
+ };
+
  const handleSortChange = (newSortConfig: SortConfig) => {
  setSortConfig(newSortConfig);
+ saveSortConfig(newSortConfig);
  };
 
  const handleSignOut = async () => {
@@ -597,8 +754,12 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setNotificationSettings(loadNotificationSettings(GUEST_DATA_SCOPE));
  setSelectedSubscription(null);
  setSelectedCategory(null);
+ setQuickFilter('all');
+ setSearchQuery('');
+ clearUndoTimer();
  setUndoAction(null);
  setUndoError(null);
+ setIsUndoPaused(false);
  setIsSettingsHubOpen(false);
  };
 
@@ -608,7 +769,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  exportData();
  } catch (error) {
  console.error('Failed to export data:', error);
- alert(t('importData:exportFailed'));
+ showToast('error', t('importData:exportFailed'));
  }
  };
 
@@ -625,7 +786,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  return t('importData:errors.invalidFile');
  };
 
- const handleSaveNotificationSettings = async (newSettings: ReminderSettings) => {
+ const handleSaveNotificationSettings = async (newSettings: ReminderSettings): Promise<{ cloudSynced: boolean }> => {
  const nextSettings: ReminderSettings = {
  ...newSettings,
  locale: appLocale,
@@ -637,10 +798,14 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  if (appUser && config.hasSupabaseConfig) {
  try {
  await NotificationSettingsService.saveSettings(nextSettings);
+ return { cloudSynced: true };
  } catch (error) {
  console.error('Failed to sync notification settings to cloud:', error);
+ return { cloudSynced: false };
  }
  }
+
+ return { cloudSynced: true };
  };
 
  const openSettingsHub = (tab: SettingsTab = 'general') => {
@@ -655,19 +820,55 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  }
  }, []);
 
+ const dismissUndoAction = useCallback(() => {
+ clearUndoTimer();
+ setUndoAction(null);
+ setUndoError(null);
+ setIsUndoPaused(false);
+ }, [clearUndoTimer]);
+
+ const startUndoTimer = useCallback((durationMs: number) => {
+ clearUndoTimer();
+ undoRemainingMsRef.current = durationMs;
+ undoStartedAtRef.current = Date.now();
+ undoTimerRef.current = window.setTimeout(() => {
+  setUndoAction(null);
+  setUndoError(null);
+  setIsUndoPaused(false);
+  undoTimerRef.current = null;
+ }, durationMs);
+ }, [clearUndoTimer]);
+
+ const pauseUndoTimer = useCallback(() => {
+ if (!undoTimerRef.current) {
+  return;
+ }
+ const elapsed = Date.now() - undoStartedAtRef.current;
+ undoRemainingMsRef.current = Math.max(250, undoRemainingMsRef.current - elapsed);
+ clearUndoTimer();
+ setIsUndoPaused(true);
+ }, [clearUndoTimer]);
+
+ const resumeUndoTimer = useCallback(() => {
+ if (!undoAction || undoTimerRef.current || undoError) {
+  return;
+ }
+ setIsUndoPaused(false);
+ startUndoTimer(undoRemainingMsRef.current);
+ }, [startUndoTimer, undoAction, undoError]);
+
  const showUndoAction = useCallback((action: UndoableAiAction) => {
  clearUndoTimer();
  setUndoError(null);
+ setIsUndoPaused(false);
  setUndoAction(action);
- undoTimerRef.current = window.setTimeout(() => {
-  setUndoAction(null);
-  undoTimerRef.current = null;
- }, 5000);
- }, [clearUndoTimer]);
+ startUndoTimer(UNDO_TIMEOUT_MS);
+ }, [clearUndoTimer, startUndoTimer]);
 
  const closePasswordRecoveryToLogin = useCallback(async () => {
  await dismissPasswordRecovery();
  if (config.features.authentication) {
+  setAuthModalContext(null);
   setIsAuthModalOpen(true);
  }
  }, [dismissPasswordRecovery]);
@@ -678,6 +879,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  }
 
  clearUndoTimer();
+ setIsUndoPaused(false);
  try {
   await undoAction.undo();
   undoAction.onRestored?.();
@@ -705,7 +907,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  setIsImportModalOpen(true);
  } catch (error) {
  console.error('Failed to validate import file:', error);
- alert(getImportDataErrorMessage(error));
+ showToast('error', getImportDataErrorMessage(error));
  }
 
  // 重置文件输入，允许重复选择同一文件
@@ -714,8 +916,9 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  // 确认导入
  const handleConfirmImport = async () => {
- if (!importPreviewData) return;
+ if (!importPreviewData || isImporting) return;
 
+ setIsImporting(true);
  try {
  const currentSubscriptions = loadSubscriptions();
  const subscriptionPlan = buildSubscriptionImportPlan(
@@ -763,11 +966,15 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  // 重置筛选状态
  setSelectedCategory(null);
+ setQuickFilter('all');
+ setSearchQuery('');
 
- alert(t('importData:importSuccess'));
+ showToast('success', t('importData:importSuccess'));
  } catch (error) {
  console.error('Failed to import data:', error);
- alert(t('importData:importFailed'));
+ showToast('error', t('importData:importFailed'));
+ } finally {
+ setIsImporting(false);
  }
  };
 
@@ -790,7 +997,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  fallback={(
   <LazyModalFallback
    title={t('auth:setNewPasswordTitle')}
-   description={t('app:loadingNotificationSettingsDescription')}
+   description={t('app:loadingPasswordResetDescription')}
    onClose={closePasswordRecoveryToLogin}
   />
  )}
@@ -813,7 +1020,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  return (
  <>
- <div className="min-h-screen pb-4 relative overflow-hidden transition-colors duration-300">
+ <div className="min-h-screen pb-4 relative overflow-x-clip transition-colors duration-300">
 <div className="px-4 py-8">
  <div className="max-w-7xl mx-auto space-y-8">
  <LegacyDomainNotice onExport={handleExportData} />
@@ -853,11 +1060,15 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  userProfile={appUser ? userProfile : null}
  syncStatus={syncStatus}
  lastSyncTime={lastSyncTime}
+ pendingSyncCount={pendingSyncCount}
  onOpenSettings={() => openSettingsHub()}
  onPricingClick={() => setIsPricingModalOpen(true)}
  onSignOut={handleSignOut}
  onSync={syncSubscriptions}
- onLogin={() => setIsAuthModalOpen(true)}
+ onLogin={() => {
+  setAuthModalContext(null);
+  setIsAuthModalOpen(true);
+ }}
  />
  ) : (
  /* 无云同步功能时，使用简化的用户菜单（仅本地功能） */
@@ -883,20 +1094,100 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  <Dashboard
  subscriptions={sortedSubscriptions}
  viewMode={viewMode}
- onViewModeChange={setViewMode}
+ onViewModeChange={handleViewModeChange}
  sortConfig={sortConfig}
  onSortChange={handleSortChange}
  selectedCategory={selectedCategory}
  onCategoryChange={setSelectedCategory}
  totalSubscriptions={subscriptions.length}
  baseCurrency={baseCurrency}
- onBaseCurrencyChange={setBaseCurrency}
+ onBaseCurrencyChange={handleBaseCurrencyChange}
  exchangeRates={exchangeRates}
  exchangeRateSource={exchangeRateSource}
  exchangeRatesUpdatedAt={exchangeRatesUpdatedAt}
  exchangeRatesStale={exchangeRatesStale}
  exchangeRateError={exchangeRateError}
+ onTrialsClick={() => setQuickFilter(prev => prev === 'trials' ? 'all' : 'trials')}
  />
+
+ {subscriptions.length > 0 && (
+ <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  <div className="relative flex-1 max-w-md">
+   <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+   <input
+    type="text"
+    value={searchQuery}
+    onChange={e => setSearchQuery(e.target.value)}
+    placeholder={t('app:searchPlaceholder')}
+    aria-label={t('app:searchPlaceholder')}
+    className="w-full pl-10 pr-9 py-2.5 text-sm rounded-2xl bg-white dark:bg-[#1a1c1e] border border-gray-200/80 dark:border-gray-700/80 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all app-theme-chip"
+   />
+   {searchQuery && (
+    <button
+     type="button"
+     onClick={() => setSearchQuery('')}
+     aria-label={t('app:clearSearch')}
+     className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+    >
+     <X className="w-3.5 h-3.5" />
+    </button>
+   )}
+  </div>
+
+  <div className="flex flex-wrap items-center gap-2">
+   <button
+    type="button"
+    onClick={() => setQuickFilter('all')}
+    aria-pressed={quickFilter === 'all'}
+    className={`px-3.5 py-2 rounded-2xl text-xs sm:text-sm font-medium border transition-all ${
+     quickFilter === 'all'
+      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+      : 'bg-white dark:bg-[#1a1c1e] text-gray-700 dark:text-gray-300 border-gray-200/80 dark:border-gray-700/80 hover:bg-gray-50 dark:hover:bg-gray-800 app-theme-chip'
+    }`}
+   >
+    {t('app:filterAll')} ({subscriptions.length})
+   </button>
+   <button
+    type="button"
+    onClick={() => setQuickFilter(prev => prev === 'upcoming' ? 'all' : 'upcoming')}
+    aria-pressed={quickFilter === 'upcoming'}
+    className={`px-3.5 py-2 rounded-2xl text-xs sm:text-sm font-medium border transition-all ${
+     quickFilter === 'upcoming'
+      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+      : 'bg-white dark:bg-[#1a1c1e] text-gray-700 dark:text-gray-300 border-gray-200/80 dark:border-gray-700/80 hover:bg-gray-50 dark:hover:bg-gray-800 app-theme-chip'
+    }`}
+   >
+    {t('app:filterUpcoming')} ({upcomingCount})
+   </button>
+   {trialsCount > 0 && (
+    <button
+     type="button"
+     onClick={() => setQuickFilter(prev => prev === 'trials' ? 'all' : 'trials')}
+     aria-pressed={quickFilter === 'trials'}
+     className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs sm:text-sm font-medium border transition-all ${
+      quickFilter === 'trials'
+       ? expiredTrialsCount > 0
+        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+        : 'bg-amber-600 text-white border-amber-600 shadow-sm'
+       : expiredTrialsCount > 0
+        ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200/80 dark:border-rose-500/30 hover:bg-rose-100/80 dark:hover:bg-rose-500/20'
+        : 'bg-white dark:bg-[#1a1c1e] text-gray-700 dark:text-gray-300 border-gray-200/80 dark:border-gray-700/80 hover:bg-gray-50 dark:hover:bg-gray-800 app-theme-chip'
+     }`}
+    >
+     <span>{t('app:filterTrials')} ({trialsCount})</span>
+     {expiredTrialsCount > 0 && (
+      <span
+       className={`w-2 h-2 rounded-full ${
+        quickFilter === 'trials' ? 'bg-white' : 'bg-rose-500'
+       }`}
+       aria-hidden="true"
+      />
+     )}
+    </button>
+   )}
+  </div>
+ </div>
+ )}
 
  {subscriptions.length === 0 && canOfferAiCapture && (
  <div className="rounded-3xl border border-emerald-200/70 dark:border-emerald-500/25 bg-white/80 dark:bg-[#1a1c1e]/80 backdrop-blur-xl p-5 sm:p-6 shadow-fey flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 app-theme-panel">
@@ -927,6 +1218,27 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  </div>
  )}
 
+ {subscriptions.length > 0 && sortedSubscriptions.length === 0 && hasActiveFilters && (
+ <div className="rounded-3xl border border-gray-200/80 dark:border-gray-700/80 bg-white/90 dark:bg-[#1a1c1e]/90 p-6 sm:p-8 text-center space-y-3 app-theme-panel">
+  <p className="text-base font-semibold text-gray-900 dark:text-white app-theme-text-primary">
+   {t('app:emptyFilterTitle')}
+  </p>
+  <p className="text-sm text-gray-600 dark:text-gray-400 app-theme-text-secondary">
+   {t('app:emptyFilterSubtitle')}
+  </p>
+  <div>
+   <button
+    type="button"
+    onClick={clearAllFilters}
+    className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors"
+   >
+    <X className="w-4 h-4" />
+    <span>{t('app:clearFilters')}</span>
+   </button>
+  </div>
+ </div>
+ )}
+
  <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
  {sortedSubscriptions.map((subscription, index) => (
  <SubscriptionCard
@@ -939,22 +1251,16 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  ))}
 
  <button
- onClick={() => {
- if (appUser && appSession?.access_token && config.hasSupabaseConfig) {
- setIsAiCaptureOpen(true);
- } else {
- setIsAddModalOpen(true);
- }
- }}
+ onClick={() => setIsAddModalOpen(true)}
  className="group min-h-[200px] sm:min-h-[216px] bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey p-4 sm:p-6 flex flex-col items-center justify-center gap-3 sm:gap-4 transition-all duration-300 hover:border-emerald-500 app-theme-card"
  >
  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-[#f4f5f7] dark:bg-[#202225] flex items-center justify-center group-hover:bg-emerald-50 dark:group-hover:bg-emerald-500/10 transition-colors app-theme-icon-shell">
  <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 group-hover:text-emerald-600 dark:text-gray-500 dark:group-hover:text-emerald-400 transition-colors"/>
  </div>
  <p className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base text-center app-theme-text-secondary">
- {sortedSubscriptions.length === 0
- ?t('app:addFirstSubscription')
- :t('app:addSubscription')}
+ {subscriptions.length === 0
+ ? t('app:addFirstSubscription')
+ : t('app:addSubscription')}
  </p>
  </button>
  </div>
@@ -968,7 +1274,8 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   onAdd={handleAddSubscription}
   onOpenNotificationSettings={() => openSettingsHub('notifications')}
   categorySync={{
-   createCategory
+   createCategory,
+   updateCategory
   }}
   isNotificationReady={notificationReady}
   />
@@ -996,6 +1303,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   onClose={() => setSelectedSubscription(null)}
   onEdit={handleEditClick}
   onDelete={handleDeleteSubscription}
+  onConvertTrialToPaid={handleConvertTrialToPaid}
   />
  )}
 
@@ -1005,8 +1313,10 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   isOpen={isEditModalOpen}
   onClose={() => setIsEditModalOpen(false)}
   onEdit={handleEditSubscription}
+  onOpenNotificationSettings={() => openSettingsHub('notifications')}
   categorySync={{
-   createCategory
+   createCategory,
+   updateCategory
   }}
   isBarkEnabled={notificationReady}
   />
@@ -1017,15 +1327,20 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  fallback={(
   <LazyModalFallback
    title={t('userMenu:loginToSync')}
-   description={t('app:loadingNotificationSettingsDescription')}
-   onClose={() => setIsAuthModalOpen(false)}
+   description={t('app:loadingAuthDescription')}
+   onClose={() => {
+    setAuthModalContext(null);
+    setIsAuthModalOpen(false);
+   }}
   />
  )}
  >
   <AuthModal
   isOpen={isAuthModalOpen}
+  contextBanner={authModalContext === 'ai-capture' ? t('auth:aiAssistLoginHint') : undefined}
   onClose={() => {
    sessionStorage.removeItem('ai-capture-return');
+   setAuthModalContext(null);
    setIsAuthModalOpen(false);
   }}
  />
@@ -1057,6 +1372,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   accessToken={appSession?.access_token}
   onOpenAuth={() => {
    setIsSettingsHubOpen(false);
+   setAuthModalContext(null);
    setIsAuthModalOpen(true);
   }}
   onUpdateNickname={updateUserNickname}
@@ -1080,8 +1396,13 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   }}
   subscriptions={subscriptions}
   onCategoriesChanged={() => {
-   // 类型变更时，重新加载订阅列表以确保UI更新
-   setSubscriptions([...subscriptions]);
+   // 类型变更时，重新加载订阅列表并校验当前筛选分类是否仍可见
+   setSubscriptions(current => [...current]);
+   setSelectedCategory(current => {
+    if (!current) return null;
+    const visible = getVisibleCategories();
+    return visible.some(cat => cat.name === current) ? current : null;
+   });
   }}
   onUpdateSubscriptions={async (updatedSubscriptions) => {
    await updateSubscriptionsBatch(updatedSubscriptions);
@@ -1090,7 +1411,8 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
    createCategory,
    updateCategory,
    deleteCategory: deleteCategorySync,
-   updateCategoriesOrder
+   updateCategoriesOrder,
+   restoreDefaultCategories
   }}
   notificationSettings={notificationSettings}
   onSaveNotificationSettings={handleSaveNotificationSettings}
@@ -1103,7 +1425,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  fallback={(
   <LazyModalFallback
    title={t('userMenu:importData')}
-   description={t('app:loadingNotificationSettingsDescription')}
+   description={t('app:loadingImportDataDescription')}
    onClose={() => {
     setIsImportModalOpen(false);
     setImportPreviewData(null);
@@ -1114,11 +1436,13 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   <ImportDataModal
   isOpen={isImportModalOpen}
   onClose={() => {
+   if (isImporting) return;
    setIsImportModalOpen(false);
    setImportPreviewData(null);
   }}
   onConfirm={handleConfirmImport}
   previewData={importPreviewData}
+  isImporting={isImporting}
   />
  </Suspense>
  )}
@@ -1175,6 +1499,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   onUpgrade={() => {
   setIsPricingModalOpen(false);
   if (!appUser) {
+  setAuthModalContext(null);
   setIsAuthModalOpen(true);
   }
   }}
@@ -1184,11 +1509,22 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
 
  {undoAction && (
         <div className="fixed inset-x-0 bottom-6 z-[70] flex justify-center px-4 pointer-events-none animate-drawer-up">
-          <button
-            onClick={handleUndoAction}
-            className="pointer-events-auto relative flex items-center justify-between gap-3 bg-gray-900/95 dark:bg-[#1a1c1e]/95 text-white shadow-apple-xl backdrop-blur-xl px-5 py-3 rounded-2xl max-w-sm w-full group transition-all hover:bg-gray-800/95 dark:hover:bg-[#25282c]/95 active:scale-[0.98] focus:outline-none"
-            aria-label={undoAction.undoLabel}
-            title={undoAction.undoLabel}
+          <div
+            role="status"
+            aria-live="polite"
+            onMouseEnter={pauseUndoTimer}
+            onMouseLeave={(event) => {
+              if (!event.currentTarget.contains(document.activeElement)) {
+                resumeUndoTimer();
+              }
+            }}
+            onFocus={pauseUndoTimer}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                resumeUndoTimer();
+              }
+            }}
+            className="pointer-events-auto relative flex items-center justify-between gap-2 bg-gray-900/95 dark:bg-[#1a1c1e]/95 text-white shadow-apple-xl backdrop-blur-xl pl-5 pr-3 py-3 rounded-2xl max-w-md w-full transition-all"
           >
             <div className="absolute inset-0 rounded-2xl border border-gray-800/80 dark:border-gray-700/80 pointer-events-none" />
 
@@ -1206,12 +1542,14 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
                 strokeWidth="2"
               />
               <rect
+                key={undoAction.id}
                 x="0"
                 y="0"
                 width="100%"
                 height="100%"
                 rx="15"
                 className="fill-none stroke-emerald-400 animate-undo-perimeter"
+                style={{ animationPlayState: isUndoPaused ? 'paused' : 'running' }}
                 strokeWidth="2"
                 pathLength="100"
                 strokeDasharray="100"
@@ -1220,19 +1558,40 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
             </svg>
 
             {/* Content Area */}
-            <div className="min-w-0 flex-1 text-left relative z-10 pl-1">
+            <div className="min-w-0 flex-1 text-left relative z-10">
               <p className="text-sm font-medium truncate">{undoAction.message}</p>
               {undoError && <p className="text-xs text-red-400 mt-0.5">{undoError}</p>}
             </div>
 
-            {/* Undo Indicator */}
-            <div className="flex items-center gap-1.5 text-emerald-400 relative z-10 font-semibold text-sm pr-1">
-              <RotateCcw className="w-4 h-4 group-hover:-rotate-12 transition-transform" />
-              {undoAction.undoLabel}
+            {/* Undo & Dismiss Actions */}
+            <div className="flex items-center gap-1 relative z-10 shrink-0">
+              <button
+                type="button"
+                onClick={handleUndoAction}
+                className="group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-emerald-400 hover:bg-white/10 active:scale-[0.98] font-semibold text-sm transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+              >
+                <RotateCcw className="w-4 h-4 group-hover:-rotate-12 transition-transform" />
+                {undoAction.undoLabel}
+              </button>
+              <button
+                type="button"
+                onClick={dismissUndoAction}
+                aria-label={t('aiCapture:undo.dismiss')}
+                className="p-1.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          </button>
+          </div>
         </div>
       )}
+
+ <AppToast
+ toast={toast}
+ onDismiss={dismissToast}
+ dismissLabel={t('app:dismissNotification')}
+ offsetBottom={Boolean(undoAction)}
+ />
 
  </div>
 

@@ -1,14 +1,20 @@
 import { getMarketingUrl } from '../lib/site';
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { X, Mail, Lock, User, UserPlus, AlertCircle, CheckCircle, Github } from 'lucide-react'
+import { X, Mail, Lock, User, UserPlus, AlertCircle, CheckCircle, Github, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { isWebAuthnAvailable, resolvePasskeyErrorCode } from '../utils/passkey'
+import {
+ getPasswordRuleChecklist,
+ getPasswordValidationKey,
+ validateStrongPassword,
+} from '../utils/passwordValidation'
 
 interface AuthModalProps {
  isOpen: boolean
  onClose: () => void
+ contextBanner?: string
 }
 
 const isRetryableAuthRequestError = (error: unknown) => {
@@ -22,13 +28,14 @@ const isRetryableAuthRequestError = (error: unknown) => {
  || message.includes('load failed')
 }
 
-export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, contextBanner }: AuthModalProps) {
  useModalScrollLock(isOpen);
- const { t, i18n } = useTranslation(['auth'])
+ const { t, i18n } = useTranslation(['auth', 'accountModals'])
  const [isLogin, setIsLogin] = useState(true)
  const [isPasswordResetMode, setIsPasswordResetMode] = useState(false)
  const [email, setEmail] = useState('')
  const [password, setPassword] = useState('')
+ const [showPassword, setShowPassword] = useState(false)
  const [nickname, setNickname] = useState('')
  const [rememberMe, setRememberMe] = useState(false)
  const [loading, setLoading] = useState(false)
@@ -88,6 +95,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  resetForm()
  }, 1000)
  } else {
+ const passwordValidationError = validateStrongPassword(password)
+ if (passwordValidationError) {
+ setError(t(getPasswordValidationKey(passwordValidationError)))
+ setLoading(false)
+ return
+ }
  const { error } = await signUp(email, password, nickname)
  if (error) throw error
 
@@ -161,24 +174,41 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   }
  }
 
- const resetForm = () => {
+ const resetForm = useCallback(() => {
  setEmail('')
  setPassword('')
+ setShowPassword(false)
  setNickname('')
  setRememberMe(false)
  setIsPasswordResetMode(false)
  setError('')
  setSuccess('')
- }
+ }, [])
 
- const handleClose = () => {
+ const busy = loading || passkeyLoading
+
+ const handleClose = useCallback(() => {
+ if (busy) return
  resetForm()
  onClose()
- }
+ }, [busy, onClose, resetForm])
+
+ useEffect(() => {
+  if (!isOpen) return undefined
+  const handleKeyDown = (event: KeyboardEvent) => {
+   if (event.key === 'Escape' && !busy) {
+    event.stopPropagation()
+    handleClose()
+   }
+  }
+  document.addEventListener('keydown', handleKeyDown)
+  return () => document.removeEventListener('keydown', handleKeyDown)
+ }, [busy, handleClose, isOpen])
 
  const switchMode = () => {
  setIsLogin(!isLogin)
  setIsPasswordResetMode(false)
+ setShowPassword(false)
  setError('')
  setSuccess('')
  setNickname('')
@@ -188,6 +218,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  setIsPasswordResetMode(true)
  setIsLogin(true)
  setPassword('')
+ setShowPassword(false)
  setRememberMe(false)
  setError('')
  setSuccess('')
@@ -196,6 +227,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  const switchToLogin = () => {
  setIsPasswordResetMode(false)
  setIsLogin(true)
+ setShowPassword(false)
  setError('')
  setSuccess('')
  }
@@ -205,29 +237,45 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  setIsPasswordResetMode(false)
  setIsLogin(false)
  setPassword('')
+ setShowPassword(false)
  setRememberMe(false)
  setError('')
  setSuccess('')
  }
 
- const busy = loading || passkeyLoading
+ const passwordRules = getPasswordRuleChecklist(password)
 
  if (!isOpen) return null
 
  return (
- <div className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-50 modal-overlay">
- <div className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full mobile-modal-panel p-6 modal-content">
+ <div
+  className="fixed inset-0 mobile-modal-viewport bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center p-4 z-[110] modal-overlay"
+  onMouseDown={event => {
+   if (event.target === event.currentTarget && !busy) {
+    handleClose()
+   }
+  }}
+ >
+ <div role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" className="bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-apple-lg max-w-md w-full mobile-modal-panel p-6 modal-content">
  <div className="flex justify-between items-center mb-6">
- <h2 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
+ <h2 id="auth-modal-title" className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
  {isPasswordResetMode ? t('auth:resetPasswordTitle') : (isLogin ? t('auth:loginTitle') : t('auth:signUpTitle'))}
  </h2>
  <button
+ type="button"
  onClick={handleClose}
+ aria-label={t('auth:closeModal')}
  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
  >
  <X className="w-6 h-6"/>
  </button>
  </div>
+
+ {contextBanner && !isPasswordResetMode && (
+  <div className="mb-4 rounded-2xl border border-emerald-200/80 dark:border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-950/30 px-3.5 py-2.5 text-sm text-emerald-900 dark:text-emerald-200">
+   {contextBanner}
+  </div>
+ )}
 
  <form onSubmit={handleSubmit} className="space-y-4">
  {!isLogin && !isPasswordResetMode && (
@@ -281,20 +329,40 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
  <div className="relative">
  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5"/>
  <input
- type="password"
+ type={showPassword ? 'text' : 'password'}
  required
  value={password}
  onChange={(e) => setPassword(e.target.value)}
- className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
+ className="w-full pl-10 pr-11 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
  placeholder={t('auth:passwordPlaceholder')}
- minLength={6}
+ minLength={isLogin ? 1 : 8}
  disabled={busy}
  />
+ <button
+ type="button"
+ onClick={() => setShowPassword(prev => !prev)}
+ disabled={busy}
+ aria-label={t(showPassword ? 'auth:hidePassword' : 'auth:showPassword')}
+ className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors disabled:opacity-50"
+ >
+ {showPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+ </button>
  </div>
  {!isLogin && (
- <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
- {t('auth:passwordHint')}
- </p>
+ <ul className="mt-2 space-y-1 text-xs">
+  <li className={`flex items-center gap-1.5 ${passwordRules.hasMinLength ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+   <span className={`w-1.5 h-1.5 rounded-full ${passwordRules.hasMinLength ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+   {t('accountModals:passwordRuleLength')}
+  </li>
+  <li className={`flex items-center gap-1.5 ${passwordRules.hasUpperAndLower ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+   <span className={`w-1.5 h-1.5 rounded-full ${passwordRules.hasUpperAndLower ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+   {t('accountModals:passwordRuleCase')}
+  </li>
+  <li className={`flex items-center gap-1.5 ${passwordRules.hasNumber ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
+   <span className={`w-1.5 h-1.5 rounded-full ${passwordRules.hasNumber ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+   {t('accountModals:passwordRuleNumber')}
+  </li>
+ </ul>
  )}
  {isLogin && (
  <div className="mt-2 text-right">
@@ -438,9 +506,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
  <div className="mt-6 text-center">
  <button
+ type="button"
  onClick={isPasswordResetMode ? switchToLogin : switchMode}
  disabled={busy}
- className="text-emerald-700 dark:text-emerald-400 dark:text-zinc-600 dark:text-zinc-400 hover:text-emerald-600 dark:text-emerald-300 dark:hover:text-zinc-700 dark:hover:text-zinc-300 text-sm font-medium transition-colors"
+ className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 text-sm font-medium transition-colors"
  >
  {isPasswordResetMode ? t('auth:backToLogin') : (isLogin ? t('auth:switchToSignUp') : t('auth:switchToLogin'))}
  </button>

@@ -1,6 +1,8 @@
 export const auth = {
  loginTitle: '登录账号',
  signUpTitle: '创建账号',
+ closeModal: '关闭弹窗',
+ aiAssistLoginHint: '登录后即可使用 AI 录入（免费 10 次/月），登录完成后将自动打开 AI 助手。',
  nicknameLabel: '昵称',
  nicknamePlaceholder: '你的显示名称',
  nicknameHint: '它会显示在你的邮箱地址前面',
@@ -8,7 +10,7 @@ export const auth = {
  emailPlaceholder: 'your@email.com',
  passwordLabel: '密码',
  passwordPlaceholder: '••••••••',
- passwordHint: '密码至少需要 6 个字符',
+ passwordHint: '至少 8 个字符，且包含大小写字母和数字',
  rememberMe: '记住我（信任这台设备）',
  forgotPassword: '忘记密码？',
  resetPasswordTitle: '重置密码',

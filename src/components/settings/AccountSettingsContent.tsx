@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
-import { User, Mail, Lock, AlertCircle, Check, Trash2 } from 'lucide-react';
+import { User, Mail, Lock, AlertCircle, Check, Trash2, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DeleteAccountDialog } from '../DeleteAccountDialog';
 import { PasskeySettingsSection } from './PasskeySettingsSection';
+import {
+  getPasswordRuleChecklist,
+  getPasswordValidationKey,
+  validateStrongPassword,
+} from '../../utils/passwordValidation';
 
 interface AccountSettingsContentProps {
   userEmail: string;
@@ -21,12 +26,14 @@ export function AccountSettingsContent({
   onUpdatePassword,
   onDeleteAccount
 }: AccountSettingsContentProps) {
-  const { t } = useTranslation(['accountModals', 'settingsHub']);
+  const { t } = useTranslation(['accountModals', 'settingsHub', 'auth']);
   
   const [nickname, setNickname] = useState(userNickname || '');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const [loadingState, setLoadingState] = useState<{ type: string, loading: boolean }>({ type: '', loading: false });
@@ -38,34 +45,35 @@ export function AccountSettingsContent({
   }, [userNickname]);
 
   const validatePassword = (value: string) => {
-    if (value.length < 8) {
-      return t('accountModals:passwordTooShort');
-    }
-
-    if (!/(?=.*[a-z])(?=.*[A-Z])/.test(value)) {
-      return t('accountModals:passwordNeedsCase');
-    }
-
-    if (!/(?=.*\d)/.test(value)) {
-      return t('accountModals:passwordNeedsNumber');
-    }
-
-    return null;
+    const code = validateStrongPassword(value);
+    return code ? t(getPasswordValidationKey(code)) : null;
   };
 
   const handleUpdateNickname = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nickname.trim() || nickname === userNickname) return;
+    const trimmed = nickname.trim();
+    if (!trimmed || trimmed === userNickname) return;
+
+    if (trimmed.length < 2 || trimmed.length > 30) {
+      setErrorState({ type: 'nickname', error: t('accountModals:nicknameLengthInvalid') });
+      return;
+    }
     
     setLoadingState({ type: 'nickname', loading: true });
     setErrorState({ type: '', error: '' });
     
     try {
-      await onUpdateNickname(nickname.trim());
+      await onUpdateNickname(trimmed);
       setSuccessState({ type: 'nickname', success: true });
       setTimeout(() => setSuccessState({ type: '', success: false }), 2000);
     } catch (error) {
-      setErrorState({ type: 'nickname', error: error instanceof Error ? error.message : t('accountModals:nicknameUpdateFailed') });
+      const rawMessage = error instanceof Error ? error.message : '';
+      const localizedError = rawMessage.includes('between 2 and 30')
+        ? t('accountModals:nicknameLengthInvalid')
+        : rawMessage.includes('cannot be empty')
+          ? t('accountModals:nicknameRequired')
+          : rawMessage || t('accountModals:nicknameUpdateFailed');
+      setErrorState({ type: 'nickname', error: localizedError });
     } finally {
       setLoadingState({ type: '', loading: false });
     }
@@ -121,6 +129,7 @@ export function AccountSettingsContent({
   };
 
   const passwordValidation = validatePassword(password);
+  const passwordRules = getPasswordRuleChecklist(password);
   const passwordsMatch = Boolean(password && confirmPassword && password === confirmPassword);
 
   return (
@@ -153,8 +162,13 @@ export function AccountSettingsContent({
                 id="settings-nickname"
                 type="text"
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                onChange={(e) => {
+                  setNickname(e.target.value);
+                  if (errorState.type === 'nickname') setErrorState({ type: '', error: '' });
+                }}
                 placeholder={t('accountModals:displayNamePlaceholder')}
+                minLength={2}
+                maxLength={30}
                 className="settings-input"
               />
               <p className="text-xs app-theme-text-muted mt-2">{t('accountModals:displayNameHint')}</p>
@@ -245,45 +259,65 @@ export function AccountSettingsContent({
               <label htmlFor="settings-new-password" className="block text-sm font-medium app-theme-text-secondary mb-2">
                 {t('accountModals:newPasswordLabel')}
               </label>
-              <input
-                id="settings-new-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t('accountModals:newPasswordPlaceholder')}
-                minLength={8}
-                className="settings-input"
-              />
+              <div className="relative">
+                <input
+                  id="settings-new-password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t('accountModals:newPasswordPlaceholder')}
+                  minLength={8}
+                  className="settings-input pr-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  aria-label={t(showPassword ? 'auth:hidePassword' : 'auth:showPassword')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                </button>
+              </div>
             </div>
 
             <div>
               <label htmlFor="settings-confirm-password" className="block text-sm font-medium app-theme-text-secondary mb-2">
                 {t('accountModals:confirmNewPasswordLabel')}
               </label>
-              <input
-                id="settings-confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder={t('accountModals:confirmNewPasswordPlaceholder')}
-                minLength={8}
-                className="settings-input"
-              />
+              <div className="relative">
+                <input
+                  id="settings-confirm-password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder={t('accountModals:confirmNewPasswordPlaceholder')}
+                  minLength={8}
+                  className="settings-input pr-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(prev => !prev)}
+                  aria-label={t(showConfirmPassword ? 'auth:hidePassword' : 'auth:showPassword')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                </button>
+              </div>
             </div>
 
             <div className="bg-gray-50 dark:bg-white/5 border border-gray-200/60 dark:border-white/10 rounded-xl p-4">
               <p className="text-xs font-medium app-theme-text-secondary mb-2">{t('accountModals:passwordRequirementsTitle')}</p>
               <ul className="space-y-1 text-xs">
-                <li className={`flex items-center gap-2 ${password.length >= 8 ? 'text-emerald-600 dark:text-emerald-400' : 'app-theme-text-muted'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${password.length >= 8 ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                <li className={`flex items-center gap-2 ${passwordRules.hasMinLength ? 'text-emerald-600 dark:text-emerald-400' : 'app-theme-text-muted'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${passwordRules.hasMinLength ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                   {t('accountModals:passwordRuleLength')}
                 </li>
-                <li className={`flex items-center gap-2 ${/(?=.*[a-z])(?=.*[A-Z])/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'app-theme-text-muted'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*[a-z])(?=.*[A-Z])/.test(password) ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                <li className={`flex items-center gap-2 ${passwordRules.hasUpperAndLower ? 'text-emerald-600 dark:text-emerald-400' : 'app-theme-text-muted'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${passwordRules.hasUpperAndLower ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                   {t('accountModals:passwordRuleCase')}
                 </li>
-                <li className={`flex items-center gap-2 ${/(?=.*\d)/.test(password) ? 'text-emerald-600 dark:text-emerald-400' : 'app-theme-text-muted'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${/(?=.*\d)/.test(password) ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                <li className={`flex items-center gap-2 ${passwordRules.hasNumber ? 'text-emerald-600 dark:text-emerald-400' : 'app-theme-text-muted'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${passwordRules.hasNumber ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                   {t('accountModals:passwordRuleNumber')}
                 </li>
                 {confirmPassword && (

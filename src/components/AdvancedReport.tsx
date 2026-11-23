@@ -36,9 +36,10 @@ export function AdvancedReport({
  onClose,
 }: AdvancedReportProps) {
  useModalScrollLock(true);
- const { t } = useTranslation(['analytics', 'currency', 'categoryLabels']);
+ const { t } = useTranslation(['analytics', 'app', 'currency', 'categoryLabels']);
  const { language } = useAppLanguage();
  const [isVisible, setIsVisible] = useState(false);
+ const [showCurrencyHelp, setShowCurrencyHelp] = useState(false);
  const [printVariant, setPrintVariant] = useState<PdfReportVariant | null>(null);
  const [printDocumentReady, setPrintDocumentReady] = useState(false);
  const handlePrintDocumentReady = useCallback(() => {
@@ -77,62 +78,107 @@ export function AdvancedReport({
  }, []);
 
  // 处理关闭动画
- const handleClose = () => {
- setIsVisible(false);
- // 等待动画完成后再真正关闭
- setTimeout(() => {
- onClose();
- }, 300); // 匹配 CSS transition 时间
- };
+ const handleClose = useCallback(() => {
+  setIsVisible(false);
+  // 等待动画完成后再真正关闭
+  setTimeout(() => {
+   onClose();
+  }, 300); // 匹配 CSS transition 时间
+ }, [onClose]);
+
+ useEffect(() => {
+  const handleKeyDown = (event: KeyboardEvent) => {
+   if (event.key === 'Escape') {
+    handleClose();
+   }
+  };
+  document.addEventListener('keydown', handleKeyDown);
+  return () => document.removeEventListener('keydown', handleKeyDown);
+ }, [handleClose]);
 
  // PDF 导出：把打印态文档挂进 DOM，等分页切成固定 A4 页后再交给浏览器打印。
- // 不走无头 Chromium —— 报表是纯 HTML/CSS，且订阅数据不必离开本机。
+ // 在 afterprint（及 matchMedia('print') 兜底）中卸载打印节点，兼容 iOS Safari 等非阻塞实现。
  useEffect(() => {
   if (!printVariant || !printDocumentReady) {
    return;
   }
 
+  let cleaned = false;
+  const cleanupPrint = () => {
+   if (cleaned) return;
+   cleaned = true;
+   setPrintVariant(null);
+   setPrintDocumentReady(false);
+  };
+
+  const mediaQuery = typeof window.matchMedia === 'function' ? window.matchMedia('print') : null;
+  const handleMediaChange = (event: MediaQueryListEvent) => {
+   if (!event.matches) {
+    cleanupPrint();
+   }
+  };
+
+  window.addEventListener('afterprint', cleanupPrint, { once: true });
+  mediaQuery?.addEventListener?.('change', handleMediaChange);
+
   window.print();
-  setPrintVariant(null);
-  setPrintDocumentReady(false);
+
+  return () => {
+   window.removeEventListener('afterprint', cleanupPrint);
+   mediaQuery?.removeEventListener?.('change', handleMediaChange);
+  };
  }, [printVariant, printDocumentReady]);
 
  return (
  <div
- className={`fixed inset-0 mobile-modal-viewport bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-out ${
+ className={`fixed inset-0 mobile-modal-viewport bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4 transition-opacity duration-300 ease-out ${
  isVisible ? 'opacity-100' : 'opacity-0'
  }`}
  onClick={handleClose}
  >
  <div
- className={`bg-[#fcfcfc]/95 dark:bg-[#0a0a0a]/95 backdrop-blur-2xl rounded-[2rem] border border-gray-200/50 dark:border-white/10 shadow-fey w-full max-w-7xl h-[calc(var(--app-viewport-height,100dvh)*0.9)] flex flex-col overflow-hidden transition-all duration-300 ease-out ${
+ role="dialog"
+ aria-modal="true"
+ aria-labelledby="advanced-report-title"
+ className={`bg-[#fcfcfc]/95 dark:bg-[#0a0a0a]/95 backdrop-blur-2xl rounded-2xl sm:rounded-[2rem] border border-gray-200/50 dark:border-white/10 shadow-fey w-full max-w-7xl h-[calc(var(--app-viewport-height,100dvh)*0.92)] sm:h-[calc(var(--app-viewport-height,100dvh)*0.9)] flex flex-col overflow-hidden transition-all duration-300 ease-out ${
  isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
  }`}
  onClick={(e) => e.stopPropagation()}
  >
     {/* Elegant Minimalist Header */}
-    <div className="flex-shrink-0 border-b border-gray-200/50 dark:border-white/10 bg-transparent px-8 py-6 relative z-10 flex items-center justify-between">
-      <div>
-        <h2 className="text-2xl font-medium text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
+    <div className="flex-shrink-0 border-b border-gray-200/50 dark:border-white/10 bg-transparent px-4 py-4 sm:px-8 sm:py-6 relative z-10 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <h2 id="advanced-report-title" className="text-lg sm:text-2xl font-medium text-gray-900 dark:text-white tracking-tight flex flex-wrap items-center gap-2 sm:gap-3">
           {t('analytics:title')}
-          <span className="px-2.5 py-1 rounded-full border border-gray-200 dark:border-white/10 text-xs text-gray-500 dark:text-gray-400 font-normal tracking-normal bg-white/50 dark:bg-white/5">
-            {isPreview ? t('analytics:previewBadge') : 'Pro'}
+          <span className="px-2.5 py-0.5 sm:py-1 rounded-full border border-gray-200 dark:border-white/10 text-xs text-gray-500 dark:text-gray-400 font-normal tracking-normal bg-white/50 dark:bg-white/5">
+            {isPreview ? t('analytics:previewBadge') : t('app:premiumBadge')}
           </span>
         </h2>
-        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mt-1.5 font-light">
-          <span>{t('analytics:analysisSummary', { currency: formatCurrencyOptionLabel(baseCurrency, t) })}</span>
-          <div className="relative group">
-            <HelpCircle className="w-4 h-4 cursor-help text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"/>
-            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-gray-900/95 dark:bg-white/95 backdrop-blur-sm text-white dark:text-gray-900 text-xs rounded-lg shadow-fey whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-xs sm:text-sm mt-1.5 font-light">
+          <span className="truncate">{t('analytics:analysisSummary', { currency: formatCurrencyOptionLabel(baseCurrency, t) })}</span>
+          <div className="relative group shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowCurrencyHelp(prev => !prev)}
+              onBlur={() => setShowCurrencyHelp(false)}
+              aria-expanded={showCurrencyHelp}
+              aria-label={t('analytics:currencyHelp')}
+              className="p-0.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              <HelpCircle className="w-4 h-4"/>
+            </button>
+            <div className={`absolute right-0 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 top-full sm:top-auto sm:bottom-full mt-2 sm:mt-0 sm:mb-2 px-3 py-2 bg-gray-900/95 dark:bg-white/95 backdrop-blur-sm text-white dark:text-gray-900 text-xs rounded-lg shadow-fey w-56 sm:w-auto sm:whitespace-nowrap transition-opacity pointer-events-none z-50 ${
+              showCurrencyHelp ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+            }`}>
               {t('analytics:currencyHelp')}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-gray-900/95 dark:border-t-white/95"></div>
             </div>
           </div>
         </div>
       </div>
       <button
+        type="button"
         onClick={handleClose}
-        className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-all text-gray-400 hover:text-gray-600 dark:hover:text-white"
+        className="shrink-0 p-2 sm:p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-all text-gray-400 hover:text-gray-600 dark:hover:text-white"
         aria-label={t('analytics:closeReportAria')}
       >
         <X className="w-5 h-5"/>
@@ -140,9 +186,9 @@ export function AdvancedReport({
     </div>
 
  {/* Scrollable Content Area */}
- <div id="report-content"className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50 dark:bg-gray-900">
+ <div id="report-content" className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50 dark:bg-gray-900">
  {/* Refined Overview Cards */}
- <div className="p-8 border-b border-gray-200/50 dark:border-white/10">
+ <div className="p-4 sm:p-8 border-b border-gray-200/50 dark:border-white/10">
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
  {/* Monthly Spend */}
  <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-gray-200 dark:border-white/10">
@@ -211,13 +257,13 @@ export function AdvancedReport({
  </div>
 
       {/* Main Content Area */}
-      <div className="p-8 space-y-8">
+      <div className="p-4 sm:p-8 space-y-6 sm:space-y-8">
         {isPreview && (
-          <div className="rounded-2xl border border-emerald-200/80 dark:border-emerald-500/30 bg-white dark:bg-white/[0.04] p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+          <div className="rounded-2xl border border-emerald-200/80 dark:border-emerald-500/30 bg-white dark:bg-white/[0.04] p-5 sm:p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-5">
             <div className="space-y-1.5 max-w-2xl">
               <div className="inline-flex items-center gap-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
                 <Lock className="w-3.5 h-3.5" />
-                <span>Pro · $9 USD</span>
+                <span>{t('analytics:premiumPlanLabel')}</span>
               </div>
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
                 {t('analytics:previewBannerTitle')}
@@ -240,7 +286,7 @@ export function AdvancedReport({
         )}
 
         <div
-          className={isPreview ? 'space-y-8 select-none pointer-events-none blur-[5px] opacity-60' : 'space-y-8'}
+          className={isPreview ? 'space-y-6 sm:space-y-8 select-none pointer-events-none blur-[5px] opacity-60' : 'space-y-6 sm:space-y-8'}
           aria-hidden={isPreview || undefined}
         >
           {/* Spending Trend Chart */}
@@ -264,26 +310,39 @@ export function AdvancedReport({
         {/* Elegant Action Buttons */}
         <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200/50 dark:border-white/5">
           <button
+            type="button"
             onClick={handleClose}
             className="px-6 py-2.5 bg-transparent text-gray-600 dark:text-gray-400 rounded-xl hover:text-gray-900 dark:hover:text-white hover:bg-gray-100/50 dark:hover:bg-white/5 transition-all text-sm font-medium"
           >
             {t('analytics:closeReport')}
           </button>
           <button
+            type="button"
             onClick={() => (isPreview ? onUpgrade?.() : setPrintVariant('snapshot'))}
             disabled={!isPreview && printVariant !== null}
             className="px-6 py-2.5 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-white/10 rounded-xl hover:bg-gray-50 dark:hover:bg-white/10 transition-all text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            <Download className="w-4 h-4"/>
+            {isPreview ? <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400"/> : <Download className="w-4 h-4"/>}
             <span>{t('analytics:pdfExportSnapshot')}</span>
+            {isPreview && (
+              <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium">
+                {t('app:premiumBadge')}
+              </span>
+            )}
           </button>
           <button
+            type="button"
             onClick={() => (isPreview ? onUpgrade?.() : setPrintVariant('annual'))}
             disabled={!isPreview && printVariant !== null}
             className="px-6 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl hover:bg-gray-800 dark:hover:bg-gray-100 transition-all text-sm font-medium shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            <Download className="w-4 h-4"/>
+            {isPreview ? <Lock className="w-4 h-4"/> : <Download className="w-4 h-4"/>}
             <span>{t('analytics:pdfExportAnnual')}</span>
+            {isPreview && (
+              <span className="px-1.5 py-0.5 rounded-md bg-white/15 dark:bg-gray-900/10 text-[11px] font-medium">
+                {t('app:premiumBadge')}
+              </span>
+            )}
           </button>
         </div>
       </div>

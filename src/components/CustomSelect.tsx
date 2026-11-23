@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -17,6 +17,7 @@ interface CustomSelectProps {
  required?: boolean;
  disabled?: boolean;
  compact?: boolean;
+ align?: 'left' | 'right';
 }
 
 export function CustomSelect({
@@ -27,29 +28,79 @@ export function CustomSelect({
  className = '',
  required = false,
  compact = false,
- disabled = false
+ disabled = false,
+ align = 'left'
 }: CustomSelectProps) {
  const { t } = useTranslation(['common']);
  const [isOpen, setIsOpen] = useState(false);
+ const [resolvedAlign, setResolvedAlign] = useState<'left' | 'right'>(align);
  const selectRef = useRef<HTMLDivElement>(null);
+ const triggerRef = useRef<HTMLButtonElement>(null);
+ const menuRef = useRef<HTMLDivElement>(null);
  const resolvedPlaceholder = placeholder ?? t('common:selectOption');
+
+ // Keep dropdown inside the viewport when opening near either edge.
+ useLayoutEffect(() => {
+  if (!isOpen) {
+   setResolvedAlign(align);
+   return;
+  }
+
+  const updateAlignment = () => {
+   const trigger = selectRef.current;
+   const menu = menuRef.current;
+   if (!trigger || !menu) return;
+
+   const triggerRect = trigger.getBoundingClientRect();
+   const menuWidth = menu.offsetWidth;
+   const margin = 12;
+   const viewportWidth = window.innerWidth;
+
+   if (align === 'right') {
+    const fitsRight = triggerRect.right - menuWidth >= margin;
+    const fitsLeft = triggerRect.left + menuWidth <= viewportWidth - margin;
+    setResolvedAlign(!fitsRight && fitsLeft ? 'left' : 'right');
+   } else {
+    const fitsLeft = triggerRect.left + menuWidth <= viewportWidth - margin;
+    const fitsRight = triggerRect.right - menuWidth >= margin;
+    setResolvedAlign(!fitsLeft && fitsRight ? 'right' : 'left');
+   }
+  };
+
+  updateAlignment();
+  window.addEventListener('resize', updateAlignment);
+  return () => window.removeEventListener('resize', updateAlignment);
+ }, [align, isOpen]);
 
  // 获取当前选中的选项
  const selectedOption = options.find(option => option.value === value);
 
- // 点击外部关闭下拉框
+ // 点击外部或按 Escape 关闭下拉框（捕获阶段拦截 Escape，避免误关外层弹窗）
  useEffect(() => {
- function handleClickOutside(event: MouseEvent) {
- if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
- setIsOpen(false);
- }
- }
+  if (!isOpen) return undefined;
 
- document.addEventListener('mousedown', handleClickOutside);
- return () => {
- document.removeEventListener('mousedown', handleClickOutside);
- };
- }, []);
+  function handleClickOutside(event: MouseEvent) {
+   if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
+    setIsOpen(false);
+   }
+  }
+
+  function handleEscape(event: KeyboardEvent) {
+   if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsOpen(false);
+    triggerRef.current?.focus();
+   }
+  }
+
+  document.addEventListener('mousedown', handleClickOutside);
+  document.addEventListener('keydown', handleEscape, true);
+  return () => {
+   document.removeEventListener('mousedown', handleClickOutside);
+   document.removeEventListener('keydown', handleEscape, true);
+  };
+ }, [isOpen]);
 
  // 键盘导航支持
  const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -58,7 +109,10 @@ export function CustomSelect({
  if (event.key === 'Enter' || event.key === ' ') {
  event.preventDefault();
  setIsOpen(!isOpen);
- } else if (event.key === 'Escape') {
+ } else if (event.key === 'Escape' && isOpen) {
+ event.preventDefault();
+ event.stopPropagation();
+ event.nativeEvent.stopPropagation();
  setIsOpen(false);
  } else if (event.key === 'ArrowDown') {
  event.preventDefault();
@@ -107,6 +161,7 @@ export function CustomSelect({
 
  {/* 自定义下拉按钮 */}
  <button
+ ref={triggerRef}
  type="button"
  onClick={() => !disabled && setIsOpen(!isOpen)}
  onKeyDown={handleKeyDown}
@@ -143,11 +198,14 @@ export function CustomSelect({
 
  {/* 下拉选项列表 */}
  {isOpen && (
- <div className={`absolute left-0 z-50 mt-1 min-w-full w-max ${compact ? 'max-w-[min(18rem,calc(100vw-6rem))]' : 'max-w-[min(18rem,calc(100vw-2rem))]'} bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-apple-lg max-h-60 overflow-y-auto`}>
+ <div
+  ref={menuRef}
+  className={`absolute ${resolvedAlign === 'right' ? 'right-0' : 'left-0'} z-50 mt-1 min-w-full w-max ${compact ? 'max-w-[min(18rem,calc(100vw-6rem))]' : 'max-w-[min(18rem,calc(100vw-2rem))]'} bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-apple-lg max-h-60 overflow-y-auto`}
+ >
  <div role="listbox" className="p-1.5 flex flex-col gap-0.5">
  {options.length === 0 ? (
  <div className="px-3 py-2 text-gray-500 dark:text-gray-400 text-sm">
- No options available
+ {t('common:noOptions')}
  </div>
  ) : (
  options.map((option) => (

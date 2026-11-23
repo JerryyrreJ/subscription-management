@@ -263,62 +263,82 @@ export function getVisibleCategories(): Category[] {
  .sort((a, b) => a.order - b.order)
 }
 
+export type CategoryValidationErrorCode =
+ | 'required'
+ | 'tooLong'
+ | 'invalidCharacters'
+ | 'duplicate'
+ | 'reserved'
+
+export interface AddCategoryResult {
+ success: boolean
+ action?: 'created' | 'restored'
+ category?: Category
+ errorCode?: CategoryValidationErrorCode
+}
+
+const VALID_CATEGORY_NAME_PATTERN = /^[\p{L}\p{M}\p{N} \-_&/+.'·()（）]+$/u
+
+const resolveCanonicalCategoryName = (name: string): string => {
+ const trimmed = name.trim()
+ return BUILT_IN_CATEGORY_ALIASES[trimmed] ?? trimmed
+}
+
+/**
+ * 添加新的自定义类型，或恢复同名的已隐藏内置类型
+ */
+export function addOrRestoreCustomCategory(categoryName: string, scope?: DataScope): AddCategoryResult {
+ if (!categoryName || typeof categoryName !== 'string') {
+  return { success: false, errorCode: 'required' }
+ }
+
+ const trimmed = categoryName.trim()
+ const validation = validateCategoryName(trimmed, undefined, { allowHiddenDuplicate: true, scope })
+ if (!validation.isValid) {
+  return { success: false, errorCode: validation.errorCode }
+ }
+
+ try {
+  const categories = loadCategories(scope)
+  const canonical = resolveCanonicalCategoryName(trimmed)
+
+  const hiddenCategory = categories.find(
+   cat =>
+    cat.isHidden &&
+    (cat.name.toLowerCase() === trimmed.toLowerCase() ||
+     cat.name.toLowerCase() === canonical.toLowerCase())
+  )
+  if (hiddenCategory) {
+   hiddenCategory.isHidden = false
+   saveCategories(categories, scope)
+   console.log(`Restored hidden category: ${hiddenCategory.name}`)
+   return { success: true, action: 'restored', category: { ...hiddenCategory } }
+  }
+
+  const maxOrder = Math.max(...categories.map(cat => cat.order), -1)
+  const newCategory: Category = {
+   id: `custom-${Date.now()}`,
+   name: trimmed,
+   order: maxOrder + 1,
+   isBuiltIn: false,
+   isHidden: false
+  }
+
+  categories.push(newCategory)
+  saveCategories(categories, scope)
+  console.log(`Added custom category: ${trimmed}`)
+  return { success: true, action: 'created', category: newCategory }
+ } catch (error) {
+  console.error('Error adding custom category:', error)
+  return { success: false }
+ }
+}
+
 /**
  * 添加新的自定义类型
  */
 export function addCustomCategory(categoryName: string): boolean {
- if (!categoryName || typeof categoryName !== 'string') {
- return false
- }
-
- const trimmed = categoryName.trim()
-
- // 验证类型名称
- const validation = validateCategoryName(trimmed)
- if (!validation.isValid) {
- return false
- }
-
- try {
- const categories = loadCategories()
-
- // 检查是否已存在（包括隐藏的）
- const exists = categories.some(cat =>
- cat.name.toLowerCase() === trimmed.toLowerCase()
- )
-
- if (exists) {
- // 如果是隐藏的内置类型，恢复它
- const hiddenCategory = categories.find(
- cat => cat.name.toLowerCase() === trimmed.toLowerCase() && cat.isHidden
- )
- if (hiddenCategory) {
- hiddenCategory.isHidden = false
- saveCategories(categories)
- console.log(`Restored hidden category: ${trimmed}`)
- return true
- }
- return false
- }
-
- // 创建新的自定义类型
- const maxOrder = Math.max(...categories.map(cat => cat.order), -1)
- const newCategory: Category = {
- id: `custom-${Date.now()}`,
- name: trimmed,
- order: maxOrder + 1,
- isBuiltIn: false,
- isHidden: false
- }
-
- categories.push(newCategory)
- saveCategories(categories)
- console.log(`Added custom category: ${trimmed}`)
- return true
- } catch (error) {
- console.error('Error adding custom category:', error)
- return false
- }
+ return addOrRestoreCustomCategory(categoryName).success
 }
 
 /**
@@ -383,32 +403,87 @@ export function restoreCategory(categoryName: string): boolean {
 }
 
 /**
+ * 生成恢复默认分类后的完整列表（取消隐藏内置分类并补全缺失项，保留自定义分类）
+ */
+export function buildRestoredDefaultCategories(categories: Category[]): Category[] {
+ const restored = categories.map(cat => (
+  cat.isBuiltIn ? { ...cat, isHidden: false } : { ...cat }
+ ))
+
+ DEFAULT_CATEGORIES.forEach(defaultCat => {
+  const exists = restored.some(cat => cat.id === defaultCat.id)
+  if (!exists) {
+   restored.push({ ...defaultCat })
+  }
+ })
+
+ return restored.map((cat, index) => ({
+  ...cat,
+  order: index
+ }))
+}
+
+/**
  * 恢复所有默认类型（重置为初始状态）
  */
-export function restoreDefaultCategories(): void {
+export function restoreDefaultCategories(scope?: DataScope): Category[] {
  try {
- const categories = loadCategories()
-
- // 将所有内置类型设为可见
- categories.forEach(cat => {
- if (cat.isBuiltIn) {
- cat.isHidden = false
- }
- })
-
- // 检查是否缺少默认类型，如果缺少则添加
- DEFAULT_CATEGORIES.forEach(defaultCat => {
- const exists = categories.find(cat => cat.id === defaultCat.id)
- if (!exists) {
- categories.push({ ...defaultCat })
- }
- })
-
- saveCategories(categories)
- console.log('Restored all default categories')
+  const restored = buildRestoredDefaultCategories(loadCategories(scope))
+  saveCategories(restored, scope)
+  console.log('Restored all default categories')
+  return restored
  } catch (error) {
- console.error('Error restoring default categories:', error)
+  console.error('Error restoring default categories:', error)
+  return loadCategories(scope)
  }
+}
+
+/**
+ * 按分类 ID 调整完整列表顺序，避免隐藏项过滤导致的下标错位
+ */
+export function reorderCategoriesById(
+ categories: Category[],
+ draggedId: string,
+ targetId: string
+): Category[] {
+ const fromIndex = categories.findIndex(cat => cat.id === draggedId)
+ const toIndex = categories.findIndex(cat => cat.id === targetId)
+
+ if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
+  return categories
+ }
+
+ const reordered = [...categories]
+ const [draggedItem] = reordered.splice(fromIndex, 1)
+ reordered.splice(toIndex, 0, draggedItem)
+
+ return reordered.map((cat, index) => ({
+  ...cat,
+  order: index
+ }))
+}
+
+/**
+ * 在当前展示列表上下文中将分类上移或下移一位（支持触屏与键盘排序）
+ */
+export function moveVisibleCategory(
+ categories: Category[],
+ categoryId: string,
+ direction: 'up' | 'down',
+ includeHidden: boolean
+): Category[] {
+ const displayed = includeHidden ? categories : categories.filter(cat => !cat.isHidden)
+ const currentIndex = displayed.findIndex(cat => cat.id === categoryId)
+ if (currentIndex === -1) {
+  return categories
+ }
+
+ const neighbor = displayed[currentIndex + (direction === 'up' ? -1 : 1)]
+ if (!neighbor) {
+  return categories
+ }
+
+ return reorderCategoriesById(categories, categoryId, neighbor.id)
 }
 
 /**
@@ -417,10 +492,11 @@ export function restoreDefaultCategories(): void {
 export function updateCategoriesOrder(reorderedCategories: Category[]): void {
  try {
  // 更新 order 字段
- reorderedCategories.forEach((cat, index) => {
- cat.order = index
- })
- saveCategories(reorderedCategories)
+ const normalized = reorderedCategories.map((cat, index) => ({
+  ...cat,
+  order: index
+ }))
+ saveCategories(normalized)
  console.log('Updated categories order')
  } catch (error) {
  console.error('Error updating categories order:', error)
@@ -439,40 +515,58 @@ export function isCustomCategory(categoryName: string): boolean {
 /**
  * 验证类型名称是否有效
  */
-export function validateCategoryName(categoryName: string, excludeId?: string): {
+export function validateCategoryName(
+ categoryName: string,
+ excludeId?: string,
+ options?: { allowHiddenDuplicate?: boolean; scope?: DataScope }
+): {
  isValid: boolean
  error?: string
+ errorCode?: CategoryValidationErrorCode
 } {
  if (!categoryName || typeof categoryName !== 'string') {
- return { isValid: false, error: 'Category name is required' }
+ return { isValid: false, error: 'Category name is required', errorCode: 'required' }
  }
 
  const trimmed = categoryName.trim()
 
  if (trimmed.length === 0) {
- return { isValid: false, error: 'Category name cannot be empty' }
+ return { isValid: false, error: 'Category name cannot be empty', errorCode: 'required' }
  }
 
  if (trimmed.length > 50) {
- return { isValid: false, error: 'Category name must be 50 characters or less' }
+ return { isValid: false, error: 'Category name must be 50 characters or less', errorCode: 'tooLong' }
  }
 
- // 检查特殊字符
- if (!/^[a-zA-Z0-9\s\-&]+$/.test(trimmed)) {
+ // 允许中文及多语言字母、数字、空格及常见安全标点，拦截控制字符与特殊符号
+ if (!VALID_CATEGORY_NAME_PATTERN.test(trimmed)) {
  return {
  isValid: false,
- error: 'Category name can only contain letters, numbers, spaces, hyphens, and &'
+ error: 'Category name contains unsupported characters',
+ errorCode: 'invalidCharacters'
  }
  }
 
- // 检查是否已存在（排除当前编辑的类型）
- const categories = loadCategories()
- const exists = categories.some(cat =>
- cat.id !== excludeId && cat.name.toLowerCase() === trimmed.toLowerCase()
- )
+ const canonical = resolveCanonicalCategoryName(trimmed)
+ if (canonical.toLowerCase() === FALLBACK_CATEGORY.toLowerCase()) {
+ return {
+ isValid: false,
+ error: 'This category name is reserved',
+ errorCode: 'reserved'
+ }
+ }
+
+ // 检查是否已存在（排除当前编辑的类型；若允许恢复隐藏项则仅与可见分类判重）
+ const categories = loadCategories(options?.scope)
+ const exists = categories.some(cat => {
+  if (cat.id === excludeId) return false
+  if (options?.allowHiddenDuplicate && cat.isHidden) return false
+  const catLower = cat.name.toLowerCase()
+  return catLower === trimmed.toLowerCase() || catLower === canonical.toLowerCase()
+ })
 
  if (exists) {
- return { isValid: false, error: 'This category already exists' }
+ return { isValid: false, error: 'This category already exists', errorCode: 'duplicate' }
  }
 
  return { isValid: true }

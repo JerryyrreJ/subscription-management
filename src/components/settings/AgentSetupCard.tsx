@@ -20,6 +20,7 @@ export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardPro
  const [mode, setMode] = useState<AgentConnectionMode>('mcp');
  const [includeKey, setIncludeKey] = useState(false);
  const [copied, setCopied] = useState(false);
+ const [copiedSnippet, setCopiedSnippet] = useState<'remote' | 'desktop' | 'codex' | null>(null);
  const [copyError, setCopyError] = useState(false);
  const [verification, setVerification] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
  const [verificationError, setVerificationError] = useState('');
@@ -50,6 +51,11 @@ export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardPro
   const timer = window.setTimeout(() => setCopied(false), 2000);
   return () => window.clearTimeout(timer);
  }, [copied]);
+ useEffect(() => {
+  if (!copiedSnippet) return;
+  const timer = window.setTimeout(() => setCopiedSnippet(null), 2000);
+  return () => window.clearTimeout(timer);
+ }, [copiedSnippet]);
 
  const handleStepKeyClick = () => {
   const input = document.getElementById('settings-api-key-name') as HTMLInputElement | null;
@@ -68,6 +74,15 @@ export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardPro
   } catch {
    setCopyError(true);
    setShowPrompt(true);
+  }
+ };
+ const copySnippet = async (id: 'remote' | 'desktop' | 'codex', value: string) => {
+  try {
+   await navigator.clipboard.writeText(value);
+   setCopiedSnippet(id);
+   setCopyError(false);
+  } catch {
+   setCopyError(true);
   }
  };
  const verify = async () => {
@@ -130,18 +145,28 @@ export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardPro
    {showSnippets && (
     <div id="agent-client-snippets" className="space-y-2.5 rounded-xl border border-gray-200 dark:border-gray-800 p-3 text-xs">
      <p className="app-theme-text-muted leading-relaxed">{t('agentSnippetsHint')}</p>
-     <div>
-      <p className="font-medium app-theme-text-primary mb-1">{t('agentSnippetRemoteLabel')}</p>
-      <pre className="overflow-x-auto rounded-lg bg-gray-100 dark:bg-gray-950 p-2 font-mono text-[11px] app-theme-text-primary">{snippets.claudeCodeRemoteCmd}</pre>
-     </div>
-     <div>
-      <p className="font-medium app-theme-text-primary mb-1">{t('agentSnippetDesktopLabel')}</p>
-      <pre className="overflow-x-auto rounded-lg bg-gray-100 dark:bg-gray-950 p-2 font-mono text-[11px] app-theme-text-primary">{snippets.claudeDesktopJson}</pre>
-     </div>
-     <div>
-      <p className="font-medium app-theme-text-primary mb-1">{t('agentSnippetCodexLabel')}</p>
-      <pre className="overflow-x-auto rounded-lg bg-gray-100 dark:bg-gray-950 p-2 font-mono text-[11px] app-theme-text-primary">{snippets.codexToml}</pre>
-     </div>
+     {(
+      [
+       { id: 'remote' as const, label: t('agentSnippetRemoteLabel'), code: snippets.claudeCodeRemoteCmd },
+       { id: 'desktop' as const, label: t('agentSnippetDesktopLabel'), code: snippets.claudeDesktopJson },
+       { id: 'codex' as const, label: t('agentSnippetCodexLabel'), code: snippets.codexToml },
+      ]
+     ).map(item => (
+      <div key={item.id}>
+       <div className="flex items-center justify-between gap-2 mb-1">
+        <p className="font-medium app-theme-text-primary">{item.label}</p>
+        <button
+         type="button"
+         onClick={() => void copySnippet(item.id, item.code)}
+         className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 app-theme-text-secondary text-[11px] font-medium transition-colors"
+        >
+         {copiedSnippet === item.id ? <Check size={12} aria-hidden="true" /> : <Clipboard size={12} aria-hidden="true" />}
+         {copiedSnippet === item.id ? t('copied') : t('copy')}
+        </button>
+       </div>
+       <pre className="overflow-x-auto rounded-lg bg-gray-100 dark:bg-gray-950 p-2 font-mono text-[11px] app-theme-text-primary">{item.code}</pre>
+      </div>
+     ))}
     </div>
    )}
    {!apiKey && (

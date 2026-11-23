@@ -8,6 +8,7 @@ interface UserMenuProps {
   userProfile: { nickname?: string; is_premium?: boolean } | null;
   syncStatus: 'idle' | 'syncing' | 'success' | 'error';
   lastSyncTime: Date | null;
+  pendingSyncCount?: number;
   onOpenSettings: () => void;
   onPricingClick?: () => void;
   onSignOut: () => void;
@@ -15,7 +16,7 @@ interface UserMenuProps {
   onLogin?: () => void;
 }
 
-export function UserMenu({ user, userProfile, syncStatus, lastSyncTime, onOpenSettings, onPricingClick, onSignOut, onSync, onLogin }: UserMenuProps) {
+export function UserMenu({ user, userProfile, syncStatus, lastSyncTime, pendingSyncCount = 0, onOpenSettings, onPricingClick, onSignOut, onSync, onLogin }: UserMenuProps) {
   const { t } = useTranslation(['userMenu', 'settingsHub']);
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -86,13 +87,25 @@ export function UserMenu({ user, userProfile, syncStatus, lastSyncTime, onOpenSe
         ref={triggerRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        aria-label={t('userMenu:accountMenu')}
+        aria-label={
+          user && (syncStatus === 'error' || pendingSyncCount > 0)
+            ? `${t('userMenu:accountMenu')} (${t(syncStatus === 'error' ? 'userMenu:syncFailed' : 'userMenu:pendingSyncChanges', { count: pendingSyncCount })})`
+            : t('userMenu:accountMenu')
+        }
         aria-haspopup="menu"
         aria-controls={isOpen ? menuId : undefined}
         aria-expanded={isOpen}
-        className="settings-icon-button app-theme-chip"
+        className="relative settings-icon-button app-theme-chip"
       >
         <User size={17} aria-hidden="true" />
+        {user && (syncStatus === 'error' || pendingSyncCount > 0) && (
+          <span
+            aria-hidden="true"
+            className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ring-2 ring-white dark:ring-[#1b1f20] ${
+              syncStatus === 'error' ? 'bg-red-500' : 'bg-amber-500'
+            }`}
+          />
+        )}
       </button>
       {isOpen && (
         <div
@@ -118,8 +131,14 @@ export function UserMenu({ user, userProfile, syncStatus, lastSyncTime, onOpenSe
           {user ? (
             <div className="account-menu-sync">
               {syncStatus === 'syncing' ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Cloud size={15} aria-hidden="true" />}
-              <span role="status" className={`min-w-0 flex-1 ${syncStatus === 'error' ? 'text-red-600 dark:text-red-400' : ''}`}>
-                {syncStatus === 'syncing' ? t('userMenu:syncing') : syncStatus === 'error' ? t('userMenu:syncFailed') : getTimeAgo()}
+              <span role="status" className={`min-w-0 flex-1 ${syncStatus === 'error' ? 'text-red-600 dark:text-red-400' : pendingSyncCount > 0 ? 'text-amber-600 dark:text-amber-400' : ''}`}>
+                {syncStatus === 'syncing'
+                  ? t('userMenu:syncing')
+                  : syncStatus === 'error'
+                    ? t('userMenu:syncFailed')
+                    : pendingSyncCount > 0
+                      ? t('userMenu:pendingSyncChanges', { count: pendingSyncCount })
+                      : getTimeAgo()}
               </span>
               <button type="button" role="menuitem" disabled={syncStatus === 'syncing'} onClick={onSync}
                 aria-label={t('userMenu:syncNow')} title={t('userMenu:syncNow')} className="account-menu-sync-button">

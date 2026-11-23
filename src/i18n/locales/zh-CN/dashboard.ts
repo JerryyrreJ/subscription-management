@@ -12,6 +12,9 @@ export const dashboard = {
  yearly: '每年',
  totalCost: '{{mode}}总支出',
  activeCount: '{{count}} 个进行中',
+ trialCountOne: '{{count}} 个试用中',
+ trialCountOther: '{{count}} 个试用中',
+ trialsWithExpiredCount: '{{count}} 个试用（{{expired}} 个已结束）',
  sortAscending: '升序排序',
  sortDescending: '降序排序',
 };

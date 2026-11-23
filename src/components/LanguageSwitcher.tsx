@@ -34,16 +34,22 @@ export function LanguageSwitcher() {
       ref={rootRef}
       className="header-language"
       onBlur={event => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
+        // Touch browsers and Safari can blur a focused button without focusing the
+        // tapped option (relatedTarget === null); unmounting here discards the click.
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
       }}
       onKeyDown={event => {
-        if (isOpen && (event.key === 'Escape' || event.key === 'Tab')) {
+        if (isOpen && event.key === 'Tab') {
+          requestAnimationFrame(() => {
+            if (!rootRef.current?.contains(document.activeElement)) setIsOpen(false);
+          });
+          return;
+        }
+        if (isOpen && event.key === 'Escape') {
           setIsOpen(false);
           triggerRef.current?.focus();
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            event.stopPropagation();
-          }
+          event.preventDefault();
+          event.stopPropagation();
           return;
         }
         if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {

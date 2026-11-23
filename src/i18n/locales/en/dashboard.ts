@@ -12,6 +12,9 @@ export const dashboard = {
  yearly: 'Yearly',
  totalCost: 'Total {{mode}} cost',
  activeCount: '{{count}} active',
+ trialCountOne: '{{count}} trial',
+ trialCountOther: '{{count}} trials',
+ trialsWithExpiredCount: '{{count}} trials ({{expired}} ended)',
  sortAscending: 'Sort Ascending',
  sortDescending: 'Sort Descending',
 };

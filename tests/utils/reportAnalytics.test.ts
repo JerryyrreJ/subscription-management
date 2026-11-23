@@ -204,7 +204,10 @@ test('generateOptimizationSuggestions and generateReportData handle empty and po
 
   const categorySuggestion = suggestions.find(item => item.type === 'multiple_in_category');
   assert.equal(categorySuggestion?.subscriptions.length, 3);
-  assert.ok(Math.abs((categorySuggestion?.potentialSaving ?? 0) - 9) < 1e-9);
+  assert.ok(Math.abs((categorySuggestion?.potentialSaving ?? 0) - 108) < 1e-9);
+
+  const annualSuggestion = suggestions.find(item => item.type === 'annual_saving');
+  assert.ok(Math.abs((annualSuggestion?.potentialSaving ?? 0) - 234) < 1e-9);
 
   const topTwo = getTopSubscriptions(populated, 'USD', rates, stubT, 2);
   assert.equal(topTwo.length, 2);

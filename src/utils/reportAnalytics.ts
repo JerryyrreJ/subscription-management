@@ -443,7 +443,7 @@ suggestions.push({
   ),
   { count: subs.length, category: displayCategory }
  ),
- potentialSaving: totalCost * 0.3, // Assume 30% potential savings
+ potentialSaving: totalCost * 12 * 0.3, // Annualized 30% potential savings (matches annual_saving unit)
  subscriptions: subs.map(s => s.name),
  });
  }

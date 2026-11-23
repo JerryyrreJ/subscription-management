@@ -3,6 +3,7 @@ import { User } from '@supabase/supabase-js'
 import { CloudMutationResult } from '../types'
 import {
  Category,
+ buildRestoredDefaultCategories,
  clearPendingCategorySync,
  loadCategories,
  loadPendingCategorySync,
@@ -36,6 +37,7 @@ interface UseCategorySyncReturn {
  updateCategory: (category: Category) => Promise<CloudMutationResult<Category>>
  deleteCategory: (categoryId: string) => Promise<CloudMutationResult<void>>
  updateCategoriesOrder: (categories: Category[]) => Promise<CloudMutationResult<Category[]>>
+ restoreDefaultCategories: () => Promise<CloudMutationResult<Category[]>>
 }
 
 export function useCategorySync(
@@ -348,6 +350,42 @@ export function useCategorySync(
  return buildCloudMutationResult(reorderedCategories, true, false)
  }, [buildCloudMutationResult, persistCategories, refreshOwnedGuestData, resolveScope, scheduleStatusReset, user])
 
+ // 恢复默认类别（自动同步）
+ const restoreDefaultCategories = useCallback(async (): Promise<CloudMutationResult<Category[]>> => {
+ const scope = resolveScope()
+ const hadPendingSync = Boolean(loadPendingCategorySync(scope))
+ const restoredCategories = buildRestoredDefaultCategories(loadCategories(scope))
+
+ stageCategorySnapshot(restoredCategories, {
+  persistCategories,
+  savePendingSnapshot: categories => savePendingCategorySync(categories, scope),
+ })
+
+ if (config.features.cloudSync && user) {
+  try {
+   const syncedCategories = await finalizeCategoryCloudMutation({
+    hadPendingSnapshot: hadPendingSync,
+    executeCloudMutation: () => CategoryService.reconcileCategories(restoredCategories),
+    clearPendingSnapshot: () => clearPendingCategorySync(scope),
+    markSyncSuccess: () => {
+     setLastSyncTime(new Date())
+     claimLocalDataOwnership(user.id, getUserDataScope(user.id))
+    }
+   })
+   persistCategories(syncedCategories)
+   return buildCloudMutationResult(syncedCategories, true, hadPendingSync)
+  } catch (error) {
+   console.error('Failed to restore default categories online:', error)
+   refreshOwnedGuestData()
+   scheduleStatusReset('error', 5000)
+   return buildCloudMutationResult(restoredCategories, false, true)
+  }
+ }
+
+ refreshOwnedGuestData()
+ return buildCloudMutationResult(restoredCategories, true, false)
+ }, [buildCloudMutationResult, persistCategories, refreshOwnedGuestData, resolveScope, scheduleStatusReset, user])
+
  return {
  syncStatus,
  lastSyncTime,
@@ -356,6 +394,7 @@ export function useCategorySync(
  createCategory,
  updateCategory,
  deleteCategory,
- updateCategoriesOrder
+ updateCategoriesOrder,
+ restoreDefaultCategories
  }
 }

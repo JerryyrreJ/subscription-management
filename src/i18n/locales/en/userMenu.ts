@@ -12,6 +12,7 @@ export const userMenu = {
  syncedDaysAgo: 'Synced {{count}}d ago',
  syncing: 'Syncing...',
  syncFailed: 'Sync failed',
+ pendingSyncChanges: '{{count}} unsynced change(s)',
  syncNow: 'Sync Now',
  loginToSync: 'Login to Sync',
  editNickname: 'Edit Nickname',

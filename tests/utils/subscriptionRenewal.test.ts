@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Subscription } from '../../src/types.ts';
-import { resolveSubscriptionRenewal } from '../../src/utils/subscriptionRenewal.ts';
+import {
+ buildConvertedPaidSubscription,
+ isExpiredTrial,
+ resolveSubscriptionRenewal,
+ resolveTrialConversionDates,
+} from '../../src/utils/subscriptionRenewal.ts';
 
 const createSubscription = (overrides: Partial<Subscription> = {}): Subscription => ({
  id: overrides.id || 'sub-1',
@@ -163,5 +168,91 @@ test('resolveSubscriptionRenewal preserves leap-day yearly cadence across non-le
   assert.equal(renewal.daysUntilEffectiveNextPayment, 19);
   assert.equal(renewal.isAutoRenewed, true);
  });
+});
+
+test('isExpiredTrial returns true only for free trials past their end date', () => {
+ withMockedNow('2026-04-21T07:03:48.016Z', () => {
+  assert.equal(isExpiredTrial(createSubscription({
+   isTrial: true,
+   trialEndsOn: '2026-04-20',
+   nextPaymentDate: '2026-04-20',
+  }), 'UTC'), true);
+
+  assert.equal(isExpiredTrial(createSubscription({
+   isTrial: true,
+   trialEndsOn: '2026-04-21',
+   nextPaymentDate: '2026-04-21',
+  }), 'UTC'), false);
+
+  assert.equal(isExpiredTrial(createSubscription({
+   isTrial: false,
+   nextPaymentDate: '2026-01-01',
+  }), 'UTC'), false);
+ });
+});
+
+test('resolveTrialConversionDates rolls expired monthly trial forward and preserves Jan 31 anchor day', () => {
+ withMockedNow('2026-03-10T12:00:00.000Z', () => {
+  const dates = resolveTrialConversionDates(createSubscription({
+   isTrial: true,
+   period: 'monthly',
+   trialEndsOn: '2026-01-31',
+   nextPaymentDate: '2026-01-31',
+   lastPaymentDate: '2025-12-31',
+  }), 'UTC');
+
+  assert.equal(dates.lastPaymentDate, '2026-02-28');
+  assert.equal(dates.nextPaymentDate, '2026-03-31');
+  assert.equal(dates.billingAnchorDay, 31);
+ });
+});
+
+test('resolveTrialConversionDates keeps upcoming trial end date when converting an active trial early', () => {
+ withMockedNow('2026-04-10T12:00:00.000Z', () => {
+  const dates = resolveTrialConversionDates(createSubscription({
+   isTrial: true,
+   period: 'monthly',
+   trialEndsOn: '2026-04-25',
+   nextPaymentDate: '2026-04-25',
+   lastPaymentDate: '2026-03-25',
+  }), 'UTC');
+
+  assert.equal(dates.lastPaymentDate, '2026-03-25');
+  assert.equal(dates.nextPaymentDate, '2026-04-25');
+  assert.equal(dates.billingAnchorDay, 25);
+ });
+});
+
+test('buildConvertedPaidSubscription clears trial flags and advances expired yearly and custom trials', () => {
+ const now = new Date('2026-06-16T12:00:00.000Z');
+
+ const yearlyConverted = buildConvertedPaidSubscription(createSubscription({
+  isTrial: true,
+  period: 'yearly',
+  trialEndsOn: '2025-05-01',
+  nextPaymentDate: '2025-05-01',
+  lastPaymentDate: '2024-05-01',
+ }), 'UTC', now);
+
+ assert.equal(yearlyConverted.isTrial, false);
+ assert.equal(yearlyConverted.trialEndsOn, undefined);
+ assert.equal(yearlyConverted.lastPaymentDate, '2026-05-01');
+ assert.equal(yearlyConverted.nextPaymentDate, '2027-05-01');
+ assert.equal(yearlyConverted.billingAnchorDay, undefined);
+ assert.equal(yearlyConverted.updatedAt, '2026-06-16T12:00:00.000Z');
+
+ const customConverted = buildConvertedPaidSubscription(createSubscription({
+  isTrial: true,
+  period: 'custom',
+  customDate: '14',
+  trialEndsOn: '2026-06-01',
+  nextPaymentDate: '2026-06-01',
+  lastPaymentDate: '2026-05-18',
+ }), 'UTC', now);
+
+ assert.equal(customConverted.isTrial, false);
+ assert.equal(customConverted.trialEndsOn, undefined);
+ assert.equal(customConverted.lastPaymentDate, '2026-06-15');
+ assert.equal(customConverted.nextPaymentDate, '2026-06-29');
 });
 

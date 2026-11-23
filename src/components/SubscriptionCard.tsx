@@ -44,6 +44,8 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  }, [autoRenewKey, onAutoRenew, renewal.effectiveLastPaymentDate, renewal.effectiveNextPaymentDate, shouldAutoRenew, subscription.id]);
 
  const daysUntil = renewal.daysUntilEffectiveNextPayment;
+ const isTrialExpired = isTrial && daysUntil < 0;
+ const expiredDaysAgo = Math.abs(daysUntil);
  const isUpcoming = daysUntil <= 7 && daysUntil >= 0;
 
  const cycleUsage = getBillingCycleUsage(
@@ -71,12 +73,13 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  return (
  <div
  onClick={onClick}
- className="min-h-[200px] sm:min-h-[216px] bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey p-4 sm:p-6 transform transition-all duration-300 hover:border-emerald-500 cursor-pointer app-theme-card"
+ data-trial-expired={isTrialExpired ? 'true' : undefined}
+ className="min-h-[200px] sm:min-h-[216px] bg-white dark:bg-[#1a1c1e] rounded-3xl shadow-fey p-4 sm:p-6 transform transition-all duration-300 hover:border-emerald-500 cursor-pointer app-theme-card subscription-card-enter"
  role="button"
  tabIndex={0}
  onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.currentTarget.click(); } }}
  style={{
- animation: `fadeSlideIn 0.5s ease-out ${index * 0.1}s both`,
+ animation: `fadeSlideIn 0.4s ease-out ${Math.min(index, 8) * 0.04}s both`,
  }}
  >
  <div className="flex justify-between items-start mb-3 sm:mb-4">
@@ -85,8 +88,12 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  <div className="flex items-center gap-2 min-w-0">
  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 app-theme-text-muted truncate">{getCategoryDisplayName(subscription.category, t)}</span>
  {isTrial && (
-  <span className="flex-shrink-0 text-[10px] sm:text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
-   {t('subscriptionCard:trialBadge')}
+  <span className={`flex-shrink-0 text-[10px] sm:text-xs font-medium px-2 py-0.5 rounded-full ${
+   isTrialExpired
+    ? 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50'
+    : 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
+  }`}>
+   {isTrialExpired ? t('subscriptionCard:trialExpiredBadge') : t('subscriptionCard:trialBadge')}
   </span>
  )}
  </div>
@@ -109,7 +116,19 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  </span>
  </div>
 
- {isUpcoming && (
+ {isTrialExpired ? (
+  <div className="flex items-center space-x-1 text-rose-600 dark:text-rose-400">
+   <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"/>
+   <span className="text-xs sm:text-sm font-medium">
+    {t(
+     expiredDaysAgo === 1
+      ? 'subscriptionCard:trialEndedDaysAgoOne'
+      : 'subscriptionCard:trialEndedDaysAgoOther',
+     { count: expiredDaysAgo }
+    )}
+   </span>
+  </div>
+ ) : isUpcoming && (
  <div className="flex items-center space-x-1 text-amber-600">
  <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4"/>
  <span className="text-xs sm:text-sm font-medium">
@@ -129,7 +148,11 @@ export function SubscriptionCard({ subscription, index, onClick, onAutoRenew }: 
  <div className="mt-3 sm:mt-4">
  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 sm:h-2 overflow-hidden app-theme-progress-track">
  <div
- className="bg-emerald-600 dark:bg-emerald-500 h-full rounded-full transition-all duration-500"
+ className={`h-full rounded-full transition-all duration-500 ${
+  isTrialExpired
+   ? 'bg-rose-500 dark:bg-rose-400'
+   : 'bg-emerald-600 dark:bg-emerald-500'
+ }`}
  style={{ width: `${progress}%` }}
  />
  </div>

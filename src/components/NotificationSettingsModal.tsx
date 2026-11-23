@@ -1,6 +1,6 @@
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
-import { useState, useEffect } from 'react';
-import { X, Bell, Send, BookOpen, ExternalLink, LogIn } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { X, Bell, Send, BookOpen, ExternalLink, LogIn, Check, Loader2, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ReminderSettings } from '../types';
 import { testBarkPush, validateBarkConfig } from '../utils/barkPush';
@@ -14,7 +14,7 @@ interface NotificationSettingsModalProps {
  isOpen: boolean;
  onClose: () => void;
  settings: ReminderSettings;
- onSave: (settings: ReminderSettings) => void;
+ onSave: (settings: ReminderSettings) => void | Promise<void | { cloudSynced: boolean }>;
  onOpenAuth?: () => void;
  isStandalone?: boolean;
 }
@@ -28,7 +28,7 @@ export function NotificationSettingsModal({
  isStandalone = true
 }: NotificationSettingsModalProps) {
  useModalScrollLock(isOpen && isStandalone);
-  const { t } = useTranslation(['notificationSettings', 'settingsHub']);
+ const { t } = useTranslation(['notificationSettings', 'settingsHub']);
  const { language } = useAppLanguage();
  const { user } = useAuth();
  const requiresLogin = !user;
@@ -36,55 +36,94 @@ export function NotificationSettingsModal({
  const [isTesting, setIsTesting] = useState(false);
  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
  const [barkUrl, setBarkUrl] = useState('');
+ const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'localOnly'>('idle');
+ const saveResetTimerRef = useRef<number | null>(null);
 
  const reminderGuideUrl = getDocumentationUrl('user-guide/reminders', language);
+ const parsedBarkUrl = useMemo(
+  () => (barkUrl.trim() ? parseBarkUrl(barkUrl) : null),
+  [barkUrl]
+ );
+
+ const clearSaveTimer = () => {
+  if (saveResetTimerRef.current !== null) {
+   window.clearTimeout(saveResetTimerRef.current);
+   saveResetTimerRef.current = null;
+  }
+ };
+
+ useEffect(() => () => clearSaveTimer(), []);
 
  // Handle Bark URL input change
  const handleBarkUrlChange = (url: string) => {
- setBarkUrl(url);
+  setBarkUrl(url);
+  setSaveStatus('idle');
+  clearSaveTimer();
 
- setLocalSettings(prev => ({
- ...prev,
- barkPush: updateBarkPushFromUrl(prev.barkPush, url)
- }));
+  setLocalSettings(prev => ({
+   ...prev,
+   barkPush: updateBarkPushFromUrl(prev.barkPush, url)
+  }));
 
- if (testResult) {
- setTestResult(null);
- }
+  if (testResult) {
+   setTestResult(null);
+  }
  };
 
  useEffect(() => {
- setLocalSettings(settings);
- // Initialize Bark URL if server and device key exist
- if (settings.barkPush.serverUrl && settings.barkPush.deviceKey) {
- setBarkUrl(`${settings.barkPush.serverUrl}/${settings.barkPush.deviceKey}`);
- }
+  setLocalSettings(settings);
+  if (settings.barkPush.serverUrl && settings.barkPush.deviceKey) {
+   setBarkUrl(`${settings.barkPush.serverUrl}/${settings.barkPush.deviceKey}`);
+  } else {
+   setBarkUrl('');
+  }
  }, [settings]);
 
- const handleSave = () => {
- // If user is not logged in, redirect to login
- if (requiresLogin) {
-  onClose();
-  if (onOpenAuth) {
-  onOpenAuth();
- }
- return;
- }
+ const handleSave = async () => {
+  // If user is not logged in, redirect to login
+  if (requiresLogin) {
+   onClose();
+   if (onOpenAuth) {
+    onOpenAuth();
+   }
+   return;
+  }
 
- if (localSettings.barkPush.enabled) {
- const validation = validateBarkConfig(
- localSettings.barkPush.serverUrl,
- localSettings.barkPush.deviceKey
- );
+  if (localSettings.barkPush.enabled) {
+   const validation = validateBarkConfig(
+    localSettings.barkPush.serverUrl,
+    localSettings.barkPush.deviceKey
+   );
 
- if (!validation.valid) {
- setTestResult({ success: false, message: validation.error || t('notificationSettings:invalidBarkConfig') });
- return;
- }
- }
+   if (!validation.valid) {
+    setTestResult({ success: false, message: validation.error || t('notificationSettings:invalidBarkConfig') });
+    return;
+   }
+  }
 
- onSave(localSettings);
- onClose();
+  clearSaveTimer();
+  setSaveStatus('saving');
+  setTestResult(null);
+
+  try {
+   const result = await onSave(localSettings);
+   if (result && result.cloudSynced === false) {
+    setSaveStatus('localOnly');
+    return;
+   }
+
+   setSaveStatus('saved');
+   if (isStandalone) {
+    onClose();
+   } else {
+    saveResetTimerRef.current = window.setTimeout(() => {
+     setSaveStatus('idle');
+     saveResetTimerRef.current = null;
+    }, 2500);
+   }
+  } catch {
+   setSaveStatus('localOnly');
+  }
  };
 
  const handleTestBark = async () => {
@@ -150,7 +189,9 @@ export function NotificationSettingsModal({
   </h2>
   </div>
   <button
+  type="button"
   onClick={onClose}
+  aria-label={t('notificationSettings:cancel')}
   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
   >
   <X className="w-6 h-6"/>
@@ -243,13 +284,17 @@ export function NotificationSettingsModal({
  type="checkbox"
  checked={localSettings.barkPush.enabled}
  disabled={requiresLogin}
- onChange={(e) => setLocalSettings({
- ...localSettings,
- barkPush: {
- ...localSettings.barkPush,
- enabled: e.target.checked
- }
- })}
+ onChange={(e) => {
+  setSaveStatus('idle');
+  clearSaveTimer();
+  setLocalSettings({
+   ...localSettings,
+   barkPush: {
+    ...localSettings.barkPush,
+    enabled: e.target.checked
+   }
+  });
+ }}
  className="w-4 h-4 text-emerald-700 dark:text-emerald-400 border-gray-300 rounded-lg focus:ring-emerald-500"
  />
  <span className="text-sm app-theme-text-secondary">
@@ -274,13 +319,20 @@ export function NotificationSettingsModal({
  <p className="mt-1 text-xs app-theme-text-muted">
  📋 {t('notificationSettings:barkUrlHint')}
  </p>
- {barkUrl && parseBarkUrl(barkUrl).valid && (
+ {parsedBarkUrl?.valid && (
  <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-xs">
  <p className="text-green-800 dark:text-green-200">
  ✓ {t('notificationSettings:barkUrlValid', {
-  serverUrl: parseBarkUrl(barkUrl).serverUrl,
-  deviceKey: parseBarkUrl(barkUrl).deviceKey,
+  serverUrl: parsedBarkUrl.serverUrl,
+  deviceKey: parsedBarkUrl.deviceKey,
  })}
+ </p>
+ </div>
+ )}
+ {parsedBarkUrl && !parsedBarkUrl.valid && (
+ <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs">
+ <p className="text-amber-800 dark:text-amber-200">
+  {t('notificationSettings:barkUrlInvalidHint')}
  </p>
  </div>
  )}
@@ -292,15 +344,19 @@ export function NotificationSettingsModal({
   <CustomSelect
   value={localSettings.barkPush.daysBefore.toString()}
   disabled={requiresLogin}
-  onChange={(value) => setLocalSettings({
-  ...localSettings,
-  barkPush: {
- ...localSettings.barkPush,
- daysBefore: parseInt(value)
- }
- })}
- options={daysOptions}
- />
+  onChange={(value) => {
+   setSaveStatus('idle');
+   clearSaveTimer();
+   setLocalSettings({
+    ...localSettings,
+    barkPush: {
+     ...localSettings.barkPush,
+     daysBefore: parseInt(value)
+    }
+   });
+  }}
+  options={daysOptions}
+  />
  </div>
  </div>
 
@@ -341,26 +397,54 @@ export function NotificationSettingsModal({
  )}
  </div>
  </div>
+ {saveStatus === 'localOnly' && (
+  <div role="alert" className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-200">
+   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+   <span>{t('notificationSettings:saveCloudFailed')}</span>
+  </div>
+ )}
  </div>
 
   <div className={isStandalone
-  ? 'sticky bottom-0 z-10 flex gap-3 border-t border-gray-200 dark:border-white/10 mt-auto bg-white p-6 dark:bg-[#1a1c1e]'
-  : 'settings-panel-footer'
+  ? 'sticky bottom-0 z-10 flex items-center gap-3 border-t border-gray-200 dark:border-white/10 mt-auto bg-white p-6 dark:bg-[#1a1c1e]'
+  : 'settings-panel-footer items-center'
   }>
   {isStandalone && (
   <button
+  type="button"
   onClick={onClose}
-  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 app-theme-text-secondary rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+  disabled={saveStatus === 'saving'}
+  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 app-theme-text-secondary rounded-2xl font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
   >
   {t('notificationSettings:cancel')}
   </button>
   )}
+  {!isStandalone && saveStatus === 'saved' && (
+   <span role="status" className="inline-flex items-center gap-1.5 text-sm text-emerald-700 dark:text-emerald-400 mr-auto">
+    <Check className="w-4 h-4" />
+    {t('notificationSettings:settingsSaved')}
+   </span>
+  )}
   <button
-  onClick={handleSave}
+  type="button"
+  onClick={() => void handleSave()}
+  disabled={saveStatus === 'saving'}
   className="settings-button-primary ml-auto"
   >
   {user ? (
-  t('notificationSettings:saveSettings')
+   saveStatus === 'saving' ? (
+    <>
+     <Loader2 className="w-4 h-4 animate-spin" />
+     {t('notificationSettings:savingSettings')}
+    </>
+   ) : saveStatus === 'saved' ? (
+    <>
+     <Check className="w-4 h-4" />
+     {t('settingsHub:saved')}
+    </>
+   ) : (
+    t('notificationSettings:saveSettings')
+   )
   ) : (
   <span className="flex items-center justify-center gap-2">
   <LogIn className="w-4 h-4"/>

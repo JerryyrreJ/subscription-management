@@ -54,6 +54,7 @@ type ActionStatus = 'pending' | 'saving' | 'done';
 
 interface DraftState extends DraftSubscription {
   key: string;
+  amountInput: string;
   status: 'pending' | 'saving' | 'saved';
   error?: string;
 }
@@ -146,6 +147,9 @@ export function AiCaptureModal({
   const [createdRecords, setCreatedRecords] = useState<CreatedRecord[]>([]);
   const [completion, setCompletion] = useState<CompletionState | null>(null);
   const [inlineUndoStatus, setInlineUndoStatus] = useState<'idle' | 'running' | 'done'>('idle');
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [isSavingAll, setIsSavingAll] = useState(false);
+  const [updateAmountInputs, setUpdateAmountInputs] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
 
@@ -187,8 +191,28 @@ export function AiCaptureModal({
       setCreatedRecords([]);
       setCompletion(null);
       setInlineUndoStatus('idle');
+      setIsDraggingFile(false);
+      setIsSavingAll(false);
+      setUpdateAmountInputs({});
     }
   }, [isOpen]);
+
+  const isBusy = phase === 'parsing' || actionStatus === 'saving' || isSavingAll;
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || isBusy) {
+        return;
+      }
+      if (document.querySelector('[aria-modal="true"]:not([data-ai-capture-dialog])')) {
+        return;
+      }
+      onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isBusy, isOpen, onClose]);
 
   if (!isOpen) {
     return null;
@@ -247,10 +271,37 @@ export function AiCaptureModal({
 
   const handleImage = async (file: File | undefined) => {
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorCode('invalid_capture');
+      return;
+    }
+    setErrorCode(null);
     try {
       setImage(await prepareImage(file));
     } catch {
       setErrorCode('image_too_large');
+    }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent) => {
+    if (phase === 'parsing' || phase === 'review') return;
+    const items = Array.from(event.clipboardData?.items ?? []);
+    const imageItem = items.find(item => item.kind === 'file' && item.type.startsWith('image/'));
+    if (!imageItem) return;
+    const file = imageItem.getAsFile();
+    if (file) {
+      event.preventDefault();
+      void handleImage(file);
+    }
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    setIsDraggingFile(false);
+    if (phase === 'parsing' || phase === 'review') return;
+    const file = Array.from(event.dataTransfer?.files ?? []).find(item => item.type.startsWith('image/'));
+    if (file) {
+      void handleImage(file);
     }
   };
 
@@ -303,10 +354,12 @@ export function AiCaptureModal({
       }
 
       setCommand(nextCommand);
+      setUpdateAmountInputs({});
       setDrafts(nextCommand.type === 'create'
         ? constrainDraftCategories(nextCommand.drafts, allowedCategories).map((d) => ({
             ...d,
             key: `d${draftCounter++}`,
+            amountInput: Number.isFinite(d.amount) ? String(d.amount) : '',
             status: 'pending' as const,
           }))
         : []);
@@ -319,8 +372,21 @@ export function AiCaptureModal({
     }
   };
 
-  const updateDraft = (key: string, patch: Partial<DraftSubscription>) => {
-    setDrafts((prev) => prev.map((d) => (d.key === key ? { ...d, ...patch, error: undefined } : d)));
+  const updateDraft = (key: string, patch: Partial<DraftState>) => {
+    const editedFields = Object.keys(patch).filter(field =>
+      ['amount', 'amountInput', 'currency', 'period', 'nextPaymentDate', 'category', 'customDate'].includes(field)
+    );
+    const prefixesToClear = editedFields.map(field => (field === 'amountInput' ? 'amount' : field));
+
+    setDrafts((prev) =>
+      prev.map((d) => {
+        if (d.key !== key) return d;
+        const nextWarnings = prefixesToClear.length > 0
+          ? d.warnings.filter(warning => !prefixesToClear.some(prefix => warning.startsWith(prefix)))
+          : d.warnings;
+        return { ...d, ...patch, warnings: nextWarnings, error: undefined };
+      })
+    );
   };
 
   const findTargetForCommand = (candidate: AiCommand | null): Subscription | null => {
@@ -441,21 +507,51 @@ export function AiCaptureModal({
     setSavedCount((count) => Math.max(0, count - records.length));
   };
 
+  const finishCreateBatch = (records: CreatedRecord[]) => {
+    if (records.length === 0) return;
+    const undoAction = createUndoAction({
+      id: crypto.randomUUID(),
+      message: t('aiCapture:undo.batchCreated', { count: records.length }),
+      undoLabel: t('aiCapture:undo.action'),
+      undo: async () => {
+        for (const record of [...records].reverse()) {
+          await onDelete(record.subscription.id);
+        }
+      },
+      onRestored: () => restoreCreateReview(records),
+    });
+    setCompletion({
+      title: t('aiCapture:completeTitle'),
+      detail: t('aiCapture:createCompleteDetail', { count: records.length }),
+      undoAction,
+    });
+    showUndoAction(undoAction);
+  };
+
+  const buildDraftRecord = (draft: DraftState): Subscription => {
+    const trimmedAmount = draft.amountInput.trim();
+    const parsedAmount = Number(trimmedAmount);
+    if (!trimmedAmount || !Number.isFinite(parsedAmount)) {
+      throw new Error(t('addSubscription:amountRequired'));
+    }
+    return createSubscriptionRecord({
+      name: draft.name,
+      category: draft.category,
+      amount: parsedAmount,
+      currency: draft.currency,
+      period: draft.period,
+      nextPaymentDate: draft.nextPaymentDate,
+      billingAnchorDay: draft.period === 'monthly' ? getDateOnlyDay(draft.nextPaymentDate) : undefined,
+      customDate: draft.period === 'custom' ? draft.customDate : undefined,
+      notificationEnabled: draft.notificationEnabled,
+    });
+  };
+
   const saveDraft = async (draft: DraftState) => {
     updateDraft(draft.key, {});
     setDrafts((prev) => prev.map((d) => (d.key === draft.key ? { ...d, status: 'saving' } : d)));
     try {
-      const subscription = createSubscriptionRecord({
-        name: draft.name,
-        category: draft.category,
-        amount: draft.amount,
-        currency: draft.currency,
-        period: draft.period,
-        nextPaymentDate: draft.nextPaymentDate,
-        billingAnchorDay: draft.period === 'monthly' ? getDateOnlyDay(draft.nextPaymentDate) : undefined,
-        customDate: draft.period === 'custom' ? draft.customDate : undefined,
-        notificationEnabled: draft.notificationEnabled,
-      });
+      const subscription = buildDraftRecord(draft);
       const created = await onCreate(subscription);
       const nextCreatedRecords = [...createdRecords, { draftKey: draft.key, subscription: created }];
       const willComplete = drafts.filter((item) => item.status !== 'saved' && item.key !== draft.key).length === 0;
@@ -463,23 +559,7 @@ export function AiCaptureModal({
       setSavedCount((c) => c + 1);
       setCreatedRecords(nextCreatedRecords);
       if (willComplete) {
-        const undoAction = createUndoAction({
-          id: crypto.randomUUID(),
-          message: t('aiCapture:undo.batchCreated', { count: nextCreatedRecords.length }),
-          undoLabel: t('aiCapture:undo.action'),
-          undo: async () => {
-            for (const record of [...nextCreatedRecords].reverse()) {
-              await onDelete(record.subscription.id);
-            }
-          },
-          onRestored: () => restoreCreateReview(nextCreatedRecords),
-        });
-        setCompletion({
-          title: t('aiCapture:completeTitle'),
-          detail: t('aiCapture:createCompleteDetail', { count: nextCreatedRecords.length }),
-          undoAction,
-        });
-        showUndoAction(undoAction);
+        finishCreateBatch(nextCreatedRecords);
       }
     } catch (error) {
       setDrafts((prev) => prev.map((d) =>
@@ -488,8 +568,48 @@ export function AiCaptureModal({
     }
   };
 
+  const saveAllDrafts = async () => {
+    if (isSavingAll) return;
+    const pendingDrafts = drafts.filter((d) => d.status !== 'saved');
+    if (pendingDrafts.length === 0) return;
+
+    setIsSavingAll(true);
+    let nextCreatedRecords = [...createdRecords];
+    let failedCount = 0;
+
+    try {
+      for (const draft of pendingDrafts) {
+        setDrafts((prev) => prev.map((d) => (d.key === draft.key ? { ...d, status: 'saving', error: undefined } : d)));
+        try {
+          const subscription = buildDraftRecord(draft);
+          const created = await onCreate(subscription);
+          nextCreatedRecords = [...nextCreatedRecords, { draftKey: draft.key, subscription: created }];
+          setDrafts((prev) => prev.map((d) => (d.key === draft.key ? { ...d, status: 'saved' } : d)));
+          setSavedCount((c) => c + 1);
+          setCreatedRecords(nextCreatedRecords);
+        } catch (error) {
+          failedCount += 1;
+          setDrafts((prev) => prev.map((d) =>
+            d.key === draft.key ? { ...d, status: 'pending', error: getSubscriptionValidationMessage(error) } : d
+          ));
+        }
+      }
+
+      if (failedCount === 0 && nextCreatedRecords.length > 0) {
+        finishCreateBatch(nextCreatedRecords);
+      }
+    } finally {
+      setIsSavingAll(false);
+    }
+  };
+
   const discardDraft = (key: string) => {
-    setDrafts((prev) => prev.filter((d) => d.key !== key));
+    const nextDrafts = drafts.filter((d) => d.key !== key);
+    const nextRemaining = nextDrafts.filter((d) => d.status !== 'saved');
+    setDrafts(nextDrafts);
+    if (nextRemaining.length === 0 && createdRecords.length > 0) {
+      finishCreateBatch(createdRecords);
+    }
   };
 
   const confirmDelete = async () => {
@@ -534,6 +654,11 @@ export function AiCaptureModal({
     }
     if ((command.missingFields ?? []).length > 0) {
       setActionError(t('aiCapture:missingFieldsHint'));
+      return;
+    }
+    const rawUpdateAmount = updateAmountInputs['ai-update-amount'];
+    if (rawUpdateAmount !== undefined && (!rawUpdateAmount.trim() || !Number.isFinite(Number(rawUpdateAmount)))) {
+      setActionError(t('addSubscription:amountRequired'));
       return;
     }
 
@@ -596,6 +721,14 @@ export function AiCaptureModal({
     }
     if (command.updates.some(update => (update.missingFields ?? []).length > 0)) {
       setActionError(t('aiCapture:missingFieldsHint'));
+      return;
+    }
+    const hasInvalidBatchAmount = command.updates.some((_, index) => {
+      const raw = updateAmountInputs[`ai-batch-update-${index}-amount`];
+      return raw !== undefined && (!raw.trim() || !Number.isFinite(Number(raw)));
+    });
+    if (hasInvalidBatchAmount) {
+      setActionError(t('addSubscription:amountRequired'));
       return;
     }
 
@@ -671,16 +804,24 @@ export function AiCaptureModal({
       const labelClass = 'w-24 shrink-0 text-gray-500 dark:text-gray-400';
 
       if (field === 'amount') {
+        const inputId = `${keyPrefix}-${field}`;
+        const rawValue = updateAmountInputs[inputId] ?? String(value ?? '');
         return (
-          <div key={`${keyPrefix}-${field}`} className={rowClass}>
-            <label className={labelClass} htmlFor={`${keyPrefix}-${field}`}>{label}</label>
+          <div key={inputId} className={rowClass}>
+            <label className={labelClass} htmlFor={inputId}>{label}</label>
             <input
-              id={`${keyPrefix}-${field}`}
-              type="number"
-              step="0.01"
-              min="0"
-              value={Number(value)}
-              onChange={(e) => onPatchChange({ amount: Number(e.target.value) })}
+              id={inputId}
+              type="text"
+              inputMode="decimal"
+              value={rawValue}
+              onChange={(e) => {
+                const nextRaw = e.target.value;
+                if (!/^(?:\d*(?:\.\d{0,2})?)?$/.test(nextRaw)) return;
+                setUpdateAmountInputs(prev => ({ ...prev, [inputId]: nextRaw }));
+                if (nextRaw.trim() !== '' && Number.isFinite(Number(nextRaw))) {
+                  onPatchChange({ amount: Number(nextRaw) });
+                }
+              }}
               className={editorClass}
             />
           </div>
@@ -980,7 +1121,22 @@ export function AiCaptureModal({
     return (
       <>
         {drafts.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">{t('aiCapture:noneFound')}</p>}
-        {drafts.length > 0 && remaining.length > 0 && <p className="text-xs text-gray-400 dark:text-gray-500">{t('aiCapture:reviewHint')}</p>}
+        {drafts.length > 0 && remaining.length > 0 && (
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-gray-400 dark:text-gray-500">{t('aiCapture:reviewHint')}</p>
+            {remaining.length > 1 && (
+              <button
+                type="button"
+                onClick={() => void saveAllDrafts()}
+                disabled={isSavingAll}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {isSavingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                {isSavingAll ? t('aiCapture:saving') : t('aiCapture:saveAll', { count: remaining.length })}
+              </button>
+            )}
+          </div>
+        )}
         <div className="space-y-3">
           {drafts.filter((d) => d.status !== 'saved').map((draft) => {
             const warned = warnedFields(draft.warnings);
@@ -994,9 +1150,19 @@ export function AiCaptureModal({
                 />
                 <div className="flex gap-2">
                   <input
-                    type="number" step="0.01" min="0"
-                    value={draft.amount}
-                    onChange={(e) => updateDraft(draft.key, { amount: Number(e.target.value) })}
+                    type="text"
+                    inputMode="decimal"
+                    value={draft.amountInput}
+                    onChange={(e) => {
+                      const nextRaw = e.target.value;
+                      if (!/^(?:\d*(?:\.\d{0,2})?)?$/.test(nextRaw)) return;
+                      updateDraft(draft.key, {
+                        amountInput: nextRaw,
+                        ...(nextRaw.trim() !== '' && Number.isFinite(Number(nextRaw)) ? { amount: Number(nextRaw) } : {}),
+                      });
+                    }}
+                    placeholder={t('addSubscription:amountPlaceholder')}
+                    aria-label={t('addSubscription:amountLabel')}
                     className={`${inputBase} ${fieldBorder(warned.has('amount'))} w-[40%]`}
                   />
                   <select
@@ -1078,8 +1244,21 @@ export function AiCaptureModal({
   };
 
   return (
-    <div className="fixed inset-0 mobile-modal-viewport ai-capture-overlay bg-black bg-opacity-50 dark:bg-opacity-70 z-50">
-      <div role="dialog" aria-modal="true" aria-labelledby="ai-capture-title" className="ai-capture-panel shadow-apple-lg">
+    <div
+      className="fixed inset-0 mobile-modal-viewport ai-capture-overlay bg-black bg-opacity-50 dark:bg-opacity-70 z-50"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !isBusy) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-capture-title"
+        data-ai-capture-dialog
+        className="ai-capture-panel shadow-apple-lg"
+      >
         <div className="ai-capture-header flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
@@ -1092,7 +1271,19 @@ export function AiCaptureModal({
             </button>
           </div>
 
-        <div className="ai-capture-body space-y-4">
+        <div
+          className="ai-capture-body space-y-4"
+          onPaste={handlePaste}
+          onDragOver={(e) => {
+            if (phase === 'review' || phase === 'parsing') return;
+            e.preventDefault();
+            setIsDraggingFile(true);
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget === e.target) setIsDraggingFile(false);
+          }}
+          onDrop={handleDrop}
+        >
           {errorCode && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-3 text-sm text-amber-800 dark:text-amber-200">
               <div className="flex items-start gap-2">
@@ -1120,32 +1311,65 @@ export function AiCaptureModal({
                 aria-label={t("aiCapture:inputLabel")}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && phase !== 'parsing' && (text.trim() || image)) {
+                    e.preventDefault();
+                    textRef.current?.blur();
+                    void handleParse();
+                  }
+                }}
                 rows={3}
                 placeholder={t('aiCapture:shortPlaceholder')}
-                className={`${inputBase} ${fieldBorder(false)} ai-capture-input resize-none`}
+                className={`${inputBase} ${isDraggingFile ? 'border-emerald-500 ring-2 ring-emerald-500/30' : fieldBorder(false)} ai-capture-input resize-none transition-all`}
                 disabled={phase === 'parsing'}
               />
               <details className="text-sm text-gray-500 dark:text-gray-400">
                 <summary className="cursor-pointer py-1">{t('aiCapture:examplesLabel')}</summary>
                 <p className="pt-2">{t('aiCapture:textPlaceholder')}</p>
               </details>
-              <div className="flex items-center gap-3">
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleImage(e.target.files?.[0])} />
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const selectedFile = e.target.files?.[0];
+                    e.currentTarget.value = '';
+                    void handleImage(selectedFile);
+                  }}
+                />
                 {image ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                    <ImageIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    {t('aiCapture:imageReady')}
-                    <button onClick={() => setImage(null)} className="text-gray-400 hover:text-red-500 underline">{t('aiCapture:removeImage')}</button>
+                  <div className="flex items-center gap-3 rounded-2xl border border-emerald-200/80 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 p-2 pr-3 text-sm text-gray-700 dark:text-gray-200">
+                    <img
+                      src={`data:${image.mediaType};base64,${image.dataBase64}`}
+                      alt={t('aiCapture:imageReady')}
+                      className="h-12 w-12 rounded-xl object-cover border border-gray-200 dark:border-gray-700 shrink-0"
+                    />
+                    <div className="flex flex-col gap-0.5">
+                      <span className="inline-flex items-center gap-1.5 font-medium text-xs sm:text-sm">
+                        <ImageIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        {t('aiCapture:imageReady')}
+                      </span>
+                      <button type="button" onClick={() => setImage(null)} className="self-start text-xs text-gray-500 hover:text-red-500 underline">
+                        {t('aiCapture:removeImage')}
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={phase === 'parsing'}
-                    className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-2xl text-gray-600 dark:text-gray-300 hover:border-emerald-500"
-                  >
-                    <Upload className="w-4 h-4" /> {t('aiCapture:uploadImage')}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      disabled={phase === 'parsing'}
+                      className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-2xl text-gray-600 dark:text-gray-300 hover:border-emerald-500"
+                    >
+                      <Upload className="w-4 h-4" /> {t('aiCapture:uploadImage')}
+                    </button>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
+                      {t('aiCapture:pasteOrDropHint')}
+                    </span>
+                  </>
                 )}
               </div>
 

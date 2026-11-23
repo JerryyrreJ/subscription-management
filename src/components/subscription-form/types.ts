@@ -5,6 +5,7 @@ export type SubscriptionFormMode = 'add' | 'edit';
 
 export interface CategorySyncMethods {
  createCategory: (category: Category) => Promise<CloudMutationResult<Category>>;
+ updateCategory?: (category: Category) => Promise<CloudMutationResult<Category>>;
 }
 
 export interface SubscriptionFormSheetProps {

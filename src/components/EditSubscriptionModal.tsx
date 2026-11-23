@@ -7,6 +7,7 @@ interface EditSubscriptionModalProps {
  isOpen: boolean;
  onClose: () => void;
  onEdit: (subscription: Subscription) => void | Promise<void>;
+ onOpenNotificationSettings?: () => void;
  categorySync?: CategorySyncMethods;
  isBarkEnabled: boolean;
 }
@@ -16,6 +17,7 @@ export function EditSubscriptionModal({
  isOpen,
  onClose,
  onEdit,
+ onOpenNotificationSettings,
  categorySync,
  isBarkEnabled,
 }: EditSubscriptionModalProps) {
@@ -27,6 +29,7 @@ export function EditSubscriptionModal({
    onSubmit={async (updated) => {
     await onEdit(updated);
    }}
+   onOpenNotificationSettings={onOpenNotificationSettings}
    subscription={subscription}
    categorySync={categorySync}
    isNotificationReady={isBarkEnabled}

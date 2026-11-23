@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppLanguage } from '../hooks/useAppLanguage';
 import { formatDateByLocale, formatDateOnly, formatWeekdayLabels, getTodayDateOnly, parseDateOnly } from '../utils/dates';
@@ -14,6 +14,18 @@ interface CustomDatePickerProps {
  invalid?: boolean;
 }
 
+const parseLocalDate = (dateStr: string) => {
+ const [year, month, day] = dateStr.split('-').map(Number);
+ return new Date(year, month - 1, day);
+};
+
+const formatLocalDate = (date: Date) => {
+ const year = date.getFullYear();
+ const month = String(date.getMonth() + 1).padStart(2, '0');
+ const day = String(date.getDate()).padStart(2, '0');
+ return `${year}-${month}-${day}`;
+};
+
 export function CustomDatePicker({
  value,
  onChange,
@@ -26,19 +38,8 @@ export function CustomDatePicker({
  const { t } = useTranslation(['common']);
  const { language } = useAppLanguage();
 
- const parseLocalDate = (dateStr: string) => {
- const [year, month, day] = dateStr.split('-').map(Number);
- return new Date(year, month - 1, day);
- };
-
- const formatLocalDate = (date: Date) => {
- const year = date.getFullYear();
- const month = String(date.getMonth() + 1).padStart(2, '0');
- const day = String(date.getDate()).padStart(2, '0');
- return `${year}-${month}-${day}`;
- };
-
  const [isOpen, setIsOpen] = useState(false);
+ const [pickerView, setPickerView] = useState<'days' | 'months'>('days');
  const [currentMonth, setCurrentMonth] = useState<Date>(() => {
  return value ? parseLocalDate(value) : new Date();
  });
@@ -53,19 +54,43 @@ export function CustomDatePicker({
 
  const todayStr = formatDateOnly(getTodayDateOnly());
 
- // Close dropdown when clicking outside
+ // Sync calendar view with the current value whenever the picker opens.
  useEffect(() => {
- function handleClickOutside(event: MouseEvent) {
- if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
- setIsOpen(false);
- }
- }
+  if (isOpen) {
+   setCurrentMonth(value ? parseLocalDate(value) : new Date());
+   setPickerView('days');
+  }
+ }, [isOpen, value]);
 
- if (isOpen) {
- document.addEventListener('mousedown', handleClickOutside);
- return () => document.removeEventListener('mousedown', handleClickOutside);
- }
- }, [isOpen]);
+ // Close dropdown when clicking outside or pressing Escape (without closing parent modal).
+ useEffect(() => {
+  if (!isOpen) return undefined;
+
+  function handleClickOutside(event: MouseEvent) {
+   if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    setIsOpen(false);
+   }
+  }
+
+  function handleKeyDown(event: KeyboardEvent) {
+   if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    if (pickerView === 'months') {
+     setPickerView('days');
+    } else {
+     setIsOpen(false);
+    }
+   }
+  }
+
+  document.addEventListener('mousedown', handleClickOutside);
+  document.addEventListener('keydown', handleKeyDown, true);
+  return () => {
+   document.removeEventListener('mousedown', handleClickOutside);
+   document.removeEventListener('keydown', handleKeyDown, true);
+  };
+ }, [isOpen, pickerView]);
 
  // Auto-scroll to keep calendar in view when opened
  useEffect(() => {
@@ -199,6 +224,12 @@ export function CustomDatePicker({
  const calendar = generateCalendar();
  const monthYear = formatDateByLocale(currentMonth, language, { month: 'long', year: 'numeric' });
  const weekdayLabels = formatWeekdayLabels(language);
+ const monthLabels = useMemo(
+  () => Array.from({ length: 12 }, (_, monthIndex) =>
+   formatDateByLocale(new Date(Date.UTC(2024, monthIndex, 1)), language, { month: 'short', timeZone: 'UTC' })
+  ),
+  [language]
+ );
 
  const isPreviousMonthDisabled = () => {
  if (!minDateObj) return false;
@@ -210,6 +241,38 @@ export function CustomDatePicker({
  if (!maxDateObj) return false;
  const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
  return next > maxDateObj;
+ };
+
+ const isPreviousYearDisabled = () => {
+  if (!minDateObj) return false;
+  return currentMonth.getFullYear() - 1 < minDateObj.getFullYear();
+ };
+
+ const isNextYearDisabled = () => {
+  if (!maxDateObj) return false;
+  return currentMonth.getFullYear() + 1 > maxDateObj.getFullYear();
+ };
+
+ const isMonthDisabled = (year: number, monthIndex: number) => {
+  if (minDateObj) {
+   const monthLastDay = new Date(year, monthIndex + 1, 0);
+   if (monthLastDay < minDateObj) return true;
+  }
+  if (maxDateObj) {
+   const monthFirstDay = new Date(year, monthIndex, 1);
+   if (monthFirstDay > maxDateObj) return true;
+  }
+  return false;
+ };
+
+ const previousYear = () => {
+  if (isPreviousYearDisabled()) return;
+  setCurrentMonth(new Date(currentMonth.getFullYear() - 1, currentMonth.getMonth(), 1));
+ };
+
+ const nextYear = () => {
+  if (isNextYearDisabled()) return;
+  setCurrentMonth(new Date(currentMonth.getFullYear() + 1, currentMonth.getMonth(), 1));
  };
 
  const isTodayDisabled = minDate ? todayStr < minDate : false;
@@ -243,64 +306,104 @@ export function CustomDatePicker({
  <div className="flex items-center justify-between mb-4">
  <button
  type="button"
- onClick={previousMonth}
- disabled={isPreviousMonthDisabled()}
+ onClick={pickerView === 'months' ? previousYear : previousMonth}
+ disabled={pickerView === 'months' ? isPreviousYearDisabled() : isPreviousMonthDisabled()}
+ aria-label={pickerView === 'months' ? t('common:previousYear') : t('common:previousMonth')}
  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
  >
  <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400"/>
  </button>
- <div className="font-semibold text-gray-900 dark:text-white text-sm">
- {monthYear}
- </div>
  <button
  type="button"
- onClick={nextMonth}
- disabled={isNextMonthDisabled()}
+ onClick={() => setPickerView(prev => (prev === 'days' ? 'months' : 'days'))}
+ aria-expanded={pickerView === 'months'}
+ aria-label={t('common:selectMonthYear')}
+ className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold text-gray-900 dark:text-white text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+ >
+ <span>{pickerView === 'months' ? currentMonth.getFullYear() : monthYear}</span>
+ <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${pickerView === 'months' ? 'rotate-180' : ''}`} />
+ </button>
+ <button
+ type="button"
+ onClick={pickerView === 'months' ? nextYear : nextMonth}
+ disabled={pickerView === 'months' ? isNextYearDisabled() : isNextMonthDisabled()}
+ aria-label={pickerView === 'months' ? t('common:nextYear') : t('common:nextMonth')}
  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
  >
  <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400"/>
  </button>
  </div>
 
- {/* Day Labels */}
- <div className="grid grid-cols-7 gap-1 mb-2">
- {weekdayLabels.map((day) => (
- <div
- key={day}
- className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1"
- >
- {day}
- </div>
- ))}
- </div>
-
- {/* Calendar Grid */}
- <div className="grid grid-cols-7 gap-1">
- {calendar.map((day, index) => (
- <div key={index} className="aspect-square">
- {day ? (
- <button
- type="button"
- onClick={() => selectDate(day)}
- disabled={isDateDisabled(day)}
- className={`w-full h-full rounded-xl text-sm font-medium transition-all ${
- isDateSelected(day)
- ? 'bg-emerald-600 text-white hover:bg-emerald-700'
- : isToday(day)
- ? 'bg-gray-100 dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 hover:bg-gray-200 dark:hover:bg-gray-600'
- : isDateDisabled(day)
- ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
- : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
- }`}
- >
- {day}
- </button>
+ {pickerView === 'months' ? (
+  <div className="grid grid-cols-3 gap-2 py-1">
+   {monthLabels.map((label, monthIndex) => {
+    const disabled = isMonthDisabled(currentMonth.getFullYear(), monthIndex);
+    const isCurrent = currentMonth.getMonth() === monthIndex;
+    return (
+     <button
+      key={monthIndex}
+      type="button"
+      disabled={disabled}
+      onClick={() => {
+       setCurrentMonth(new Date(currentMonth.getFullYear(), monthIndex, 1));
+       setPickerView('days');
+      }}
+      className={`py-2.5 px-2 rounded-xl text-sm font-medium transition-colors ${
+       isCurrent
+        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+        : disabled
+         ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+      }`}
+     >
+      {label}
+     </button>
+    );
+   })}
+  </div>
  ) : (
- <div />
+  <>
+   {/* Day Labels */}
+   <div className="grid grid-cols-7 gap-1 mb-2">
+   {weekdayLabels.map((day) => (
+   <div
+   key={day}
+   className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1"
+   >
+   {day}
+   </div>
+   ))}
+   </div>
+
+   {/* Calendar Grid */}
+   <div className="grid grid-cols-7 gap-1">
+   {calendar.map((day, index) => (
+   <div key={index} className="aspect-square">
+   {day ? (
+   <button
+   type="button"
+   onClick={() => selectDate(day)}
+   disabled={isDateDisabled(day)}
+   className={`w-full h-full rounded-xl text-sm font-medium transition-all ${
+   isDateSelected(day)
+   ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+   : isToday(day)
+   ? 'bg-gray-100 dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+   : isDateDisabled(day)
+   ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+   }`}
+   >
+   {day}
+   </button>
+   ) : (
+   <div />
+   )}
+   </div>
+   ))}
+   </div>
+  </>
  )}
- </div>
- ))}
- </div>
 
  {/* Today Button */}
  <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
@@ -311,6 +414,8 @@ export function CustomDatePicker({
  return;
  }
  onChange(todayStr);
+ setCurrentMonth(parseLocalDate(todayStr));
+ setPickerView('days');
  setIsOpen(false);
  }}
  disabled={isTodayDisabled || (maxDate ? todayStr > maxDate : false)}

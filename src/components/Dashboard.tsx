@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { CreditCard, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react';
+import { useCallback, useMemo } from 'react';
+import { CreditCard, TrendingUp, ArrowUpDown, ArrowUp, ArrowDown, Filter, Clock } from 'lucide-react';
 import CountUp from 'react-countup';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,6 +19,8 @@ import {
 } from '../utils/currency';
 import { CustomSelect } from './CustomSelect';
 import { getCategoryDisplayName, getVisibleCategories } from '../utils/categories';
+import { isTrialSubscription } from '../utils/subscriptionReminder';
+import { isExpiredTrial } from '../utils/subscriptionRenewal';
 
 interface DashboardProps {
  subscriptions: Subscription[];
@@ -36,6 +38,7 @@ interface DashboardProps {
  exchangeRatesUpdatedAt: number | null;
  exchangeRatesStale: boolean;
  exchangeRateError?: string;
+ onTrialsClick?: () => void;
 }
 
 export function Dashboard({
@@ -54,6 +57,7 @@ export function Dashboard({
  exchangeRatesUpdatedAt,
  exchangeRatesStale,
  exchangeRateError,
+ onTrialsClick,
 }: DashboardProps) {
  const { t } = useTranslation(['dashboard', 'currency', 'categoryLabels']);
  const displayCurrency = baseCurrency;
@@ -94,10 +98,25 @@ export function Dashboard({
  });
  };
 
+ const paidSubscriptions = useMemo(
+  () => subscriptions.filter(sub => !isTrialSubscription(sub)),
+  [subscriptions]
+ );
+ const trialSubscriptions = useMemo(
+  () => subscriptions.filter(sub => isTrialSubscription(sub)),
+  [subscriptions]
+ );
+ const expiredTrialsCount = useMemo(
+  () => trialSubscriptions.filter(sub => isExpiredTrial(sub)).length,
+  [trialSubscriptions]
+ );
+
+ // Option A: exclude free trials (isTrial === true) from paid recurring totals,
+ // matching server-side API analytics (subscriptionInsights.ts).
  const totalAmount = useCallback(() => {
  let usesFallbackRates = false;
 
- const amount = subscriptions.reduce((total, sub) => {
+ const amount = paidSubscriptions.reduce((total, sub) => {
  let amount = sub.amount;
 
  // 转换为显示货币
@@ -148,7 +167,7 @@ export function Dashboard({
  total: amount,
  usesFallbackRates
  };
- }, [subscriptions, displayCurrency, exchangeRates, baseCurrency, viewMode]);
+ }, [paidSubscriptions, displayCurrency, exchangeRates, baseCurrency, viewMode]);
 
  const totalAmountResult = totalAmount();
  const currentTotal = totalAmountResult.total;
@@ -203,6 +222,7 @@ export function Dashboard({
  {/* 基准货币选择 */}
  <div className="min-w-[100px]">
  <CustomSelect
+ align="right"
  value={baseCurrency}
  onChange={(value) => onBaseCurrencyChange(value as Currency)}
 options={CURRENCIES.map(currency => ({
@@ -319,8 +339,31 @@ options={CURRENCIES.map(currency => ({
 
  <div className="flex items-center text-slate-700 dark:text-gray-300 bg-slate-100/80 dark:bg-gray-700/80 px-3.5 py-1.5 rounded-full backdrop-blur-sm border border-slate-200/60 dark:border-gray-600/60 app-theme-chip">
  <TrendingUp className="w-4 h-4 mr-1.5 text-slate-600 dark:text-gray-400 app-theme-text-muted"/>
- <span className="text-sm font-medium">{t('dashboard:activeCount', { count: subscriptions.length })}</span>
+ <span className="text-sm font-medium">{t('dashboard:activeCount', { count: paidSubscriptions.length })}</span>
  </div>
+
+ {trialSubscriptions.length > 0 && (
+  <button
+   type="button"
+   onClick={onTrialsClick}
+   disabled={!onTrialsClick}
+   className={`flex items-center px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+    expiredTrialsCount > 0
+     ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/80 dark:border-rose-500/30 hover:bg-rose-100/80 dark:hover:bg-rose-950/60'
+     : 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-200/80 dark:border-amber-500/30 hover:bg-amber-100/80 dark:hover:bg-amber-950/50'
+   } ${onTrialsClick ? 'cursor-pointer' : 'cursor-default'}`}
+  >
+   <Clock className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+   <span>
+    {expiredTrialsCount > 0
+     ? t('dashboard:trialsWithExpiredCount', { count: trialSubscriptions.length, expired: expiredTrialsCount })
+     : t(
+      trialSubscriptions.length === 1 ? 'dashboard:trialCountOne' : 'dashboard:trialCountOther',
+      { count: trialSubscriptions.length }
+     )}
+   </span>
+  </button>
+ )}
  </div>
  </div>
 
@@ -346,6 +389,7 @@ options={CURRENCIES.map(currency => ({
  {/* 排序字段选择器 - 小尺寸 */}
  <div className="min-w-0 dashboard-sort-control">
  <CustomSelect
+ align="right"
  value={sortConfig.sortBy}
  onChange={handleSortByChange}
  options={sortOptions.map(option => ({
