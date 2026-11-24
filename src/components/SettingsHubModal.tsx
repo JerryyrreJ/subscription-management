@@ -1,8 +1,9 @@
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, User, Settings, Folder, Bell, Code2, SlidersHorizontal } from 'lucide-react';
+import { X, User, Settings, Folder, Bell, Code2, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { AccountSettingsContent } from './settings/AccountSettingsContent';
+import { EncryptionSettingsContent } from './settings/EncryptionSettingsContent';
 import { GeneralSettingsContent } from './settings/GeneralSettingsContent';
 import { CategorySettingsModal } from './CategorySettingsModal';
 import { NotificationSettingsModal } from './NotificationSettingsModal';
@@ -11,7 +12,7 @@ import { PremiumEntry } from './settings/PremiumEntry';
 import { CloudMutationResult, ReminderSettings, Subscription, Theme } from '../types';
 import { Category } from '../utils/categories';
 
-export type SettingsTab = 'general' | 'account' | 'categories' | 'notifications' | 'api';
+export type SettingsTab = 'general' | 'account' | 'encryption' | 'categories' | 'notifications' | 'api';
 
 interface CategorySyncMethods {
   createCategory: (category: Category) => Promise<CloudMutationResult<Category>>;
@@ -49,6 +50,7 @@ interface SettingsHubModalProps {
   // Category Props
   subscriptions: Subscription[];
   onCategoriesChanged?: () => void;
+  onSubscriptionsReplaced?: (next: Subscription[]) => void;
   onUpdateSubscriptions?: (updatedSubscriptions: Subscription[]) => Promise<void>;
   categorySync?: CategorySyncMethods;
   
@@ -76,6 +78,7 @@ export function SettingsHubModal({
   onImportData,
   subscriptions,
   onCategoriesChanged,
+  onSubscriptionsReplaced,
   onUpdateSubscriptions,
   categorySync,
   notificationSettings,
@@ -112,6 +115,7 @@ export function SettingsHubModal({
   const tabs = [
     { id: 'general', label: t('settingsHub:tabs.general'), icon: Settings, requiresAuth: false },
     { id: 'account', label: t('settingsHub:tabs.account'), icon: User, requiresAuth: true },
+    { id: 'encryption', label: t('settingsHub:tabs.encryption'), icon: ShieldCheck, requiresAuth: true },
     { id: 'categories', label: t('settingsHub:tabs.categories'), icon: Folder, requiresAuth: false },
     { id: 'notifications', label: t('settingsHub:tabs.notifications'), icon: Bell, requiresAuth: false },
     { id: 'api', label: t('settingsHub:tabs.api'), icon: Code2, requiresAuth: true },
@@ -201,6 +205,14 @@ export function SettingsHubModal({
                 onUpdateEmail={onUpdateEmail}
                 onUpdatePassword={onUpdatePassword}
                 onDeleteAccount={onDeleteAccount}
+              />
+            )}
+
+            {selectedTab === 'encryption' && user && (
+              <EncryptionSettingsContent
+                subscriptions={subscriptions}
+                onSubscriptionsReplaced={onSubscriptionsReplaced}
+                onCategoriesReplaced={onCategoriesChanged}
               />
             )}
             

@@ -1,6 +1,14 @@
 import { PendingSyncOperation, Subscription } from '../types';
 import { mergePendingOperation, normalizeSubscription } from './subscriptionSync';
-import { DataScope, resolveScopedStorageKey } from './dataScope';
+import { DataScope, getActiveDataScope, resolveScopedStorageKey } from './dataScope';
+import {
+ extractUserIdFromScope,
+ isScopeProtectedByE2ee,
+ readEncryptedShadowPendingOps,
+ readEncryptedShadowSubscriptions,
+ writeEncryptedShadowPendingOps,
+ writeEncryptedShadowSubscriptions,
+} from '../lib/e2ee/shadowStore';
 
 const STORAGE_KEY = 'subscription-tracker-data';
 const PENDING_SYNC_OPERATIONS_KEY = 'subscription-tracker-pending-sync-operations';
@@ -14,8 +22,13 @@ export interface LocalDataOwner {
 }
 
 export const loadSubscriptions = (scope?: DataScope): Subscription[] => {
+ const effectiveScope = scope ?? getActiveDataScope();
+ if (isScopeProtectedByE2ee(effectiveScope)) {
+  const userId = extractUserIdFromScope(effectiveScope);
+  return userId ? readEncryptedShadowSubscriptions(userId) : [];
+ }
  try {
- const data = localStorage.getItem(resolveScopedStorageKey(STORAGE_KEY, scope));
+ const data = localStorage.getItem(resolveScopedStorageKey(STORAGE_KEY, effectiveScope));
  if (!data) return [];
 
  const subscriptions = JSON.parse(data) as unknown;
@@ -31,10 +44,19 @@ export const loadSubscriptions = (scope?: DataScope): Subscription[] => {
 };
 
 export const saveSubscriptions = (subscriptions: Subscription[], scope?: DataScope): void => {
+ const effectiveScope = scope ?? getActiveDataScope();
+ const normalized = subscriptions.map(subscription => normalizeSubscription(subscription));
+ if (isScopeProtectedByE2ee(effectiveScope)) {
+  const userId = extractUserIdFromScope(effectiveScope);
+  if (userId) {
+   writeEncryptedShadowSubscriptions(userId, normalized);
+  }
+  return;
+ }
  try {
   localStorage.setItem(
-  resolveScopedStorageKey(STORAGE_KEY, scope),
-  JSON.stringify(subscriptions.map(subscription => normalizeSubscription(subscription)))
+  resolveScopedStorageKey(STORAGE_KEY, effectiveScope),
+  JSON.stringify(normalized)
  );
  } catch (error) {
  console.error('Error saving subscriptions:', error);
@@ -42,16 +64,28 @@ export const saveSubscriptions = (subscriptions: Subscription[], scope?: DataSco
 };
 
 export const clearSubscriptions = (scope?: DataScope): void => {
+ const effectiveScope = scope ?? getActiveDataScope();
+ if (isScopeProtectedByE2ee(effectiveScope)) {
+  const userId = extractUserIdFromScope(effectiveScope);
+  if (userId) {
+   writeEncryptedShadowSubscriptions(userId, []);
+  }
+ }
  try {
-  localStorage.removeItem(resolveScopedStorageKey(STORAGE_KEY, scope));
+  localStorage.removeItem(resolveScopedStorageKey(STORAGE_KEY, effectiveScope));
  } catch (error) {
   console.error('Error clearing subscriptions:', error);
  }
 };
 
 export const loadPendingSyncOperations = (scope?: DataScope): PendingSyncOperation[] => {
+ const effectiveScope = scope ?? getActiveDataScope();
+ if (isScopeProtectedByE2ee(effectiveScope)) {
+  const userId = extractUserIdFromScope(effectiveScope);
+  return userId ? readEncryptedShadowPendingOps(userId) : [];
+ }
  try {
-  const data = localStorage.getItem(resolveScopedStorageKey(PENDING_SYNC_OPERATIONS_KEY, scope));
+  const data = localStorage.getItem(resolveScopedStorageKey(PENDING_SYNC_OPERATIONS_KEY, effectiveScope));
   if (!data) {
    return [];
   }
@@ -74,8 +108,16 @@ export const loadPendingSyncOperations = (scope?: DataScope): PendingSyncOperati
 };
 
 export const savePendingSyncOperations = (operations: PendingSyncOperation[], scope?: DataScope): void => {
+ const effectiveScope = scope ?? getActiveDataScope();
+ if (isScopeProtectedByE2ee(effectiveScope)) {
+  const userId = extractUserIdFromScope(effectiveScope);
+  if (userId) {
+   writeEncryptedShadowPendingOps(userId, operations);
+  }
+  return;
+ }
  try {
-  localStorage.setItem(resolveScopedStorageKey(PENDING_SYNC_OPERATIONS_KEY, scope), JSON.stringify(operations));
+  localStorage.setItem(resolveScopedStorageKey(PENDING_SYNC_OPERATIONS_KEY, effectiveScope), JSON.stringify(operations));
  } catch (error) {
   console.error('Error saving pending sync operations:', error);
  }
@@ -88,8 +130,15 @@ export const enqueuePendingSyncOperation = (operation: PendingSyncOperation, sco
 };
 
 export const clearPendingSyncOperations = (scope?: DataScope): void => {
+ const effectiveScope = scope ?? getActiveDataScope();
+ if (isScopeProtectedByE2ee(effectiveScope)) {
+  const userId = extractUserIdFromScope(effectiveScope);
+  if (userId) {
+   writeEncryptedShadowPendingOps(userId, []);
+  }
+ }
  try {
-  localStorage.removeItem(resolveScopedStorageKey(PENDING_SYNC_OPERATIONS_KEY, scope));
+  localStorage.removeItem(resolveScopedStorageKey(PENDING_SYNC_OPERATIONS_KEY, effectiveScope));
  } catch (error) {
   console.error('Error clearing pending sync operations:', error);
  }

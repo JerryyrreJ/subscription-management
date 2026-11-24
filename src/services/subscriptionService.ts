@@ -9,6 +9,12 @@ import {
 } from '../utils/subscriptionSync'
 import { scopeSubscriptionQueryToUser, scopeSubscriptionQueryToUserAndId } from '../utils/subscriptionTenantScope'
 import { normalizeSubscriptionRecord } from '../utils/subscriptionDomain'
+import {
+ EncryptedSubscriptionStore,
+ isPlaintextGuardError,
+ isVaultActiveForUser,
+ syncVaultAccountState,
+} from '../lib/e2ee/vaultSession'
 
 export interface SupabaseSubscription {
  id: string
@@ -59,6 +65,9 @@ export class SubscriptionService {
  }
 
  const userId = await this.getAuthenticatedUserId(expectedUserId)
+ if (isVaultActiveForUser(userId)) {
+  return EncryptedSubscriptionStore.list(userId)
+ }
 
  const { data, error } = await scopeSubscriptionQueryToUser(
   supabase
@@ -82,9 +91,12 @@ export class SubscriptionService {
  throw new Error('Cloud sync not available')
  }
 
- const supabaseData = this.transformToSupabase(subscription)
-
  const userId = await this.getAuthenticatedUserId(expectedUserId)
+ if (isVaultActiveForUser(userId)) {
+  return EncryptedSubscriptionStore.create(userId, subscription)
+ }
+
+ const supabaseData = this.transformToSupabase(subscription)
  console.log('Creating subscription for user:', userId)
 
  const insertPayload = {
@@ -100,6 +112,9 @@ export class SubscriptionService {
  .single()
 
  if (error) {
+ if (isPlaintextGuardError(error)) {
+  void syncVaultAccountState(userId)
+ }
  console.error('Error creating subscription:', error)
  throw error
  }
@@ -114,6 +129,10 @@ export class SubscriptionService {
  }
 
  const userId = await this.getAuthenticatedUserId(expectedUserId)
+ if (isVaultActiveForUser(userId)) {
+  return EncryptedSubscriptionStore.update(userId, subscription)
+ }
+
  const supabaseData = this.transformToSupabase(subscription)
 
  const { data, error } = await scopeSubscriptionQueryToUserAndId(
@@ -127,6 +146,9 @@ export class SubscriptionService {
  .single()
 
  if (error) {
+ if (isPlaintextGuardError(error)) {
+  void syncVaultAccountState(userId)
+ }
  console.error('Error updating subscription:', error)
  throw error
  }
@@ -141,6 +163,11 @@ export class SubscriptionService {
  }
 
  const userId = await this.getAuthenticatedUserId(expectedUserId)
+ if (isVaultActiveForUser(userId)) {
+  await EncryptedSubscriptionStore.remove(userId, id)
+  return
+ }
+
  const { error } = await scopeSubscriptionQueryToUserAndId(
   supabase
  .from('subscriptions')
@@ -150,6 +177,9 @@ export class SubscriptionService {
  )
 
  if (error) {
+ if (isPlaintextGuardError(error)) {
+  void syncVaultAccountState(userId)
+ }
  console.error('Error deleting subscription:', error)
  throw error
  }

@@ -1,4 +1,12 @@
 import { DataScope, GUEST_DATA_SCOPE, getActiveDataScope, resolveScopedStorageKey } from './dataScope'
+import {
+ extractUserIdFromScope,
+ isScopeProtectedByE2ee,
+ readEncryptedShadowCategories,
+ readEncryptedShadowPendingCategories,
+ writeEncryptedShadowCategories,
+ writeEncryptedShadowPendingCategories,
+} from '../lib/e2ee/shadowStore'
 import type { TFunction } from 'i18next'
 
 /**
@@ -114,9 +122,13 @@ export function coerceToExistingCategory(
  * 包含数据迁移逻辑：从旧版本 v1 迁移到 v2
  */
 export function loadCategories(scope?: DataScope): Category[] {
- try {
  const dataScope = scope ?? getActiveDataScope()
- const stored = localStorage.getItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope))
+ if (isScopeProtectedByE2ee(dataScope)) {
+  const userId = extractUserIdFromScope(dataScope)
+  return userId ? readEncryptedShadowCategories(userId, DEFAULT_CATEGORIES) : [...DEFAULT_CATEGORIES]
+ }
+ try {
+ const stored = localStorage.getItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, dataScope))
 
  if (stored) {
   const parsed: unknown = JSON.parse(stored)
@@ -174,8 +186,16 @@ export function loadCategories(scope?: DataScope): Category[] {
  * 保存类型数据到 localStorage
  */
 export function saveCategories(categories: Category[], scope?: DataScope): void {
+ const dataScope = scope ?? getActiveDataScope()
+ if (isScopeProtectedByE2ee(dataScope)) {
+  const userId = extractUserIdFromScope(dataScope)
+  if (userId) {
+   writeEncryptedShadowCategories(userId, categories)
+  }
+  return
+ }
  try {
- localStorage.setItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope), JSON.stringify(categories))
+ localStorage.setItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, dataScope), JSON.stringify(categories))
  } catch (error) {
  console.error('Error saving categories:', error)
  }
@@ -185,8 +205,15 @@ export function saveCategories(categories: Category[], scope?: DataScope): void 
  * 清除类别数据
  */
 export function clearCategories(scope?: DataScope): void {
+ const dataScope = scope ?? getActiveDataScope()
+ if (isScopeProtectedByE2ee(dataScope)) {
+  const userId = extractUserIdFromScope(dataScope)
+  if (userId) {
+   writeEncryptedShadowCategories(userId, [...DEFAULT_CATEGORIES])
+  }
+ }
  try {
- localStorage.removeItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, scope))
+ localStorage.removeItem(resolveScopedStorageKey(CATEGORIES_STORAGE_KEY, dataScope))
  } catch (error) {
  console.error('Error clearing categories:', error)
  }
@@ -196,8 +223,13 @@ export function clearCategories(scope?: DataScope): void {
  * 加载待同步的类别快照
  */
 export function loadPendingCategorySync(scope?: DataScope): Category[] | null {
+ const dataScope = scope ?? getActiveDataScope()
+ if (isScopeProtectedByE2ee(dataScope)) {
+  const userId = extractUserIdFromScope(dataScope)
+  return userId ? readEncryptedShadowPendingCategories(userId) : null
+ }
  try {
- const stored = localStorage.getItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope))
+ const stored = localStorage.getItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, dataScope))
  if (!stored) {
  return null
  }
@@ -224,8 +256,16 @@ export function loadPendingCategorySync(scope?: DataScope): Category[] | null {
  * 保存待同步的类别快照
  */
 export function savePendingCategorySync(categories: Category[], scope?: DataScope): void {
+ const dataScope = scope ?? getActiveDataScope()
+ if (isScopeProtectedByE2ee(dataScope)) {
+  const userId = extractUserIdFromScope(dataScope)
+  if (userId) {
+   writeEncryptedShadowPendingCategories(userId, categories)
+  }
+  return
+ }
  try {
- localStorage.setItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope), JSON.stringify(categories))
+ localStorage.setItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, dataScope), JSON.stringify(categories))
  } catch (error) {
  console.error('Error saving pending category sync state:', error)
  }
@@ -235,8 +275,15 @@ export function savePendingCategorySync(categories: Category[], scope?: DataScop
  * 清除待同步的类别快照
  */
 export function clearPendingCategorySync(scope?: DataScope): void {
+ const dataScope = scope ?? getActiveDataScope()
+ if (isScopeProtectedByE2ee(dataScope)) {
+  const userId = extractUserIdFromScope(dataScope)
+  if (userId) {
+   writeEncryptedShadowPendingCategories(userId, null)
+  }
+ }
  try {
- localStorage.removeItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, scope))
+ localStorage.removeItem(resolveScopedStorageKey(PENDING_CATEGORY_SYNC_KEY, dataScope))
  } catch (error) {
  console.error('Error clearing pending category sync state:', error)
  }

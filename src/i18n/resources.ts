@@ -6,6 +6,7 @@ import { common as enCommon } from './locales/en/common';
 import { currency as enCurrency } from './locales/en/currency';
 import { dashboard as enDashboard } from './locales/en/dashboard';
 import { developerApi as enDeveloperApi } from './locales/en/developerApi';
+import { e2ee as enE2ee } from './locales/en/e2ee';
 import { editSubscription as enEditSubscription } from './locales/en/editSubscription';
 import { addSubscription as enAddSubscription } from './locales/en/addSubscription';
 import { aiCapture as enAiCapture } from './locales/en/aiCapture';
@@ -28,6 +29,7 @@ import { common as zhCommon } from './locales/zh-CN/common';
 import { currency as zhCurrency } from './locales/zh-CN/currency';
 import { dashboard as zhDashboard } from './locales/zh-CN/dashboard';
 import { developerApi as zhDeveloperApi } from './locales/zh-CN/developerApi';
+import { e2ee as zhE2ee } from './locales/zh-CN/e2ee';
 import { editSubscription as zhEditSubscription } from './locales/zh-CN/editSubscription';
 import { addSubscription as zhAddSubscription } from './locales/zh-CN/addSubscription';
 import { aiCapture as zhAiCapture } from './locales/zh-CN/aiCapture';
@@ -57,6 +59,7 @@ export const resources = {
   categorySettings: enCategorySettings,
   dashboard: enDashboard,
   developerApi: enDeveloperApi,
+  e2ee: enE2ee,
   editSubscription: enEditSubscription,
   footer: enFooter,
   importData: enImportData,
@@ -81,6 +84,7 @@ export const resources = {
   categorySettings: zhCategorySettings,
   dashboard: zhDashboard,
   developerApi: zhDeveloperApi,
+  e2ee: zhE2ee,
   editSubscription: zhEditSubscription,
   footer: zhFooter,
   importData: zhImportData,

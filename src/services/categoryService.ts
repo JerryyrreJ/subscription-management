@@ -3,6 +3,12 @@ import { Category } from '../utils/categories'
 import { config } from '../lib/config'
 import { buildCategoryImportPlan } from '../utils/exportImport'
 import { scopeCategoryQueryToUser, scopeCategoryQueryToUserAndId } from '../utils/categoryTenantScope'
+import {
+ EncryptedCategoryStore,
+ isPlaintextGuardError,
+ isVaultActiveForUser,
+ syncVaultAccountState,
+} from '../lib/e2ee/vaultSession'
 
 export interface SupabaseCategory {
  id: string
@@ -42,6 +48,9 @@ export class CategoryService {
 
   const client = supabase
   const userId = await CategoryService.getAuthenticatedUserId(expectedUserId)
+  if (isVaultActiveForUser(userId)) {
+   return EncryptedCategoryStore.list(userId)
+  }
 
   const { data, error } = await scopeCategoryQueryToUser(
    client
@@ -67,6 +76,9 @@ export class CategoryService {
 
   const client = supabase
   const userId = await CategoryService.getAuthenticatedUserId(expectedUserId)
+  if (isVaultActiveForUser(userId)) {
+   return EncryptedCategoryStore.create(userId, category)
+  }
 
   const { data, error } = await client
    .from('user_categories')
@@ -82,6 +94,9 @@ export class CategoryService {
    .single()
 
   if (error) {
+   if (isPlaintextGuardError(error)) {
+    void syncVaultAccountState(userId)
+   }
    console.error('Error creating category:', error)
    throw error
   }
@@ -97,6 +112,9 @@ export class CategoryService {
 
   const client = supabase
   const userId = await CategoryService.getAuthenticatedUserId(expectedUserId)
+  if (isVaultActiveForUser(userId)) {
+   return EncryptedCategoryStore.update(userId, category)
+  }
 
   const { data, error } = await scopeCategoryQueryToUserAndId(
    client
@@ -113,6 +131,9 @@ export class CategoryService {
    .single()
 
   if (error) {
+   if (isPlaintextGuardError(error)) {
+    void syncVaultAccountState(userId)
+   }
    console.error('Error updating category:', error)
    throw error
   }
@@ -127,6 +148,10 @@ export class CategoryService {
   }
 
   const userId = await CategoryService.getAuthenticatedUserId(expectedUserId)
+  if (isVaultActiveForUser(userId)) {
+   await EncryptedCategoryStore.remove(userId, categoryId)
+   return
+  }
 
   const { error } = await scopeCategoryQueryToUserAndId(
    supabase
@@ -137,6 +162,9 @@ export class CategoryService {
   )
 
   if (error) {
+   if (isPlaintextGuardError(error)) {
+    void syncVaultAccountState(userId)
+   }
    console.error('Error deleting category:', error)
    throw error
   }
@@ -193,6 +221,10 @@ export class CategoryService {
 
   const client = supabase
   const userId = await CategoryService.getAuthenticatedUserId(expectedUserId)
+  if (isVaultActiveForUser(userId)) {
+   await EncryptedCategoryStore.updateOrder(userId, categories)
+   return
+  }
 
   try {
    // 批量更新每个类别的 order 字段

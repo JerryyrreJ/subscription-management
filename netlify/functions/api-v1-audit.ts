@@ -13,6 +13,11 @@ import { errorResponse, HttpError, jsonResponse } from './_shared/http';
 import { logEvent } from './_shared/logging';
 import { createSupabaseAdminClient } from './_shared/supabase';
 import { runtimeEnvironment } from './_shared/webHandler';
+import {
+  listBridgeAuditRows,
+  resolveE2eeBridgeSession,
+  type E2eeBridgeSession,
+} from './_shared/e2eeBridge';
 
 interface AuditRow {
   id: string;
@@ -130,6 +135,7 @@ export const createAuditApiHandler = (
     }, { Allow: ALLOWED_METHODS }));
   }
 
+  let bridge: E2eeBridgeSession | null = null;
   try {
     const dependencies = dependenciesFactory();
     requestId = dependencies.createRequestId();
@@ -145,8 +151,23 @@ export const createAuditApiHandler = (
     );
     assertScope(identity.scopes, 'read');
 
+    bridge = await resolveE2eeBridgeSession(dependencies.database, identity);
+
     const context = await consumeApiRateLimit(dependencies.database, identity, now);
     apiContext = context;
+
+    if (bridge) {
+      const bridged = await listBridgeAuditRows(dependencies.database, bridge, {
+        limit,
+        offset,
+        subscriptionId,
+      });
+      return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
+        data: bridged.rows.map(toApiAuditEntry),
+        pagination: { limit, offset, hasMore: bridged.hasMore },
+        requestId,
+      })));
+    }
 
     let auditQuery = dependencies.database
       .from('api_audit_log')
@@ -180,6 +201,8 @@ export const createAuditApiHandler = (
     });
     const response = errorResponse(error, requestId);
     return withCorsHeaders(apiContext ? withRateHeaders(apiContext, response) : response);
+  } finally {
+    bridge?.dispose();
   }
 };
 

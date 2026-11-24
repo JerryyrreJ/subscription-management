@@ -14,6 +14,11 @@ import { logEvent } from './_shared/logging';
 import { createSupabaseAdminClient } from './_shared/supabase';
 import { runtimeEnvironment } from './_shared/webHandler';
 import {
+  listBridgeSubscriptions,
+  resolveE2eeBridgeSession,
+  type E2eeBridgeSession,
+} from './_shared/e2eeBridge';
+import {
   findDuplicates,
   optimizationCandidates,
   summarizeSpend,
@@ -178,6 +183,7 @@ export const createAnalyticsApiHandler = (
     }, { Allow: ALLOWED_METHODS }));
   }
 
+  let bridge: E2eeBridgeSession | null = null;
   try {
     const dependencies = dependenciesFactory();
     requestId = dependencies.createRequestId();
@@ -206,20 +212,28 @@ export const createAnalyticsApiHandler = (
       );
     }
 
+    bridge = await resolveE2eeBridgeSession(dependencies.database, identity);
+
     const context = await consumeApiRateLimit(dependencies.database, identity, now);
     apiContext = context;
 
-    const { data, error } = await dependencies.database
-      .from('subscriptions')
-      .select(ANALYTICS_COLUMNS)
-      .eq('user_id', identity.userId)
-      .range(0, MAX_ANALYTICS_ROWS - 1);
+    let rawRows: AnalyticsRow[];
+    if (bridge) {
+      rawRows = await listBridgeSubscriptions(dependencies.database, bridge);
+    } else {
+      const { data, error } = await dependencies.database
+        .from('subscriptions')
+        .select(ANALYTICS_COLUMNS)
+        .eq('user_id', identity.userId)
+        .range(0, MAX_ANALYTICS_ROWS - 1);
 
-    if (error) {
-      throw error;
+      if (error) {
+        throw error;
+      }
+      rawRows = (data ?? []) as unknown as AnalyticsRow[];
     }
 
-    const subscriptions = ((data ?? []) as unknown as AnalyticsRow[]).map(row => toInsightSubscription(row, now));
+    const subscriptions = rawRows.map(row => toInsightSubscription(row, now));
 
     const payload =
       view === 'summary'
@@ -238,6 +252,8 @@ export const createAnalyticsApiHandler = (
     });
     const response = errorResponse(error, requestId);
     return withCorsHeaders(apiContext ? withRateHeaders(apiContext, response) : response);
+  } finally {
+    bridge?.dispose();
   }
 };
 

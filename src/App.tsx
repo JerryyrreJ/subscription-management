@@ -30,6 +30,14 @@ import { useAuth } from './contexts/AuthContext';
 import { useSubscriptionSync } from './hooks/useSubscriptionSync';
 import { useInitialAccountSync } from './hooks/useInitialAccountSync';
 import { useCategorySync } from './hooks/useCategorySync';
+import { useVaultState } from './hooks/useVaultState';
+import { E2EEUnlockModal } from './components/E2EEUnlockModal';
+import {
+ isVaultUnlockedForUser,
+ rebuildAllEncryptedPushSchedules,
+ resetVaultOnSignOut,
+ syncVaultAccountState,
+} from './lib/e2ee/vaultSession';
 import { loadSubscriptions } from './utils/storage';
 import { getCategoryDisplayName, getVisibleCategories, loadCategories } from './utils/categories';
 import { CategoryService } from './services/categoryService';
@@ -212,6 +220,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  const appLocale = normalizeLocale(i18n.language);
  const appUser = passwordRecoveryPending ? null : user;
  const appSession = passwordRecoveryPending ? null : session;
+ const vaultState = useVaultState();
  const notificationReady = isBarkReady(notificationSettings);
  const notificationScope = appUser ? getUserDataScope(appUser.id) : GUEST_DATA_SCOPE;
 
@@ -545,6 +554,13 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  console.log('User logged in, checking cloud data...');
  claimLocalDataOwnership(appUser.id, getUserDataScope(appUser.id));
 
+ const vaultSnap = await syncVaultAccountState(appUser.id);
+ if (!isCurrentTask()) return;
+ if (vaultSnap.status === 'locked') {
+  // Wait for user to unlock via Passkey or 16-word recovery phrase
+  return;
+ }
+
  // 1. 同步订阅数据
  const cloudSubscriptions = await syncSubscriptions();
  if (!isCurrentTask()) return;
@@ -740,9 +756,25 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  };
 
  const handleSignOut = async () => {
+ resetVaultOnSignOut();
  await signOut();
- // 可选：清空本地数据或保留
- // setSubscriptions([]);
+ };
+
+ const handleVaultUnlocked = async () => {
+ if (!appUser) return;
+ const syncScope = getUserDataScope(appUser.id);
+ setSubscriptions(loadSubscriptions(syncScope));
+ try {
+  await syncSubscriptions();
+  await syncCategories();
+  const cloudNotificationSettings = await NotificationSettingsService.getSettings(appUser.id);
+  if (cloudNotificationSettings) {
+   setNotificationSettings(cloudNotificationSettings);
+   saveNotificationSettings(cloudNotificationSettings, syncScope);
+  }
+ } catch (error) {
+  console.error('Failed to sync after vault unlock:', error);
+ }
  };
 
  const handleDeleteAccount = async () => {
@@ -800,6 +832,9 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  if (targetUserId && config.hasSupabaseConfig) {
  try {
  await NotificationSettingsService.saveSettings(nextSettings, targetUserId);
+ if (isVaultUnlockedForUser(targetUserId)) {
+  await rebuildAllEncryptedPushSchedules(targetUserId, subscriptions);
+ }
  return { cloudSynced: true };
  } catch (error) {
  console.error('Failed to sync notification settings to cloud:', error);
@@ -1409,6 +1444,9 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   onUpdateSubscriptions={async (updatedSubscriptions) => {
    await updateSubscriptionsBatch(updatedSubscriptions);
   }}
+  onSubscriptionsReplaced={(next) => {
+   setSubscriptions(next);
+  }}
   categorySync={{
    createCategory,
    updateCategory,
@@ -1587,6 +1625,16 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
           </div>
         </div>
       )}
+
+ {appUser && vaultState.status === 'locked' && (
+  <E2EEUnlockModal
+   userId={appUser.id}
+   userEmail={appUser.email}
+   vault={vaultState}
+   onUnlocked={handleVaultUnlocked}
+   onSignOut={handleSignOut}
+  />
+ )}
 
  <AppToast
  toast={toast}

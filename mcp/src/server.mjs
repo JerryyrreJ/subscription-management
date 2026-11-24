@@ -1,14 +1,19 @@
 #!/usr/bin/env node
-// MCP server for the SteadyRenew public API.
+// MCP server for the SteadyRenew public API (with local zero-knowledge E2EE support).
 //
 // Single source of truth: it loads docs-site/api/ai-tools.json (or an embedded
 // copy in the single-file bundle) and exposes every tool over the Model Context
-// Protocol, proxying each call to the REST API with a bearer key.
+// Protocol.
 //
 // Required environment:
 //   SUBSCRIPTION_MANAGER_BASE_URL   e.g. https://steadyrenew.com
 //   SUBSCRIPTION_MANAGER_API_KEY    a key minted in Settings -> API & MCP (subm_...)
 // Optional:
+//   SUBSCRIPTION_MANAGER_VAULT_KEY  local E2EE vault key (`vk1_...`). When provided
+//                                   (or appended as `#vk1_...` on API_KEY), encryption
+//                                   and decryption run 100% locally in this Node process
+//                                   against `/api/v1/vault/*`; the vault key is never
+//                                   transmitted over HTTP.
 //   SUBSCRIPTION_MANAGER_TOOLS_SCHEMA   path to an ai-tools.json override
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -17,19 +22,30 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
+import { webcrypto, randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const baseUrl = process.env.SUBSCRIPTION_MANAGER_BASE_URL;
-const apiKey = process.env.SUBSCRIPTION_MANAGER_API_KEY;
+const rawBaseUrl = process.env.SUBSCRIPTION_MANAGER_BASE_URL;
+const rawApiKey = process.env.SUBSCRIPTION_MANAGER_API_KEY;
+const rawVaultKeyEnv = process.env.SUBSCRIPTION_MANAGER_VAULT_KEY;
 
-if (!baseUrl || !apiKey) {
+if (!rawBaseUrl || !rawApiKey) {
   console.error(
     'Missing configuration. Set SUBSCRIPTION_MANAGER_BASE_URL and SUBSCRIPTION_MANAGER_API_KEY.'
   );
   process.exit(1);
 }
+
+// Support local fragment syntax `subm_<id>.<secret>#vk1_<vaultKey>` where `#vk1_...`
+// stays strictly local and is stripped before setting HTTP `Authorization`.
+const hashSplitIndex = rawApiKey.indexOf('#');
+const apiKey = hashSplitIndex === -1 ? rawApiKey.trim() : rawApiKey.slice(0, hashSplitIndex).trim();
+const localVaultKeyToken = (
+  rawVaultKeyEnv?.trim()
+  || (hashSplitIndex !== -1 ? rawApiKey.slice(hashSplitIndex + 1).trim() : '')
+);
 
 const loadSchemaAndVersion = () => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -76,7 +92,7 @@ const defs = schema.$defs ?? {};
 
 let normalizedBase;
 try {
-  const url = new URL(baseUrl);
+  const url = new URL(rawBaseUrl);
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   if (
     (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) ||
@@ -95,6 +111,485 @@ try {
   );
   process.exit(1);
 }
+
+// --- Local Zero-Knowledge AES-256-GCM Helpers (Node WebCrypto) ---------------
+const subtle = webcrypto.subtle;
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder('utf-8', { fatal: true });
+
+const decodeVaultKey = (token) => {
+  const payload = token.startsWith('vk1_') ? token.slice(4) : token;
+  const bytes = Buffer.from(payload, 'base64url');
+  if (bytes.byteLength !== 32) {
+    throw new Error('SUBSCRIPTION_MANAGER_VAULT_KEY must decode to 32 bytes.');
+  }
+  return new Uint8Array(bytes);
+};
+
+const sealLocalJson = async (dek, value, aadParts) => {
+  const nonce = webcrypto.getRandomValues(new Uint8Array(12));
+  const plaintext = textEncoder.encode(JSON.stringify(value));
+  const aad = textEncoder.encode(JSON.stringify(aadParts));
+  const ciphertext = await subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: 128 },
+    dek,
+    plaintext
+  );
+  return {
+    version: 1,
+    nonce: Buffer.from(nonce).toString('base64'),
+    ciphertext: Buffer.from(ciphertext).toString('base64'),
+  };
+};
+
+const openLocalJson = async (dek, envelope, aadParts) => {
+  const nonce = new Uint8Array(Buffer.from(envelope.nonce, 'base64'));
+  const ciphertext = new Uint8Array(Buffer.from(envelope.ciphertext, 'base64'));
+  const aad = textEncoder.encode(JSON.stringify(aadParts));
+  const decrypted = await subtle.decrypt(
+    { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: 128 },
+    dek,
+    ciphertext
+  );
+  return JSON.parse(textDecoder.decode(new Uint8Array(decrypted)));
+};
+
+const computePushSubHash = async (dekBytes, subId) => {
+  const hmacKey = await subtle.importKey('raw', dekBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await subtle.sign('HMAC', hmacKey, textEncoder.encode(`push-sub:v1:${subId}`));
+  return Buffer.from(sig).toString('hex');
+};
+
+const formatDateUtc = (d) =>
+  `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+
+const parseDateUtc = (str) => {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+};
+
+const addPeriodUtc = (dateStr, period, customDate, anchorDay) => {
+  const dt = parseDateUtc(dateStr);
+  const anchor = anchorDay || dt.getUTCDate();
+  if (period === 'monthly') {
+    const nextMonth = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 1));
+    const maxDay = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth() + 1, 0)).getUTCDate();
+    return formatDateUtc(new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth(), Math.min(anchor, maxDay))));
+  }
+  if (period === 'yearly') {
+    const maxDay = new Date(Date.UTC(dt.getUTCFullYear() + 1, dt.getUTCMonth() + 1, 0)).getUTCDate();
+    return formatDateUtc(new Date(Date.UTC(dt.getUTCFullYear() + 1, dt.getUTCMonth(), Math.min(anchor, maxDay))));
+  }
+  const days = Math.max(1, parseInt(customDate || '30', 10) || 30);
+  const next = new Date(dt.getTime());
+  next.setUTCDate(next.getUTCDate() + days);
+  return formatDateUtc(next);
+};
+
+const subPeriodUtc = (dateStr, period, customDate, anchorDay) => {
+  const dt = parseDateUtc(dateStr);
+  const anchor = anchorDay || dt.getUTCDate();
+  if (period === 'monthly') {
+    const prevMonth = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() - 1, 1));
+    const maxDay = new Date(Date.UTC(prevMonth.getUTCFullYear(), prevMonth.getUTCMonth() + 1, 0)).getUTCDate();
+    return formatDateUtc(new Date(Date.UTC(prevMonth.getUTCFullYear(), prevMonth.getUTCMonth(), Math.min(anchor, maxDay))));
+  }
+  if (period === 'yearly') {
+    const maxDay = new Date(Date.UTC(dt.getUTCFullYear() - 1, dt.getUTCMonth() + 1, 0)).getUTCDate();
+    return formatDateUtc(new Date(Date.UTC(dt.getUTCFullYear() - 1, dt.getUTCMonth(), Math.min(anchor, maxDay))));
+  }
+  const days = Math.max(1, parseInt(customDate || '30', 10) || 30);
+  const prev = new Date(dt.getTime());
+  prev.setUTCDate(prev.getUTCDate() - days);
+  return formatDateUtc(prev);
+};
+
+const resolveEffectiveSubscription = (id, content, createdAt, updatedAt) => {
+  const today = formatDateUtc(new Date());
+  const isTrial = Boolean(content.isTrial);
+  const status = content.status || 'active';
+  let nextDate = isTrial ? (content.trialEndsOn || content.nextPaymentDate) : content.nextPaymentDate;
+  const anchor = content.period === 'monthly' ? (content.billingAnchorDay || parseDateUtc(nextDate).getUTCDate()) : null;
+
+  if (!isTrial && status === 'active') {
+    while (nextDate < today) {
+      const adv = addPeriodUtc(nextDate, content.period, content.customDate, anchor);
+      if (adv === nextDate) break;
+      nextDate = adv;
+    }
+  }
+  const lastDate = subPeriodUtc(nextDate, content.period, content.customDate, anchor);
+  return {
+    id,
+    name: content.name,
+    category: content.category,
+    amount: Number(content.amount),
+    currency: content.currency,
+    period: content.period,
+    lastPaymentDate: lastDate,
+    nextPaymentDate: nextDate,
+    ...(anchor ? { billingAnchorDay: anchor } : {}),
+    ...(content.customDate ? { customDate: content.customDate } : {}),
+    notificationEnabled: content.notificationEnabled !== false,
+    isTrial,
+    ...(isTrial ? { trialEndsOn: content.trialEndsOn || nextDate } : {}),
+    status,
+    createdAt,
+    updatedAt,
+  };
+};
+
+let cachedLocalVaultContext = null;
+
+const getLocalVaultContext = async () => {
+  if (!localVaultKeyToken) return null;
+  if (cachedLocalVaultContext) return cachedLocalVaultContext;
+
+  const dekBytes = decodeVaultKey(localVaultKeyToken);
+  const dek = await subtle.importKey('raw', dekBytes, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+
+  const res = await fetch(`${normalizedBase}/api/v1/vault/state`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    redirect: 'error',
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) return null;
+  const state = await res.json();
+  if (!state?.enabled || !state?.account) return null;
+
+  const check = await openLocalJson(dek, state.account.dekCheck, [
+    'e2ee-dek-check',
+    1,
+    state.account.userId,
+    state.account.keyEpoch,
+  ]);
+  if (check?.purpose !== 'dek-check' || check?.userId !== state.account.userId) {
+    throw new Error('Local SUBSCRIPTION_MANAGER_VAULT_KEY does not match this encrypted account.');
+  }
+
+  cachedLocalVaultContext = {
+    userId: state.account.userId,
+    keyEpoch: state.account.keyEpoch,
+    dek,
+    dekBytes,
+  };
+  return cachedLocalVaultContext;
+};
+
+const fetchVaultJson = async (method, path, body) => {
+  const headers = { Authorization: `Bearer ${apiKey}` };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const res = await fetch(`${normalizedBase}${path}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    redirect: 'error',
+    signal: AbortSignal.timeout(30_000),
+  });
+  const text = await res.text();
+  return { ok: res.ok, status: res.status, text, json: text ? JSON.parse(text) : null };
+};
+
+const executeLocalE2eeTool = async (tool, args, vaultCtx) => {
+  const loadAllDecrypted = async () => {
+    const resp = await fetchVaultJson('GET', '/api/v1/vault/subscriptions');
+    if (!resp.ok) return { errorResp: resp };
+    const items = [];
+    for (const row of resp.json.data ?? []) {
+      const content = await openLocalJson(vaultCtx.dek, row.envelope, [
+        'e2ee-subscription',
+        1,
+        vaultCtx.userId,
+        row.id,
+      ]);
+      items.push({
+        raw: content,
+        resolved: resolveEffectiveSubscription(row.id, content, row.createdAt, row.updatedAt),
+      });
+    }
+    return { items };
+  };
+
+  if (tool.name === 'list_subscriptions') {
+    const loaded = await loadAllDecrypted();
+    if (loaded.errorResp) return loaded.errorResp;
+    let list = loaded.items.map(x => x.resolved);
+    if (args.status) list = list.filter(s => s.status === args.status);
+    if (args.category) list = list.filter(s => s.category === args.category);
+    if (args.period) list = list.filter(s => s.period === args.period);
+    if (args.isTrial !== undefined) list = list.filter(s => Boolean(s.isTrial) === Boolean(args.isTrial));
+    if (args.q) {
+      const q = String(args.q).toLowerCase();
+      list = list.filter(s => s.name.toLowerCase().includes(q));
+    }
+    if (args.expiringBefore) {
+      list = list.filter(s => s.nextPaymentDate <= String(args.expiringBefore));
+    }
+    const limit = Math.min(100, Math.max(1, Number(args.limit ?? 50)));
+    const offset = Math.max(0, Number(args.offset ?? 0));
+    const hasMore = list.length > offset + limit;
+    const data = list.slice(offset, offset + limit);
+    return { ok: true, status: 200, text: JSON.stringify({ data, pagination: { limit, offset, hasMore } }) };
+  }
+
+  if (tool.name === 'get_subscription') {
+    const resp = await fetchVaultJson('GET', `/api/v1/vault/subscriptions/${encodeURIComponent(args.id)}`);
+    if (!resp.ok) return resp;
+    const row = resp.json.data;
+    const content = await openLocalJson(vaultCtx.dek, row.envelope, ['e2ee-subscription', 1, vaultCtx.userId, row.id]);
+    const resolved = resolveEffectiveSubscription(row.id, content, row.createdAt, row.updatedAt);
+    return { ok: true, status: 200, text: JSON.stringify({ data: resolved }) };
+  }
+
+  if (tool.name === 'create_subscription') {
+    const id = randomUUID();
+    const isTrial = Boolean(args.isTrial);
+    const nextPaymentDate = args.nextPaymentDate || args.trialEndsOn;
+    const period = args.period || 'monthly';
+    const billingAnchorDay = period === 'monthly'
+      ? (args.billingAnchorDay ?? parseDateUtc(nextPaymentDate).getUTCDate())
+      : null;
+    const content = {
+      name: String(args.name),
+      category: String(args.category || 'Other'),
+      amount: Number(args.amount),
+      currency: String(args.currency || 'USD').toUpperCase(),
+      period,
+      lastPaymentDate: subPeriodUtc(nextPaymentDate, period, args.customDate, billingAnchorDay),
+      nextPaymentDate,
+      billingAnchorDay,
+      ...(args.customDate ? { customDate: String(args.customDate) } : {}),
+      notificationEnabled: args.notificationEnabled !== false,
+      isTrial,
+      ...(isTrial ? { trialEndsOn: args.trialEndsOn || nextPaymentDate } : {}),
+      status: 'active',
+    };
+    const envelope = await sealLocalJson(vaultCtx.dek, content, ['e2ee-subscription', 1, vaultCtx.userId, id]);
+    const preview = resolveEffectiveSubscription(id, content, new Date().toISOString(), new Date().toISOString());
+    const auditId = randomUUID();
+    const auditEnvelope = await sealLocalJson(vaultCtx.dek, { after: preview }, ['e2ee-audit', 1, vaultCtx.userId, auditId]);
+    const subscriptionHash = await computePushSubHash(vaultCtx.dekBytes, id);
+
+    const resp = await fetchVaultJson('POST', '/api/v1/vault/subscriptions', {
+      id,
+      envelope,
+      auditId,
+      auditEnvelope,
+      subscriptionHash,
+    });
+    if (!resp.ok) return resp;
+    const row = resp.json.data;
+    return {
+      ok: true,
+      status: 201,
+      text: JSON.stringify({ data: resolveEffectiveSubscription(row.id, content, row.createdAt, row.updatedAt) }),
+    };
+  }
+
+  if (tool.name === 'update_subscription') {
+    const id = String(args.id);
+    const existingResp = await fetchVaultJson('GET', `/api/v1/vault/subscriptions/${encodeURIComponent(id)}`);
+    if (!existingResp.ok) return existingResp;
+    const existingRow = existingResp.json.data;
+    const beforeContent = await openLocalJson(vaultCtx.dek, existingRow.envelope, [
+      'e2ee-subscription',
+      1,
+      vaultCtx.userId,
+      id,
+    ]);
+    const patch = args.patch && typeof args.patch === 'object' ? args.patch : (() => {
+      const copy = { ...args };
+      delete copy.id;
+      return copy;
+    })();
+    const merged = { ...beforeContent, ...patch };
+    if (merged.period === 'monthly') {
+      merged.billingAnchorDay = patch.billingAnchorDay ?? merged.billingAnchorDay ?? parseDateUtc(merged.nextPaymentDate).getUTCDate();
+    } else {
+      merged.billingAnchorDay = null;
+    }
+    merged.lastPaymentDate = subPeriodUtc(merged.nextPaymentDate, merged.period, merged.customDate, merged.billingAnchorDay);
+
+    const envelope = await sealLocalJson(vaultCtx.dek, merged, ['e2ee-subscription', 1, vaultCtx.userId, id]);
+    const beforeResolved = resolveEffectiveSubscription(id, beforeContent, existingRow.createdAt, existingRow.updatedAt);
+    const afterPreview = resolveEffectiveSubscription(id, merged, existingRow.createdAt, new Date().toISOString());
+    const auditId = randomUUID();
+    const auditEnvelope = await sealLocalJson(
+      vaultCtx.dek,
+      { before: beforeResolved, after: afterPreview, patch },
+      ['e2ee-audit', 1, vaultCtx.userId, auditId]
+    );
+    const subscriptionHash = await computePushSubHash(vaultCtx.dekBytes, id);
+
+    const resp = await fetchVaultJson('PATCH', `/api/v1/vault/subscriptions/${encodeURIComponent(id)}`, {
+      envelope,
+      auditId,
+      auditEnvelope,
+      subscriptionHash,
+    });
+    if (!resp.ok) return resp;
+    const row = resp.json.data;
+    return {
+      ok: true,
+      status: 200,
+      text: JSON.stringify({ data: resolveEffectiveSubscription(row.id, merged, row.createdAt, row.updatedAt) }),
+    };
+  }
+
+  if (tool.name === 'delete_subscription') {
+    const id = String(args.id);
+    const existingResp = await fetchVaultJson('GET', `/api/v1/vault/subscriptions/${encodeURIComponent(id)}`);
+    if (!existingResp.ok) return existingResp;
+    const existingRow = existingResp.json.data;
+    const beforeContent = await openLocalJson(vaultCtx.dek, existingRow.envelope, [
+      'e2ee-subscription',
+      1,
+      vaultCtx.userId,
+      id,
+    ]);
+    const beforeResolved = resolveEffectiveSubscription(id, beforeContent, existingRow.createdAt, existingRow.updatedAt);
+    const auditId = randomUUID();
+    const auditEnvelope = await sealLocalJson(vaultCtx.dek, { before: beforeResolved }, ['e2ee-audit', 1, vaultCtx.userId, auditId]);
+    const subscriptionHash = await computePushSubHash(vaultCtx.dekBytes, id);
+
+    const resp = await fetchVaultJson('DELETE', `/api/v1/vault/subscriptions/${encodeURIComponent(id)}`, {
+      auditId,
+      auditEnvelope,
+      subscriptionHash,
+    });
+    if (!resp.ok) return resp;
+    return { ok: true, status: 200, text: JSON.stringify({ deleted: true }) };
+  }
+
+  if (
+    tool.name === 'get_spend_summary'
+    || tool.name === 'find_duplicate_subscriptions'
+    || tool.name === 'get_optimization_suggestions'
+  ) {
+    const loaded = await loadAllDecrypted();
+    if (loaded.errorResp) return loaded.errorResp;
+    const active = loaded.items.map(x => x.resolved).filter(s => s.status === 'active');
+
+    if (tool.name === 'get_spend_summary') {
+      const allSubs = loaded.items.map(x => x.resolved);
+      const horizonDays = Math.min(365, Math.max(1, Number(args.horizonDays ?? 30)));
+      const horizonDate = new Date();
+      horizonDate.setUTCDate(horizonDate.getUTCDate() + horizonDays);
+      const horizonStr = formatDateUtc(horizonDate);
+      const currencyMap = new Map();
+      const categoryMap = new Map();
+      const upcomingRenewals = [];
+      for (const s of active) {
+        if (!s.isTrial) {
+          const monthlyEq =
+            s.period === 'monthly'
+              ? s.amount
+              : s.period === 'yearly'
+                ? s.amount / 12
+                : (s.amount * 30) / Math.max(1, parseInt(s.customDate || '30', 10) || 30);
+          const cBucket = currencyMap.get(s.currency) || {
+            currency: s.currency,
+            activeSubscriptions: 0,
+            monthlyTotal: 0,
+            yearlyTotal: 0,
+          };
+          cBucket.activeSubscriptions += 1;
+          cBucket.monthlyTotal = Number((cBucket.monthlyTotal + monthlyEq).toFixed(2));
+          cBucket.yearlyTotal = Number((cBucket.yearlyTotal + monthlyEq * 12).toFixed(2));
+          currencyMap.set(s.currency, cBucket);
+
+          const catBucket = categoryMap.get(s.category) || {
+            category: s.category,
+            activeSubscriptions: 0,
+            monthlyTotalsByCurrency: {},
+          };
+          catBucket.activeSubscriptions += 1;
+          catBucket.monthlyTotalsByCurrency[s.currency] = Number(
+            ((catBucket.monthlyTotalsByCurrency[s.currency] || 0) + monthlyEq).toFixed(2)
+          );
+          categoryMap.set(s.category, catBucket);
+        }
+        if (s.nextPaymentDate <= horizonStr) {
+          upcomingRenewals.push(s);
+        }
+      }
+      return {
+        ok: true,
+        status: 200,
+        text: JSON.stringify({
+          summary: {
+            asOf: formatDateUtc(new Date()),
+            horizonDays,
+            counts: {
+              total: allSubs.length,
+              active: active.filter(s => !s.isTrial).length,
+              trials: active.filter(s => s.isTrial).length,
+              paused: allSubs.filter(s => s.status === 'paused').length,
+              cancelled: allSubs.filter(s => s.status === 'cancelled').length,
+            },
+            byCurrency: [...currencyMap.values()],
+            byCategory: [...categoryMap.values()],
+            upcomingRenewals,
+          },
+        }),
+      };
+    }
+
+    if (tool.name === 'find_duplicate_subscriptions') {
+      const byKey = new Map();
+      for (const s of active) {
+        const norm = s.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '');
+        const list = byKey.get(norm) || [];
+        list.push(s);
+        byKey.set(norm, list);
+      }
+      const duplicates = [...byKey.values()].filter(group => group.length > 1);
+      return { ok: true, status: 200, text: JSON.stringify({ duplicates }) };
+    }
+
+    const optimizations = active
+      .filter(s => s.period === 'monthly' && !s.isTrial)
+      .map(s => ({
+        subscriptionId: s.id,
+        name: s.name,
+        suggestion: 'Consider checking if an annual plan offers a discount.',
+        currentPeriod: s.period,
+        amount: s.amount,
+        currency: s.currency,
+      }));
+    return { ok: true, status: 200, text: JSON.stringify({ optimizations }) };
+  }
+
+  if (tool.name === 'list_audit_log') {
+    const qs = new URLSearchParams();
+    if (args.limit !== undefined) qs.set('limit', String(args.limit));
+    if (args.offset !== undefined) qs.set('offset', String(args.offset));
+    if (args.subscriptionId) qs.set('subscriptionId', String(args.subscriptionId));
+    const resp = await fetchVaultJson('GET', `/api/v1/vault/audit${qs.toString() ? `?${qs.toString()}` : ''}`);
+    if (!resp.ok) return resp;
+    const entries = [];
+    for (const row of resp.json.data ?? []) {
+      const metadata = await openLocalJson(vaultCtx.dek, row.envelope, ['e2ee-audit', 1, vaultCtx.userId, row.id]);
+      entries.push({
+        id: row.id,
+        action: row.action,
+        subscriptionId: row.subscriptionId,
+        apiKeyId: row.apiKeyId,
+        requestId: row.requestId,
+        metadata,
+        createdAt: row.createdAt,
+      });
+    }
+    return {
+      ok: true,
+      status: 200,
+      text: JSON.stringify({ data: entries, pagination: resp.json.pagination }),
+    };
+  }
+
+  return null;
+};
 
 // Recursively inline #/$defs/* references so every tool inputSchema is a clean,
 // self-contained JSON Schema object without carrying redundant $defs payloads.
@@ -170,8 +665,6 @@ const tools = schema.tools.map((tool) => ({
 
 const toolByName = new Map(schema.tools.map((tool) => [tool.name, tool]));
 
-// Turn a tool call into a concrete HTTP request using the tool's method/path and
-// the conventions encoded in ai-tools.json (path params, fixedBody, patch body).
 const buildRequest = (tool, args = {}) => {
   const safeArgs = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
   const usedPathParams = new Set();
@@ -220,6 +713,16 @@ const buildRequest = (tool, args = {}) => {
 };
 
 const callTool = async (tool, args) => {
+  if (localVaultKeyToken && !tool.path.startsWith('/api/v1/notification-settings')) {
+    const vaultCtx = await getLocalVaultContext();
+    if (vaultCtx) {
+      const localResult = await executeLocalE2eeTool(tool, args, vaultCtx);
+      if (localResult) {
+        return localResult;
+      }
+    }
+  }
+
   const request = buildRequest(tool, args);
   const headers = { Authorization: `Bearer ${apiKey}` };
   if (request.body !== undefined) {

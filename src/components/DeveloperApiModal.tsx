@@ -1,8 +1,10 @@
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Clipboard, Code2, KeyRound, Loader2, PlugZap, Trash2, X } from 'lucide-react';
+import { Check, Clipboard, Code2, KeyRound, Loader2, PlugZap, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
+import { useVaultState } from '../hooks/useVaultState';
+import { getUnlockedVaultKeyToken } from '../lib/e2ee/vaultSession';
 import { AgentSetupCard } from './settings/AgentSetupCard';
 import {
  ApiKeyLimits,
@@ -60,8 +62,12 @@ export function DeveloperApiModal({
  isStandalone = true
 }: DeveloperApiModalProps) {
  useModalScrollLock(isOpen && isStandalone);
- const { t, i18n } = useTranslation(['developerApi', 'app']);
+ const { t, i18n } = useTranslation(['developerApi', 'app', 'e2ee']);
  const { user } = useAuth();
+ const vault = useVaultState();
+ const unlockedVaultKeyToken = user?.id ? getUnlockedVaultKeyToken(user.id) : null;
+ const [e2eeApiMode, setE2eeApiMode] = useState<'local' | 'bridge'>('local');
+ const [copiedVaultKey, setCopiedVaultKey] = useState(false);
  const defaultKeyName = t('developerApi:defaultKeyName');
  const [keys, setKeys] = useState<ApiKeyMetadata[]>([]);
  const [limits, setLimits] = useState<ApiKeyLimits | null>(null);
@@ -286,13 +292,18 @@ export function DeveloperApiModal({
   }
  };
 
+ const effectiveDisplayApiKey =
+  createdApiKey && unlockedVaultKeyToken && e2eeApiMode === 'bridge'
+   ? `${createdApiKey}.${unlockedVaultKeyToken}`
+   : createdApiKey;
+
  const handleCopy = async () => {
-  if (!createdApiKey) {
+  if (!effectiveDisplayApiKey) {
    return;
   }
 
   try {
-   await navigator.clipboard.writeText(createdApiKey);
+   await navigator.clipboard.writeText(effectiveDisplayApiKey);
    setCopied(true);
   } catch {
    setError(t('developerApi:copyFailed'));
@@ -350,9 +361,63 @@ export function DeveloperApiModal({
       </div>
      ) : (
       <>
+       {vault.status === 'unlocked' && unlockedVaultKeyToken && (
+        <div className="settings-card space-y-3 border-emerald-200/70 dark:border-emerald-500/20">
+         <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+           <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+           <h3 className="text-sm font-semibold app-theme-text-primary">{t('e2ee:apiE2eeTitle')}</h3>
+          </div>
+          <button
+           type="button"
+           onClick={async () => {
+            try {
+             await navigator.clipboard.writeText(unlockedVaultKeyToken);
+             setCopiedVaultKey(true);
+             window.setTimeout(() => setCopiedVaultKey(false), 2000);
+            } catch {
+             setError(t('developerApi:copyFailed'));
+            }
+           }}
+           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+          >
+           {copiedVaultKey ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+           {copiedVaultKey ? t('developerApi:copied') : t('e2ee:copyVaultKeyEnv')}
+          </button>
+         </div>
+         <div className="grid sm:grid-cols-2 gap-2.5 text-xs">
+          <label className="flex items-start gap-2 p-3 rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">
+           <input
+            type="radio"
+            name="e2ee-api-mode"
+            checked={e2eeApiMode === 'local'}
+            onChange={() => setE2eeApiMode('local')}
+            className="mt-0.5 accent-emerald-600"
+           />
+           <div>
+            <p className="font-medium app-theme-text-primary">{t('e2ee:apiE2eeLocalMode')}</p>
+            <p className="app-theme-text-muted mt-0.5">{t('e2ee:apiE2eeLocalDesc')}</p>
+           </div>
+          </label>
+          <label className="flex items-start gap-2 p-3 rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">
+           <input
+            type="radio"
+            name="e2ee-api-mode"
+            checked={e2eeApiMode === 'bridge'}
+            onChange={() => setE2eeApiMode('bridge')}
+            className="mt-0.5 accent-emerald-600"
+           />
+           <div>
+            <p className="font-medium app-theme-text-primary">{t('e2ee:apiE2eeBridgeMode')}</p>
+            <p className="app-theme-text-muted mt-0.5">{t('e2ee:apiE2eeBridgeDesc')}</p>
+           </div>
+          </label>
+         </div>
+        </div>
+       )}
        <AgentSetupCard
-        key={createdKeyId && createdApiKey ? createdKeyId : 'no-key'}
-        apiKey={createdApiKey}
+        key={createdKeyId && effectiveDisplayApiKey ? `${createdKeyId}-${e2eeApiMode}` : 'no-key'}
+        apiKey={effectiveDisplayApiKey}
         scopes={createdKeyScopes}
         onVerified={() => void loadKeys()}
        />
@@ -486,7 +551,7 @@ export function DeveloperApiModal({
           </button>
          </div>
          <code className="mt-3 block w-full overflow-x-auto rounded-xl bg-white dark:bg-gray-950 px-3 py-2 text-xs app-theme-text-primary">
-          {createdApiKey}
+          {effectiveDisplayApiKey}
          </code>
         </div>
        )}

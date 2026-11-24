@@ -1,6 +1,12 @@
 import { lookup } from 'node:dns/promises'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { BARK_NOTIFICATION_ICON_URL, isPublicBarkIpAddress, sendBarkNotification, validateBarkConfig } from '../../src/utils/barkPush'
+import {
+  BARK_NOTIFICATION_ICON_URL,
+  isPublicBarkIpAddress,
+  sendBarkCiphertextNotification,
+  sendBarkNotification,
+  validateBarkConfig,
+} from '../../src/utils/barkPush'
 import { formatDateOnly, getTodayDateOnly, normalizeTimeZone } from '../../src/utils/dates'
 import { cleanupNotificationHistoryEntries, mergeNotificationHistoryEntries, wasNotifiedToday } from '../../src/utils/notificationHistory'
 import { buildSubscriptionReminderContent } from '../../src/utils/notificationContent'
@@ -178,9 +184,79 @@ export const createServerBarkSender = (
   return sendPush(serverUrl, deviceKey, title, body, options, timeoutMs)
 }
 
+export const createServerBarkCiphertextSender = (
+  resolveAddresses: DnsAddressLookup = defaultDnsLookup,
+  sendCiphertext: typeof sendBarkCiphertextNotification = sendBarkCiphertextNotification
+): typeof sendBarkCiphertextNotification => async (
+  serverUrl,
+  deviceKey,
+  ciphertext,
+  iv,
+  iconUrl,
+  timeoutMs
+) => {
+  const validation = validateBarkConfig(serverUrl, deviceKey)
+  if (!validation.valid) {
+    console.error('[Scheduled Notifications] Blocked invalid Bark configuration before encrypted dispatch:', validation.error)
+    return false
+  }
+
+  let hostname: string
+  try {
+    hostname = new URL(serverUrl.trim()).hostname
+  } catch {
+    return false
+  }
+
+  if (!isPublicBarkIpAddress(hostname)) {
+    let records: Array<{ address: string }>
+    try {
+      records = await resolveAddresses(hostname)
+    } catch (error) {
+      console.error(`[Scheduled Notifications] Failed to resolve Bark server host ${hostname}:`, error)
+      return false
+    }
+
+    if (
+      records.length === 0 ||
+      records.some(record => !isPublicBarkIpAddress(record.address))
+    ) {
+      console.error(`[Scheduled Notifications] Blocked Bark server host resolving to non-public IP: ${hostname}`)
+      return false
+    }
+  }
+
+  return sendCiphertext(serverUrl, deviceKey, ciphertext, iv, iconUrl, timeoutMs)
+}
+
+interface EncryptedPushScheduleRow {
+  id: string
+  user_id: string
+  subscription_hash: string
+  trigger_date: string
+  payload_mode: 'bark_ciphertext' | 'generic'
+  bark_ciphertext: string | null
+  bark_iv: string | null
+  dispatched_at: string | null
+}
+
+function buildGenericEncryptedReminderCopy(locale: string): { title: string; body: string } {
+  if (locale.toLowerCase().startsWith('zh')) {
+    return {
+      title: '订阅续费提醒',
+      body: '您有一项端到端加密订阅即将续费，请打开 SteadyRenew 查看详情。',
+    }
+  }
+  return {
+    title: 'Subscription Renewal Reminder',
+    body: 'One of your encrypted subscriptions is due soon. Open SteadyRenew to review details.',
+  }
+}
+
 export interface ScheduledNotificationsDependencies {
   createSupabase?: () => SupabaseClient
   sendNotification?: typeof sendBarkNotification
+  sendCiphertextNotification?: typeof sendBarkCiphertextNotification
 }
 
 /**
@@ -195,6 +271,7 @@ export const createScheduledNotificationsHandler = (
   const getSupabase = dependencies.createSupabase
     ?? (() => createSupabaseAdminClient(getSupabaseAdminConfig(runtimeEnvironment)))
   const deliverBarkNotification = dependencies.sendNotification ?? createServerBarkSender()
+  const deliverBarkCiphertext = dependencies.sendCiphertextNotification ?? createServerBarkCiphertextSender()
 
   let supabase: SupabaseClient
   try {
@@ -304,7 +381,87 @@ export const createScheduledNotificationsHandler = (
       }
 
       if (!subscriptions || subscriptions.length === 0) {
-        console.log(`[Scheduled Notifications] No subscriptions with notifications enabled ${buildUserLogContext(user_id)}`)
+        // Check pre-computed encrypted push schedules for E2EE accounts
+        const userToday = formatDateOnly(getTodayDateOnly(userTimeZone))
+        const { data: encryptedSchedules, error: encryptedError } = await supabase
+          .from('encrypted_push_schedules')
+          .select('*')
+          .eq('user_id', user_id)
+          .eq('trigger_date', userToday)
+          .is('dispatched_at', null)
+
+        if (encryptedError) {
+          const code = (encryptedError as { code?: string }).code ?? ''
+          const msg = encryptedError.message ?? ''
+          if (code !== '42P01' && code !== 'PGRST205' && !msg.includes('Unexpected query:')) {
+            console.error(`[Scheduled Notifications] Error fetching encrypted push schedules ${buildUserLogContext(user_id)}:`, encryptedError)
+            totalErrors++
+          }
+          continue
+        }
+
+        if (!encryptedSchedules || encryptedSchedules.length === 0) {
+          console.log(`[Scheduled Notifications] No subscriptions with notifications enabled ${buildUserLogContext(user_id)}`)
+          continue
+        }
+
+        for (const schedule of encryptedSchedules as EncryptedPushScheduleRow[]) {
+          const claimedAt = new Date().toISOString()
+          const { error: claimError } = await supabase
+            .from('encrypted_push_schedules')
+            .update({ dispatched_at: claimedAt })
+            .eq('id', schedule.id)
+            .is('dispatched_at', null)
+
+          if (claimError) {
+            console.error(`[Scheduled Notifications] Failed to reserve encrypted schedule ${schedule.id}:`, claimError)
+            totalErrors++
+            continue
+          }
+
+          let delivered = false
+          try {
+            if (
+              schedule.payload_mode === 'bark_ciphertext'
+              && schedule.bark_ciphertext
+              && schedule.bark_iv
+            ) {
+              delivered = await deliverBarkCiphertext(
+                bark_server_url,
+                bark_device_key,
+                schedule.bark_ciphertext,
+                schedule.bark_iv,
+                BARK_NOTIFICATION_ICON_URL
+              )
+            } else {
+              const genericCopy = buildGenericEncryptedReminderCopy(userLocale)
+              delivered = await deliverBarkNotification(
+                bark_server_url,
+                bark_device_key,
+                genericCopy.title,
+                genericCopy.body,
+                {
+                  sound: 'bell',
+                  group: 'SteadyRenew',
+                  icon: BARK_NOTIFICATION_ICON_URL,
+                }
+              )
+            }
+          } catch (dispatchError) {
+            console.error(`[Scheduled Notifications] Error dispatching encrypted schedule ${schedule.id}:`, dispatchError)
+            delivered = false
+          }
+
+          if (delivered) {
+            totalNotificationsSent++
+          } else {
+            totalErrors++
+            await supabase
+              .from('encrypted_push_schedules')
+              .update({ dispatched_at: null })
+              .eq('id', schedule.id)
+          }
+        }
         continue
       }
 

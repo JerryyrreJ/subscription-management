@@ -60,6 +60,7 @@ export interface ApiKeyIdentity {
   isPremium: boolean;
   rateLimitMax: number;
   scopes: string[];
+  vaultKeyToken?: string;
 }
 
 export interface ApiClientContext {
@@ -357,6 +358,9 @@ const identifyOAuthAccessToken = async (
     isPremium: Boolean(profile?.is_premium),
     rateLimitMax: limits.requestsPerMinute,
     scopes: grantedScopes,
+    ...(getHeader(headers, 'x-steadyrenew-vault-key')
+      ? { vaultKeyToken: getHeader(headers, 'x-steadyrenew-vault-key') }
+      : {}),
   };
 };
 
@@ -367,10 +371,21 @@ export const identifyApiKey = async (
   now: Date = new Date(),
   requestId = 'api-auth'
 ): Promise<ApiKeyIdentity> => {
-  const apiKey = extractBearerToken(headers);
-  if (!apiKey.startsWith(API_KEY_PREFIX)) {
-    return identifyOAuthAccessToken(apiKey, headers, database, limits, now, requestId);
+  const rawToken = extractBearerToken(headers);
+  if (!rawToken.startsWith(API_KEY_PREFIX)) {
+    return identifyOAuthAccessToken(rawToken, headers, database, limits, now, requestId);
   }
+
+  // Split-key E2EE bridge format: `subm_<publicId>.<secret>.vk1_<vaultKey>`
+  // Only `subm_<publicId>.<secret>` is hashed and checked against Supabase; `.vk1_...`
+  // stays strictly in transient Function memory for the lifetime of this single request.
+  const splitMarker = '.vk1_';
+  const splitIndex = rawToken.indexOf(splitMarker);
+  const apiKey = splitIndex === -1 ? rawToken : rawToken.slice(0, splitIndex);
+  const vaultKeyToken =
+    splitIndex !== -1
+      ? rawToken.slice(splitIndex + 1)
+      : getHeader(headers, 'x-steadyrenew-vault-key');
 
   const keyHash = hashApiKey(apiKey);
   const clientIdentityHash = hashClientIdentity(getClientIdentity(headers));
@@ -456,6 +471,7 @@ export const identifyApiKey = async (
     scopes: Array.isArray(lookup.scopes) && lookup.scopes.length > 0
       ? lookup.scopes
       : DEFAULT_API_SCOPES,
+    ...(vaultKeyToken ? { vaultKeyToken } : {}),
   };
 };
 

@@ -11,6 +11,7 @@ export const settingsHub = {
  tabs: {
   general: '通用',
   account: '账号',
+  encryption: '端到端加密',
   categories: '分类',
   notifications: '通知',
   api: 'API & MCP',

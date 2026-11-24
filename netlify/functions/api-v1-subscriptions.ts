@@ -9,6 +9,16 @@ import { recordAudit } from './_shared/audit';
 import { createSupabaseAdminClient } from './_shared/supabase';
 import { runtimeEnvironment } from './_shared/webHandler';
 import {
+  createBridgeSubscription,
+  deleteBridgeSubscription,
+  getBridgeSubscription,
+  listBridgeSubscriptions,
+  recordBridgeAudit,
+  resolveE2eeBridgeSession,
+  updateBridgeSubscription,
+  type E2eeBridgeSession,
+} from './_shared/e2eeBridge';
+import {
   calculateNextPaymentDate,
   calculatePreviousPaymentDate,
   compareDateOnly,
@@ -648,6 +658,7 @@ export const createSubscriptionsApiHandler = (
     }, { Allow: ALLOWED_METHODS }));
   }
 
+  let bridge: E2eeBridgeSession | null = null;
   try {
     const dependencies = dependenciesFactory();
     requestId = dependencies.createRequestId();
@@ -664,6 +675,7 @@ export const createSubscriptionsApiHandler = (
     // Enforce the key's scope before any quota is consumed: read for GET,
     // write for POST/PATCH/DELETE. A 403 here never charges rate-limit budget.
     assertScope(identity.scopes, event.httpMethod === 'GET' ? 'read' : 'write');
+    bridge = await resolveE2eeBridgeSession(dependencies.database, identity);
 
     // Charge the per-minute quota only once the request is known to be well-formed,
     // so malformed input (400s) never burns an agent's rate-limit budget.
@@ -678,69 +690,110 @@ export const createSubscriptionsApiHandler = (
       const filters = parseListFilters(event.queryStringParameters);
       const context = await consume();
 
-      let listQuery = dependencies.database
-        .from('subscriptions')
-        .select(SUBSCRIPTION_COLUMNS)
-        .eq('user_id', identity.userId);
-
-      if (filters.status) {
-        listQuery = listQuery.eq('status', filters.status);
-      }
-      if (filters.category) {
-        listQuery = listQuery.eq('category', filters.category);
-      }
-      if (filters.period) {
-        listQuery = listQuery.eq('period', filters.period);
-      }
-      if (filters.isTrial !== undefined) {
-        listQuery = listQuery.eq('is_trial', filters.isTrial);
-      }
-      if (filters.q) {
-        listQuery = listQuery.ilike('name', `%${escapeLikePattern(filters.q)}%`);
-      }
-      if (filters.expiringBefore) {
-        // Stored next_payment_date is always <= effectiveNextPaymentDate, so SQL
-        // lte remains a safe superset pushdown before effective-date filtering.
-        listQuery = listQuery.lte('next_payment_date', filters.expiringBefore);
-      }
-
       const ascending = !filters.sort.startsWith('-');
       const sortField = filters.sort.replace(/^-/, '');
       const sortColumn = SORTABLE_COLUMNS[sortField];
       const needsEffectiveDatePass = Boolean(filters.expiringBefore) || sortField === 'nextPaymentDate';
 
-      const { data, error } = await listQuery
-        .order(sortColumn, { ascending })
-        .range(
-          needsEffectiveDatePass ? 0 : offset,
-          needsEffectiveDatePass ? MAX_SUBSCRIPTIONS_SCAN - 1 : offset + limit
-        );
-
-      if (error) {
-        throw error;
-      }
-
-      const rows = (data ?? []) as unknown as SubscriptionRow[];
       let pageItems: Array<ReturnType<typeof toApiSubscription>>;
       let hasMore: boolean;
 
-      if (needsEffectiveDatePass) {
-        let resolved = rows.map(row => toApiSubscription(row, now));
+      if (bridge) {
+        let bridgeRows = await listBridgeSubscriptions(dependencies.database, bridge);
+        if (filters.status) {
+          bridgeRows = bridgeRows.filter(row => (row.status ?? 'active') === filters.status);
+        }
+        if (filters.category) {
+          bridgeRows = bridgeRows.filter(row => row.category === filters.category);
+        }
+        if (filters.period) {
+          bridgeRows = bridgeRows.filter(row => row.period === filters.period);
+        }
+        if (filters.isTrial !== undefined) {
+          bridgeRows = bridgeRows.filter(row => Boolean(row.is_trial) === filters.isTrial);
+        }
+        if (filters.q) {
+          const needle = filters.q.toLowerCase();
+          bridgeRows = bridgeRows.filter(row => row.name.toLowerCase().includes(needle));
+        }
+
+        let resolved = bridgeRows.map(row => toApiSubscription(row, now));
         if (filters.expiringBefore) {
           resolved = resolved.filter(item => compareDateOnly(item.nextPaymentDate, filters.expiringBefore!) <= 0);
         }
-        if (sortField === 'nextPaymentDate') {
-          resolved.sort((left, right) => {
-            const diff = compareDateOnly(left.nextPaymentDate, right.nextPaymentDate);
-            return ascending ? diff : -diff;
-          });
-        }
+        resolved.sort((left, right) => {
+          let cmp = 0;
+          if (sortField === 'name') {
+            cmp = left.name.localeCompare(right.name);
+          } else if (sortField === 'amount') {
+            cmp = left.amount - right.amount;
+          } else if (sortField === 'nextPaymentDate') {
+            cmp = compareDateOnly(left.nextPaymentDate, right.nextPaymentDate);
+          } else if (sortField === 'updatedAt') {
+            cmp = (left.updatedAt ?? '').localeCompare(right.updatedAt ?? '');
+          } else {
+            cmp = (left.createdAt ?? '').localeCompare(right.createdAt ?? '');
+          }
+          return ascending ? cmp : -cmp;
+        });
+
         hasMore = resolved.length > offset + limit;
         pageItems = resolved.slice(offset, offset + limit);
       } else {
-        hasMore = rows.length > limit;
-        const page = hasMore ? rows.slice(0, limit) : rows;
-        pageItems = page.map(row => toApiSubscription(row, now));
+        let listQuery = dependencies.database
+          .from('subscriptions')
+          .select(SUBSCRIPTION_COLUMNS)
+          .eq('user_id', identity.userId);
+
+        if (filters.status) {
+          listQuery = listQuery.eq('status', filters.status);
+        }
+        if (filters.category) {
+          listQuery = listQuery.eq('category', filters.category);
+        }
+        if (filters.period) {
+          listQuery = listQuery.eq('period', filters.period);
+        }
+        if (filters.isTrial !== undefined) {
+          listQuery = listQuery.eq('is_trial', filters.isTrial);
+        }
+        if (filters.q) {
+          listQuery = listQuery.ilike('name', `%${escapeLikePattern(filters.q)}%`);
+        }
+        if (filters.expiringBefore) {
+          listQuery = listQuery.lte('next_payment_date', filters.expiringBefore);
+        }
+
+        const { data, error } = await listQuery
+          .order(sortColumn, { ascending })
+          .range(
+            needsEffectiveDatePass ? 0 : offset,
+            needsEffectiveDatePass ? MAX_SUBSCRIPTIONS_SCAN - 1 : offset + limit
+          );
+
+        if (error) {
+          throw error;
+        }
+
+        const rows = (data ?? []) as unknown as SubscriptionRow[];
+        if (needsEffectiveDatePass) {
+          let resolved = rows.map(row => toApiSubscription(row, now));
+          if (filters.expiringBefore) {
+            resolved = resolved.filter(item => compareDateOnly(item.nextPaymentDate, filters.expiringBefore!) <= 0);
+          }
+          if (sortField === 'nextPaymentDate') {
+            resolved.sort((left, right) => {
+              const diff = compareDateOnly(left.nextPaymentDate, right.nextPaymentDate);
+              return ascending ? diff : -diff;
+            });
+          }
+          hasMore = resolved.length > offset + limit;
+          pageItems = resolved.slice(offset, offset + limit);
+        } else {
+          hasMore = rows.length > limit;
+          const page = hasMore ? rows.slice(0, limit) : rows;
+          pageItems = page.map(row => toApiSubscription(row, now));
+        }
       }
 
       const appliedFilters = Object.fromEntries(
@@ -765,7 +818,9 @@ export const createSubscriptionsApiHandler = (
     if (event.httpMethod === 'GET' && subscriptionId) {
       const id = parseSubscriptionId(subscriptionId);
       const context = await consume();
-      const subscription = await getSubscription(dependencies.database, identity.userId, id);
+      const subscription = bridge
+        ? await getBridgeSubscription(dependencies.database, bridge, id)
+        : await getSubscription(dependencies.database, identity.userId, id);
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
         data: toApiSubscription(subscription, now),
         requestId,
@@ -779,17 +834,28 @@ export const createSubscriptionsApiHandler = (
 
       const parsed = parseCreateInput(parseJsonObject(event.body));
       const context = await consume();
-      const { data, error } = await dependencies.database
-        .from('subscriptions')
-        .insert({
-          user_id: identity.userId,
-          ...toDatabasePayload(parsed),
-        })
-        .select(SUBSCRIPTION_COLUMNS)
-        .single<SubscriptionRow>();
 
-      if (error) {
-        throw error;
+      let data: SubscriptionRow;
+      if (bridge) {
+        data = await createBridgeSubscription(
+          dependencies.database,
+          bridge,
+          toDatabasePayload(parsed)
+        );
+      } else {
+        const { data: inserted, error } = await dependencies.database
+          .from('subscriptions')
+          .insert({
+            user_id: identity.userId,
+            ...toDatabasePayload(parsed),
+          })
+          .select(SUBSCRIPTION_COLUMNS)
+          .single<SubscriptionRow>();
+
+        if (error) {
+          throw error;
+        }
+        data = inserted;
       }
 
       logEvent('info', 'API subscription created', requestId, {
@@ -799,17 +865,22 @@ export const createSubscriptionsApiHandler = (
       });
 
       const created = toApiSubscription(data, now);
-      await recordAudit(dependencies.database, {
+      const auditEntry = {
         userId: identity.userId,
         apiKeyId: identity.apiKeyId,
-        action: 'subscription.create',
+        action: 'subscription.create' as const,
         subscriptionId: created.id,
         requestId,
         metadata: {
           after: created,
           ...(identity.oauthClientId ? { oauthClientId: identity.oauthClientId } : {}),
         },
-      }, now);
+      };
+      if (bridge) {
+        await recordBridgeAudit(dependencies.database, bridge, auditEntry, now);
+      } else {
+        await recordAudit(dependencies.database, auditEntry, now);
+      }
 
       return withCorsHeaders(withRateHeaders(context, jsonResponse(201, {
         data: created,
@@ -826,30 +897,38 @@ export const createSubscriptionsApiHandler = (
     if (event.httpMethod === 'PATCH') {
       const body = parseJsonObject(event.body);
       const prevalidatedPatch = parsePatchBody(body);
-      const existingRow = await getSubscription(dependencies.database, identity.userId, id);
+      const existingRow = bridge
+        ? await getBridgeSubscription(dependencies.database, bridge, id)
+        : await getSubscription(dependencies.database, identity.userId, id);
       const existing = toStoredApiSubscription(existingRow);
       const parsed = parsePatchInput(body, existing, prevalidatedPatch);
       const context = await consume();
 
       const payload = toDatabasePayload(parsed);
 
-      const { data, error } = await dependencies.database
-        .from('subscriptions')
-        .update(payload)
-        .eq('user_id', identity.userId)
-        .eq('id', id)
-        .select(SUBSCRIPTION_COLUMNS)
-        .single<SubscriptionRow>();
+      let data: SubscriptionRow;
+      if (bridge) {
+        data = await updateBridgeSubscription(dependencies.database, bridge, id, payload);
+      } else {
+        const { data: updatedRow, error } = await dependencies.database
+          .from('subscriptions')
+          .update(payload)
+          .eq('user_id', identity.userId)
+          .eq('id', id)
+          .select(SUBSCRIPTION_COLUMNS)
+          .single<SubscriptionRow>();
 
-      if (error) {
-        throw error;
+        if (error) {
+          throw error;
+        }
+        data = updatedRow;
       }
 
       const updated = toApiSubscription(data, now);
-      await recordAudit(dependencies.database, {
+      const auditEntry = {
         userId: identity.userId,
         apiKeyId: identity.apiKeyId,
-        action: 'subscription.update',
+        action: 'subscription.update' as const,
         subscriptionId: updated.id,
         requestId,
         metadata: {
@@ -858,7 +937,12 @@ export const createSubscriptionsApiHandler = (
           patch: body,
           ...(identity.oauthClientId ? { oauthClientId: identity.oauthClientId } : {}),
         },
-      }, now);
+      };
+      if (bridge) {
+        await recordBridgeAudit(dependencies.database, bridge, auditEntry, now);
+      } else {
+        await recordAudit(dependencies.database, auditEntry, now);
+      }
 
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
         data: updated,
@@ -868,29 +952,40 @@ export const createSubscriptionsApiHandler = (
 
     const context = await consume();
     const existing = toStoredApiSubscription(
-      await getSubscription(dependencies.database, identity.userId, id)
+      bridge
+        ? await getBridgeSubscription(dependencies.database, bridge, id)
+        : await getSubscription(dependencies.database, identity.userId, id)
     );
-    const { error } = await dependencies.database
-      .from('subscriptions')
-      .delete()
-      .eq('user_id', identity.userId)
-      .eq('id', id);
+    if (bridge) {
+      await deleteBridgeSubscription(dependencies.database, bridge, id);
+    } else {
+      const { error } = await dependencies.database
+        .from('subscriptions')
+        .delete()
+        .eq('user_id', identity.userId)
+        .eq('id', id);
 
-    if (error) {
-      throw error;
+      if (error) {
+        throw error;
+      }
     }
 
-    await recordAudit(dependencies.database, {
+    const deleteAuditEntry = {
       userId: identity.userId,
       apiKeyId: identity.apiKeyId,
-      action: 'subscription.delete',
+      action: 'subscription.delete' as const,
       subscriptionId: id,
       requestId,
       metadata: {
         before: existing,
         ...(identity.oauthClientId ? { oauthClientId: identity.oauthClientId } : {}),
       },
-    }, now);
+    };
+    if (bridge) {
+      await recordBridgeAudit(dependencies.database, bridge, deleteAuditEntry, now);
+    } else {
+      await recordAudit(dependencies.database, deleteAuditEntry, now);
+    }
 
     return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
       deleted: true,
@@ -902,6 +997,8 @@ export const createSubscriptionsApiHandler = (
     });
     const response = errorResponse(error, requestId);
     return withCorsHeaders(apiContext ? withRateHeaders(apiContext, response) : response);
+  } finally {
+    bridge?.dispose();
   }
 };
 

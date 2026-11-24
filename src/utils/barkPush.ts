@@ -315,6 +315,70 @@ export async function sendBarkNotification(
 }
 
 /**
+ * 发送 Bark 原生端到端加密密文通知（POST ciphertext + iv，服务端与 Bark 中继均无法解密内容）
+ */
+export async function sendBarkCiphertextNotification(
+ serverUrl: string,
+ deviceKey: string,
+ ciphertext: string,
+ iv: string,
+ iconUrl: string = BARK_NOTIFICATION_ICON_URL,
+ timeoutMs: number = DEFAULT_BARK_REQUEST_TIMEOUT_MS
+): Promise<boolean> {
+ const validation = validateBarkConfig(serverUrl, deviceKey);
+ if (!validation.valid) {
+  console.error('Bark: Invalid configuration:', validation.error);
+  return false;
+ }
+ if (!ciphertext || !iv || !/^[A-Za-z0-9]{16}$/.test(iv)) {
+  console.error('Bark: Invalid encrypted payload or IV');
+  return false;
+ }
+
+ try {
+  const baseUrl = serverUrl.trim().replace(/\/+$/, '');
+  const endpoint = `${baseUrl}/${encodeURIComponent(deviceKey)}`;
+  const formBody = new URLSearchParams({
+   ciphertext,
+   iv,
+   ...(iconUrl ? { icon: iconUrl } : {}),
+  }).toString();
+
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
+
+  const response = await fetch(endpoint, {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+   body: formBody,
+   redirect: 'error',
+   signal: abortController.signal,
+  }).finally(() => {
+   clearTimeout(timeoutId);
+  });
+
+  if (!response.ok) {
+   console.error('Bark encrypted push failed:', response.statusText);
+   return false;
+  }
+
+  const result = await response.json();
+  if (result.code === 200) {
+   return true;
+  }
+  console.error('Bark encrypted push failed:', result.message);
+  return false;
+ } catch (error) {
+  if (error instanceof Error && error.name === 'AbortError') {
+   console.error(`Bark encrypted push timed out after ${timeoutMs}ms`);
+   return false;
+  }
+  console.error('Bark encrypted push error:', error);
+  return false;
+ }
+}
+
+/**
  * 发送订阅到期提醒到 Bark
  */
 export async function sendSubscriptionReminder(

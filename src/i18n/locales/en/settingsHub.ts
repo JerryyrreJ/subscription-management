@@ -11,6 +11,7 @@ export const settingsHub = {
  tabs: {
   general: 'General',
   account: 'Account',
+  encryption: 'Encryption',
   categories: 'Categories',
   notifications: 'Notifications',
   api: 'API & MCP',

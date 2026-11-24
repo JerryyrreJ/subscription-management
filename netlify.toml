@@ -176,6 +176,18 @@
   force = true
 
 [[redirects]]
+  from = "/api/v1/vault"
+  to = "/.netlify/functions/api-v1-vault"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/v1/vault/*"
+  to = "/.netlify/functions/api-v1-vault/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/mcp"
   to = "/.netlify/functions/api-mcp"
   status = 200
