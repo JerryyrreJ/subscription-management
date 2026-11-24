@@ -35,7 +35,7 @@ After connecting, try natural prompts like:
 
 | Method | Best for | How it works |
 | --- | --- | --- |
-| **Remote Streamable HTTP MCP** (`/api/mcp`) | Claude Code, Cursor remote MCP, ChatGPT / web Claude connectors | Connect directly to `https://steadyrenew.com/api/mcp` (`POST` with `Authorization: Bearer subm_…`) — **zero local installation or Node.js required** |
+| **Remote Streamable HTTP MCP** (`/api/mcp`) | ChatGPT / web Claude connectors, Cursor, Claude Code | Connect directly to `https://steadyrenew.com/api/mcp` (supports **OAuth 2.1 interactive browser login** as well as static `Authorization: Bearer subm_…`) — **zero local installation or Node.js required** |
 | **Local stdio MCP** (`/downloads/steadyrenew-mcp.mjs`) | Claude Desktop, Cursor local stdio, Codex (`config.toml`), OpenCode | Download one self-contained `.mjs` file (Node.js 20+) and run it via `node` with `SUBSCRIPTION_MANAGER_API_KEY` |
 | **Direct `/api/v1` REST API** | Cron scripts, custom backends, HTTP-capable agents without MCP | Call `/api/v1/*` directly using `/agent/openapi.yaml` and `/agent/ai-tools.json` |
 
@@ -64,7 +64,8 @@ After connecting, try natural prompts like:
 
 Hosted on the **application origin** (`https://steadyrenew.com` in production):
 
-- `/api/mcp` — Stateless Streamable HTTP MCP endpoint (`POST` with Bearer `subm_…`).
+- `/api/mcp` — Stateless Streamable HTTP MCP endpoint (supports OAuth 2.1 sign-in and Bearer `subm_…` API keys).
+- `/.well-known/oauth-protected-resource` — OAuth 2.0 Protected Resource Metadata (RFC 9728) for MCP discovery.
 - `/downloads/steadyrenew-mcp.mjs` — Zero-dependency single-file local stdio MCP server.
 - `/downloads/subscription-manager-mcp.tgz` — Standalone npm tarball MCP package.
 - `/agent/setup.md` — Step-by-step agent onboarding & client configuration reference.

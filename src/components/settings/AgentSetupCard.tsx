@@ -15,12 +15,14 @@ interface AgentSetupCardProps {
  onVerified?: () => void;
 }
 
+type SnippetId = 'oauthUrl' | 'oauthCmd' | 'remote' | 'desktop' | 'codex';
+
 export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardProps) {
  const { t, i18n } = useTranslation('developerApi');
  const [mode, setMode] = useState<AgentConnectionMode>('mcp');
  const [includeKey, setIncludeKey] = useState(false);
  const [copied, setCopied] = useState(false);
- const [copiedSnippet, setCopiedSnippet] = useState<'remote' | 'desktop' | 'codex' | null>(null);
+ const [copiedSnippet, setCopiedSnippet] = useState<SnippetId | null>(null);
  const [copyError, setCopyError] = useState(false);
  const [verification, setVerification] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
  const [verificationError, setVerificationError] = useState('');
@@ -76,7 +78,7 @@ export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardPro
    setShowPrompt(true);
   }
  };
- const copySnippet = async (id: 'remote' | 'desktop' | 'codex', value: string) => {
+ const copySnippet = async (id: SnippetId, value: string) => {
   try {
    await navigator.clipboard.writeText(value);
    setCopiedSnippet(id);
@@ -109,6 +111,26 @@ export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardPro
      <p className="text-sm app-theme-text-muted mt-2 leading-relaxed">{t('agentDescription')}</p>
     </div>
    </div>
+
+   {/* Highlighted OAuth 2.1 remote MCP endpoint box */}
+   <div className="settings-inset p-3.5 space-y-2">
+    <div className="flex items-center justify-between gap-2">
+     <span className="text-xs font-semibold app-theme-text-primary">{t('agentOAuthLabel')}</span>
+     <button
+      type="button"
+      onClick={() => void copySnippet('oauthUrl', snippets.remoteHttpUrl)}
+      className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 app-theme-text-primary text-xs font-medium transition-colors"
+     >
+      {copiedSnippet === 'oauthUrl' ? <Check size={12} aria-hidden="true" /> : <Clipboard size={12} aria-hidden="true" />}
+      {copiedSnippet === 'oauthUrl' ? t('copied') : t('copy')}
+     </button>
+    </div>
+    <code className="block w-full overflow-x-auto rounded-lg bg-white dark:bg-gray-950 px-3 py-2 font-mono text-xs app-theme-text-primary">
+     {snippets.remoteHttpUrl}
+    </code>
+    <p className="text-xs app-theme-text-muted leading-relaxed">{t('agentOAuthHint')}</p>
+   </div>
+
    <ol className="agent-setup-steps">
     <li><span>{apiKey ? <Check size={12} aria-hidden="true" /> : '1'}</span><button type="button" className="hover:underline" onClick={handleStepKeyClick}>{t(apiKey ? 'agentKeyReady' : 'agentStepKey')}</button></li>
     <li><span>2</span>{t('agentStepCopy')}</li>
@@ -147,6 +169,7 @@ export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardPro
      <p className="app-theme-text-muted leading-relaxed">{t('agentSnippetsHint')}</p>
      {(
       [
+       { id: 'oauthCmd' as const, label: t('agentSnippetOAuthLabel'), code: snippets.claudeCodeOAuthCmd },
        { id: 'remote' as const, label: t('agentSnippetRemoteLabel'), code: snippets.claudeCodeRemoteCmd },
        { id: 'desktop' as const, label: t('agentSnippetDesktopLabel'), code: snippets.claudeDesktopJson },
        { id: 'codex' as const, label: t('agentSnippetCodexLabel'), code: snippets.codexToml },

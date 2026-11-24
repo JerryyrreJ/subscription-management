@@ -181,6 +181,18 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/.well-known/oauth-protected-resource"
+  to = "/.netlify/functions/oauth-protected-resource"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/.well-known/oauth-protected-resource/*"
+  to = "/.netlify/functions/oauth-protected-resource/:splat"
+  status = 200
+  force = true
+
 # Static blog HTML is emitted into dist/blog and dist/zh/blog at build time.
 # Keep these rewrites above the SPA fallback so unknown guide slugs
 # 404 instead of serving the React app shell.
@@ -283,6 +295,16 @@
   for = "/app/*"
   [headers.values]
     X-Robots-Tag = "noindex, follow"
+
+[[headers]]
+  for = "/oauth/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/.well-known/oauth-protected-resource*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
 
 [[headers]]
   for = "/api/*"

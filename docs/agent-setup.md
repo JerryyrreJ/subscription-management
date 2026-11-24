@@ -22,11 +22,16 @@ Keys carry scopes: a **read-only** (`read`) key can list, inspect, read notifica
 If the client supports remote Streamable HTTP MCP endpoints, connect directly with no local installation:
 
 - **Endpoint**: `<BASE_URL>/api/mcp` (`POST` JSON-RPC 2.0, stateless Streamable HTTP)
-- **Header**: `Authorization: Bearer <SUBSCRIPTION_MANAGER_API_KEY>`
+- **OAuth 2.1 (recommended for interactive clients)**: Protected Resource Metadata is published at `<BASE_URL>/.well-known/oauth-protected-resource`. Unauthenticated requests receive HTTP `401` with `WWW-Authenticate` so ChatGPT, Claude, Cursor, and Claude Code open `/oauth/consent` in the browser, where the user chooses **Read & write** or **Read only**.
+- **Static API key fallback**: `Authorization: Bearer <SUBSCRIPTION_MANAGER_API_KEY>`
 
-Example for Claude Code CLI:
+Examples for Claude Code CLI:
 
 ```sh
+# Interactive OAuth 2.1 browser sign-in (no API key needed)
+claude mcp add --transport http steadyrenew "<BASE_URL>/api/mcp"
+
+# Or static API key header
 claude mcp add --transport http steadyrenew "<BASE_URL>/api/mcp" \
   --header "Authorization: Bearer <PRIVATE_API_KEY>"
 ```

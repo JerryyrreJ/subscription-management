@@ -5,7 +5,10 @@ description: "创建 Developer API Key，并使用 Bearer token 调用开放 API
 
 # API 认证
 
-开放 API（`/api/v1/*`）与远程 MCP（`/api/mcp`）均使用 Developer API Key 进行认证。
+远程 MCP（`/api/mcp`）与开放 API（`/api/v1/*`）支持双轨认证：
+
+- **OAuth 2.1（推荐远程 MCP 客户端使用）**：面向 ChatGPT 连接器、Claude.ai、Cursor、Claude Code 等客户端，通过 `/.well-known/oauth-protected-resource` 自动发现授权端点，并在 `/oauth/consent` 页面选择授予**读写**或**仅读取**权限；已授权的 AI 应用可在 **设置 → API 与 MCP** 中实时切换权限或一键撤销。
+- **Developer API Key（`subm_…`）**：面向本地 `stdio` 脚本、Codex、定时任务及无界面后端调用。
 
 ## 创建 API Key
 

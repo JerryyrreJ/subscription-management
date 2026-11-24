@@ -54,6 +54,10 @@ test('read-only keys generate read-only onboarding instructions and manual clien
 
  const snippets = buildAgentClientConfigSnippets({ origin: 'https://steadyrenew.com' });
  assert.equal(snippets.remoteHttpUrl, 'https://steadyrenew.com/api/mcp');
+ assert.equal(
+  snippets.claudeCodeOAuthCmd,
+  'claude mcp add --transport http steadyrenew https://steadyrenew.com/api/mcp'
+ );
  assert.ok(snippets.claudeCodeRemoteCmd.includes('--transport http steadyrenew https://steadyrenew.com/api/mcp'));
  assert.ok(snippets.claudeDesktopJson.includes('steadyrenew-mcp.mjs'));
  assert.ok(snippets.codexToml.includes('[mcp_servers.steadyrenew]'));

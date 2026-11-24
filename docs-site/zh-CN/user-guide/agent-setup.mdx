@@ -35,7 +35,7 @@ description: "通过远程 Streamable HTTP MCP、本地单文件 stdio MCP 或 R
 
 | 接入方式 | 推荐客户端 | 工作方式 |
 | --- | --- | --- |
-| **远程 Streamable HTTP MCP**（`/api/mcp`） | Claude Code、Cursor 远程 MCP、ChatGPT / 网页版 Claude 连接器 | 直接连接 `https://steadyrenew.com/api/mcp`（携带 `Authorization: Bearer subm_…`），**零本地安装、无需 Node.js** |
+| **远程 Streamable HTTP MCP**（`/api/mcp`） | ChatGPT / 网页版 Claude 连接器、Cursor、Claude Code | 直接连接 `https://steadyrenew.com/api/mcp`（原生支持 **OAuth 2.1 浏览器登录授权**，也兼容静态 `Authorization: Bearer subm_…`），**零本地安装、无需 Node.js** |
 | **本地单文件 stdio MCP**（`/downloads/steadyrenew-mcp.mjs`） | Claude Desktop、Cursor 本地 stdio、Codex（`config.toml`）、OpenCode | 下载单个零依赖 `.mjs` 文件（需 Node.js 20+），通过 `node` 与 `SUBSCRIPTION_MANAGER_API_KEY` 启动 |
 | **直接调用 `/api/v1` REST API** | 定时脚本、自建后端、仅支持 HTTP 请求的 Agent | 参考 `/agent/openapi.yaml` 与 `/agent/ai-tools.json` 直接发送 HTTP 请求 |
 
@@ -64,7 +64,8 @@ description: "通过远程 Streamable HTTP MCP、本地单文件 stdio MCP 或 R
 
 以下路径均挂载在**应用主域名**下（生产环境为 `https://steadyrenew.com`）：
 
-- `/api/mcp`：无状态远程 Streamable HTTP MCP 端点（使用 Bearer `subm_…` 发送 `POST` 请求）。
+- `/api/mcp`：无状态远程 Streamable HTTP MCP 端点（支持 OAuth 2.1 交互授权与 Bearer `subm_…` 密钥）。
+- `/.well-known/oauth-protected-resource`：MCP OAuth 2.1 受保护资源元数据（RFC 9728）。
 - `/downloads/steadyrenew-mcp.mjs`：零依赖单文件本地 stdio MCP 脚本。
 - `/downloads/subscription-manager-mcp.tgz`：独立 npm `.tgz` MCP 安装包。
 - `/agent/setup.md`：完整的 Agent 接入、客户端配置与错误恢复指南。

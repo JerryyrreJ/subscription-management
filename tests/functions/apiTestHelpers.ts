@@ -113,10 +113,20 @@ export const createFakeSupabaseClient = (
   rpcResolver: (name: string, args: Record<string, unknown>) => QueryResult = () => ({
     data: null,
     error: null,
-  })
+  }),
+  authGetUser?: (accessToken: string) => Promise<{
+    data: { user: { id: string; email?: string } | null };
+    error: { message: string } | null;
+  }>
 ): SupabaseClient => ({
   from: (table: string) => new FakeQueryBuilder(table, resolver),
   rpc: (name: string, args: Record<string, unknown>) => Promise.resolve(rpcResolver(name, args)),
+  auth: {
+    getUser: (accessToken: string) =>
+      authGetUser
+        ? authGetUser(accessToken)
+        : Promise.resolve({ data: { user: null }, error: { message: 'Invalid token' } }),
+  },
 } as unknown as SupabaseClient);
 
 export const event = (

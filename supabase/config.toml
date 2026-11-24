@@ -40,3 +40,12 @@ enabled = true
 rp_display_name = "SteadyRenew"
 rp_id = "127.0.0.1"
 rp_origins = ["http://127.0.0.1:5173"]
+
+# OAuth 2.1 Server for remote MCP clients (ChatGPT, Claude, Cursor, Claude Code).
+# Production projects must also enable OAuth 2.1 Server and Dynamic Client
+# Registration in Supabase Dashboard -> Authentication -> OAuth Server with
+# authorization path `/oauth/consent`.
+[auth.oauth_server]
+enabled = true
+authorization_url_path = "/oauth/consent"
+allow_dynamic_registration = true

@@ -111,21 +111,33 @@ test('remote Streamable HTTP MCP handles preflight, 405 GET, 401 invalid auth, a
   );
   assert.equal(getRes.status, 405);
 
-  // Anonymous discovery (initialize + tools/list) succeeds without touching the database so
-  // MCP directories (e.g. Glama, Smithery) can list tools and verify server health.
-  const discoveryTransport = new StreamableHTTPClientTransport(
-    new URL('https://steadyrenew.com/api/mcp'),
-    {
-      fetch: async (input, init) => mcpHandler(new Request(input, init)),
-    }
+  // Standard MCP OAuth 2.1 handshake: unauthenticated initialize and tools/call
+  // return HTTP 401 with WWW-Authenticate pointing at Protected Resource Metadata
+  // so ChatGPT, Claude, Cursor, and Claude Code immediately trigger OAuth login.
+  const unauthInitialize = await mcpHandler(
+    new Request('https://steadyrenew.com/api/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-03-26',
+          capabilities: {},
+          clientInfo: { name: 'chatgpt-connector', version: '1.0.0' },
+        },
+      }),
+    })
   );
-  const discoveryClient = new Client({ name: 'mcp-directory-healthcheck', version: '1.0.0' });
-  t.after(() => discoveryClient.close());
-  await discoveryClient.connect(discoveryTransport);
-  const { tools: publicTools } = await discoveryClient.listTools();
-  assert.equal(publicTools.length, 11);
+  assert.equal(unauthInitialize.status, 401);
+  assert.equal(
+    unauthInitialize.headers.get('www-authenticate'),
+    'Bearer realm="SteadyRenew MCP", resource_metadata="https://steadyrenew.com/.well-known/oauth-protected-resource"'
+  );
+  assert.match(unauthInitialize.headers.get('access-control-expose-headers') ?? '', /WWW-Authenticate/);
 
-  // Unauthenticated tools/call is still rejected with HTTP 401.
+  // Unauthenticated tools/call is also rejected with HTTP 401 + resource_metadata.
   const unauthCall = await mcpHandler(
     new Request('https://steadyrenew.com/api/mcp', {
       method: 'POST',
@@ -139,7 +151,10 @@ test('remote Streamable HTTP MCP handles preflight, 405 GET, 401 invalid auth, a
     })
   );
   assert.equal(unauthCall.status, 401);
-  assert.match(unauthCall.headers.get('www-authenticate') ?? '', /Bearer/);
+  assert.match(
+    unauthCall.headers.get('www-authenticate') ?? '',
+    /resource_metadata="https:\/\/steadyrenew\.com\/\.well-known\/oauth-protected-resource"/
+  );
 
   // Mixed batch containing a tool call cannot bypass authentication.
   const unauthBatch = await mcpHandler(
@@ -326,4 +341,197 @@ test('remote MCP authenticates each HTTP request once and rejects oversized POST
   );
   assert.equal(callRes.status, 200);
   assert.equal(authLookups, 1);
+});
+
+const buildFakeJwt = (payload: Record<string, unknown>): string => {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  return `${header}.${body}.signature`;
+};
+
+test('remote MCP authenticates Supabase OAuth 2.1 JWTs, enforces per-client scopes, rejects web session JWTs, and records oauthClientId in audit logs', async t => {
+  const oauthClientId = 'oauth-client-chatgpt';
+  const validOAuthToken = buildFakeJwt({
+    sub: userId,
+    role: 'authenticated',
+    client_id: oauthClientId,
+  });
+  const webSessionTokenWithoutClientId = buildFakeJwt({
+    sub: userId,
+    role: 'authenticated',
+  });
+  const revokedOAuthToken = buildFakeJwt({
+    sub: userId,
+    role: 'authenticated',
+    client_id: 'revoked-client',
+  });
+
+  let storedClientScopes: string[] | null = ['read'];
+  let scopeTouchedAt: string | null = null;
+  const auditInserts: Array<Record<string, unknown>> = [];
+  let recordedFailures = 0;
+
+  const database = createFakeSupabaseClient(
+    (state: QueryState) => {
+      if (state.table === 'user_profiles') {
+        return { data: { is_premium: true }, error: null };
+      }
+      if (state.table === 'oauth_client_scopes' && state.operation === 'select') {
+        return {
+          data: storedClientScopes ? { scopes: storedClientScopes } : null,
+          error: null,
+        };
+      }
+      if (state.table === 'oauth_client_scopes' && state.operation === 'update') {
+        scopeTouchedAt = (state.payload as { last_used_at: string }).last_used_at;
+        return { data: null, error: null };
+      }
+      if (state.table === 'subscriptions' && state.operation === 'select') {
+        return { data: [sampleRow], error: null };
+      }
+      if (state.table === 'subscriptions' && state.operation === 'insert') {
+        return {
+          data: {
+            ...sampleRow,
+            id: '44444444-4444-4444-8444-444444444444',
+            name: 'Cursor Pro',
+          },
+          error: null,
+        };
+      }
+      if (state.table === 'api_audit_log' && state.operation === 'insert') {
+        auditInserts.push(state.payload as Record<string, unknown>);
+        return { data: null, error: null };
+      }
+      return { data: null, error: { message: `Unexpected query: ${state.table} (${state.operation})` } };
+    },
+    (name, args) => {
+      if (name === 'check_or_record_api_auth_failure') {
+        if (args.p_record_failure) {
+          recordedFailures += 1;
+        }
+        return { data: recordedFailures >= 2, error: null };
+      }
+      return {
+        data: [
+          {
+            allowed: true,
+            request_count: 1,
+            remaining: 59,
+            reset_at: '2026-06-16T01:00:00.000Z',
+          },
+        ],
+        error: null,
+      };
+    },
+    async token => {
+      if (token === validOAuthToken) {
+        return { data: { user: { id: userId, email: 'user@steadyrenew.com' } }, error: null };
+      }
+      return { data: { user: null }, error: { message: 'Session revoked' } };
+    }
+  );
+
+  const mcpHandler = createApiMcpHandler(() => ({
+    database,
+    limits: { ...limits, failedAuthRequestsPerHour: 2 },
+    createRequestId: () => 'mcp-oauth-req',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  // Regular browser session JWTs without `client_id` cannot access /api/mcp.
+  const webSessionRes = await mcpHandler(
+    new Request('https://steadyrenew.com/api/mcp', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${webSessionTokenWithoutClientId}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    })
+  );
+  assert.equal(webSessionRes.status, 401);
+  assert.equal(recordedFailures, 0);
+
+  // Revoked OAuth token fails with 401 and increments failure limiter; second attempt hits 429.
+  const revokedRes1 = await mcpHandler(
+    new Request('https://steadyrenew.com/api/mcp', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${revokedOAuthToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    })
+  );
+  assert.equal(revokedRes1.status, 401);
+  assert.equal(recordedFailures, 1);
+
+  const revokedRes2 = await mcpHandler(
+    new Request('https://steadyrenew.com/api/mcp', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${revokedOAuthToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    })
+  );
+  assert.equal(revokedRes2.status, 429);
+
+  // Reset failure counter for valid OAuth client session tests.
+  recordedFailures = 0;
+
+  const oauthTransport = new StreamableHTTPClientTransport(
+    new URL('https://steadyrenew.com/api/mcp'),
+    {
+      requestInit: {
+        headers: {
+          Authorization: `Bearer ${validOAuthToken}`,
+        },
+      },
+      fetch: async (input, init) => mcpHandler(new Request(input, init)),
+    }
+  );
+  const oauthClient = new Client({ name: 'chatgpt-mcp', version: '1.0.0' });
+  t.after(() => oauthClient.close());
+  await oauthClient.connect(oauthTransport);
+
+  const readList = await oauthClient.callTool({ name: 'list_subscriptions', arguments: { limit: 1 } });
+  assert.equal(readList.isError, false);
+  assert.equal(scopeTouchedAt, '2026-06-16T00:15:00.000Z');
+
+  // Read-only OAuth grant cannot create subscriptions.
+  const deniedWrite = await oauthClient.callTool({
+    name: 'create_subscription',
+    arguments: {
+      name: 'Cursor Pro',
+      category: 'AI',
+      amount: 20,
+      currency: 'USD',
+      period: 'monthly',
+      nextPaymentDate: '2026-07-01',
+    },
+  });
+  assert.equal(deniedWrite.isError, true);
+  assert.match(JSON.stringify(deniedWrite.content), /insufficient_scope/);
+
+  // Upgrading the grant to Read & Write in oauth_client_scopes takes effect immediately
+  // without re-issuing the OAuth token, and records oauthClientId in api_audit_log.
+  storedClientScopes = ['read', 'write'];
+  const allowedWrite = await oauthClient.callTool({
+    name: 'create_subscription',
+    arguments: {
+      name: 'Cursor Pro',
+      category: 'AI',
+      amount: 20,
+      currency: 'USD',
+      period: 'monthly',
+      nextPaymentDate: '2026-07-01',
+    },
+  });
+  assert.equal(allowedWrite.isError, false);
+  assert.equal(auditInserts.length, 1);
+  assert.equal(auditInserts[0].api_key_id, null);
+  assert.equal((auditInserts[0].metadata as { oauthClientId?: string })?.oauthClientId, oauthClientId);
 });

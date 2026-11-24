@@ -1,7 +1,8 @@
 import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Clipboard, Code2, KeyRound, Loader2, Trash2, X } from 'lucide-react';
+import { Check, Clipboard, Code2, KeyRound, Loader2, PlugZap, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 import { AgentSetupCard } from './settings/AgentSetupCard';
 import {
  ApiKeyLimits,
@@ -9,6 +10,10 @@ import {
  ApiKeyService,
  ApiKeyServiceError,
 } from '../services/apiKeyService';
+import {
+ ConnectedOAuthApp,
+ OAuthGrantService,
+} from '../services/oauthGrantService';
 
 interface DeveloperApiModalProps {
  isOpen: boolean;
@@ -56,9 +61,15 @@ export function DeveloperApiModal({
 }: DeveloperApiModalProps) {
  useModalScrollLock(isOpen && isStandalone);
  const { t, i18n } = useTranslation(['developerApi', 'app']);
+ const { user } = useAuth();
  const defaultKeyName = t('developerApi:defaultKeyName');
  const [keys, setKeys] = useState<ApiKeyMetadata[]>([]);
  const [limits, setLimits] = useState<ApiKeyLimits | null>(null);
+ const [connectedApps, setConnectedApps] = useState<ConnectedOAuthApp[]>([]);
+ const [oauthAvailable, setOauthAvailable] = useState(false);
+ const [updatingScopeClientId, setUpdatingScopeClientId] = useState<string | null>(null);
+ const [confirmRevokeClientId, setConfirmRevokeClientId] = useState<string | null>(null);
+ const [revokingClientId, setRevokingClientId] = useState<string | null>(null);
  const [newKeyName, setNewKeyName] = useState(defaultKeyName);
  const [createdApiKey, setCreatedApiKey] = useState<string | null>(null);
  const [createdKeyId, setCreatedKeyId] = useState<string | null>(null);
@@ -73,6 +84,43 @@ export function DeveloperApiModal({
  const sessionEpoch = useRef(0);
 
  const loadKeys = useCallback(async () => {
+  if (import.meta.env.DEV && accessToken === 'dev_preview_token') {
+   setLimits({ plan: 'premium', activeKeys: 5, requestsPerMinute: 60 });
+   setOauthAvailable(true);
+   setConnectedApps([
+    {
+     clientId: 'preview-chatgpt',
+     clientName: 'ChatGPT',
+     clientUri: 'https://chatgpt.com',
+     logoUri: null,
+     grantedAt: '2026-11-24T04:30:00.000Z',
+     lastUsedAt: '2026-11-24T04:38:00.000Z',
+     scopes: ['read', 'write'],
+    },
+    {
+     clientId: 'preview-claude',
+     clientName: 'Claude',
+     clientUri: 'https://claude.ai',
+     logoUri: null,
+     grantedAt: '2026-11-23T14:15:00.000Z',
+     lastUsedAt: null,
+     scopes: ['read'],
+    },
+   ]);
+   setKeys([
+    {
+     id: 'preview-key-1',
+     name: 'Codex CLI',
+     keyPrefix: 'subm_9k2xQp7Lm',
+     scopes: ['read', 'write'],
+     createdAt: '2026-11-20T09:00:00.000Z',
+     lastUsedAt: '2026-11-24T01:10:00.000Z',
+     revokedAt: null,
+    },
+   ]);
+   return;
+  }
+
   if (!accessToken) {
    return;
   }
@@ -82,17 +130,27 @@ export function DeveloperApiModal({
   const epoch = sessionEpoch.current;
 
   try {
-   const result = await ApiKeyService.listApiKeys(accessToken);
+   const [keyResult, oauthResult] = await Promise.all([
+    ApiKeyService.listApiKeys(accessToken),
+    user?.id
+     ? OAuthGrantService.listConnectedApps(user.id).catch(() => ({
+      apps: [] as ConnectedOAuthApp[],
+      oauthAvailable: false,
+     }))
+     : Promise.resolve({ apps: [] as ConnectedOAuthApp[], oauthAvailable: false }),
+   ]);
    if (epoch !== sessionEpoch.current) return;
-   setKeys(result.keys);
-   setLimits(result.limits);
+   setKeys(keyResult.keys);
+   setLimits(keyResult.limits);
+   setConnectedApps(oauthResult.apps);
+   setOauthAvailable(oauthResult.oauthAvailable);
   } catch (loadError) {
    if (epoch !== sessionEpoch.current) return;
    setError(getErrorMessage(loadError, t('developerApi:loadFailed'), t));
   } finally {
    if (epoch === sessionEpoch.current) setLoading(false);
   }
- }, [accessToken, t]);
+ }, [accessToken, user?.id, t]);
 
  useEffect(() => {
   sessionEpoch.current += 1;
@@ -101,10 +159,15 @@ export function DeveloperApiModal({
   setCreatedKeyScopes(undefined);
   setKeys([]);
   setLimits(null);
+  setConnectedApps([]);
+  setOauthAvailable(false);
   setCopied(false);
   setSubmitting(false);
   setConfirmRevokeId(null);
   setRevokingId(null);
+  setConfirmRevokeClientId(null);
+  setRevokingClientId(null);
+  setUpdatingScopeClientId(null);
   if (!isOpen) {
    return;
   }
@@ -175,6 +238,51 @@ export function DeveloperApiModal({
    setError(getErrorMessage(revokeError, t('developerApi:revokeFailed'), t));
   } finally {
    if (epoch === sessionEpoch.current) setRevokingId(null);
+  }
+ };
+
+ const handleToggleOAuthScope = async (app: ConnectedOAuthApp, mode: 'read' | 'write') => {
+  if (!user?.id) return;
+  const nextScopes: ('read' | 'write')[] = mode === 'write' ? ['read', 'write'] : ['read'];
+  setError(null);
+  setUpdatingScopeClientId(app.clientId);
+  const epoch = sessionEpoch.current;
+
+  try {
+   await OAuthGrantService.saveClientScopes({
+    userId: user.id,
+    clientId: app.clientId,
+    clientName: app.clientName,
+    scopes: nextScopes,
+   });
+   if (epoch !== sessionEpoch.current) return;
+   setConnectedApps(prev =>
+    prev.map(item => (item.clientId === app.clientId ? { ...item, scopes: nextScopes } : item))
+   );
+  } catch (scopeErr) {
+   if (epoch !== sessionEpoch.current) return;
+   setError(getErrorMessage(scopeErr, t('developerApi:oauthScopeUpdateFailed'), t));
+  } finally {
+   if (epoch === sessionEpoch.current) setUpdatingScopeClientId(null);
+  }
+ };
+
+ const handleRevokeOAuthApp = async (app: ConnectedOAuthApp) => {
+  if (!user?.id) return;
+  setError(null);
+  setRevokingClientId(app.clientId);
+  const epoch = sessionEpoch.current;
+
+  try {
+   await OAuthGrantService.revokeConnectedApp(user.id, app.clientId);
+   if (epoch !== sessionEpoch.current) return;
+   setConfirmRevokeClientId(null);
+   setConnectedApps(prev => prev.filter(item => item.clientId !== app.clientId));
+  } catch (revokeErr) {
+   if (epoch !== sessionEpoch.current) return;
+   setError(getErrorMessage(revokeErr, t('developerApi:oauthRevokeFailed'), t));
+  } finally {
+   if (epoch === sessionEpoch.current) setRevokingClientId(null);
   }
  };
 
@@ -267,6 +375,100 @@ export function DeveloperApiModal({
         </div>
        )}
 
+       {error && (
+        <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-500/20 dark:bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
+         {error}
+        </div>
+       )}
+
+       {/* Connected OAuth 2.1 AI Apps section */}
+       {(oauthAvailable || connectedApps.length > 0) && (
+        <div className="space-y-3">
+         <div>
+          <h3 className="text-sm font-semibold app-theme-text-primary">{t('developerApi:oauthConnectedApps')}</h3>
+          <p className="text-xs app-theme-text-muted mt-0.5">{t('developerApi:oauthConnectedAppsHint')}</p>
+         </div>
+         {connectedApps.length === 0 ? (
+          <div className="settings-inset py-6 px-4 text-center">
+           <PlugZap className="w-7 h-7 mx-auto text-gray-400 mb-2" aria-hidden="true" />
+           <p className="text-sm app-theme-text-muted">{t('developerApi:oauthNoConnectedApps')}</p>
+          </div>
+         ) : (
+          connectedApps.map(app => {
+           const hasWrite = app.scopes.includes('write');
+           const isUpdating = updatingScopeClientId === app.clientId;
+           return (
+            <div
+             key={app.clientId}
+             className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 settings-card"
+            >
+             <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+               <p className="font-medium app-theme-text-primary truncate">{app.clientName}</p>
+               <select
+                aria-label={t('developerApi:permissions')}
+                value={hasWrite ? 'write' : 'read'}
+                disabled={isUpdating || revokingClientId === app.clientId}
+                onChange={event => void handleToggleOAuthScope(app, event.target.value as 'read' | 'write')}
+                className="px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-xs app-theme-text-primary disabled:opacity-50"
+               >
+                <option value="write">{t('developerApi:readWrite')}</option>
+                <option value="read">{t('developerApi:readOnly')}</option>
+               </select>
+               {isUpdating && (
+                <span className="inline-flex items-center gap-1 text-xs app-theme-text-muted">
+                 <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                 {t('developerApi:oauthUpdatingScope')}
+                </span>
+               )}
+              </div>
+              <p className="text-xs app-theme-text-muted mt-1">
+               {t('developerApi:oauthGrantedAt', { date: formatDateTime(app.grantedAt, t('developerApi:never'), i18n.language) })}
+               {' · '}
+               {t('developerApi:lastUsedAt', { date: formatDateTime(app.lastUsedAt, t('developerApi:never'), i18n.language) })}
+              </p>
+             </div>
+             {confirmRevokeClientId === app.clientId ? (
+              <div className="flex flex-wrap items-center gap-2">
+               <span className="text-xs text-red-600 dark:text-red-400">
+                {t('developerApi:oauthRevokeConfirmShort')}
+               </span>
+               <button
+                type="button"
+                onClick={() => setConfirmRevokeClientId(null)}
+                disabled={revokingClientId === app.clientId}
+                className="px-3 py-1.5 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
+               >
+                {t('app:cancel')}
+               </button>
+               <button
+                type="button"
+                onClick={() => void handleRevokeOAuthApp(app)}
+                disabled={revokingClientId === app.clientId}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+               >
+                {revokingClientId === app.clientId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                {revokingClientId === app.clientId ? t('developerApi:oauthRevoking') : t('developerApi:oauthConfirmRevoke')}
+               </button>
+              </div>
+             ) : (
+              <button
+               type="button"
+               onClick={() => setConfirmRevokeClientId(app.clientId)}
+               disabled={Boolean(revokingClientId)}
+               className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors disabled:opacity-50"
+              >
+               <Trash2 className="w-4 h-4"/>
+               {t('developerApi:oauthRevoke')}
+              </button>
+             )}
+            </div>
+           );
+          })
+         )}
+        </div>
+       )}
+
        {createdApiKey && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:border-emerald-400/20 dark:bg-emerald-400/10 p-4">
          <div className="flex items-start justify-between gap-3">
@@ -325,12 +527,6 @@ export function DeveloperApiModal({
          </p>
         )}
        </div>
-
-       {error && (
-        <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-500/20 dark:bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300">
-         {error}
-        </div>
-       )}
 
        <div className="space-y-3">
         <h3 className="text-sm font-semibold app-theme-text-primary">{t('developerApi:keys')}</h3>

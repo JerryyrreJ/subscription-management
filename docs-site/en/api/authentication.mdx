@@ -5,7 +5,10 @@ description: "Create Developer API keys and authenticate public API and MCP requ
 
 # Authentication
 
-Public API (`/api/v1/*`) and remote MCP (`/api/mcp`) requests authenticate with Developer API keys.
+Remote MCP (`/api/mcp`) and the public API (`/api/v1/*`) support dual-track authentication:
+
+- **OAuth 2.1 (recommended for remote MCP clients)**: ChatGPT Connectors, Claude.ai, Cursor, and Claude Code discover `/.well-known/oauth-protected-resource` automatically and open `/oauth/consent` so you can grant **Read & write** or **Read only** access. Connected AI apps can be downgraded or revoked anytime in **Settings → API & MCP**.
+- **Developer API keys (`subm_…`)**: Static Bearer keys for local `stdio` scripts, Codex, cron jobs, and headless server integrations.
 
 ## Create an API key
 

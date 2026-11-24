@@ -8,9 +8,9 @@ It loads `schema/ai-tools.json` (bundled from `docs-site/api/ai-tools.json` when
 
 ## Connection options
 
-SteadyRenew supports three ways to connect MCP clients using the same `subm_...` API key created in **Settings → API & MCP** (both Free and Premium include **5 active keys** and **60 requests / minute**; keys do not expire unless revoked):
+SteadyRenew supports three ways to connect MCP clients (both Free and Premium include **OAuth 2.1 remote access**, **5 active API keys**, and **60 requests / minute**):
 
-1. **Remote Streamable HTTP MCP (zero local install)**: connect directly to `https://steadyrenew.com/api/mcp` (or `<BASE_URL>/api/mcp` on self-hosted deployments) with header `Authorization: Bearer <SUBSCRIPTION_MANAGER_API_KEY>`. Works in ChatGPT Connectors, Claude Web/Desktop remote MCP, Claude Code (`claude mcp add --transport http`), and any Streamable HTTP MCP client.
+1. **Remote Streamable HTTP MCP (OAuth 2.1 or Bearer key, zero local install)**: connect directly to `https://steadyrenew.com/api/mcp` (or `<BASE_URL>/api/mcp` on self-hosted deployments). ChatGPT Connectors, Claude Web/Desktop remote MCP, Cursor, and Claude Code (`claude mcp add --transport http steadyrenew https://steadyrenew.com/api/mcp`) automatically discover OAuth 2.1 (`/.well-known/oauth-protected-resource`) and open a browser consent prompt where you choose **Read & write** or **Read only** — or pass a static `Authorization: Bearer <SUBSCRIPTION_MANAGER_API_KEY>` header.
 2. **Single-file zero-dependency local script**: download `/downloads/steadyrenew-mcp.mjs` and run `node /absolute/path/to/steadyrenew-mcp.mjs` directly (Node.js 20+, no `npm install` needed).
 3. **Standalone npm package archive**: download `/downloads/subscription-manager-mcp.tgz` and install in an empty directory (`npm install --ignore-scripts ./subscription-manager-mcp.tgz`).
 
@@ -72,7 +72,10 @@ SUBSCRIPTION_MANAGER_API_KEY = "subm_xxx.yyy"
 ### Claude Code CLI
 
 ```bash
-# Remote HTTP MCP (no local script required)
+# Remote HTTP MCP with interactive OAuth 2.1 browser sign-in (no API key required)
+claude mcp add --transport http steadyrenew https://steadyrenew.com/api/mcp
+
+# Remote HTTP MCP with static API key
 claude mcp add --transport http steadyrenew https://steadyrenew.com/api/mcp \
   --header "Authorization: Bearer subm_xxx.yyy"
 

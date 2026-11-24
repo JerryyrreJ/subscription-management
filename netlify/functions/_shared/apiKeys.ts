@@ -2,10 +2,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ApiLimitsConfig } from './env';
 import { extractBearerToken } from './auth';
-import { HttpError } from './http';
+import { HttpError, isNetworkFetchError } from './http';
 import { logEvent } from './logging';
 
 export const API_KEY_PREFIX = 'subm_';
+const MAX_OAUTH_TOKEN_LENGTH = 8192;
 
 interface ApiKeyRecord {
   id: string;
@@ -15,6 +16,15 @@ interface ApiKeyRecord {
 
 interface UserProfileRecord {
   is_premium: boolean | null;
+}
+
+interface OAuthClientScopeRecord {
+  scopes: string[] | null;
+}
+
+interface ParsedOAuthJwtClaims {
+  sub: string;
+  clientId: string;
 }
 
 interface RateLimitResult {
@@ -40,9 +50,11 @@ export interface ApiKeyMaterial {
 export type ApiScope = 'read' | 'write';
 
 export const DEFAULT_API_SCOPES: ApiScope[] = ['read', 'write'];
+export const DEFAULT_OAUTH_FALLBACK_SCOPES: ApiScope[] = ['read'];
 
 export interface ApiKeyIdentity {
-  apiKeyId: string;
+  apiKeyId: string | null;
+  oauthClientId?: string;
   userId: string;
   keyPrefix: string;
   isPremium: boolean;
@@ -51,7 +63,8 @@ export interface ApiKeyIdentity {
 }
 
 export interface ApiClientContext {
-  apiKeyId: string;
+  apiKeyId: string | null;
+  oauthClientId?: string;
   userId: string;
   keyPrefix: string;
   isPremium: boolean;
@@ -64,19 +77,19 @@ export interface ApiClientContext {
   };
 }
 
-// Enforce key scopes server-side so a read-only key can never write, regardless of
-// what a cooperative agent client decides to do with the tool schema's risk hints.
+// Enforce key scopes server-side so a read-only key or OAuth grant can never write,
+// regardless of what a cooperative agent client decides to do with tool risk hints.
 export const assertScope = (scopes: string[], required: ApiScope): void => {
   if (!scopes.includes(required)) {
     throw new HttpError(
       403,
       'insufficient_scope',
-      `This API key does not have the required '${required}' scope`,
+      `This credential does not have the required '${required}' scope`,
       {},
       {
         suggestedFix: required === 'write'
-          ? 'Use an API key created with the write scope. Read-only keys can only list and read subscriptions.'
-          : 'Use an API key that includes the read scope.',
+          ? 'Use an API key with the write scope, or switch this connected AI app to Read & Write in Settings -> API & MCP. Read-only credentials can only list and read subscriptions.'
+          : 'Use a credential that includes the read scope.',
       }
     );
   }
@@ -162,6 +175,191 @@ const unwrapApiKeyLookupResult = (data: unknown): ApiKeyLookupResult | null => {
   return (data as ApiKeyLookupResult | null) ?? null;
 };
 
+const parseOAuthJwtClaims = (token: string): ParsedOAuthJwtClaims | null => {
+  if (!token || token.length > MAX_OAUTH_TOKEN_LENGTH) {
+    return null;
+  }
+  const parts = token.split('.');
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) {
+    return null;
+  }
+  try {
+    const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf8');
+    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+    const sub = typeof payload.sub === 'string' ? payload.sub.trim() : '';
+    const clientId = typeof payload.client_id === 'string' ? payload.client_id.trim() : '';
+    if (!sub || !clientId) {
+      return null;
+    }
+    return { sub, clientId };
+  } catch {
+    return null;
+  }
+};
+
+const isMissingDatabaseArtifactError = (error: { code?: string; message?: string } | null): boolean => {
+  if (!error) return false;
+  const code = error.code ?? '';
+  const msg = error.message ?? '';
+  return (
+    code === '42P01' ||
+    code === '42883' ||
+    code === 'PGRST202' ||
+    code === 'PGRST205' ||
+    /does not exist|could not find the (table|function)/i.test(msg)
+  );
+};
+
+const throwFailedAuthRateLimitError = (limits: ApiLimitsConfig, now: Date): never => {
+  const windowStart = getWindowStart(now);
+  const resetAt = new Date(new Date(windowStart).getTime() + 60 * 60 * 1000).toISOString();
+  const retryAfterSeconds = Math.max(
+    0,
+    Math.ceil((new Date(resetAt).getTime() - now.getTime()) / 1000)
+  );
+
+  throw new HttpError(
+    429,
+    'rate_limit_exceeded',
+    'Too many invalid authentication attempts',
+    {
+      ...buildRateLimitHeaders(limits.failedAuthRequestsPerHour, 0, resetAt),
+      'Retry-After': String(retryAfterSeconds),
+    }
+  );
+};
+
+const checkOrRecordOAuthFailure = async (
+  database: SupabaseClient,
+  clientIdentityHash: string,
+  limits: ApiLimitsConfig,
+  now: Date,
+  recordFailure: boolean
+): Promise<void> => {
+  const { data, error } = await database.rpc('check_or_record_api_auth_failure', {
+    p_identity_hash: clientIdentityHash,
+    p_window_start: getWindowStart(now),
+    p_failure_limit: limits.failedAuthRequestsPerHour,
+    p_record_failure: recordFailure,
+  });
+
+  if (error) {
+    if (isMissingDatabaseArtifactError(error as { code?: string; message?: string })) {
+      return;
+    }
+    throw error;
+  }
+
+  const limited = Array.isArray(data) ? Boolean(data[0]) : Boolean(data);
+  if (limited) {
+    throwFailedAuthRateLimitError(limits, now);
+  }
+};
+
+const normalizeScopes = (raw: string[] | null | undefined, fallback: ApiScope[]): string[] => {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return [...fallback];
+  }
+  const allowed = raw.filter((scope): scope is ApiScope => scope === 'read' || scope === 'write');
+  if (!allowed.includes('read')) {
+    return ['read', ...allowed];
+  }
+  return allowed;
+};
+
+const identifyOAuthAccessToken = async (
+  accessToken: string,
+  headers: Record<string, string | undefined>,
+  database: SupabaseClient,
+  limits: ApiLimitsConfig,
+  now: Date,
+  requestId: string
+): Promise<ApiKeyIdentity> => {
+  const claims = parseOAuthJwtClaims(accessToken);
+  if (!claims) {
+    throw new HttpError(401, 'invalid_api_key', 'Invalid API key');
+  }
+
+  const clientIdentityHash = hashClientIdentity(getClientIdentity(headers));
+  await checkOrRecordOAuthFailure(database, clientIdentityHash, limits, now, false);
+
+  let authResult: Awaited<ReturnType<SupabaseClient['auth']['getUser']>>;
+  try {
+    if (!database.auth?.getUser) {
+      throw new HttpError(401, 'invalid_access_token', 'Invalid, expired, or revoked OAuth access token');
+    }
+    authResult = await database.auth.getUser(accessToken);
+  } catch (error) {
+    if (error instanceof HttpError) {
+      throw error;
+    }
+    if (isNetworkFetchError(error)) {
+      throw new HttpError(
+        503,
+        'auth_service_unavailable',
+        'Authentication service is temporarily unavailable',
+        {},
+        { suggestedFix: 'Check the network connection to Supabase and try again.' }
+      );
+    }
+    throw error;
+  }
+
+  if (authResult.error || !authResult.data.user || authResult.data.user.id !== claims.sub) {
+    await checkOrRecordOAuthFailure(database, clientIdentityHash, limits, now, true);
+    throw new HttpError(401, 'invalid_access_token', 'Invalid, expired, or revoked OAuth access token');
+  }
+
+  const { data: profile, error: profileError } = await database
+    .from('user_profiles')
+    .select('is_premium')
+    .eq('user_id', claims.sub)
+    .maybeSingle<UserProfileRecord>();
+
+  if (profileError) {
+    throw profileError;
+  }
+
+  let grantedScopes: string[] = [...DEFAULT_OAUTH_FALLBACK_SCOPES];
+  const { data: scopeRecord, error: scopeError } = await database
+    .from('oauth_client_scopes')
+    .select('scopes')
+    .eq('user_id', claims.sub)
+    .eq('client_id', claims.clientId)
+    .maybeSingle<OAuthClientScopeRecord>();
+
+  if (scopeError) {
+    if (!isMissingDatabaseArtifactError(scopeError as { code?: string; message?: string })) {
+      throw scopeError;
+    }
+  } else if (scopeRecord) {
+    grantedScopes = normalizeScopes(scopeRecord.scopes, DEFAULT_OAUTH_FALLBACK_SCOPES);
+
+    const { error: touchError } = await database
+      .from('oauth_client_scopes')
+      .update({ last_used_at: now.toISOString() })
+      .eq('user_id', claims.sub)
+      .eq('client_id', claims.clientId);
+
+    if (touchError) {
+      logEvent('warn', 'Failed to update OAuth client scope last used timestamp', requestId, {
+        oauthClientId: claims.clientId,
+        error: touchError.message,
+      });
+    }
+  }
+
+  return {
+    apiKeyId: null,
+    oauthClientId: claims.clientId,
+    userId: claims.sub,
+    keyPrefix: `oauth:${claims.clientId.slice(0, 16)}`,
+    isPremium: Boolean(profile?.is_premium),
+    rateLimitMax: limits.requestsPerMinute,
+    scopes: grantedScopes,
+  };
+};
+
 export const identifyApiKey = async (
   headers: Record<string, string | undefined>,
   database: SupabaseClient,
@@ -171,7 +369,7 @@ export const identifyApiKey = async (
 ): Promise<ApiKeyIdentity> => {
   const apiKey = extractBearerToken(headers);
   if (!apiKey.startsWith(API_KEY_PREFIX)) {
-    throw new HttpError(401, 'invalid_api_key', 'Invalid API key');
+    return identifyOAuthAccessToken(apiKey, headers, database, limits, now, requestId);
   }
 
   const keyHash = hashApiKey(apiKey);
@@ -303,6 +501,7 @@ export const consumeApiRateLimit = async (
 
   return {
     apiKeyId: identity.apiKeyId,
+    ...(identity.oauthClientId ? { oauthClientId: identity.oauthClientId } : {}),
     userId: identity.userId,
     keyPrefix: identity.keyPrefix,
     isPremium: identity.isPremium,

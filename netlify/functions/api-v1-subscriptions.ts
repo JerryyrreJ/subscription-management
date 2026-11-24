@@ -805,7 +805,10 @@ export const createSubscriptionsApiHandler = (
         action: 'subscription.create',
         subscriptionId: created.id,
         requestId,
-        metadata: { after: created },
+        metadata: {
+          after: created,
+          ...(identity.oauthClientId ? { oauthClientId: identity.oauthClientId } : {}),
+        },
       }, now);
 
       return withCorsHeaders(withRateHeaders(context, jsonResponse(201, {
@@ -849,7 +852,12 @@ export const createSubscriptionsApiHandler = (
         action: 'subscription.update',
         subscriptionId: updated.id,
         requestId,
-        metadata: { before: existing, after: updated, patch: body },
+        metadata: {
+          before: existing,
+          after: updated,
+          patch: body,
+          ...(identity.oauthClientId ? { oauthClientId: identity.oauthClientId } : {}),
+        },
       }, now);
 
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
@@ -878,7 +886,10 @@ export const createSubscriptionsApiHandler = (
       action: 'subscription.delete',
       subscriptionId: id,
       requestId,
-      metadata: { before: existing },
+      metadata: {
+        before: existing,
+        ...(identity.oauthClientId ? { oauthClientId: identity.oauthClientId } : {}),
+      },
     }, now);
 
     return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {

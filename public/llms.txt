@@ -36,16 +36,16 @@ Free includes unlimited subscriptions and free trials, cloud sync, Bark renewal 
 ## API and MCP
 
 - [API overview](https://steadyrenew.com/docs/en/api/overview): Subscriptions, notification settings, analytics, audit, and MCP
-- [API authentication](https://steadyrenew.com/docs/en/api/authentication): Bearer API keys (`subm_...`)
+- [API authentication](https://steadyrenew.com/docs/en/api/authentication): OAuth 2.1 and Bearer API keys (`subm_...`)
 - [Subscriptions API](https://steadyrenew.com/docs/en/api/subscriptions)
-- [MCP setup](https://steadyrenew.com/docs/en/user-guide/agent-setup): Remote Streamable HTTP MCP and local stdio setup
+- [MCP setup](https://steadyrenew.com/docs/en/user-guide/agent-setup): Remote Streamable HTTP MCP (OAuth 2.1) and local stdio setup
 - [Developer API keys](https://steadyrenew.com/docs/en/user-guide/developer-api-keys)
 - [中文 API 概览](https://steadyrenew.com/docs/zh-CN/api/overview)
 - [中文 MCP 接入](https://steadyrenew.com/docs/zh-CN/user-guide/agent-setup)
 - [Agent setup prompt](https://steadyrenew.com/agent/setup.md)
 - [AI tool schema](https://steadyrenew.com/agent/ai-tools.json)
 - [OpenAPI description](https://steadyrenew.com/agent/openapi.yaml)
-- [Remote MCP endpoint](https://steadyrenew.com/api/mcp): Stateless Streamable HTTP MCP (`POST` with `Authorization: Bearer subm_...`)
+- [Remote MCP endpoint](https://steadyrenew.com/api/mcp): Stateless Streamable HTTP MCP (OAuth 2.1 via `/.well-known/oauth-protected-resource` or `Authorization: Bearer subm_...`)
 - [Single-file local MCP script](https://steadyrenew.com/downloads/steadyrenew-mcp.mjs): Zero-dependency Node.js 20+ stdio bundle
 - [MCP package tarball](https://steadyrenew.com/downloads/subscription-manager-mcp.tgz): Standalone npm `.tgz` stdio package
 

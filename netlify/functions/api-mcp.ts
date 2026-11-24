@@ -46,7 +46,7 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, Accept, MCP-Protocol-Version, Mcp-Session-Id, Last-Event-ID',
-  'Access-Control-Expose-Headers': 'MCP-Protocol-Version, Mcp-Session-Id, Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset',
+  'Access-Control-Expose-Headers': 'WWW-Authenticate, MCP-Protocol-Version, Mcp-Session-Id, Retry-After, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset',
 };
 
 const defs = (aiToolsSchema.$defs ?? {}) as Record<string, Record<string, unknown>>;
@@ -218,41 +218,28 @@ const withMcpHeaders = (response: Response, extraHeaders: Record<string, string>
   });
 };
 
-const handlerResponseToWeb = (res: HandlerResponse): Response => {
+const buildWwwAuthenticateHeader = (origin: string, errorCode?: string): string => {
+  const resourceMetadataUrl = `${origin}/.well-known/oauth-protected-resource`;
+  if (errorCode === 'insufficient_scope') {
+    return `Bearer realm="SteadyRenew MCP", error="insufficient_scope", resource_metadata="${resourceMetadataUrl}"`;
+  }
+  return `Bearer realm="SteadyRenew MCP", resource_metadata="${resourceMetadataUrl}"`;
+};
+
+const handlerResponseToWeb = (res: HandlerResponse, origin: string): Response => {
   const headers = new Headers();
   for (const [key, value] of Object.entries(res.headers ?? {})) {
     if (value !== undefined) headers.set(key, String(value));
   }
   if (res.statusCode === 401 && !headers.has('WWW-Authenticate')) {
-    headers.set('WWW-Authenticate', 'Bearer realm="SteadyRenew MCP"');
+    headers.set('WWW-Authenticate', buildWwwAuthenticateHeader(origin));
+  } else if (res.statusCode === 403 && !headers.has('WWW-Authenticate') && res.body?.includes('insufficient_scope')) {
+    headers.set('WWW-Authenticate', buildWwwAuthenticateHeader(origin, 'insufficient_scope'));
   }
   return withMcpHeaders(new Response(res.body ?? null, {
     status: res.statusCode,
     headers,
   }));
-};
-
-const PUBLIC_MCP_DISCOVERY_METHODS = new Set([
-  'initialize',
-  'notifications/initialized',
-  'notifications/cancelled',
-  'ping',
-  'tools/list',
-]);
-
-const isPublicDiscoveryMessage = (item: unknown): boolean => {
-  if (!item || typeof item !== 'object' || Array.isArray(item)) {
-    return false;
-  }
-  const method = (item as Record<string, unknown>).method;
-  return typeof method === 'string' && PUBLIC_MCP_DISCOVERY_METHODS.has(method);
-};
-
-const isPublicDiscoveryPayload = (payload: unknown): boolean => {
-  if (Array.isArray(payload)) {
-    return payload.length > 0 && payload.every(isPublicDiscoveryMessage);
-  }
-  return isPublicDiscoveryMessage(payload);
 };
 
 export const createApiMcpHandler = (
@@ -286,6 +273,7 @@ export const createApiMcpHandler = (
   }
 
   let requestId: string = crypto.randomUUID();
+  const origin = new URL(request.url).origin;
 
   const payloadTooLargeResponse = () => withMcpHeaders(new Response(JSON.stringify({
     jsonrpc: '2.0',
@@ -310,49 +298,29 @@ export const createApiMcpHandler = (
       return payloadTooLargeResponse();
     }
 
-    const rawText = new TextDecoder().decode(rawBody);
-    let parsedBody: unknown = null;
-    try {
-      parsedBody = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      parsedBody = null;
-    }
-
     const incomingHeaders = Object.fromEntries(request.headers);
-    const hasAuthHeader = Boolean(request.headers.get('authorization')?.trim());
-    const allowAnonymousDiscovery = !hasAuthHeader && isPublicDiscoveryPayload(parsedBody);
+    const dependencies = dependenciesFactory();
+    requestId = dependencies.createRequestId();
+    const now = dependencies.now();
 
-    let dependencies: ApiMcpDependencies | null = null;
-    let authenticatedIdentity: ApiKeyIdentity | undefined;
-    let authenticated = false;
+    // Standard MCP OAuth 2.1 handshake: every unauthenticated request (including
+    // initial `initialize`) returns HTTP 401 with `WWW-Authenticate` pointing at
+    // `/.well-known/oauth-protected-resource` so remote MCP clients immediately
+    // launch the OAuth login flow, while static `Bearer subm_...` keys continue
+    // to authenticate transparently. Per-minute quota is charged inside the
+    // target API route handler when tools/call executes.
+    const authenticatedIdentity: ApiKeyIdentity = await identifyApiKey(
+      incomingHeaders,
+      dependencies.database,
+      dependencies.limits,
+      now,
+      requestId
+    );
 
-    if (!allowAnonymousDiscovery) {
-      dependencies = dependenciesFactory();
-      requestId = dependencies.createRequestId();
-      const now = dependencies.now();
-
-      // Authenticate the API key upfront on every tool call and whenever an
-      // Authorization header is supplied (so invalid keys fail fast even on
-      // initialize or tools/list). Per-minute quota is charged inside the
-      // target API route handler when tools/call executes.
-      authenticatedIdentity = await identifyApiKey(
-        incomingHeaders,
-        dependencies.database,
-        dependencies.limits,
-        now,
-        requestId
-      );
-      authenticated = true;
-    }
-
-    const getDependencies = () => {
-      if (!dependencies) {
-        dependencies = dependenciesFactory();
-      }
-      return authenticatedIdentity
-        ? { ...dependencies, authenticatedIdentity }
-        : dependencies;
-    };
+    const getDependencies = () => ({
+      ...dependencies,
+      authenticatedIdentity,
+    });
 
     const subscriptionsHandler = createSubscriptionsApiHandler(getDependencies);
     const analyticsHandler = createAnalyticsApiHandler(getDependencies);
@@ -381,13 +349,6 @@ export const createApiMcpHandler = (
     }));
 
     mcpServer.server.setRequestHandler(CallToolRequestSchema, async mcpReq => {
-      if (!authenticated) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: 'Authentication required. Provide an Authorization: Bearer subm_... header.' }],
-        };
-      }
-
       const tool = toolByName.get(mcpReq.params.name);
       if (!tool) {
         return {
@@ -400,7 +361,6 @@ export const createApiMcpHandler = (
         const invocation = buildToolInvocation(tool, mcpReq.params.arguments ?? {});
         const routeHandler = resolveRouteHandler(invocation.path);
         const queryString = new URLSearchParams(invocation.query).toString();
-        const origin = new URL(request.url).origin;
         const syntheticEvent: HandlerEvent = {
           rawUrl: `${origin}${invocation.path}${queryString ? `?${queryString}` : ''}`,
           rawQuery: queryString,
@@ -467,7 +427,7 @@ export const createApiMcpHandler = (
     logEvent('error', 'Remote MCP request failed', requestId, {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return handlerResponseToWeb(errorResponse(error, requestId));
+    return handlerResponseToWeb(errorResponse(error, requestId), origin);
   }
 };
 
