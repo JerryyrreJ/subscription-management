@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Fingerprint, KeyRound, Loader2, LogOut, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Fingerprint, KeyRound, Loader2, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MnemonicValidationError, normalizeMnemonicWords, RECOVERY_WORD_COUNT } from '../lib/e2ee/mnemonic';
 import { isPasskeyPrfAvailable } from '../lib/e2ee/passkeyPrf';
@@ -77,27 +77,25 @@ export function E2EEUnlockModal({
   const busy = unlockingPasskey || unlockingPhrase;
 
   return (
-    <div className="fixed inset-0 z-[180] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="settings-overlay fixed inset-0 mobile-modal-viewport z-[180]">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="e2ee-unlock-title"
-        className="w-full max-w-md rounded-3xl border border-gray-200/80 dark:border-white/10 bg-white dark:bg-[#181a1c] shadow-apple-xl p-6 sm:p-7 space-y-5"
+        className="e2ee-dialog space-y-5"
       >
-        <div className="flex items-start gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-500/15 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+        <div className="flex items-start gap-3">
+          <div className="settings-section-icon">
+            <KeyRound size={18} strokeWidth={1.5} aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <h2 id="e2ee-unlock-title" className="text-lg font-semibold app-theme-text-primary">
+            <h2 id="e2ee-unlock-title" className="text-base font-semibold app-theme-text-primary">
               {t('e2ee:unlockModalTitle')}
             </h2>
             {userEmail && (
-              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300 truncate mt-0.5">
-                {userEmail}
-              </p>
+              <p className="mt-0.5 truncate text-xs app-theme-text-muted">{userEmail}</p>
             )}
-            <p className="text-xs app-theme-text-muted mt-1 leading-relaxed">
+            <p className="mt-1.5 text-[13px] leading-relaxed app-theme-text-secondary">
               {t('e2ee:unlockModalSubtitle')}
             </p>
           </div>
@@ -106,24 +104,25 @@ export function E2EEUnlockModal({
         {error && (
           <div
             role="alert"
-            className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-500/25 dark:bg-red-500/10 p-3.5 text-xs text-red-700 dark:text-red-300"
+            className="flex items-start gap-2 rounded-[9px] border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
           >
-            {error}
+            <AlertCircle size={15} strokeWidth={1.5} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>{error}</span>
           </div>
         )}
 
         {canUsePasskey && (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <button
               type="button"
               disabled={busy}
               onClick={() => void handlePasskeyUnlock()}
-              className="w-full inline-flex items-center justify-center gap-2.5 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              className="settings-button-primary w-full"
             >
               {unlockingPasskey ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 size={16} strokeWidth={1.5} className="animate-spin" aria-hidden="true" />
               ) : (
-                <Fingerprint className="w-4 h-4" />
+                <Fingerprint size={16} strokeWidth={1.5} aria-hidden="true" />
               )}
               {unlockingPasskey ? t('e2ee:unlockingWithPasskey') : t('e2ee:unlockWithPasskeyButton')}
             </button>
@@ -133,9 +132,9 @@ export function E2EEUnlockModal({
                 type="button"
                 disabled={busy}
                 onClick={() => setShowPhraseForm(true)}
-                className="w-full inline-flex items-center justify-center gap-1.5 py-2 text-xs font-medium app-theme-text-muted hover:text-gray-900 dark:hover:text-white transition-colors"
+                className="settings-button w-full"
               >
-                <KeyRound className="w-3.5 h-3.5" />
+                <KeyRound size={16} strokeWidth={1.5} aria-hidden="true" />
                 {t('e2ee:useRecoveryPhraseToggle')}
               </button>
             )}
@@ -143,18 +142,19 @@ export function E2EEUnlockModal({
         )}
 
         {(showPhraseForm || !canUsePasskey) && (
-          <form onSubmit={e => void handlePhraseUnlock(e)} className="space-y-3.5">
+          <form onSubmit={e => void handlePhraseUnlock(e)} className="space-y-3">
             {canUsePasskey && (
-              <p className="text-[11px] uppercase tracking-wider app-theme-text-muted text-center">
-                {t('e2ee:orUseRecoveryPhrase')}
-              </p>
+              <p className="text-xs app-theme-text-muted">{t('e2ee:orUseRecoveryPhrase')}</p>
             )}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="e2ee-recovery-input" className="text-xs font-medium app-theme-text-primary">
+              <div className="mb-1.5 flex items-center justify-between">
+                <label
+                  htmlFor="e2ee-recovery-input"
+                  className="text-xs font-medium app-theme-text-secondary"
+                >
                   {t('e2ee:recoveryInputLabel')}
                 </label>
-                <span className="text-[11px] font-mono app-theme-text-muted">
+                <span className="text-xs font-mono tabular-nums app-theme-text-muted">
                   {enteredWordCount}/{RECOVERY_WORD_COUNT}
                 </span>
               </div>
@@ -167,46 +167,44 @@ export function E2EEUnlockModal({
                 spellCheck={false}
                 autoComplete="off"
                 disabled={busy}
-                className="settings-input w-full font-mono text-xs"
+                className="settings-input font-mono text-[13px]"
               />
             </div>
 
             <button
               type="submit"
               disabled={busy || enteredWordCount !== RECOVERY_WORD_COUNT}
-              className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-2xl bg-gray-900 hover:bg-gray-800 text-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 text-sm font-medium transition-colors disabled:opacity-40"
+              className={canUsePasskey ? 'settings-button w-full' : 'settings-button-primary w-full'}
             >
-              {unlockingPhrase ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <KeyRound className="w-4 h-4" />
+              {unlockingPhrase && (
+                <Loader2 size={16} strokeWidth={1.5} className="animate-spin" aria-hidden="true" />
               )}
               {unlockingPhrase ? t('e2ee:unlockingWithPhrase') : t('e2ee:unlockWithPhraseButton')}
             </button>
           </form>
         )}
 
-        <label className="flex items-start gap-2.5 pt-1 cursor-pointer">
+        <label className="flex items-start gap-2.5 cursor-pointer">
           <input
             type="checkbox"
             checked={rememberBrowser}
             onChange={e => setRememberBrowser(e.target.checked)}
             disabled={busy}
-            className="mt-0.5 accent-emerald-600"
+            className="mt-0.5 accent-[#24704d]"
           />
-          <span className="text-xs app-theme-text-muted leading-snug">
+          <span className="text-xs leading-relaxed app-theme-text-muted">
             {t('e2ee:rememberBrowserLabel')}
           </span>
         </label>
 
-        <div className="pt-2 border-t border-gray-200/70 dark:border-white/10 flex justify-end">
+        <div className="flex justify-end border-t border-[var(--app-border)] pt-3">
           <button
             type="button"
             disabled={busy}
             onClick={() => void onSignOut()}
-            className="inline-flex items-center gap-1.5 text-xs app-theme-text-muted hover:text-red-600 dark:hover:text-red-400 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-medium app-theme-text-muted transition-colors hover:text-[var(--app-ink)]"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut size={14} strokeWidth={1.5} aria-hidden="true" />
             {t('e2ee:signOutInstead')}
           </button>
         </div>

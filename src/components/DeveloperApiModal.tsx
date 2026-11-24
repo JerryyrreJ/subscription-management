@@ -362,11 +362,16 @@ export function DeveloperApiModal({
      ) : (
       <>
        {vault.status === 'unlocked' && unlockedVaultKeyToken && (
-        <div className="settings-card space-y-3 border-emerald-200/70 dark:border-emerald-500/20">
-         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-           <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-           <h3 className="text-sm font-semibold app-theme-text-primary">{t('e2ee:apiE2eeTitle')}</h3>
+        <section className="settings-card space-y-4">
+         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+           <div className="settings-section-icon">
+            <ShieldCheck size={18} strokeWidth={1.5} aria-hidden="true" />
+           </div>
+           <div>
+            <h3 className="text-sm font-semibold app-theme-text-primary">{t('e2ee:apiE2eeTitle')}</h3>
+            <p className="mt-1 text-xs app-theme-text-muted">{t('e2ee:apiE2eeDesc')}</p>
+           </div>
           </div>
           <button
            type="button"
@@ -379,41 +384,43 @@ export function DeveloperApiModal({
              setError(t('developerApi:copyFailed'));
             }
            }}
-           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+           className="settings-button shrink-0"
           >
-           {copiedVaultKey ? <Check className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+           {copiedVaultKey ? <Check size={15} strokeWidth={1.5} aria-hidden="true" /> : <Clipboard size={15} strokeWidth={1.5} aria-hidden="true" />}
            {copiedVaultKey ? t('developerApi:copied') : t('e2ee:copyVaultKeyEnv')}
           </button>
          </div>
-         <div className="grid sm:grid-cols-2 gap-2.5 text-xs">
-          <label className="flex items-start gap-2 p-3 rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">
+         <div className="grid gap-2 sm:grid-cols-2">
+          <label className="e2ee-choice" data-selected={e2eeApiMode === 'local' ? 'true' : 'false'}>
            <input
             type="radio"
             name="e2ee-api-mode"
             checked={e2eeApiMode === 'local'}
             onChange={() => setE2eeApiMode('local')}
-            className="mt-0.5 accent-emerald-600"
+            className="sr-only"
            />
-           <div>
-            <p className="font-medium app-theme-text-primary">{t('e2ee:apiE2eeLocalMode')}</p>
-            <p className="app-theme-text-muted mt-0.5">{t('e2ee:apiE2eeLocalDesc')}</p>
+           <div className="min-w-0 flex-1">
+            <p className="e2ee-choice-title">{t('e2ee:apiE2eeLocalMode')}</p>
+            <p className="e2ee-choice-desc">{t('e2ee:apiE2eeLocalDesc')}</p>
            </div>
+           <Check size={16} strokeWidth={1.5} aria-hidden="true" className={e2eeApiMode === 'local' ? 'e2ee-choice-check' : 'e2ee-choice-check invisible'} />
           </label>
-          <label className="flex items-start gap-2 p-3 rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">
+          <label className="e2ee-choice" data-selected={e2eeApiMode === 'bridge' ? 'true' : 'false'}>
            <input
             type="radio"
             name="e2ee-api-mode"
             checked={e2eeApiMode === 'bridge'}
             onChange={() => setE2eeApiMode('bridge')}
-            className="mt-0.5 accent-emerald-600"
+            className="sr-only"
            />
-           <div>
-            <p className="font-medium app-theme-text-primary">{t('e2ee:apiE2eeBridgeMode')}</p>
-            <p className="app-theme-text-muted mt-0.5">{t('e2ee:apiE2eeBridgeDesc')}</p>
+           <div className="min-w-0 flex-1">
+            <p className="e2ee-choice-title">{t('e2ee:apiE2eeBridgeMode')}</p>
+            <p className="e2ee-choice-desc">{t('e2ee:apiE2eeBridgeDesc')}</p>
            </div>
+           <Check size={16} strokeWidth={1.5} aria-hidden="true" className={e2eeApiMode === 'bridge' ? 'e2ee-choice-check' : 'e2ee-choice-check invisible'} />
           </label>
          </div>
-        </div>
+        </section>
        )}
        <AgentSetupCard
         key={createdKeyId && effectiveDisplayApiKey ? `${createdKeyId}-${e2eeApiMode}` : 'no-key'}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  AlertCircle,
   Bell,
   Check,
   Clipboard,
@@ -10,19 +11,16 @@ import {
   Lock,
   Plus,
   RefreshCw,
-  ShieldCheck,
   ShieldOff,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useVaultState } from '../../hooks/useVaultState';
 import type { Subscription } from '../../types';
-import { loadCategories, loadPendingCategorySync } from '../../utils/categories';
+import { loadCategories, loadPendingCategorySync, saveCategories } from '../../utils/categories';
 import { getUserDataScope } from '../../utils/dataScope';
 import { loadPendingSyncOperations, loadSubscriptions, saveSubscriptions } from '../../utils/storage';
-import { saveCategories } from '../../utils/categories';
 import {
   type BarkE2eeMode,
   generateBarkEncryptionKey,
@@ -86,6 +84,7 @@ export function EncryptionSettingsContent({
   const [addingPasskey, setAddingPasskey] = useState(false);
   const [regeneratedPhrase, setRegeneratedPhrase] = useState<string>('');
   const [regeneratedConfirm, setRegeneratedConfirm] = useState<string>('');
+  const [copiedRegenPhrase, setCopiedRegenPhrase] = useState(false);
   const [manageBarkMode, setManageBarkMode] = useState<BarkE2eeMode>(vault.barkMode);
   const [manageBarkKey, setManageBarkKey] = useState<string>(
     vault.barkEncryptionKey || generateBarkEncryptionKey()
@@ -98,6 +97,15 @@ export function EncryptionSettingsContent({
   const [error, setError] = useState<string | null>(null);
 
   const setupWords = useMemo(() => (setupPhrase ? setupPhrase.split(' ') : []), [setupPhrase]);
+  const regenWords = useMemo(
+    () => (regeneratedPhrase ? regeneratedPhrase.split(' ') : []),
+    [regeneratedPhrase]
+  );
+  const confirmWordCount = useMemo(
+    () => normalizeMnemonicWords(confirmPhrase).length,
+    [confirmPhrase]
+  );
+
   const isSetupPhraseConfirmed = useMemo(() => {
     if (!setupPhrase) return false;
     const normalizedInput = formatMnemonicPhrase(normalizeMnemonicWords(confirmPhrase));
@@ -116,6 +124,10 @@ export function EncryptionSettingsContent({
   const scope = getUserDataScope(user.id);
   const hasPendingOfflineChanges =
     loadPendingSyncOperations(scope).length > 0 || Boolean(loadPendingCategorySync(scope));
+
+  const isBarkDirty =
+    manageBarkMode !== vault.barkMode ||
+    (manageBarkMode === 'bark_e2ee' && manageBarkKey !== (vault.barkEncryptionKey ?? ''));
 
   const handleStartSetup = async () => {
     setError(null);
@@ -150,13 +162,13 @@ export function EncryptionSettingsContent({
 
   const handleDownloadRecoveryFile = (phrase: string) => {
     const content = [
-      'SteadyRenew — 16-Word End-to-End Encryption Recovery Key',
+      'SteadyRenew — 16-word recovery key',
       `Account: ${user.email ?? user.id}`,
       `Generated: ${new Date().toISOString()}`,
       '',
       phrase,
       '',
-      'Keep this file in a secure password manager or offline backup.',
+      'Store this file in a password manager or offline backup.',
     ].join('\n');
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -272,7 +284,7 @@ export function EncryptionSettingsContent({
     try {
       await removeKeySlotFromVault(user.id, slotId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove unlock method');
+      setError(err instanceof Error ? err.message : 'Failed to remove verification method');
     }
   };
 
@@ -317,301 +329,367 @@ export function EncryptionSettingsContent({
     }
   };
 
+  const statusText =
+    vault.status === 'unlocked'
+      ? t('e2ee:statusEnabled')
+      : vault.status === 'locked'
+        ? t('e2ee:statusLocked')
+        : t('e2ee:statusDisabled');
+
   return (
     <div className="settings-page">
       <div className="settings-page-heading">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold app-theme-text-primary mb-1">
-              {t('e2ee:title')}
-            </h2>
-            <p className="text-sm app-theme-text-muted">{t('e2ee:subtitle')}</p>
-          </div>
-          <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-              vault.status === 'unlocked'
-                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                : vault.status === 'locked'
-                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
-                  : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
-            {vault.status === 'unlocked'
-              ? t('e2ee:statusEnabled')
-              : vault.status === 'locked'
-                ? t('e2ee:statusLocked')
-                : t('e2ee:statusDisabled')}
-          </span>
-        </div>
+        <h2>{t('e2ee:title')}</h2>
+        <p>{t('e2ee:subtitle')}</p>
       </div>
 
       {error && (
         <div
           role="alert"
-          className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-500/25 dark:bg-red-500/10 p-4 text-sm text-red-700 dark:text-red-300 mb-5"
+          className="flex items-start gap-2.5 rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
         >
-          {error}
+          <AlertCircle size={16} strokeWidth={1.5} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* --- DISABLED STATE & SETUP WIZARD --- */}
+      {/* --- DISABLED OVERVIEW --- */}
       {vault.status === 'disabled' && !setupPhrase && (
-        <div className="space-y-4">
-          <div className="settings-card space-y-4">
-            <p className="text-sm leading-relaxed app-theme-text-primary">
-              {t('e2ee:overviewBody')}
-            </p>
-            <div className="settings-inset p-4 space-y-2.5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
-                {t('e2ee:zeroLossHighlightsTitle')}
-              </p>
-              <ul className="space-y-2 text-xs app-theme-text-muted">
-                <li className="flex items-start gap-2">
-                  <Fingerprint className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
-                  <span>{t('e2ee:highlightPasskey')}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Lock className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
-                  <span>{t('e2ee:highlightRefresh')}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Bell className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
-                  <span>{t('e2ee:highlightBark')}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Sparkles className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
-                  <span>{t('e2ee:highlightAiMcp')}</span>
-                </li>
-              </ul>
+        <section className="settings-card">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="settings-section-icon">
+                <Lock size={18} strokeWidth={1.5} aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h3 className="text-sm font-semibold app-theme-text-primary">
+                    {t('e2ee:overviewTitle')}
+                  </h3>
+                  <span className="e2ee-status-line">
+                    <span className="e2ee-status-dot" data-state="disabled" aria-hidden="true" />
+                    {statusText}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[13px] leading-relaxed app-theme-text-secondary">
+                  {t('e2ee:overviewBody')}
+                </p>
+              </div>
             </div>
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => void handleStartSetup()}
-                className="settings-button-primary inline-flex items-center gap-2"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                {t('e2ee:startSetupButton')}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => void handleStartSetup()}
+              className="settings-button-primary shrink-0"
+            >
+              {t('e2ee:startSetupButton')}
+            </button>
           </div>
-        </div>
+
+          <dl className="e2ee-spec-list">
+            <div className="e2ee-spec-row">
+              <dt className="e2ee-spec-label">{t('e2ee:scopeSyncLabel')}</dt>
+              <dd className="e2ee-spec-value">{t('e2ee:scopeSyncValue')}</dd>
+            </div>
+            <div className="e2ee-spec-row">
+              <dt className="e2ee-spec-label">{t('e2ee:scopePushLabel')}</dt>
+              <dd className="e2ee-spec-value">{t('e2ee:scopePushValue')}</dd>
+            </div>
+            <div className="e2ee-spec-row">
+              <dt className="e2ee-spec-label">{t('e2ee:scopeApiLabel')}</dt>
+              <dd className="e2ee-spec-value">{t('e2ee:scopeApiValue')}</dd>
+            </div>
+          </dl>
+        </section>
       )}
 
+      {/* --- SETUP WIZARD --- */}
       {vault.status === 'disabled' && setupPhrase && (
-        <div className="space-y-5">
-          {/* Step 1: 16-word recovery phrase */}
-          <div className="settings-card space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold app-theme-text-primary">
-                {t('e2ee:step1Title')}
-              </h3>
-              <p className="text-xs app-theme-text-muted mt-1">{t('e2ee:step1Desc')}</p>
+        <div className="space-y-4">
+          {/* Step 1: 16-word recovery key sheet */}
+          <section className="settings-card space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="e2ee-step-badge" aria-hidden="true">1</span>
+              <div>
+                <h3 className="text-sm font-semibold app-theme-text-primary">
+                  {t('e2ee:step1Title')}
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed app-theme-text-muted">
+                  {t('e2ee:step1Desc')}
+                </p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-2xl bg-gray-50 dark:bg-black/30 border border-gray-200/80 dark:border-white/10">
-              {setupWords.map((word, index) => (
-                <div
-                  key={`${index}-${word}`}
-                  className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-white dark:bg-white/[0.04] border border-gray-200/60 dark:border-white/5 font-mono text-xs"
+            <div className="e2ee-phrase-sheet">
+              <div className="e2ee-phrase-grid">
+                {setupWords.map((word, index) => (
+                  <div key={`${index}-${word}`} className="e2ee-phrase-cell">
+                    <span className="e2ee-phrase-index">{index + 1}</span>
+                    <span className="e2ee-phrase-word">{word}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="e2ee-phrase-bar">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void handleCopyText(setupPhrase, () => {
+                      setCopiedPhrase(true);
+                      window.setTimeout(() => setCopiedPhrase(false), 2000);
+                    })
+                  }
+                  className="e2ee-phrase-action"
                 >
-                  <span className="text-[10px] text-gray-400 select-none w-4">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <span className="font-medium app-theme-text-primary select-all">{word}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  void handleCopyText(setupPhrase, () => {
-                    setCopiedPhrase(true);
-                    window.setTimeout(() => setCopiedPhrase(false), 2000);
-                  })
-                }
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 app-theme-text-primary transition-colors"
-              >
-                {copiedPhrase ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Clipboard className="w-3.5 h-3.5" />}
-                {copiedPhrase ? t('e2ee:copiedPhrase') : t('e2ee:copyPhrase')}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDownloadRecoveryFile(setupPhrase)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/15 app-theme-text-primary transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                {t('e2ee:downloadPhrase')}
-              </button>
+                  {copiedPhrase ? (
+                    <Check size={14} strokeWidth={1.5} aria-hidden="true" />
+                  ) : (
+                    <Clipboard size={14} strokeWidth={1.5} aria-hidden="true" />
+                  )}
+                  {copiedPhrase ? t('e2ee:copiedPhrase') : t('e2ee:copyPhrase')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadRecoveryFile(setupPhrase)}
+                  className="e2ee-phrase-action"
+                >
+                  <Download size={14} strokeWidth={1.5} aria-hidden="true" />
+                  {t('e2ee:downloadPhrase')}
+                </button>
+              </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium app-theme-text-primary mb-1.5">
-                {t('e2ee:confirmPhraseLabel')}
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <label
+                  htmlFor="e2ee-setup-confirm"
+                  className="text-xs font-medium app-theme-text-secondary"
+                >
+                  {t('e2ee:confirmPhraseLabel')}
+                </label>
+                <span className="text-xs font-mono tabular-nums app-theme-text-muted">
+                  {confirmWordCount}/{RECOVERY_WORD_COUNT}
+                </span>
+              </div>
               <textarea
+                id="e2ee-setup-confirm"
                 rows={2}
                 value={confirmPhrase}
                 onChange={e => setConfirmPhrase(e.target.value)}
                 placeholder={t('e2ee:confirmPhrasePlaceholder')}
                 spellCheck={false}
                 autoComplete="off"
-                className="settings-input w-full font-mono text-xs"
+                className="settings-input font-mono text-[13px]"
               />
               {confirmPhrase.trim().length > 0 && (
                 <p
-                  className={`mt-1.5 text-xs flex items-center gap-1.5 ${
+                  className={`mt-2 inline-flex items-center gap-1.5 text-xs ${
                     isSetupPhraseConfirmed
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-amber-600 dark:text-amber-400'
+                      ? 'app-theme-text-secondary'
+                      : 'app-theme-text-muted'
                   }`}
                 >
                   {isSetupPhraseConfirmed ? (
                     <>
-                      <Check className="w-3.5 h-3.5" />
-                      {t('e2ee:phraseVerified')}
+                      <Check
+                        size={14}
+                        strokeWidth={1.5}
+                        style={{ color: 'var(--settings-accent)' }}
+                        aria-hidden="true"
+                      />
+                      <span>{t('e2ee:phraseVerified')}</span>
                     </>
                   ) : (
-                    <span>
-                      {t('e2ee:phraseMismatch')} ({normalizeMnemonicWords(confirmPhrase).length}/{RECOVERY_WORD_COUNT})
-                    </span>
+                    <span>{t('e2ee:phraseMismatch', { count: confirmWordCount })}</span>
                   )}
                 </p>
               )}
             </div>
-          </div>
+          </section>
 
           {/* Step 2: Optional Passkey PRF binding */}
           {isPasskeyPrfAvailable() && (
-            <div className="settings-card space-y-3">
-              <div>
-                <h3 className="text-sm font-semibold app-theme-text-primary">
-                  {t('e2ee:step2Title')}
-                </h3>
-                <p className="text-xs app-theme-text-muted mt-1">{t('e2ee:step2Desc')}</p>
+            <section className="settings-card space-y-4">
+              <div className="flex items-start gap-3">
+                <span className="e2ee-step-badge" aria-hidden="true">2</span>
+                <div>
+                  <h3 className="text-sm font-semibold app-theme-text-primary">
+                    {t('e2ee:step2Title')}
+                  </h3>
+                  <p className="mt-1 text-xs leading-relaxed app-theme-text-muted">
+                    {t('e2ee:step2Desc')}
+                  </p>
+                </div>
               </div>
 
               {boundPasskey ? (
-                <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-xs font-medium">
-                  <Check className="w-4 h-4" />
-                  {t('e2ee:passkeyBoundSuccess', { label: boundPasskey.label })}
+                <div className="e2ee-slot-row">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Fingerprint
+                      size={16}
+                      strokeWidth={1.5}
+                      className="shrink-0 app-theme-text-muted"
+                      aria-hidden="true"
+                    />
+                    <span className="truncate text-[13px] font-medium app-theme-text-primary">
+                      {t('e2ee:passkeyBoundSuccess', { label: boundPasskey.label })}
+                    </span>
+                  </div>
+                  <Check
+                    size={16}
+                    strokeWidth={1.5}
+                    style={{ color: 'var(--settings-accent)' }}
+                    aria-hidden="true"
+                  />
                 </div>
               ) : (
-                <div className="flex flex-col sm:flex-row gap-2.5">
+                <div className="flex flex-col gap-2.5 sm:flex-row">
                   <input
                     type="text"
                     value={passkeyLabel}
                     onChange={e => setPasskeyLabel(e.target.value)}
                     maxLength={60}
                     placeholder={t('e2ee:passkeyLabelPlaceholder')}
-                    className="settings-input flex-1 text-sm"
+                    className="settings-input flex-1"
                   />
                   <button
                     type="button"
                     onClick={() => void handleBindSetupPasskey()}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 transition-colors"
+                    className="settings-button shrink-0"
                   >
-                    <Fingerprint className="w-4 h-4" />
+                    <Fingerprint size={16} strokeWidth={1.5} aria-hidden="true" />
                     {t('e2ee:bindPasskeyNow')}
                   </button>
                 </div>
               )}
 
               {passkeyHint && (
-                <p className="text-xs text-amber-700 dark:text-amber-300">{passkeyHint}</p>
+                <p className="text-xs leading-relaxed app-theme-text-muted">{passkeyHint}</p>
               )}
-            </div>
+            </section>
           )}
 
           {/* Step 3: Bark E2EE mode */}
-          <div className="settings-card space-y-3">
-            <h3 className="text-sm font-semibold app-theme-text-primary">
-              {t('e2ee:step3Title')}
-            </h3>
+          <section className="settings-card space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="e2ee-step-badge" aria-hidden="true">
+                {isPasskeyPrfAvailable() ? '3' : '2'}
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold app-theme-text-primary">
+                  {t('e2ee:step3Title')}
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed app-theme-text-muted">
+                  {t('e2ee:step3Desc')}
+                </p>
+              </div>
+            </div>
 
-            <div className="space-y-2">
-              <label className="flex items-start gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">
+            <div className="e2ee-choice-list" role="radiogroup" aria-label={t('e2ee:step3Title')}>
+              <label
+                className="e2ee-choice"
+                data-selected={setupBarkMode === 'generic' ? 'true' : 'false'}
+              >
                 <input
                   type="radio"
                   name="setup-bark-mode"
                   checked={setupBarkMode === 'generic'}
                   onChange={() => setSetupBarkMode('generic')}
-                  className="mt-1 accent-emerald-600"
+                  className="sr-only"
                 />
-                <div>
-                  <p className="text-xs font-medium app-theme-text-primary">
-                    {t('e2ee:barkModeGenericTitle')}
-                  </p>
-                  <p className="text-xs app-theme-text-muted mt-0.5">
-                    {t('e2ee:barkModeGenericDesc')}
-                  </p>
+                <div className="min-w-0">
+                  <p className="e2ee-choice-title">{t('e2ee:barkModeGenericTitle')}</p>
+                  <p className="e2ee-choice-desc">{t('e2ee:barkModeGenericDesc')}</p>
                 </div>
+                <Check
+                  size={16}
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                  className={
+                    setupBarkMode === 'generic' ? 'e2ee-choice-check' : 'e2ee-choice-check invisible'
+                  }
+                />
               </label>
 
-              <label className="flex items-start gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-white/10 cursor-pointer">
+              <label
+                className="e2ee-choice"
+                data-selected={setupBarkMode === 'bark_e2ee' ? 'true' : 'false'}
+              >
                 <input
                   type="radio"
                   name="setup-bark-mode"
                   checked={setupBarkMode === 'bark_e2ee'}
                   onChange={() => setSetupBarkMode('bark_e2ee')}
-                  className="mt-1 accent-emerald-600"
+                  className="sr-only"
                 />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium app-theme-text-primary">
-                    {t('e2ee:barkModeCiphertextTitle')}
-                  </p>
-                  <p className="text-xs app-theme-text-muted mt-0.5">
-                    {t('e2ee:barkModeCiphertextDesc')}
-                  </p>
-                  {setupBarkMode === 'bark_e2ee' && (
-                    <div className="mt-3 space-y-2" onClick={e => e.stopPropagation()}>
-                      <label className="block text-[11px] font-medium app-theme-text-muted">
-                        {t('e2ee:barkKeyLabel')}
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        <input
-                          type="text"
-                          value={setupBarkKey}
-                          onChange={e => setSetupBarkKey(e.target.value)}
-                          spellCheck={false}
-                          className="settings-input flex-1 font-mono text-xs"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setSetupBarkKey(generateBarkEncryptionKey())}
-                          className="px-3 py-1.5 rounded-xl text-xs bg-gray-100 dark:bg-white/10 app-theme-text-primary"
-                        >
-                          {t('e2ee:generateBarkKey')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleCopyText(setupBarkKey, () => {
-                              setCopiedBarkKey(true);
-                              window.setTimeout(() => setCopiedBarkKey(false), 2000);
-                            })
-                          }
-                          className="px-3 py-1.5 rounded-xl text-xs bg-gray-100 dark:bg-white/10 app-theme-text-primary"
-                        >
-                          {copiedBarkKey ? t('e2ee:copiedPhrase') : t('e2ee:copyBarkKey')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                <div className="min-w-0 flex-1">
+                  <p className="e2ee-choice-title">{t('e2ee:barkModeCiphertextTitle')}</p>
+                  <p className="e2ee-choice-desc">{t('e2ee:barkModeCiphertextDesc')}</p>
                 </div>
+                <Check
+                  size={16}
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                  className={
+                    setupBarkMode === 'bark_e2ee' ? 'e2ee-choice-check' : 'e2ee-choice-check invisible'
+                  }
+                />
               </label>
             </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+            {setupBarkMode === 'bark_e2ee' && (
+              <div className="settings-inset p-3.5 space-y-2">
+                <label
+                  htmlFor="e2ee-setup-bark-key"
+                  className="block text-xs font-medium app-theme-text-secondary"
+                >
+                  {t('e2ee:barkKeyLabel')}
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id="e2ee-setup-bark-key"
+                    type="text"
+                    value={setupBarkKey}
+                    onChange={e => setSetupBarkKey(e.target.value)}
+                    spellCheck={false}
+                    className="settings-input flex-1 font-mono text-[13px]"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSetupBarkKey(generateBarkEncryptionKey())}
+                      className="settings-button"
+                    >
+                      <RefreshCw size={15} strokeWidth={1.5} aria-hidden="true" />
+                      {t('e2ee:generateBarkKey')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void handleCopyText(setupBarkKey, () => {
+                          setCopiedBarkKey(true);
+                          window.setTimeout(() => setCopiedBarkKey(false), 2000);
+                        })
+                      }
+                      className="settings-button"
+                    >
+                      {copiedBarkKey ? (
+                        <Check size={15} strokeWidth={1.5} aria-hidden="true" />
+                      ) : (
+                        <Clipboard size={15} strokeWidth={1.5} aria-hidden="true" />
+                      )}
+                      {copiedBarkKey ? t('e2ee:copiedPhrase') : t('e2ee:copyBarkKey')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
             <button
               type="button"
               disabled={!isSetupPhraseConfirmed || Boolean(busyMessage)}
               onClick={() => void handleEnableEncryption()}
-              className="settings-button-primary disabled:opacity-40"
+              className="settings-button-primary"
             >
               {t('e2ee:enableConfirmButton')}
             </button>
@@ -619,7 +697,7 @@ export function EncryptionSettingsContent({
               type="button"
               disabled={Boolean(busyMessage)}
               onClick={handleCancelSetup}
-              className="px-4 py-2 rounded-xl text-sm app-theme-text-muted hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+              className="settings-button"
             >
               {t('e2ee:cancelSetup')}
             </button>
@@ -629,91 +707,117 @@ export function EncryptionSettingsContent({
 
       {/* --- UNLOCKED MANAGEMENT STATE --- */}
       {vault.status === 'unlocked' && (
-        <div className="space-y-5">
+        <div className="space-y-4">
           {/* Device session card */}
-          <div className="settings-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-sm font-semibold app-theme-text-primary">
-                {t('e2ee:deviceLockTitle')}
-              </h3>
-              <p className="text-xs app-theme-text-muted mt-1">{t('e2ee:deviceLockDesc')}</p>
+          <section className="settings-card flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="settings-section-icon">
+                <Lock size={18} strokeWidth={1.5} aria-hidden="true" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h3 className="text-sm font-semibold app-theme-text-primary">
+                    {t('e2ee:deviceLockTitle')}
+                  </h3>
+                  <span className="e2ee-status-line">
+                    <span className="e2ee-status-dot" data-state="unlocked" aria-hidden="true" />
+                    {statusText}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed app-theme-text-muted">
+                  {t('e2ee:deviceLockDesc')}
+                </p>
+              </div>
             </div>
             <button
               type="button"
               onClick={() => void lockVaultOnThisDevice(user.id)}
-              className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border border-gray-200 dark:border-white/15 hover:bg-gray-100 dark:hover:bg-white/10 app-theme-text-primary transition-colors"
+              className="settings-button shrink-0"
             >
-              <Lock className="w-3.5 h-3.5" />
               {t('e2ee:lockDeviceButton')}
             </button>
-          </div>
+          </section>
 
-          {/* Unlock key slots */}
-          <div className="settings-card space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold app-theme-text-primary">
-                {t('e2ee:keySlotsTitle')}
-              </h3>
-              <p className="text-xs app-theme-text-muted mt-1">{t('e2ee:keySlotsDesc')}</p>
+          {/* Verification methods */}
+          <section className="settings-card space-y-4">
+            <div className="settings-section-heading !mb-0">
+              <div className="settings-section-icon">
+                <KeyRound size={18} strokeWidth={1.5} aria-hidden="true" />
+              </div>
+              <div>
+                <h3>{t('e2ee:keySlotsTitle')}</h3>
+                <p>{t('e2ee:keySlotsDesc')}</p>
+              </div>
             </div>
 
             <div className="space-y-2">
-              {vault.keySlots.map(slot => (
-                <div
-                  key={slot.id}
-                  className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-white/[0.04] border border-gray-200/70 dark:border-white/10"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {slot.slot_type === 'passkey_prf' ? (
-                      <Fingerprint className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    ) : (
-                      <KeyRound className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium app-theme-text-primary truncate">
-                        {slot.label}
-                      </p>
-                      <p className="text-[11px] app-theme-text-muted">
-                        {slot.slot_type === 'passkey_prf'
-                          ? t('e2ee:slotTypePasskey')
-                          : t('e2ee:slotTypeMnemonic')}
-                      </p>
+              {vault.keySlots.map(slot => {
+                const isPasskey = slot.slot_type === 'passkey_prf';
+                const primaryLabel = isPasskey ? slot.label : t('e2ee:slotTypeMnemonic');
+                const secondaryLabel = isPasskey
+                  ? t('e2ee:slotTypePasskey')
+                  : t('e2ee:slotTypeMnemonicDesc');
+
+                return (
+                  <div key={slot.id} className="e2ee-slot-row">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {isPasskey ? (
+                        <Fingerprint
+                          size={16}
+                          strokeWidth={1.5}
+                          className="shrink-0 app-theme-text-muted"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <KeyRound
+                          size={16}
+                          strokeWidth={1.5}
+                          className="shrink-0 app-theme-text-muted"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-medium app-theme-text-primary">
+                          {primaryLabel}
+                        </p>
+                        <p className="mt-0.5 text-xs app-theme-text-muted">{secondaryLabel}</p>
+                      </div>
                     </div>
+                    {isPasskey && (
+                      <button
+                        type="button"
+                        onClick={() => void handleRemoveSlot(slot.id)}
+                        className="inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                      >
+                        <Trash2 size={14} strokeWidth={1.5} aria-hidden="true" />
+                        {t('e2ee:removeSlot')}
+                      </button>
+                    )}
                   </div>
-                  {slot.slot_type === 'passkey_prf' && (
-                    <button
-                      type="button"
-                      onClick={() => void handleRemoveSlot(slot.id)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      {t('e2ee:removeSlot')}
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {isPasskeyPrfAvailable() && (
-              <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+              <div className="flex flex-col gap-2.5 sm:flex-row">
                 <input
                   type="text"
                   value={newSlotLabel}
                   onChange={e => setNewSlotLabel(e.target.value)}
                   maxLength={60}
                   placeholder={t('e2ee:passkeyLabelPlaceholder')}
-                  className="settings-input flex-1 text-xs"
+                  className="settings-input flex-1"
                 />
                 <button
                   type="button"
                   disabled={addingPasskey}
                   onClick={() => void handleAddPasskeyInSettings()}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+                  className="settings-button shrink-0"
                 >
                   {addingPasskey ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 size={16} strokeWidth={1.5} className="animate-spin" aria-hidden="true" />
                   ) : (
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus size={16} strokeWidth={1.5} aria-hidden="true" />
                   )}
                   {addingPasskey ? t('e2ee:addingPasskey') : t('e2ee:addPasskeyButton')}
                 </button>
@@ -722,35 +826,69 @@ export function EncryptionSettingsContent({
 
             {/* Regenerate 16-word key */}
             {!regeneratedPhrase ? (
-              <div className="pt-1">
+              <div className="border-t border-[var(--app-border)] pt-3">
                 <button
                   type="button"
                   onClick={() => void handleStartRegeneratePhrase()}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium app-theme-text-muted hover:text-gray-900 dark:hover:text-white transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium app-theme-text-secondary transition-colors hover:text-[var(--app-ink)]"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <RefreshCw size={14} strokeWidth={1.5} aria-hidden="true" />
                   {t('e2ee:regeneratePhraseButton')}
                 </button>
               </div>
             ) : (
-              <div className="settings-inset p-4 space-y-3">
-                <p className="font-mono text-xs p-3 rounded-xl bg-white dark:bg-black/40 select-all">
-                  {regeneratedPhrase}
-                </p>
+              <div className="space-y-3 border-t border-[var(--app-border)] pt-4">
+                <div className="e2ee-phrase-sheet">
+                  <div className="e2ee-phrase-grid">
+                    {regenWords.map((word, index) => (
+                      <div key={`${index}-${word}`} className="e2ee-phrase-cell">
+                        <span className="e2ee-phrase-index">{index + 1}</span>
+                        <span className="e2ee-phrase-word">{word}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="e2ee-phrase-bar">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void handleCopyText(regeneratedPhrase, () => {
+                          setCopiedRegenPhrase(true);
+                          window.setTimeout(() => setCopiedRegenPhrase(false), 2000);
+                        })
+                      }
+                      className="e2ee-phrase-action"
+                    >
+                      {copiedRegenPhrase ? (
+                        <Check size={14} strokeWidth={1.5} aria-hidden="true" />
+                      ) : (
+                        <Clipboard size={14} strokeWidth={1.5} aria-hidden="true" />
+                      )}
+                      {copiedRegenPhrase ? t('e2ee:copiedPhrase') : t('e2ee:copyPhrase')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadRecoveryFile(regeneratedPhrase)}
+                      className="e2ee-phrase-action"
+                    >
+                      <Download size={14} strokeWidth={1.5} aria-hidden="true" />
+                      {t('e2ee:downloadPhrase')}
+                    </button>
+                  </div>
+                </div>
                 <textarea
                   rows={2}
                   value={regeneratedConfirm}
                   onChange={e => setRegeneratedConfirm(e.target.value)}
                   placeholder={t('e2ee:confirmPhrasePlaceholder')}
                   spellCheck={false}
-                  className="settings-input w-full font-mono text-xs"
+                  className="settings-input font-mono text-[13px]"
                 />
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     disabled={!isRegenConfirmed}
                     onClick={() => void handleConfirmRegeneratePhrase()}
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-emerald-600 text-white disabled:opacity-40"
+                    className="settings-button-primary"
                   >
                     {t('e2ee:saveNewPhraseButton')}
                   </button>
@@ -760,154 +898,195 @@ export function EncryptionSettingsContent({
                       setRegeneratedPhrase('');
                       setRegeneratedConfirm('');
                     }}
-                    className="px-3 py-1.5 rounded-xl text-xs app-theme-text-muted"
+                    className="settings-button"
                   >
                     {t('e2ee:cancelSetup')}
                   </button>
                 </div>
               </div>
             )}
-          </div>
+          </section>
 
           {/* Bark encrypted reminders configuration */}
-          <div className="settings-card space-y-3">
-            <h3 className="text-sm font-semibold app-theme-text-primary">
-              {t('e2ee:barkSectionTitle')}
-            </h3>
+          <section className="settings-card space-y-4">
+            <div className="settings-section-heading !mb-0">
+              <div className="settings-section-icon">
+                <Bell size={18} strokeWidth={1.5} aria-hidden="true" />
+              </div>
+              <div>
+                <h3>{t('e2ee:barkSectionTitle')}</h3>
+                <p>{t('e2ee:barkSectionDesc')}</p>
+              </div>
+            </div>
 
-            <div className="space-y-2">
-              <label className="flex items-start gap-2.5 text-xs cursor-pointer">
-                <input
-                  type="radio"
-                  name="manage-bark-mode"
-                  checked={manageBarkMode === 'generic'}
-                  onChange={() => setManageBarkMode('generic')}
-                  className="mt-0.5 accent-emerald-600"
-                />
-                <span>
-                  <strong className="app-theme-text-primary">{t('e2ee:barkModeGenericTitle')}</strong>
-                  {' — '}
-                  <span className="app-theme-text-muted">{t('e2ee:barkModeGenericDesc')}</span>
-                </span>
-              </label>
-
-              <label className="flex items-start gap-2.5 text-xs cursor-pointer">
-                <input
-                  type="radio"
-                  name="manage-bark-mode"
-                  checked={manageBarkMode === 'bark_e2ee'}
-                  onChange={() => setManageBarkMode('bark_e2ee')}
-                  className="mt-0.5 accent-emerald-600"
-                />
-                <span>
-                  <strong className="app-theme-text-primary">{t('e2ee:barkModeCiphertextTitle')}</strong>
-                  {' — '}
-                  <span className="app-theme-text-muted">{t('e2ee:barkModeCiphertextDesc')}</span>
-                </span>
-              </label>
-
-              <label className="flex items-start gap-2.5 text-xs cursor-pointer">
-                <input
-                  type="radio"
-                  name="manage-bark-mode"
-                  checked={manageBarkMode === 'off'}
-                  onChange={() => setManageBarkMode('off')}
-                  className="mt-0.5 accent-emerald-600"
-                />
-                <span className="app-theme-text-primary font-medium">
-                  {t('e2ee:barkModeOffTitle')}
-                </span>
-              </label>
+            <div className="e2ee-choice-list" role="radiogroup" aria-label={t('e2ee:barkSectionTitle')}>
+              {(
+                [
+                  {
+                    value: 'generic' as const,
+                    title: t('e2ee:barkModeGenericTitle'),
+                    desc: t('e2ee:barkModeGenericDesc'),
+                  },
+                  {
+                    value: 'bark_e2ee' as const,
+                    title: t('e2ee:barkModeCiphertextTitle'),
+                    desc: t('e2ee:barkModeCiphertextDesc'),
+                  },
+                  {
+                    value: 'off' as const,
+                    title: t('e2ee:barkModeOffTitle'),
+                    desc: t('e2ee:barkModeOffDesc'),
+                  },
+                ]
+              ).map(option => (
+                <label
+                  key={option.value}
+                  className="e2ee-choice"
+                  data-selected={manageBarkMode === option.value ? 'true' : 'false'}
+                >
+                  <input
+                    type="radio"
+                    name="manage-bark-mode"
+                    checked={manageBarkMode === option.value}
+                    onChange={() => setManageBarkMode(option.value)}
+                    className="sr-only"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="e2ee-choice-title">{option.title}</p>
+                    <p className="e2ee-choice-desc">{option.desc}</p>
+                  </div>
+                  <Check
+                    size={16}
+                    strokeWidth={1.5}
+                    aria-hidden="true"
+                    className={
+                      manageBarkMode === option.value
+                        ? 'e2ee-choice-check'
+                        : 'e2ee-choice-check invisible'
+                    }
+                  />
+                </label>
+              ))}
             </div>
 
             {manageBarkMode === 'bark_e2ee' && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                <input
-                  type="text"
-                  value={manageBarkKey}
-                  onChange={e => setManageBarkKey(e.target.value)}
-                  spellCheck={false}
-                  className="settings-input flex-1 font-mono text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={() => setManageBarkKey(generateBarkEncryptionKey())}
-                  className="px-3 py-1.5 rounded-xl text-xs bg-gray-100 dark:bg-white/10 app-theme-text-primary"
+              <div className="settings-inset p-3.5 space-y-2">
+                <label
+                  htmlFor="e2ee-manage-bark-key"
+                  className="block text-xs font-medium app-theme-text-secondary"
                 >
-                  {t('e2ee:generateBarkKey')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void handleCopyText(manageBarkKey, () => {
-                      setCopiedBarkKey(true);
-                      window.setTimeout(() => setCopiedBarkKey(false), 2000);
-                    })
-                  }
-                  className="px-3 py-1.5 rounded-xl text-xs bg-gray-100 dark:bg-white/10 app-theme-text-primary"
-                >
-                  {copiedBarkKey ? t('e2ee:copiedPhrase') : t('e2ee:copyBarkKey')}
-                </button>
+                  {t('e2ee:barkKeyLabel')}
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id="e2ee-manage-bark-key"
+                    type="text"
+                    value={manageBarkKey}
+                    onChange={e => setManageBarkKey(e.target.value)}
+                    spellCheck={false}
+                    className="settings-input flex-1 font-mono text-[13px]"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setManageBarkKey(generateBarkEncryptionKey())}
+                      className="settings-button"
+                    >
+                      <RefreshCw size={15} strokeWidth={1.5} aria-hidden="true" />
+                      {t('e2ee:generateBarkKey')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void handleCopyText(manageBarkKey, () => {
+                          setCopiedBarkKey(true);
+                          window.setTimeout(() => setCopiedBarkKey(false), 2000);
+                        })
+                      }
+                      className="settings-button"
+                    >
+                      {copiedBarkKey ? (
+                        <Check size={15} strokeWidth={1.5} aria-hidden="true" />
+                      ) : (
+                        <Clipboard size={15} strokeWidth={1.5} aria-hidden="true" />
+                      )}
+                      {copiedBarkKey ? t('e2ee:copiedPhrase') : t('e2ee:copyBarkKey')}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
-            <div className="flex items-center gap-3 pt-1">
-              <button
-                type="button"
-                disabled={savingBark}
-                onClick={() => void handleSaveBarkSettings()}
-                className="px-3.5 py-2 rounded-xl text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
-              >
-                {savingBark ? t('e2ee:savingBarkMode') : t('e2ee:saveBarkMode')}
-              </button>
+            <div className="flex items-center justify-end gap-3">
               {barkSavedFeedback && (
-                <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                  <Check className="w-3.5 h-3.5" />
+                <span className="inline-flex items-center gap-1.5 text-xs app-theme-text-secondary">
+                  <Check
+                    size={14}
+                    strokeWidth={1.5}
+                    style={{ color: 'var(--settings-accent)' }}
+                    aria-hidden="true"
+                  />
                   {t('e2ee:barkSaved')}
                 </span>
               )}
-            </div>
-          </div>
-
-          {/* Disable E2EE */}
-          <div className="settings-card space-y-3 border-red-200/60 dark:border-red-500/20">
-            <div>
-              <h3 className="text-sm font-semibold text-red-700 dark:text-red-300">
-                {t('e2ee:disableTitle')}
-              </h3>
-              <p className="text-xs app-theme-text-muted mt-1">{t('e2ee:disableDesc')}</p>
-            </div>
-            {!confirmDisable ? (
               <button
                 type="button"
-                onClick={() => setConfirmDisable(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium text-red-600 dark:text-red-300 border border-red-200 dark:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                disabled={savingBark || !isBarkDirty}
+                onClick={() => void handleSaveBarkSettings()}
+                className={isBarkDirty ? 'settings-button-primary' : 'settings-button'}
               >
-                <ShieldOff className="w-3.5 h-3.5" />
-                {t('e2ee:disableButton')}
+                {savingBark ? t('e2ee:savingBarkMode') : t('e2ee:saveBarkMode')}
               </button>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="text-xs text-red-600 dark:text-red-300 font-medium">
-                  {t('e2ee:disableConfirmPrompt')}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void handleDisableEncryption()}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
-                >
-                  {t('e2ee:disableConfirmYes')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDisable(false)}
-                  className="px-3 py-1.5 rounded-xl text-xs app-theme-text-muted"
-                >
-                  {t('e2ee:cancelSetup')}
-                </button>
+            </div>
+          </section>
+
+          {/* Disable E2EE */}
+          <section className="settings-danger">
+            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="settings-section-icon">
+                  <ShieldOff size={18} strokeWidth={1.5} aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold app-theme-text-primary">
+                    {t('e2ee:disableTitle')}
+                  </h3>
+                  <p className="mt-1 max-w-lg text-xs leading-relaxed app-theme-text-muted">
+                    {t('e2ee:disableDesc')}
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
+              {!confirmDisable ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDisable(true)}
+                  className="shrink-0 rounded-[9px] border border-red-300 bg-white px-3.5 py-2 text-[13px] font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40"
+                >
+                  {t('e2ee:disableButton')}
+                </button>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-red-600 dark:text-red-300">
+                    {t('e2ee:disableConfirmPrompt')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDisable(false)}
+                    className="settings-button"
+                  >
+                    {t('e2ee:cancelSetup')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDisableEncryption()}
+                    className="rounded-[9px] bg-red-600 px-3.5 py-2 text-[13px] font-medium text-white transition-colors hover:bg-red-700"
+                  >
+                    {t('e2ee:disableConfirmYes')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       )}
 
@@ -915,10 +1094,15 @@ export function EncryptionSettingsContent({
         <div
           role="status"
           aria-live="polite"
-          className="fixed inset-0 z-[220] bg-black/65 backdrop-blur-sm flex items-center justify-center p-6"
+          className="settings-overlay fixed inset-0 z-[220]"
         >
-          <div className="max-w-sm w-full rounded-3xl bg-white dark:bg-[#1a1c1e] border border-gray-200 dark:border-white/10 p-6 text-center shadow-2xl space-y-3">
-            <Loader2 className="w-7 h-7 animate-spin text-emerald-600 mx-auto" />
+          <div className="e2ee-dialog max-w-sm text-center space-y-3">
+            <Loader2
+              size={22}
+              strokeWidth={1.5}
+              className="animate-spin mx-auto app-theme-text-secondary"
+              aria-hidden="true"
+            />
             <p className="text-sm font-medium app-theme-text-primary">{busyMessage}</p>
           </div>
         </div>
