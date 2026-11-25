@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS public.e2ee_accounts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE public.e2ee_accounts
+  ADD COLUMN IF NOT EXISTS dek_verifier_hash TEXT NOT NULL CHECK (dek_verifier_hash ~ '^[a-f0-9]{64}$');
+
 COMMENT ON TABLE public.e2ee_accounts IS
   'Per-account E2EE configuration and DEK verification ciphertext. Never stores keys.';
 
@@ -60,10 +63,11 @@ CREATE TABLE IF NOT EXISTS public.e2ee_key_slots (
   slot_type TEXT NOT NULL CHECK (slot_type IN ('recovery_mnemonic', 'passkey_prf')),
   label TEXT NOT NULL CHECK (char_length(btrim(label)) BETWEEN 1 AND 80),
   credential_id TEXT CHECK (credential_id IS NULL OR char_length(btrim(credential_id)) BETWEEN 1 AND 512),
-  kdf_params JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (
-    jsonb_typeof(kdf_params) = 'object'
-    AND octet_length(kdf_params::text) <= 2048
-  ),
+  kdf_params JSONB NOT NULL DEFAULT '{}'::jsonb
+    CONSTRAINT e2ee_key_slots_kdf_params_size_check CHECK (
+      jsonb_typeof(kdf_params) = 'object'
+      AND octet_length(kdf_params::text) <= 2048
+    ),
   wrapped_dek JSONB NOT NULL CHECK (public.is_valid_e2ee_envelope(wrapped_dek)),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_used_at TIMESTAMPTZ,
@@ -73,6 +77,20 @@ CREATE TABLE IF NOT EXISTS public.e2ee_key_slots (
   ),
   CONSTRAINT e2ee_key_slots_user_credential_key UNIQUE (user_id, credential_id)
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.e2ee_key_slots'::regclass
+      AND conname = 'e2ee_key_slots_kdf_params_size_check'
+  ) THEN
+    ALTER TABLE public.e2ee_key_slots
+      ADD CONSTRAINT e2ee_key_slots_kdf_params_size_check
+      CHECK (jsonb_typeof(kdf_params) = 'object' AND octet_length(kdf_params::text) <= 2048);
+  END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS e2ee_key_slots_user_idx ON public.e2ee_key_slots(user_id, created_at ASC);
 CREATE UNIQUE INDEX IF NOT EXISTS e2ee_key_slots_one_recovery_per_user_idx
@@ -94,6 +112,9 @@ CREATE TABLE IF NOT EXISTS public.encrypted_subscriptions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT encrypted_subscriptions_pkey PRIMARY KEY (user_id, id)
 );
+
+ALTER TABLE public.encrypted_subscriptions
+  ADD COLUMN IF NOT EXISTS subscription_hash TEXT CHECK (subscription_hash IS NULL OR subscription_hash ~ '^[a-f0-9]{64}$');
 
 CREATE INDEX IF NOT EXISTS encrypted_subscriptions_user_created_idx
   ON public.encrypted_subscriptions(user_id, created_at DESC);
@@ -147,6 +168,9 @@ CREATE TABLE IF NOT EXISTS public.encrypted_api_audit_log (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE public.encrypted_api_audit_log
+  ADD COLUMN IF NOT EXISTS oauth_client_id TEXT CHECK (oauth_client_id IS NULL OR char_length(btrim(oauth_client_id)) BETWEEN 1 AND 255);
+
 CREATE INDEX IF NOT EXISTS encrypted_api_audit_log_user_created_idx
   ON public.encrypted_api_audit_log(user_id, created_at DESC);
 
@@ -173,6 +197,8 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.bump_e2ee_row_revision() FROM PUBLIC, anon, authenticated, service_role;
 
 DROP TRIGGER IF EXISTS e2ee_accounts_set_updated_at ON public.e2ee_accounts;
 CREATE TRIGGER e2ee_accounts_set_updated_at
@@ -220,6 +246,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.encrypted_push_schedules TO authe
 GRANT SELECT, INSERT, DELETE ON public.encrypted_api_audit_log TO service_role;
 
 -- First-party browser RLS policies + restrictive OAuth block
+DROP POLICY IF EXISTS e2ee_accounts_select_own ON public.e2ee_accounts;
+DROP POLICY IF EXISTS e2ee_accounts_update_own ON public.e2ee_accounts;
+DROP POLICY IF EXISTS block_oauth_tokens_direct_access ON public.e2ee_accounts;
 CREATE POLICY e2ee_accounts_select_own ON public.e2ee_accounts
   FOR SELECT TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY e2ee_accounts_update_own ON public.e2ee_accounts
@@ -228,6 +257,9 @@ CREATE POLICY block_oauth_tokens_direct_access ON public.e2ee_accounts
   AS RESTRICTIVE FOR ALL TO authenticated
   USING (public.is_direct_user_session()) WITH CHECK (public.is_direct_user_session());
 
+DROP POLICY IF EXISTS e2ee_key_slots_select_own ON public.e2ee_key_slots;
+DROP POLICY IF EXISTS e2ee_key_slots_update_own ON public.e2ee_key_slots;
+DROP POLICY IF EXISTS block_oauth_tokens_direct_access ON public.e2ee_key_slots;
 CREATE POLICY e2ee_key_slots_select_own ON public.e2ee_key_slots
   FOR SELECT TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY e2ee_key_slots_update_own ON public.e2ee_key_slots
@@ -236,18 +268,24 @@ CREATE POLICY block_oauth_tokens_direct_access ON public.e2ee_key_slots
   AS RESTRICTIVE FOR ALL TO authenticated
   USING (public.is_direct_user_session()) WITH CHECK (public.is_direct_user_session());
 
+DROP POLICY IF EXISTS encrypted_subscriptions_manage_own ON public.encrypted_subscriptions;
+DROP POLICY IF EXISTS block_oauth_tokens_direct_access ON public.encrypted_subscriptions;
 CREATE POLICY encrypted_subscriptions_manage_own ON public.encrypted_subscriptions
   FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY block_oauth_tokens_direct_access ON public.encrypted_subscriptions
   AS RESTRICTIVE FOR ALL TO authenticated
   USING (public.is_direct_user_session()) WITH CHECK (public.is_direct_user_session());
 
+DROP POLICY IF EXISTS encrypted_categories_manage_own ON public.encrypted_categories;
+DROP POLICY IF EXISTS block_oauth_tokens_direct_access ON public.encrypted_categories;
 CREATE POLICY encrypted_categories_manage_own ON public.encrypted_categories
   FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY block_oauth_tokens_direct_access ON public.encrypted_categories
   AS RESTRICTIVE FOR ALL TO authenticated
   USING (public.is_direct_user_session()) WITH CHECK (public.is_direct_user_session());
 
+DROP POLICY IF EXISTS encrypted_push_schedules_manage_own ON public.encrypted_push_schedules;
+DROP POLICY IF EXISTS block_oauth_tokens_direct_access ON public.encrypted_push_schedules;
 CREATE POLICY encrypted_push_schedules_manage_own ON public.encrypted_push_schedules
   FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY block_oauth_tokens_direct_access ON public.encrypted_push_schedules
@@ -255,6 +293,11 @@ CREATE POLICY block_oauth_tokens_direct_access ON public.encrypted_push_schedule
   USING (public.is_direct_user_session()) WITH CHECK (public.is_direct_user_session());
 
 -- Service-role policies for Functions (cron reminders, /api/v1/vault, /api/mcp bridge)
+DROP POLICY IF EXISTS service_role_read_e2ee_accounts ON public.e2ee_accounts;
+DROP POLICY IF EXISTS service_role_manage_encrypted_subscriptions ON public.encrypted_subscriptions;
+DROP POLICY IF EXISTS service_role_manage_encrypted_categories ON public.encrypted_categories;
+DROP POLICY IF EXISTS service_role_manage_encrypted_push_schedules ON public.encrypted_push_schedules;
+DROP POLICY IF EXISTS service_role_manage_encrypted_api_audit_log ON public.encrypted_api_audit_log;
 CREATE POLICY service_role_read_e2ee_accounts ON public.e2ee_accounts
   FOR SELECT TO service_role USING (true);
 CREATE POLICY service_role_manage_encrypted_subscriptions ON public.encrypted_subscriptions
@@ -368,6 +411,12 @@ $$;
 
 REVOKE ALL ON FUNCTION public.prepare_e2ee_migration() FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.prepare_e2ee_migration() TO authenticated;
+
+-- Drop superseded draft RPC signatures so re-running this migration never leaves
+-- legacy overloads callable without DEK control proof or snapshot tokens.
+DROP FUNCTION IF EXISTS public.enable_e2ee_vault(TEXT, JSONB, TEXT, JSONB, JSONB, JSONB, JSONB);
+DROP FUNCTION IF EXISTS public.replace_e2ee_recovery_slot(TEXT, JSONB, JSONB);
+DROP FUNCTION IF EXISTS public.disable_e2ee_vault(JSONB, JSONB);
 
 CREATE OR REPLACE FUNCTION public.enable_e2ee_vault(
   p_snapshot_token TEXT,
@@ -519,7 +568,7 @@ BEGIN
   END IF;
 
   IF p_slot_type <> 'passkey_prf' THEN
-    RAISE EXCEPTION 'Only passkey_prf slots can be added; use replace_e2ee_recovery_slot to rotate recovery phrases';
+    RAISE EXCEPTION 'Only passkey_prf slots can be added; use rotate_e2ee_dek to rotate recovery phrases';
   END IF;
 
   SELECT COUNT(*)
@@ -563,7 +612,7 @@ LANGUAGE sql
 STABLE
 SET search_path = ''
 AS $$
-  SELECT encode(
+  SELECT pg_catalog.encode(
     pg_catalog.sha256(
       pg_catalog.convert_to(
         jsonb_build_object(
@@ -598,7 +647,7 @@ AS $$
   );
 $$;
 
-REVOKE ALL ON FUNCTION public.e2ee_encrypted_snapshot_token(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.e2ee_encrypted_snapshot_token(UUID) FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.prepare_e2ee_encrypted_operation()
 RETURNS JSONB
@@ -711,13 +760,13 @@ BEGIN
   FROM public.e2ee_accounts
   WHERE user_id = v_user;
 
-  IF v_account IS NULL THEN
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'End-to-end encryption is not enabled';
   END IF;
 
   IF p_current_control_proof IS NULL
     OR p_current_control_proof !~ '^[a-f0-9]{64}$'
-    OR encode(pg_catalog.sha256(pg_catalog.convert_to(p_current_control_proof, 'UTF8')), 'hex') <> v_account.dek_verifier_hash
+    OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_current_control_proof, 'UTF8')), 'hex') <> v_account.dek_verifier_hash
   THEN
     RAISE EXCEPTION 'Valid vault key proof is required to rotate encryption keys' USING ERRCODE = '42501';
   END IF;
@@ -885,13 +934,13 @@ BEGIN
   FROM public.e2ee_accounts
   WHERE user_id = v_user;
 
-  IF v_verifier_hash IS NULL THEN
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'End-to-end encryption is not enabled';
   END IF;
 
   IF p_control_proof IS NULL
     OR p_control_proof !~ '^[a-f0-9]{64}$'
-    OR encode(pg_catalog.sha256(pg_catalog.convert_to(p_control_proof, 'UTF8')), 'hex') <> v_verifier_hash
+    OR pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p_control_proof, 'UTF8')), 'hex') <> v_verifier_hash
   THEN
     RAISE EXCEPTION 'Valid vault key proof is required to disable encryption' USING ERRCODE = '42501';
   END IF;
