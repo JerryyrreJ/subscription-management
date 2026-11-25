@@ -35,11 +35,11 @@ const context: AiSubscriptionContextItem[] = [{
   nextPaymentDate: '2026-06-27',
   notificationEnabled: true,
 }, {
-  id: 'sub-fish-cloud',
-  name: '🐟云',
-  category: 'Productivity',
-  amount: 4.28,
-  currency: 'CNY',
+  id: 'sub-spotify',
+  name: '🎵 Spotify',
+  category: 'Music',
+  amount: 10.99,
+  currency: 'USD',
   period: 'monthly',
   lastPaymentDate: '2026-05-28',
   nextPaymentDate: '2026-06-28',
@@ -135,22 +135,22 @@ test('normalizes multiple update operations in one command', () => {
       subscriptionId: 'sub-tello',
       patch: { nextPaymentDate: '2026-06-23' },
     }, {
-      targetName: '鱼云',
-      patch: { nextPaymentDate: '2026-07-21', amount: 10.22, currency: 'CNY' },
+      targetName: 'Spotify',
+      patch: { nextPaymentDate: '2026-07-21', amount: 11.99, currency: 'USD' },
     }],
   }, '2026-06-25', context);
 
   assert.equal(command.type, 'batchUpdate');
   assert.deepEqual(command.type === 'batchUpdate' ? command.updates.map(update => update.subscriptionId) : [], [
     'sub-tello',
-    'sub-fish-cloud',
+    'sub-spotify',
   ]);
   assert.deepEqual(command.type === 'batchUpdate' ? command.updates[0].patch : {}, {
     nextPaymentDate: '2026-06-23',
   });
   assert.deepEqual(command.type === 'batchUpdate' ? command.updates[1].patch : {}, {
-    amount: 10.22,
-    currency: 'CNY',
+    amount: 11.99,
+    currency: 'USD',
     nextPaymentDate: '2026-07-21',
   });
 });
