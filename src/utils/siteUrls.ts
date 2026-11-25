@@ -12,8 +12,17 @@ export function isLegacyApplicationOrigin(origin: string): boolean {
 export function marketingUrl(path: string, currentOrigin: string): string {
   const origin = currentOrigin === APPLICATION_ORIGIN || isLegacyApplicationOrigin(currentOrigin)
     ? MARKETING_ORIGIN : currentOrigin;
-  const safePath = path.startsWith('//') ? `/${path.replace(/^\/+/, '')}` : path;
-  return new URL(safePath, origin).toString();
+  const base = new URL(origin);
+  const normalized = path.trim().replace(/\\/g, '/');
+  if (!normalized || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(normalized)) {
+    return base.toString();
+  }
+  const safePath = `/${normalized.replace(/^\/+/, '')}`;
+  const resolved = new URL(safePath, base);
+  if (resolved.origin !== base.origin) {
+    return base.toString();
+  }
+  return resolved.toString();
 }
 
 export function documentationUrl(path: string, locale: string, docsOrigin = DOCUMENTATION_ORIGIN): string {

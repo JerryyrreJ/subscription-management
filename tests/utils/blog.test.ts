@@ -102,7 +102,10 @@ Example answer.
   assert.equal(faqs[0]?.question, 'Example question?');
 
   assert.equal(safeHref('//evil.example/phish'), null);
+  assert.equal(safeHref('/\\evil.example/phish'), null);
+  assert.equal(safeHref('\\evil.example/phish'), null);
   assert.equal(safeHref('javascript:alert(1)'), null);
+  assert.equal(safeHref('vbscript:msgbox(1)'), null);
   assert.equal(safeHref('/blog/'), '/blog/');
   assert.equal(markdownToHtml('Check [unsafe](//evil.example/phish)'), '<p>Check unsafe</p>');
 });

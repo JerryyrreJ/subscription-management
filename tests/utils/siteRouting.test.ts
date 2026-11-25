@@ -39,6 +39,10 @@ test('legacy domains preserve local data access while the new origin separates l
   assert.equal(isApplicationEntry(new URL('https://steadyrenew.com/?payment=success')), true);
   assert.equal(marketingUrl('/zh/blog', APPLICATION_ORIGIN), 'https://steadyrenew.com/zh/blog');
   assert.equal(marketingUrl('/blog', 'https://preview.example.com'), 'https://preview.example.com/blog');
+  assert.equal(marketingUrl('https://evil.com/phish', APPLICATION_ORIGIN), 'https://steadyrenew.com/');
+  assert.equal(marketingUrl('//evil.com/phish', APPLICATION_ORIGIN), 'https://steadyrenew.com/evil.com/phish');
+  assert.equal(marketingUrl('/\\evil.com/phish', APPLICATION_ORIGIN), 'https://steadyrenew.com/evil.com/phish');
+  assert.equal(marketingUrl('javascript:alert(1)', APPLICATION_ORIGIN), 'https://steadyrenew.com/');
   assert.equal(documentationUrl('user-guide/reminders', 'zh-CN'), 'https://steadyrenew.com/docs/zh-CN/user-guide/reminders');
   assert.equal(documentationUrl('user-guide/agent-setup', 'en'), 'https://steadyrenew.com/docs/en/user-guide/agent-setup');
 });

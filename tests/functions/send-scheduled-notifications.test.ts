@@ -1,9 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import type https from 'node:https';
+import type { LookupAddress } from 'node:dns';
 import {
  createScheduledNotificationsHandler,
  createServerBarkSender,
 } from '../../netlify/functions/send-scheduled-notifications.ts';
+import type { HttpsRequestFn } from '../../netlify/functions/_shared/barkServerPush.ts';
 import { createFakeSupabaseClient, type QueryState } from './apiTestHelpers.ts';
 
 const withMockedNow = async (isoDateTime: string, run: () => Promise<void>) => {
@@ -318,4 +322,147 @@ test('createServerBarkSender blocks hostnames resolving to private or link-local
  );
  assert.equal(allowed, true);
  assert.equal(sentCalls, 1);
+});
+
+const createFakeHttpsRequest = (responseSpec: {
+ statusCode: number;
+ body: string;
+}) => {
+ const captured: Array<{
+  url: URL;
+  options: https.RequestOptions;
+  requestBody: string;
+ }> = [];
+
+ const requestImpl = ((
+  url: string | URL,
+  options: https.RequestOptions,
+  callback?: (res: unknown) => void
+ ) => {
+  const req = new EventEmitter() as EventEmitter & {
+   write: (chunk: Buffer | string) => boolean;
+   end: () => void;
+   destroy: (err?: Error) => void;
+  };
+  let requestBody = '';
+
+  req.write = (chunk: Buffer | string) => {
+   requestBody += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk;
+   return true;
+  };
+  req.destroy = (err?: Error) => {
+   if (err) {
+    queueMicrotask(() => req.emit('error', err));
+   }
+  };
+  req.end = () => {
+   const parsedUrl = url instanceof URL ? url : new URL(url);
+   captured.push({ url: parsedUrl, options, requestBody });
+
+   const res = new EventEmitter() as EventEmitter & {
+    statusCode: number;
+    statusMessage: string;
+    resume: () => void;
+    destroy: (err?: Error) => void;
+   };
+   res.statusCode = responseSpec.statusCode;
+   res.statusMessage = responseSpec.statusCode === 200 ? 'OK' : 'Redirect';
+   res.resume = () => {};
+   res.destroy = (err?: Error) => {
+    if (err) {
+     queueMicrotask(() => res.emit('error', err));
+    }
+   };
+
+   queueMicrotask(() => {
+    callback?.(res);
+    if (responseSpec.statusCode >= 200 && responseSpec.statusCode < 300) {
+     res.emit('data', Buffer.from(responseSpec.body, 'utf8'));
+     res.emit('end');
+    }
+   });
+  };
+
+  return req;
+ }) as unknown as HttpsRequestFn;
+
+ return { requestImpl, captured };
+};
+
+test('createServerBarkSender pins validated public IP to prevent DNS rebinding and rejects redirects', async () => {
+ let dnsCalls = 0;
+ const rebindingDns = async () => {
+  dnsCalls += 1;
+  // First lookup returns public IP; a second unpinned lookup would rebind to loopback.
+  return dnsCalls === 1
+   ? [{ address: '104.26.10.228' }]
+   : [{ address: '127.0.0.1' }];
+ };
+
+ const { requestImpl, captured } = createFakeHttpsRequest({
+  statusCode: 200,
+  body: JSON.stringify({ code: 200, message: 'success' }),
+ });
+
+ const sender = createServerBarkSender(rebindingDns, undefined, requestImpl);
+ const ok = await sender(
+  'https://rebind.attacker.org',
+  'valid-device-key-12345',
+  'Renewal',
+  'Netflix renews tomorrow'
+ );
+
+ assert.equal(ok, true);
+ assert.equal(dnsCalls, 1);
+ assert.equal(captured.length, 1);
+ assert.equal(captured[0].url.hostname, 'rebind.attacker.org');
+ assert.equal(captured[0].options.agent, false);
+ assert.equal(captured[0].options.rejectUnauthorized, true);
+ assert.equal(captured[0].options.servername, 'rebind.attacker.org');
+ assert.equal(typeof captured[0].options.lookup, 'function');
+
+ // Verify pinned lookup resolves ONLY to the initially validated IP (both single and all modes)
+ // and refuses any mismatched hostname without touching DNS again.
+ const pinnedLookup = captured[0].options.lookup!;
+ const singleLookup = await new Promise<{ address: string; family?: number }>((resolve, reject) => {
+  pinnedLookup('rebind.attacker.org', {}, (err, address, family) => {
+   if (err) reject(err);
+   else resolve({ address: String(address), family });
+  });
+ });
+ assert.deepEqual(singleLookup, { address: '104.26.10.228', family: 4 });
+
+ const allLookup = await new Promise<LookupAddress[]>((resolve, reject) => {
+  pinnedLookup('rebind.attacker.org', { all: true }, (err, addresses) => {
+   if (err) reject(err);
+   else resolve(addresses as LookupAddress[]);
+  });
+ });
+ assert.deepEqual(allLookup, [{ address: '104.26.10.228', family: 4 }]);
+
+ await assert.rejects(
+  () => new Promise<void>((resolve, reject) => {
+   pinnedLookup('other.internal.host', {}, err => {
+    if (err) reject(err);
+    else resolve();
+   });
+  }),
+  /Blocked unexpected DNS lookup/
+ );
+ assert.equal(dnsCalls, 1);
+
+ // Redirect responses (302) must be rejected without following.
+ const redirectMock = createFakeHttpsRequest({ statusCode: 302, body: '' });
+ const redirectSender = createServerBarkSender(
+  async () => [{ address: '104.26.10.228' }],
+  undefined,
+  redirectMock.requestImpl
+ );
+ const redirectOk = await redirectSender(
+  'https://api.day.app',
+  'valid-device-key-12345',
+  'Title',
+  'Body'
+ );
+ assert.equal(redirectOk, false);
 });

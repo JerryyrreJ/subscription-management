@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildOAuthConsentUrl,
   consumePendingOAuthAuthorizationId,
+  describeOAuthRedirectTarget,
   extractAuthorizationId,
   isOAuthConsentPath,
   isSafeExternalRedirectUrl,
@@ -71,4 +72,65 @@ test('isSafeExternalRedirectUrl permits HTTPS, loopback HTTP, and native app sch
   assert.equal(isSafeExternalRedirectUrl('data:text/html,<script>alert(1)</script>'), false);
   assert.equal(isSafeExternalRedirectUrl('file:///etc/passwd'), false);
   assert.equal(isSafeExternalRedirectUrl(''), false);
+});
+
+test('describeOAuthRedirectTarget extracts real redirect destinations for HTTPS, loopback, custom schemes, and rejects unsafe URIs', () => {
+  assert.deepEqual(
+    describeOAuthRedirectTarget('https://chatgpt.com/connector_platform_oauth_redirect?code=123'),
+    {
+      kind: 'https',
+      displayTarget: 'https://chatgpt.com',
+      scheme: 'https',
+      host: 'chatgpt.com',
+      raw: 'https://chatgpt.com/connector_platform_oauth_redirect?code=123',
+    }
+  );
+
+  assert.deepEqual(
+    describeOAuthRedirectTarget('https://evil-phishing.example:8443/callback'),
+    {
+      kind: 'https',
+      displayTarget: 'https://evil-phishing.example:8443',
+      scheme: 'https',
+      host: 'evil-phishing.example:8443',
+      raw: 'https://evil-phishing.example:8443/callback',
+    }
+  );
+
+  assert.deepEqual(
+    describeOAuthRedirectTarget('http://127.0.0.1:54321/callback'),
+    {
+      kind: 'loopback',
+      displayTarget: 'http://127.0.0.1:54321',
+      scheme: 'http',
+      host: '127.0.0.1:54321',
+      raw: 'http://127.0.0.1:54321/callback',
+    }
+  );
+
+  assert.deepEqual(
+    describeOAuthRedirectTarget('cursor://mcp/oauth-callback'),
+    {
+      kind: 'custom_scheme',
+      displayTarget: 'cursor://mcp',
+      scheme: 'cursor',
+      host: 'mcp',
+      raw: 'cursor://mcp/oauth-callback',
+    }
+  );
+
+  assert.deepEqual(
+    describeOAuthRedirectTarget('myapp:/callback'),
+    {
+      kind: 'custom_scheme',
+      displayTarget: 'myapp:/callback',
+      scheme: 'myapp',
+      host: null,
+      raw: 'myapp:/callback',
+    }
+  );
+
+  assert.equal(describeOAuthRedirectTarget('javascript:alert(1)').kind, 'invalid');
+  assert.equal(describeOAuthRedirectTarget('http://evil.example.com/callback').kind, 'invalid');
+  assert.equal(describeOAuthRedirectTarget('').kind, 'invalid');
 });

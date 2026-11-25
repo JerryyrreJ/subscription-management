@@ -117,3 +117,62 @@ export function isSafeExternalRedirectUrl(candidate: string): boolean {
   // custom URI schemes such as cursor:// or vscode:// for local OAuth callbacks.
   return /^[a-z][a-z0-9+.-]*:$/.test(protocol);
 }
+
+export interface OAuthRedirectTargetDisplay {
+  kind: 'https' | 'loopback' | 'custom_scheme' | 'invalid';
+  displayTarget: string;
+  scheme: string | null;
+  host: string | null;
+  raw: string;
+}
+
+export function describeOAuthRedirectTarget(redirectUri: string): OAuthRedirectTargetDisplay {
+  const trimmed = redirectUri?.trim() ?? '';
+  if (!trimmed || !isSafeExternalRedirectUrl(trimmed)) {
+    return {
+      kind: 'invalid',
+      displayTarget: trimmed,
+      scheme: null,
+      host: null,
+      raw: trimmed,
+    };
+  }
+
+  const parsed = new URL(trimmed);
+  const protocol = parsed.protocol.toLowerCase();
+  const scheme = protocol.slice(0, -1);
+
+  if (protocol === 'https:') {
+    return {
+      kind: 'https',
+      displayTarget: parsed.origin,
+      scheme,
+      host: parsed.host,
+      raw: trimmed,
+    };
+  }
+
+  if (protocol === 'http:') {
+    return {
+      kind: 'loopback',
+      displayTarget: parsed.origin,
+      scheme,
+      host: parsed.host,
+      raw: trimmed,
+    };
+  }
+
+  const host = parsed.host || null;
+  const pathPreview = parsed.pathname && parsed.pathname !== '/' ? parsed.pathname : '';
+  const displayTarget = host
+    ? `${protocol}//${host}`
+    : `${protocol}${pathPreview}`;
+
+  return {
+    kind: 'custom_scheme',
+    displayTarget,
+    scheme,
+    host,
+    raw: trimmed,
+  };
+}

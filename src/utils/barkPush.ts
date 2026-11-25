@@ -236,7 +236,39 @@ function parseValidatedBarkServerUrl(serverUrl: string): { url: URL; error?: und
   return { error: 'Server URL must point to a public host' };
  }
 
+ if (parsed.port) {
+  const portNumber = Number.parseInt(parsed.port, 10);
+  if (!Number.isInteger(portNumber) || portNumber < 1 || portNumber > 65535) {
+   return { error: 'Server URL has an invalid port' };
+  }
+  if (portNumber !== 443 && portNumber < 1024) {
+   return { error: 'Server URL must use port 443 or an unprivileged port (1024-65535)' };
+  }
+ }
+
  return { url: parsed };
+}
+
+export function buildBarkNotificationRequestUrl(
+ serverUrl: string,
+ deviceKey: string,
+ title: string,
+ body: string,
+ options?: BarkPushOptions
+): { baseUrl: string; url: URL } {
+ const baseUrl = serverUrl.trim().replace(/\/+$/, '');
+ const url = new URL(
+  `${baseUrl}/${encodeURIComponent(deviceKey)}/${encodeURIComponent(title)}/${encodeURIComponent(body)}`
+ );
+
+ if (options?.sound) url.searchParams.set('sound', options.sound);
+ if (options?.icon) url.searchParams.set('icon', options.icon);
+ if (options?.group) url.searchParams.set('group', options.group);
+ if (options?.url) url.searchParams.set('url', options.url);
+ if (options?.automaticallyCopy) url.searchParams.set('automaticallyCopy', options.automaticallyCopy);
+ if (options?.copy) url.searchParams.set('copy', options.copy);
+
+ return { baseUrl, url };
 }
 
 /**
@@ -260,18 +292,13 @@ export async function sendBarkNotification(
  try {
   // 构建 Bark API URL
   // 格式: https://api.day.app/{deviceKey}/{title}/{body}?sound=bell&icon=...
-  const baseUrl = serverUrl.trim().replace(/\/+$/, '');
-  const url = new URL(
-   `${baseUrl}/${encodeURIComponent(deviceKey)}/${encodeURIComponent(title)}/${encodeURIComponent(body)}`
+  const { baseUrl, url } = buildBarkNotificationRequestUrl(
+   serverUrl,
+   deviceKey,
+   title,
+   body,
+   options
   );
-
-  // 添加可选参数
-  if (options?.sound) url.searchParams.set('sound', options.sound);
-  if (options?.icon) url.searchParams.set('icon', options.icon);
-  if (options?.group) url.searchParams.set('group', options.group);
-  if (options?.url) url.searchParams.set('url', options.url);
-  if (options?.automaticallyCopy) url.searchParams.set('automaticallyCopy', options.automaticallyCopy);
-  if (options?.copy) url.searchParams.set('copy', options.copy);
 
   console.log('Sending Bark push:', {
    serverUrl: baseUrl,

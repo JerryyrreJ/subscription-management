@@ -113,6 +113,10 @@ test('validateBarkConfig and parseBarkUrl reject unsafe schemes, credentials, an
   'https://[fe80::1]',
   'https://[64:ff9b::127.0.0.1]',
   'https://[2001:db8::1]',
+  'https://api.day.app:22',
+  'https://api.day.app:25',
+  'https://api.day.app:80',
+  'https://api.day.app:636',
  ];
 
  for (const serverUrl of unsafeServerUrls) {

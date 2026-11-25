@@ -50,7 +50,6 @@ export interface ApiKeyMaterial {
 export type ApiScope = 'read' | 'write';
 
 export const DEFAULT_API_SCOPES: ApiScope[] = ['read', 'write'];
-export const DEFAULT_OAUTH_FALLBACK_SCOPES: ApiScope[] = ['read'];
 
 export interface ApiKeyIdentity {
   apiKeyId: string | null;
@@ -256,15 +255,15 @@ const checkOrRecordOAuthFailure = async (
   }
 };
 
-const normalizeScopes = (raw: string[] | null | undefined, fallback: ApiScope[]): string[] => {
+const parseGrantedOAuthScopes = (raw: string[] | null | undefined): ApiScope[] => {
   if (!Array.isArray(raw) || raw.length === 0) {
-    return [...fallback];
+    return [];
   }
   const allowed = raw.filter((scope): scope is ApiScope => scope === 'read' || scope === 'write');
-  if (!allowed.includes('read')) {
-    return ['read', ...allowed];
+  if (allowed.length === 0) {
+    return [];
   }
-  return allowed;
+  return allowed.includes('read') ? allowed : ['read', ...allowed];
 };
 
 const identifyOAuthAccessToken = async (
@@ -320,7 +319,6 @@ const identifyOAuthAccessToken = async (
     throw profileError;
   }
 
-  let grantedScopes: string[] = [...DEFAULT_OAUTH_FALLBACK_SCOPES];
   const { data: scopeRecord, error: scopeError } = await database
     .from('oauth_client_scopes')
     .select('scopes')
@@ -329,24 +327,56 @@ const identifyOAuthAccessToken = async (
     .maybeSingle<OAuthClientScopeRecord>();
 
   if (scopeError) {
-    if (!isMissingDatabaseArtifactError(scopeError as { code?: string; message?: string })) {
-      throw scopeError;
+    if (isMissingDatabaseArtifactError(scopeError as { code?: string; message?: string })) {
+      throw new HttpError(
+        503,
+        'oauth_scope_unavailable',
+        'OAuth client permission storage is unavailable',
+        {},
+        {
+          suggestedFix: 'Apply the latest database migrations so oauth_client_scopes is available.',
+        }
+      );
     }
-  } else if (scopeRecord) {
-    grantedScopes = normalizeScopes(scopeRecord.scopes, DEFAULT_OAUTH_FALLBACK_SCOPES);
+    throw scopeError;
+  }
 
-    const { error: touchError } = await database
-      .from('oauth_client_scopes')
-      .update({ last_used_at: now.toISOString() })
-      .eq('user_id', claims.sub)
-      .eq('client_id', claims.clientId);
+  if (!scopeRecord) {
+    throw new HttpError(
+      403,
+      'insufficient_scope',
+      'OAuth client authorization is missing or has been revoked',
+      {},
+      {
+        suggestedFix: 'Re-authorize this AI app via SteadyRenew OAuth 2.1 consent to grant API permissions.',
+      }
+    );
+  }
 
-    if (touchError) {
-      logEvent('warn', 'Failed to update OAuth client scope last used timestamp', requestId, {
-        oauthClientId: claims.clientId,
-        error: touchError.message,
-      });
-    }
+  const grantedScopes = parseGrantedOAuthScopes(scopeRecord.scopes);
+  if (grantedScopes.length === 0) {
+    throw new HttpError(
+      403,
+      'insufficient_scope',
+      'OAuth client has no valid API permissions',
+      {},
+      {
+        suggestedFix: 'Re-authorize this AI app via SteadyRenew OAuth 2.1 consent to grant API permissions.',
+      }
+    );
+  }
+
+  const { error: touchError } = await database
+    .from('oauth_client_scopes')
+    .update({ last_used_at: now.toISOString() })
+    .eq('user_id', claims.sub)
+    .eq('client_id', claims.clientId);
+
+  if (touchError) {
+    logEvent('warn', 'Failed to update OAuth client scope last used timestamp', requestId, {
+      oauthClientId: claims.clientId,
+      error: touchError.message,
+    });
   }
 
   return {

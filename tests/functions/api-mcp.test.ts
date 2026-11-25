@@ -534,4 +534,71 @@ test('remote MCP authenticates Supabase OAuth 2.1 JWTs, enforces per-client scop
   assert.equal(auditInserts.length, 1);
   assert.equal(auditInserts[0].api_key_id, null);
   assert.equal((auditInserts[0].metadata as { oauthClientId?: string })?.oauthClientId, oauthClientId);
+
+  // Fail-closed: deleting/missing oauth_client_scopes must reject the OAuth token instead of
+  // falling back to read-only access.
+  storedClientScopes = null;
+  const missingScopeRes = await mcpHandler(
+    new Request('https://steadyrenew.com/api/mcp', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${validOAuthToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 9, method: 'tools/list' }),
+    })
+  );
+  assert.equal(missingScopeRes.status, 403);
+  assert.match(await missingScopeRes.text(), /insufficient_scope/);
+  assert.match(missingScopeRes.headers.get('www-authenticate') ?? '', /error="insufficient_scope"/);
+});
+
+test('remote MCP fails closed with 503 when oauth_client_scopes table is unavailable', async () => {
+  const validOAuthToken = buildFakeJwt({
+    sub: userId,
+    role: 'authenticated',
+    client_id: 'oauth-client-missing-table',
+  });
+
+  const database = createFakeSupabaseClient(
+    (state: QueryState) => {
+      if (state.table === 'user_profiles') {
+        return { data: { is_premium: true }, error: null };
+      }
+      if (state.table === 'oauth_client_scopes' && state.operation === 'select') {
+        return {
+          data: null,
+          error: { code: 'PGRST205', message: 'Could not find the table public.oauth_client_scopes' },
+        };
+      }
+      return { data: null, error: { message: `Unexpected query: ${state.table}` } };
+    },
+    name => {
+      if (name === 'check_or_record_api_auth_failure') {
+        return { data: false, error: null };
+      }
+      return { data: null, error: null };
+    },
+    async () => ({ data: { user: { id: userId, email: 'user@steadyrenew.com' } }, error: null })
+  );
+
+  const mcpHandler = createApiMcpHandler(() => ({
+    database,
+    limits,
+    createRequestId: () => 'mcp-oauth-missing-table',
+    now: () => new Date('2026-06-16T00:15:00.000Z'),
+  }));
+
+  const res = await mcpHandler(
+    new Request('https://steadyrenew.com/api/mcp', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${validOAuthToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    })
+  );
+  assert.equal(res.status, 503);
+  assert.match(await res.text(), /oauth_scope_unavailable/);
 });
