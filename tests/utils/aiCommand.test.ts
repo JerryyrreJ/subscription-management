@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeAiCommand, type AiSubscriptionContextItem } from '../../src/utils/aiCommand.ts';
+import {
+  normalizeAiCommand,
+  resolveAiCommandTargets,
+  type AiSubscriptionContextItem,
+} from '../../src/utils/aiCommand.ts';
 
 const TODAY = '2026-06-22';
 const context: AiSubscriptionContextItem[] = [{
@@ -189,4 +193,49 @@ test('falls back to none for unsupported or empty actions', () => {
   const { command } = normalizeAiCommand({ action: 'chat', reason: 'Not a write operation.' }, TODAY, context);
   assert.equal(command.type, 'none');
   assert.equal(command.type === 'none' ? command.reason : '', 'Not a write operation.');
+});
+
+test('E2EE localTargetMatching preserves targetName without server context and resolves locally', () => {
+  const { command: serverUpdate } = normalizeAiCommand(
+    {
+      action: 'update',
+      targetName: 'Tello',
+      patch: { amount: 8, currency: 'USD' },
+    },
+    TODAY,
+    [],
+    { allowUnresolvedTargets: true }
+  );
+
+  assert.equal(serverUpdate.type, 'update');
+  if (serverUpdate.type === 'update') {
+    assert.equal(serverUpdate.subscriptionId, '');
+    assert.equal(serverUpdate.targetName, 'Tello');
+    assert.deepEqual(serverUpdate.patch, { amount: 8, currency: 'USD' });
+  }
+
+  const resolvedUpdate = resolveAiCommandTargets(serverUpdate, context);
+  assert.equal(resolvedUpdate.type, 'update');
+  if (resolvedUpdate.type === 'update') {
+    assert.equal(resolvedUpdate.subscriptionId, 'sub-tello');
+    assert.deepEqual(resolvedUpdate.patch, { amount: 8, currency: 'USD' });
+  }
+
+  const { command: serverDelete } = normalizeAiCommand(
+    { action: 'delete', targetName: 'Warmcar' },
+    TODAY,
+    [],
+    { allowUnresolvedTargets: true }
+  );
+  const resolvedDelete = resolveAiCommandTargets(serverDelete, context);
+  assert.equal(resolvedDelete.type, 'delete');
+  if (resolvedDelete.type === 'delete') {
+    assert.equal(resolvedDelete.subscriptionId, 'sub-warmcar');
+  }
+
+  const unresolved = resolveAiCommandTargets(
+    { type: 'delete', subscriptionId: '', targetName: 'NonExistentService' },
+    context
+  );
+  assert.equal(unresolved.type, 'none');
 });

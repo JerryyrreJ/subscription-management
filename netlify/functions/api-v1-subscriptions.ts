@@ -106,7 +106,7 @@ const ALLOWED_METHODS = 'GET, POST, PATCH, DELETE, OPTIONS';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-SteadyRenew-Vault-Key',
   'Access-Control-Allow-Methods': ALLOWED_METHODS,
 };
 
@@ -658,7 +658,7 @@ export const createSubscriptionsApiHandler = (
     }, { Allow: ALLOWED_METHODS }));
   }
 
-  let bridge: E2eeBridgeSession | null = null;
+  const bridgeState: { session: E2eeBridgeSession | null } = { session: null };
   try {
     const dependencies = dependenciesFactory();
     requestId = dependencies.createRequestId();
@@ -675,20 +675,22 @@ export const createSubscriptionsApiHandler = (
     // Enforce the key's scope before any quota is consumed: read for GET,
     // write for POST/PATCH/DELETE. A 403 here never charges rate-limit budget.
     assertScope(identity.scopes, event.httpMethod === 'GET' ? 'read' : 'write');
-    bridge = await resolveE2eeBridgeSession(dependencies.database, identity);
 
-    // Charge the per-minute quota only once the request is known to be well-formed,
-    // so malformed input (400s) never burns an agent's rate-limit budget.
-    const consume = async (): Promise<ApiClientContext> => {
+    // Charge the per-minute quota before resolving the E2EE bridge session so invalid
+    // `vk1_` tokens cannot bypass rate limiting to trigger repeated DB/crypto checks,
+    // while malformed input (400s) still fails before charging quota.
+    const consume = async (): Promise<{ context: ApiClientContext; bridge: E2eeBridgeSession | null }> => {
       const context = await consumeApiRateLimit(dependencies.database, identity, now);
       apiContext = context;
-      return context;
+      const resolvedBridge = await resolveE2eeBridgeSession(dependencies.database, identity);
+      bridgeState.session = resolvedBridge;
+      return { context, bridge: resolvedBridge };
     };
 
     if (event.httpMethod === 'GET' && !subscriptionId) {
       const { limit, offset } = parsePagination(event.queryStringParameters);
       const filters = parseListFilters(event.queryStringParameters);
-      const context = await consume();
+      const { context, bridge } = await consume();
 
       const ascending = !filters.sort.startsWith('-');
       const sortField = filters.sort.replace(/^-/, '');
@@ -817,7 +819,7 @@ export const createSubscriptionsApiHandler = (
 
     if (event.httpMethod === 'GET' && subscriptionId) {
       const id = parseSubscriptionId(subscriptionId);
-      const context = await consume();
+      const { context, bridge } = await consume();
       const subscription = bridge
         ? await getBridgeSubscription(dependencies.database, bridge, id)
         : await getSubscription(dependencies.database, identity.userId, id);
@@ -833,7 +835,7 @@ export const createSubscriptionsApiHandler = (
       }
 
       const parsed = parseCreateInput(parseJsonObject(event.body));
-      const context = await consume();
+      const { context, bridge } = await consume();
 
       let data: SubscriptionRow;
       if (bridge) {
@@ -897,12 +899,12 @@ export const createSubscriptionsApiHandler = (
     if (event.httpMethod === 'PATCH') {
       const body = parseJsonObject(event.body);
       const prevalidatedPatch = parsePatchBody(body);
+      const { context, bridge } = await consume();
       const existingRow = bridge
         ? await getBridgeSubscription(dependencies.database, bridge, id)
         : await getSubscription(dependencies.database, identity.userId, id);
       const existing = toStoredApiSubscription(existingRow);
       const parsed = parsePatchInput(body, existing, prevalidatedPatch);
-      const context = await consume();
 
       const payload = toDatabasePayload(parsed);
 
@@ -950,7 +952,7 @@ export const createSubscriptionsApiHandler = (
       })));
     }
 
-    const context = await consume();
+    const { context, bridge } = await consume();
     const existing = toStoredApiSubscription(
       bridge
         ? await getBridgeSubscription(dependencies.database, bridge, id)
@@ -998,7 +1000,7 @@ export const createSubscriptionsApiHandler = (
     const response = errorResponse(error, requestId);
     return withCorsHeaders(apiContext ? withRateHeaders(apiContext, response) : response);
   } finally {
-    bridge?.dispose();
+    bridgeState.session?.dispose();
   }
 };
 

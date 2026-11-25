@@ -1,17 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import type https from 'node:https';
+import type { LookupAddress } from 'node:dns';
 import { generateApiKeyMaterial, hashApiKey } from '../../netlify/functions/_shared/apiKeys.ts';
 import { createSubscriptionsApiHandler } from '../../netlify/functions/api-v1-subscriptions.ts';
 import { createAnalyticsApiHandler } from '../../netlify/functions/api-v1-analytics.ts';
 import { createAuditApiHandler } from '../../netlify/functions/api-v1-audit.ts';
 import { createVaultApiHandler } from '../../netlify/functions/api-v1-vault.ts';
-import { createScheduledNotificationsHandler } from '../../netlify/functions/send-scheduled-notifications.ts';
+import { createApiMcpHandler } from '../../netlify/functions/api-mcp.ts';
+import {
+  createScheduledNotificationsHandler,
+  createServerBarkCiphertextSender,
+} from '../../netlify/functions/send-scheduled-notifications.ts';
+import type { HttpsRequestFn } from '../../netlify/functions/_shared/barkServerPush.ts';
 import { createFakeSupabaseClient, type QueryState } from './apiTestHelpers.ts';
 import {
+  computeSubscriptionPushHash,
   createDekCheck,
   decryptBarkPushPayload,
   encodeVaultKeyToken,
+  encryptAuditPayload,
   encryptBarkPushPayload,
+  encryptSubscriptionPayload,
   generateBarkEncryptionKey,
   generateDekBytes,
   importDek,
@@ -299,6 +310,9 @@ test('send-scheduled-notifications dispatches Bark native ciphertext schedules w
       // Encrypted account has 0 rows in plaintext `subscriptions`
       return { data: [], error: null };
     }
+    if (state.table === 'e2ee_accounts' && state.operation === 'select') {
+      return { data: { bark_mode: 'bark_e2ee' }, error: null };
+    }
     if (state.table === 'encrypted_push_schedules' && state.operation === 'select') {
       return {
         data: [
@@ -318,7 +332,7 @@ test('send-scheduled-notifications dispatches Bark native ciphertext schedules w
     }
     if (state.table === 'encrypted_push_schedules' && state.operation === 'update') {
       markedDispatched = Boolean((state.payload as { dispatched_at?: string | null }).dispatched_at);
-      return { data: null, error: null };
+      return { data: { id: 'sched-1' }, error: null };
     }
     return { data: null, error: { message: `Unexpected query: ${state.table} ${state.operation}` } };
   });
@@ -349,3 +363,478 @@ function formatTodayUtc(): string {
   const now = new Date();
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
 }
+
+test('createServerBarkCiphertextSender pins validated public IP to prevent DNS rebinding on encrypted POST pushes', async () => {
+  let dnsCalls = 0;
+  const rebindingDns = async () => {
+    dnsCalls += 1;
+    return dnsCalls === 1
+      ? [{ address: '104.26.10.228' }]
+      : [{ address: '169.254.169.254' }];
+  };
+
+  const captured: Array<{
+    url: URL;
+    options: https.RequestOptions;
+    body: string;
+  }> = [];
+
+  const mockRequest = ((
+    url: string | URL,
+    options: https.RequestOptions,
+    callback?: (res: unknown) => void
+  ) => {
+    const req = new EventEmitter() as EventEmitter & {
+      write: (chunk: Buffer | string) => boolean;
+      end: () => void;
+      destroy: (err?: Error) => void;
+    };
+    let body = '';
+    req.write = (chunk: Buffer | string) => {
+      body += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : chunk;
+      return true;
+    };
+    req.destroy = () => {};
+    req.end = () => {
+      captured.push({ url: url instanceof URL ? url : new URL(url), options, body });
+      const res = new EventEmitter() as EventEmitter & {
+        statusCode: number;
+        statusMessage: string;
+        resume: () => void;
+        destroy: () => void;
+      };
+      res.statusCode = 200;
+      res.statusMessage = 'OK';
+      res.resume = () => {};
+      res.destroy = () => {};
+      queueMicrotask(() => {
+        callback?.(res);
+        res.emit('data', Buffer.from(JSON.stringify({ code: 200, message: 'success' }), 'utf8'));
+        res.emit('end');
+      });
+    };
+    return req;
+  }) as unknown as HttpsRequestFn;
+
+  const sender = createServerBarkCiphertextSender(rebindingDns, undefined, mockRequest);
+  const ok = await sender(
+    'https://rebind-bark.example.org:8443',
+    'deviceKey123456',
+    'Y2lwaGVydGV4dA==',
+    '1234567890abcdef'
+  );
+
+  assert.equal(ok, true);
+  assert.equal(dnsCalls, 1);
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0].options.method, 'POST');
+  assert.equal(captured[0].options.agent, false);
+  assert.equal(captured[0].options.rejectUnauthorized, true);
+  assert.equal(captured[0].options.servername, 'rebind-bark.example.org');
+  assert.match(captured[0].body, /ciphertext=Y2lwaGVydGV4dA%3D%3D/);
+  assert.match(captured[0].body, /iv=1234567890abcdef/);
+
+  const pinnedLookup = captured[0].options.lookup!;
+  const allLookup = await new Promise<LookupAddress[]>((resolve, reject) => {
+    pinnedLookup('rebind-bark.example.org', { all: true }, (err, addresses) => {
+      if (err) reject(err);
+      else resolve(addresses as LookupAddress[]);
+    });
+  });
+  assert.deepEqual(allLookup, [{ address: '104.26.10.228', family: 4 }]);
+  assert.equal(dnsCalls, 1);
+
+  // Blocked privileged ports and private DNS records must never reach https.request.
+  const blockedPort = await sender(
+    'https://api.day.app:22',
+    'deviceKey123456',
+    'Y2lwaGVydGV4dA==',
+    '1234567890abcdef'
+  );
+  assert.equal(blockedPort, false);
+  assert.equal(captured.length, 1);
+
+  const privateSender = createServerBarkCiphertextSender(
+    async () => [{ address: '127.0.0.1' }],
+    undefined,
+    mockRequest
+  );
+  const blockedPrivate = await privateSender(
+    'https://evil.example.org',
+    'deviceKey123456',
+    'Y2lwaGVydGV4dA==',
+    '1234567890abcdef'
+  );
+  assert.equal(blockedPrivate, false);
+  assert.equal(captured.length, 1);
+});
+
+test('send-scheduled-notifications skips encrypted schedules when bark_mode is off or claim returns 0 rows', async () => {
+  let sentCount = 0;
+
+  // Case 1: bark_mode === 'off' must skip before dispatching
+  const offDb = createFakeSupabaseClient((state: QueryState) => {
+    if (state.table === 'user_notification_settings' && state.operation === 'select') {
+      return {
+        data: [
+          {
+            user_id: USER_ID,
+            bark_enabled: true,
+            time_zone: 'UTC',
+            locale: 'en',
+            bark_server_url: 'https://api.day.app',
+            bark_device_key: 'deviceKey123456',
+            bark_days_before: 3,
+            bark_history: {},
+          },
+        ],
+        error: null,
+      };
+    }
+    if (state.table === 'subscriptions' && state.operation === 'select') {
+      return { data: [], error: null };
+    }
+    if (state.table === 'e2ee_accounts' && state.operation === 'select') {
+      return { data: { bark_mode: 'off' }, error: null };
+    }
+    return { data: null, error: { message: `Should not query ${state.table}` } };
+  });
+
+  const offHandler = createScheduledNotificationsHandler({
+    createSupabase: () => offDb,
+    sendNotification: async () => {
+      sentCount += 1;
+      return true;
+    },
+  });
+  const offRes = await offHandler(new Request('https://steadyrenew.com/.netlify/functions/send-scheduled-notifications'));
+  assert.equal(offRes.status, 200);
+  assert.equal(sentCount, 0);
+
+  // Case 2: concurrent worker already claimed row (update returns null) -> skip dispatch
+  const raceDb = createFakeSupabaseClient((state: QueryState) => {
+    if (state.table === 'user_notification_settings' && state.operation === 'select') {
+      return {
+        data: [
+          {
+            user_id: USER_ID,
+            bark_enabled: true,
+            time_zone: 'UTC',
+            locale: 'en',
+            bark_server_url: 'https://api.day.app',
+            bark_device_key: 'deviceKey123456',
+            bark_days_before: 3,
+            bark_history: {},
+          },
+        ],
+        error: null,
+      };
+    }
+    if (state.table === 'subscriptions' && state.operation === 'select') {
+      return { data: [], error: null };
+    }
+    if (state.table === 'e2ee_accounts' && state.operation === 'select') {
+      return { data: { bark_mode: 'generic' }, error: null };
+    }
+    if (state.table === 'encrypted_push_schedules' && state.operation === 'select') {
+      return {
+        data: [
+          {
+            id: 'sched-race',
+            user_id: USER_ID,
+            subscription_hash: 'b'.repeat(64),
+            trigger_date: formatTodayUtc(),
+            payload_mode: 'generic',
+            bark_ciphertext: null,
+            bark_iv: null,
+            dispatched_at: null,
+          },
+        ],
+        error: null,
+      };
+    }
+    if (state.table === 'encrypted_push_schedules' && state.operation === 'update') {
+      return { data: null, error: null };
+    }
+    return { data: null, error: null };
+  });
+
+  const raceHandler = createScheduledNotificationsHandler({
+    createSupabase: () => raceDb,
+    sendNotification: async () => {
+      sentCount += 1;
+      return true;
+    },
+  });
+  const raceRes = await raceHandler(new Request('https://steadyrenew.com/.netlify/functions/send-scheduled-notifications'));
+  assert.equal(raceRes.status, 200);
+  assert.equal(sentCount, 0);
+});
+
+test('/api/v1/vault/* enforces mandatory audits, 400/413 validation, hash binding, non-existent DELETE 404, and preserves schedules when omitted', async () => {
+  const { apiKey, keyPrefix } = generateApiKeyMaterial();
+  const expectedKeyHash = hashApiKey(apiKey);
+  const dekBytes = generateDekBytes();
+  const dek = await importDek(dekBytes);
+  const dekCheck = await createDekCheck(dek, USER_ID, 1);
+
+  const subId = '77777777-7777-4777-8777-777777777777';
+  const subHash = await computeSubscriptionPushHash(dekBytes, subId);
+  const otherHash = await computeSubscriptionPushHash(dekBytes, '88888888-8888-4888-8888-888888888888');
+  const subEnv = await encryptSubscriptionPayload(dek, USER_ID, subId, {
+    name: 'Vault Test',
+    category: 'Other',
+    amount: 9,
+    currency: 'USD',
+    period: 'monthly',
+    lastPaymentDate: '2026-11-01',
+    nextPaymentDate: '2026-12-01',
+    notificationEnabled: true,
+    status: 'active',
+  }, 1);
+  const auditEnv = await encryptAuditPayload(dek, USER_ID, '99999999-9999-4999-8999-999999999999', { ok: true }, 1);
+
+  const subs = new Map<string, { id: string; user_id: string; envelope: Envelope; subscription_hash: string | null; revision: number; created_at: string; updated_at: string }>();
+  let scheduleDeletes = 0;
+  const auditRows: Array<Record<string, unknown>> = [];
+
+  const database = createFakeSupabaseClient(
+    (state: QueryState) => {
+      if (state.table === 'user_profiles') return { data: { is_premium: true }, error: null };
+      if (state.table === 'api_keys' && state.operation === 'update') return { data: null, error: null };
+      if (state.table === 'e2ee_accounts') {
+        return { data: { user_id: USER_ID, key_epoch: 1, dek_check: dekCheck, bark_mode: 'generic' }, error: null };
+      }
+      if (state.table === 'encrypted_subscriptions') {
+        if (state.operation === 'insert') {
+          const p = state.payload as { id: string; user_id: string; envelope: Envelope; subscription_hash?: string | null };
+          const row = {
+            id: p.id,
+            user_id: p.user_id,
+            envelope: p.envelope,
+            subscription_hash: p.subscription_hash ?? null,
+            revision: 1,
+            created_at: '2026-11-25T00:00:00.000Z',
+            updated_at: '2026-11-25T00:00:00.000Z',
+          };
+          subs.set(row.id, row);
+          return { data: row, error: null };
+        }
+        if (state.operation === 'select') {
+          const id = state.filters.id ? String(state.filters.id) : null;
+          return { data: id ? (subs.get(id) ?? null) : [...subs.values()], error: null };
+        }
+        if (state.operation === 'update') {
+          const id = String(state.filters.id ?? '');
+          const existing = subs.get(id);
+          if (!existing) return { data: null, error: null };
+          const updated = { ...existing, ...(state.payload as Record<string, unknown>), revision: existing.revision + 1 };
+          subs.set(id, updated as typeof existing);
+          return { data: updated, error: null };
+        }
+        if (state.operation === 'delete') {
+          const id = String(state.filters.id ?? '');
+          const existed = subs.delete(id);
+          return { data: existed ? { id } : null, error: null };
+        }
+      }
+      if (state.table === 'encrypted_push_schedules') {
+        if (state.operation === 'delete') {
+          scheduleDeletes += 1;
+          return { data: null, error: null };
+        }
+        return { data: [], error: null };
+      }
+      if (state.table === 'encrypted_api_audit_log' && state.operation === 'insert') {
+        auditRows.push(state.payload as Record<string, unknown>);
+        return { data: null, error: null };
+      }
+      return { data: null, error: null };
+    },
+    (rpcName, args) => {
+      if (rpcName === 'lookup_api_key_for_auth' && args.p_key_hash === expectedKeyHash) {
+        return { data: [{ limited: false, id: API_KEY_ID, user_id: USER_ID, key_prefix: keyPrefix, scopes: ['read', 'write'] }], error: null };
+      }
+      if (rpcName === 'consume_api_user_minute_limit') {
+        return { data: [{ allowed: true, request_count: 1, remaining: 59, reset_at: '2026-11-25T01:00:00.000Z' }], error: null };
+      }
+      return { data: null, error: null };
+    }
+  );
+
+  const vaultHandler = createVaultApiHandler(() => ({
+    database,
+    limits: LIMITS,
+    createRequestId: () => 'req-vault-hardening',
+    now: () => new Date('2026-11-25T00:00:00.000Z'),
+  }));
+
+  // 1. Malformed JSON -> 400 (not 500)
+  const badJsonRes = await vaultHandler(
+    { httpMethod: 'POST', path: '/api/v1/vault/subscriptions', headers: { Authorization: `Bearer ${apiKey}` }, queryStringParameters: {}, body: '{broken' } as never,
+    {} as never
+  );
+  assert.equal(badJsonRes?.statusCode, 400);
+
+  // 2. Oversized payload > 256KB -> 413
+  const hugeRes = await vaultHandler(
+    { httpMethod: 'POST', path: '/api/v1/vault/subscriptions', headers: { Authorization: `Bearer ${apiKey}` }, queryStringParameters: {}, body: 'x'.repeat(260 * 1024) } as never,
+    {} as never
+  );
+  assert.equal(hugeRes?.statusCode, 413);
+
+  // 3. Invalid audit subscriptionId UUID -> 400
+  const badAuditQuery = await vaultHandler(
+    { httpMethod: 'GET', path: '/api/v1/vault/audit', headers: { Authorization: `Bearer ${apiKey}` }, queryStringParameters: { subscriptionId: 'not-a-uuid' }, body: null } as never,
+    {} as never
+  );
+  assert.equal(badAuditQuery?.statusCode, 400);
+
+  // 4. Missing auditEnvelope on POST -> 400 (cannot bypass audit log)
+  const missingAuditRes = await vaultHandler(
+    { httpMethod: 'POST', path: '/api/v1/vault/subscriptions', headers: { Authorization: `Bearer ${apiKey}` }, queryStringParameters: {}, body: JSON.stringify({ id: subId, envelope: subEnv }) } as never,
+    {} as never
+  );
+  assert.equal(missingAuditRes?.statusCode, 400);
+
+  // 5. Valid POST binds subscriptionHash and writes audit without wiping schedules
+  const createRes = await vaultHandler(
+    {
+      httpMethod: 'POST',
+      path: '/api/v1/vault/subscriptions',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      queryStringParameters: {},
+      body: JSON.stringify({ id: subId, envelope: subEnv, auditEnvelope: auditEnv, subscriptionHash: subHash }),
+    } as never,
+    {} as never
+  );
+  assert.equal(createRes?.statusCode, 201);
+  assert.equal(scheduleDeletes, 0);
+  assert.equal(auditRows.length, 1);
+
+  // 6. PATCH with another subscription's subscriptionHash is blocked (400 subscription_hash_mismatch)
+  const badHashPatch = await vaultHandler(
+    {
+      httpMethod: 'PATCH',
+      path: `/api/v1/vault/subscriptions/${subId}`,
+      headers: { Authorization: `Bearer ${apiKey}` },
+      queryStringParameters: {},
+      body: JSON.stringify({ envelope: subEnv, auditEnvelope: auditEnv, subscriptionHash: otherHash }),
+    } as never,
+    {} as never
+  );
+  assert.equal(badHashPatch?.statusCode, 400);
+  assert.match(badHashPatch?.body ?? '', /subscription_hash_mismatch/);
+
+  // 7. PATCH omitting pushSchedules preserves existing schedules (scheduleDeletes stays 0)
+  const safePatch = await vaultHandler(
+    {
+      httpMethod: 'PATCH',
+      path: `/api/v1/vault/subscriptions/${subId}`,
+      headers: { Authorization: `Bearer ${apiKey}` },
+      queryStringParameters: {},
+      body: JSON.stringify({ envelope: subEnv, auditEnvelope: auditEnv, subscriptionHash: subHash }),
+    } as never,
+    {} as never
+  );
+  assert.equal(safePatch?.statusCode, 200);
+  assert.equal(scheduleDeletes, 0);
+
+  // 8. DELETE on non-existent subscription returns 404 and does not write audit
+  const missingDelete = await vaultHandler(
+    {
+      httpMethod: 'DELETE',
+      path: '/api/v1/vault/subscriptions/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      queryStringParameters: {},
+      body: JSON.stringify({ auditEnvelope: auditEnv }),
+    } as never,
+    {} as never
+  );
+  assert.equal(missingDelete?.statusCode, 404);
+  assert.equal(auditRows.length, 2);
+});
+
+test('E2EE bridge rate-limits invalid vk1_ tokens before DB/crypto checks and CORS allows X-SteadyRenew-Vault-Key', async () => {
+  const { apiKey, keyPrefix } = generateApiKeyMaterial();
+  const expectedKeyHash = hashApiKey(apiKey);
+  let rateLimitCalls = 0;
+  let e2eeAccountQueries = 0;
+
+  const database = createFakeSupabaseClient(
+    (state: QueryState) => {
+      if (state.table === 'user_profiles') return { data: { is_premium: true }, error: null };
+      if (state.table === 'api_keys' && state.operation === 'update') return { data: null, error: null };
+      if (state.table === 'e2ee_accounts') {
+        e2eeAccountQueries += 1;
+        return { data: { user_id: USER_ID, key_epoch: 1, dek_check: { version: 1, nonce: 'AAAAAAAAAAAAAAAA', ciphertext: 'A'.repeat(32) }, bark_mode: 'generic' }, error: null };
+      }
+      return { data: [], error: null };
+    },
+    (rpcName, args) => {
+      if (rpcName === 'lookup_api_key_for_auth' && args.p_key_hash === expectedKeyHash) {
+        return { data: [{ limited: false, id: API_KEY_ID, user_id: USER_ID, key_prefix: keyPrefix, scopes: ['read', 'write'] }], error: null };
+      }
+      if (rpcName === 'consume_api_user_minute_limit') {
+        rateLimitCalls += 1;
+        return {
+          data: [{ allowed: rateLimitCalls === 1, request_count: rateLimitCalls, remaining: Math.max(0, 1 - rateLimitCalls), reset_at: '2026-11-25T01:00:00.000Z' }],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    }
+  );
+
+  const deps = () => ({
+    database,
+    limits: LIMITS,
+    createRequestId: () => 'req-rate-limit-vk1',
+    now: () => new Date('2026-11-25T00:00:00.000Z'),
+  });
+
+  const subsHandler = createSubscriptionsApiHandler(deps);
+  const analyticsHandler = createAnalyticsApiHandler(deps);
+  const auditHandler = createAuditApiHandler(deps);
+  const mcpHandler = createApiMcpHandler(deps);
+
+  // First invalid vk1_ call consumes quota and returns 401 with X-RateLimit headers
+  const res1 = await subsHandler(
+    {
+      httpMethod: 'GET',
+      path: '/api/v1/subscriptions',
+      headers: { Authorization: `Bearer ${apiKey}.vk1_invalid` },
+      queryStringParameters: {},
+      body: null,
+    } as never,
+    {} as never
+  );
+  assert.equal(res1?.statusCode, 401);
+  assert.equal(rateLimitCalls, 1);
+  assert.equal(e2eeAccountQueries, 1);
+  assert.equal(res1?.headers?.['X-RateLimit-Remaining'], '0');
+
+  // Second call is blocked by rate limit (429) BEFORE querying e2ee_accounts
+  const res2 = await analyticsHandler(
+    {
+      httpMethod: 'GET',
+      path: '/api/v1/analytics/summary',
+      headers: { Authorization: `Bearer ${apiKey}.vk1_invalid` },
+      queryStringParameters: {},
+      body: null,
+    } as never,
+    {} as never
+  );
+  assert.equal(res2?.statusCode, 429);
+  assert.equal(e2eeAccountQueries, 1);
+
+  // CORS preflight on all bridge-enabled endpoints allows X-SteadyRenew-Vault-Key
+  const subsPreflight = await subsHandler({ httpMethod: 'OPTIONS', path: '/api/v1/subscriptions', headers: {} } as never, {} as never);
+  assert.match(String(subsPreflight?.headers?.['Access-Control-Allow-Headers'] ?? ''), /X-SteadyRenew-Vault-Key/);
+  const analyticsPreflight = await analyticsHandler({ httpMethod: 'OPTIONS', path: '/api/v1/analytics/summary', headers: {} } as never, {} as never);
+  assert.match(String(analyticsPreflight?.headers?.['Access-Control-Allow-Headers'] ?? ''), /X-SteadyRenew-Vault-Key/);
+  const auditPreflight = await auditHandler({ httpMethod: 'OPTIONS', path: '/api/v1/audit', headers: {} } as never, {} as never);
+  assert.match(String(auditPreflight?.headers?.['Access-Control-Allow-Headers'] ?? ''), /X-SteadyRenew-Vault-Key/);
+  const mcpPreflight = await mcpHandler(new Request('https://steadyrenew.com/api/mcp', { method: 'OPTIONS' }));
+  assert.match(mcpPreflight.headers.get('access-control-allow-headers') ?? '', /X-SteadyRenew-Vault-Key/);
+});

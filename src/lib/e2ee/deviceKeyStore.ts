@@ -23,6 +23,7 @@ const PLAINTEXT_USER_STORAGE_PREFIXES = [
   'subscription-tracker-pending-sync:user:',
   'subscription-tracker-pending-sync-operations:user:',
   'subscription_categories_v2:user:',
+  'subscription_categories_pending_sync:user:',
   'subscription_categories_pending_sync_v1:user:',
 ];
 
@@ -207,6 +208,14 @@ export function markLocalAccountEncrypted(userId: string): void {
   }
 }
 
+export function clearEncryptedOfflineSnapshot(userId: string): void {
+  try {
+    globalThis.localStorage?.removeItem(`${ENCRYPTED_CACHE_PREFIX}${userId}`);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export function clearLocalAccountEncryptedFlag(userId: string): void {
   try {
     globalThis.localStorage?.removeItem(`${ENCRYPTED_FLAG_PREFIX}${userId}`);
@@ -361,13 +370,20 @@ export async function clearTrustedDeviceVaultMaterial(userId: string): Promise<v
 export async function saveEncryptedOfflineSnapshot(
   dek: CryptoKey,
   userId: string,
-  snapshot: Omit<EncryptedOfflineSnapshot, 'updatedAt'>
+  snapshot: Omit<EncryptedOfflineSnapshot, 'updatedAt'>,
+  keyEpoch: number = 1
 ): Promise<void> {
   try {
-    const envelope = await encryptLocalCachePayload(dek, userId, 'offline-snapshot-v1', {
-      ...snapshot,
-      updatedAt: Date.now(),
-    });
+    const envelope = await encryptLocalCachePayload(
+      dek,
+      userId,
+      'offline-snapshot-v1',
+      {
+        ...snapshot,
+        updatedAt: Date.now(),
+      },
+      keyEpoch
+    );
     globalThis.localStorage?.setItem(
       `${ENCRYPTED_CACHE_PREFIX}${userId}`,
       JSON.stringify(envelope)
@@ -379,7 +395,8 @@ export async function saveEncryptedOfflineSnapshot(
 
 export async function loadEncryptedOfflineSnapshot(
   dek: CryptoKey,
-  userId: string
+  userId: string,
+  keyEpoch: number = 1
 ): Promise<EncryptedOfflineSnapshot | null> {
   try {
     const raw = globalThis.localStorage?.getItem(`${ENCRYPTED_CACHE_PREFIX}${userId}`);
@@ -390,7 +407,8 @@ export async function loadEncryptedOfflineSnapshot(
       dek,
       userId,
       'offline-snapshot-v1',
-      parsed
+      parsed,
+      keyEpoch
     );
   } catch {
     return null;

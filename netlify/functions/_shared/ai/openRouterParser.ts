@@ -188,11 +188,14 @@ export const createOpenRouterParser = (config: AiConfig): SubscriptionParser => 
     const instruction = input.text && input.text.trim()
       ? input.text
       : 'Parse the requested subscription command from the attached image.';
+    const subscriptionsLine = input.localTargetMatching
+      ? 'Current subscriptions: omitted because end-to-end encryption is enabled. For update or delete, return the subscription name mentioned by the user in targetName and omit subscriptionId so the client can match it locally.'
+      : `Current subscriptions: ${JSON.stringify(input.subscriptions)}`;
     content.push({
       type: 'text',
       text: [
         `Current date: ${today}`,
-        `Current subscriptions: ${JSON.stringify(input.subscriptions)}`,
+        subscriptionsLine,
         '',
         instruction,
       ].join('\n'),
@@ -244,7 +247,9 @@ export const createOpenRouterParser = (config: AiConfig): SubscriptionParser => 
       raw = {};
     }
 
-    const { command } = normalizeAiCommand(raw, today, input.subscriptions);
+    const { command } = normalizeAiCommand(raw, today, input.subscriptions, {
+      allowUnresolvedTargets: Boolean(input.localTargetMatching),
+    });
 
     return {
       command,

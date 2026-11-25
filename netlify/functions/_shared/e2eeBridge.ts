@@ -302,7 +302,8 @@ export async function listBridgeSubscriptions(
       bridge.dek,
       bridge.userId,
       row.id,
-      row.envelope
+      row.envelope,
+      bridge.keyEpoch
     );
     decrypted.push(
       contentToBridgeRow(row.id, bridge.userId, content, row.created_at, row.updated_at)
@@ -337,7 +338,8 @@ export async function getBridgeSubscription(
     bridge.dek,
     bridge.userId,
     data.id,
-    data.envelope
+    data.envelope,
+    bridge.keyEpoch
   );
   return contentToBridgeRow(data.id, bridge.userId, content, data.created_at, data.updated_at);
 }
@@ -349,7 +351,14 @@ export async function createBridgeSubscription(
 ): Promise<BridgeSubscriptionRow> {
   const id = crypto.randomUUID();
   const content = dbPayloadToEncryptedContent(dbPayload);
-  const envelope = await encryptSubscriptionPayload(bridge.dek, bridge.userId, id, content);
+  const envelope = await encryptSubscriptionPayload(
+    bridge.dek,
+    bridge.userId,
+    id,
+    content,
+    bridge.keyEpoch
+  );
+  const subscriptionHash = await computeSubscriptionPushHash(bridge.dekBytes, id);
 
   const { data, error } = await database
     .from('encrypted_subscriptions')
@@ -357,6 +366,7 @@ export async function createBridgeSubscription(
       id,
       user_id: bridge.userId,
       envelope,
+      subscription_hash: subscriptionHash,
     })
     .select('id, created_at, updated_at')
     .single<{ id: string; created_at: string; updated_at: string }>();
@@ -378,7 +388,8 @@ export async function updateBridgeSubscription(
     bridge.dek,
     bridge.userId,
     subscriptionId,
-    content
+    content,
+    bridge.keyEpoch
   );
 
   const { data, error } = await database
@@ -422,12 +433,18 @@ export async function recordBridgeAudit(
       bridge.dek,
       bridge.userId,
       auditId,
-      entry.metadata ?? {}
+      entry.metadata ?? {},
+      bridge.keyEpoch
     );
+    const oauthClientId =
+      typeof entry.metadata?.oauthClientId === 'string' && entry.metadata.oauthClientId.trim()
+        ? entry.metadata.oauthClientId.trim()
+        : null;
     const { error } = await database.from('encrypted_api_audit_log').insert({
       id: auditId,
       user_id: entry.userId,
       api_key_id: entry.apiKeyId,
+      oauth_client_id: oauthClientId,
       action: entry.action,
       subscription_id: entry.subscriptionId ?? null,
       request_id: entry.requestId,
@@ -478,7 +495,13 @@ export async function listBridgeAuditRows(
   const decrypted: BridgeAuditRow[] = [];
 
   for (const row of slice) {
-    const metadata = await decryptAuditPayload(bridge.dek, bridge.userId, row.id, row.envelope);
+    const metadata = await decryptAuditPayload(
+      bridge.dek,
+      bridge.userId,
+      row.id,
+      row.envelope,
+      bridge.keyEpoch
+    );
     decrypted.push({
       id: row.id,
       action: row.action,

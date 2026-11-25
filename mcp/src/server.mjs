@@ -38,14 +38,23 @@ if (!rawBaseUrl || !rawApiKey) {
   process.exit(1);
 }
 
-// Support local fragment syntax `subm_<id>.<secret>#vk1_<vaultKey>` where `#vk1_...`
-// stays strictly local and is stripped before setting HTTP `Authorization`.
-const hashSplitIndex = rawApiKey.indexOf('#');
-const apiKey = hashSplitIndex === -1 ? rawApiKey.trim() : rawApiKey.slice(0, hashSplitIndex).trim();
-const localVaultKeyToken = (
-  rawVaultKeyEnv?.trim()
-  || (hashSplitIndex !== -1 ? rawApiKey.slice(hashSplitIndex + 1).trim() : '')
-);
+// Support local fragment syntax `subm_<id>.<secret>#vk1_<vaultKey>` and defensively strip
+// `.vk1_<vaultKey>` if a remote bridge key is pasted into SUBSCRIPTION_MANAGER_API_KEY,
+// so the local stdio MCP server NEVER transmits the raw vault DEK over HTTP Authorization.
+let apiKey = rawApiKey.trim();
+let extractedVaultKey = '';
+const hashSplitIndex = apiKey.indexOf('#');
+if (hashSplitIndex !== -1) {
+  extractedVaultKey = apiKey.slice(hashSplitIndex + 1).trim();
+  apiKey = apiKey.slice(0, hashSplitIndex).trim();
+} else {
+  const dotVaultIndex = apiKey.indexOf('.vk1_');
+  if (dotVaultIndex !== -1) {
+    extractedVaultKey = apiKey.slice(dotVaultIndex + 1).trim();
+    apiKey = apiKey.slice(0, dotVaultIndex).trim();
+  }
+}
+const localVaultKeyToken = rawVaultKeyEnv?.trim() || extractedVaultKey;
 
 const loadSchemaAndVersion = () => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -116,14 +125,31 @@ try {
 const subtle = webcrypto.subtle;
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
+const DEK_SUBKEY_SALT = textEncoder.encode('steadyrenew-e2ee-dek-subkey-v1');
+const DEK_AEAD_SUBKEY_INFO = textEncoder.encode('steadyrenew-e2ee-aead-v1');
+const DEK_PUSH_HMAC_SUBKEY_INFO = textEncoder.encode('steadyrenew-e2ee-push-hmac-v1');
 
 const decodeVaultKey = (token) => {
   const payload = token.startsWith('vk1_') ? token.slice(4) : token;
   const bytes = Buffer.from(payload, 'base64url');
-  if (bytes.byteLength !== 32) {
-    throw new Error('SUBSCRIPTION_MANAGER_VAULT_KEY must decode to 32 bytes.');
+  if (bytes.byteLength !== 32 || !bytes.some(byte => byte !== 0)) {
+    throw new Error('SUBSCRIPTION_MANAGER_VAULT_KEY must decode to 32 non-zero bytes.');
   }
   return new Uint8Array(bytes);
+};
+
+const deriveLocalDekBaseKey = async (dekBytes) =>
+  subtle.importKey('raw', dekBytes, 'HKDF', false, ['deriveKey']);
+
+const deriveLocalAeadKey = async (dekBytes) => {
+  const baseKey = await deriveLocalDekBaseKey(dekBytes);
+  return subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: DEK_SUBKEY_SALT, info: DEK_AEAD_SUBKEY_INFO },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
 };
 
 const sealLocalJson = async (dek, value, aadParts) => {
@@ -155,7 +181,14 @@ const openLocalJson = async (dek, envelope, aadParts) => {
 };
 
 const computePushSubHash = async (dekBytes, subId) => {
-  const hmacKey = await subtle.importKey('raw', dekBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const baseKey = await deriveLocalDekBaseKey(dekBytes);
+  const hmacKey = await subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: DEK_SUBKEY_SALT, info: DEK_PUSH_HMAC_SUBKEY_INFO },
+    baseKey,
+    { name: 'HMAC', hash: 'SHA-256', length: 256 },
+    false,
+    ['sign']
+  );
   const sig = await subtle.sign('HMAC', hmacKey, textEncoder.encode(`push-sub:v1:${subId}`));
   return Buffer.from(sig).toString('hex');
 };
@@ -246,7 +279,7 @@ const getLocalVaultContext = async () => {
   if (cachedLocalVaultContext) return cachedLocalVaultContext;
 
   const dekBytes = decodeVaultKey(localVaultKeyToken);
-  const dek = await subtle.importKey('raw', dekBytes, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  const dek = await deriveLocalAeadKey(dekBytes);
 
   const res = await fetch(`${normalizedBase}/api/v1/vault/state`, {
     method: 'GET',
@@ -254,9 +287,17 @@ const getLocalVaultContext = async () => {
     redirect: 'error',
     signal: AbortSignal.timeout(30_000),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    throw new Error(
+      `Refusing to fall back to plaintext: /api/v1/vault/state returned HTTP ${res.status}.`
+    );
+  }
   const state = await res.json();
-  if (!state?.enabled || !state?.account) return null;
+  if (!state?.enabled || !state?.account) {
+    throw new Error(
+      'Refusing to fall back to plaintext: SUBSCRIPTION_MANAGER_VAULT_KEY is configured, but the server reports end-to-end encryption is disabled. Remove SUBSCRIPTION_MANAGER_VAULT_KEY only if you intentionally disabled encryption.'
+    );
+  }
 
   const check = await openLocalJson(dek, state.account.dekCheck, [
     'e2ee-dek-check',
@@ -302,6 +343,7 @@ const executeLocalE2eeTool = async (tool, args, vaultCtx) => {
         1,
         vaultCtx.userId,
         row.id,
+        vaultCtx.keyEpoch,
       ]);
       items.push({
         raw: content,
@@ -337,7 +379,13 @@ const executeLocalE2eeTool = async (tool, args, vaultCtx) => {
     const resp = await fetchVaultJson('GET', `/api/v1/vault/subscriptions/${encodeURIComponent(args.id)}`);
     if (!resp.ok) return resp;
     const row = resp.json.data;
-    const content = await openLocalJson(vaultCtx.dek, row.envelope, ['e2ee-subscription', 1, vaultCtx.userId, row.id]);
+    const content = await openLocalJson(vaultCtx.dek, row.envelope, [
+      'e2ee-subscription',
+      1,
+      vaultCtx.userId,
+      row.id,
+      vaultCtx.keyEpoch,
+    ]);
     const resolved = resolveEffectiveSubscription(row.id, content, row.createdAt, row.updatedAt);
     return { ok: true, status: 200, text: JSON.stringify({ data: resolved }) };
   }
@@ -365,10 +413,22 @@ const executeLocalE2eeTool = async (tool, args, vaultCtx) => {
       ...(isTrial ? { trialEndsOn: args.trialEndsOn || nextPaymentDate } : {}),
       status: 'active',
     };
-    const envelope = await sealLocalJson(vaultCtx.dek, content, ['e2ee-subscription', 1, vaultCtx.userId, id]);
+    const envelope = await sealLocalJson(vaultCtx.dek, content, [
+      'e2ee-subscription',
+      1,
+      vaultCtx.userId,
+      id,
+      vaultCtx.keyEpoch,
+    ]);
     const preview = resolveEffectiveSubscription(id, content, new Date().toISOString(), new Date().toISOString());
     const auditId = randomUUID();
-    const auditEnvelope = await sealLocalJson(vaultCtx.dek, { after: preview }, ['e2ee-audit', 1, vaultCtx.userId, auditId]);
+    const auditEnvelope = await sealLocalJson(vaultCtx.dek, { after: preview }, [
+      'e2ee-audit',
+      1,
+      vaultCtx.userId,
+      auditId,
+      vaultCtx.keyEpoch,
+    ]);
     const subscriptionHash = await computePushSubHash(vaultCtx.dekBytes, id);
 
     const resp = await fetchVaultJson('POST', '/api/v1/vault/subscriptions', {
@@ -397,6 +457,7 @@ const executeLocalE2eeTool = async (tool, args, vaultCtx) => {
       1,
       vaultCtx.userId,
       id,
+      vaultCtx.keyEpoch,
     ]);
     const patch = args.patch && typeof args.patch === 'object' ? args.patch : (() => {
       const copy = { ...args };
@@ -411,22 +472,31 @@ const executeLocalE2eeTool = async (tool, args, vaultCtx) => {
     }
     merged.lastPaymentDate = subPeriodUtc(merged.nextPaymentDate, merged.period, merged.customDate, merged.billingAnchorDay);
 
-    const envelope = await sealLocalJson(vaultCtx.dek, merged, ['e2ee-subscription', 1, vaultCtx.userId, id]);
+    const envelope = await sealLocalJson(vaultCtx.dek, merged, [
+      'e2ee-subscription',
+      1,
+      vaultCtx.userId,
+      id,
+      vaultCtx.keyEpoch,
+    ]);
     const beforeResolved = resolveEffectiveSubscription(id, beforeContent, existingRow.createdAt, existingRow.updatedAt);
     const afterPreview = resolveEffectiveSubscription(id, merged, existingRow.createdAt, new Date().toISOString());
     const auditId = randomUUID();
     const auditEnvelope = await sealLocalJson(
       vaultCtx.dek,
       { before: beforeResolved, after: afterPreview, patch },
-      ['e2ee-audit', 1, vaultCtx.userId, auditId]
+      ['e2ee-audit', 1, vaultCtx.userId, auditId, vaultCtx.keyEpoch]
     );
     const subscriptionHash = await computePushSubHash(vaultCtx.dekBytes, id);
+    const shouldClearPushSchedules =
+      merged.notificationEnabled === false || (merged.status && merged.status !== 'active');
 
     const resp = await fetchVaultJson('PATCH', `/api/v1/vault/subscriptions/${encodeURIComponent(id)}`, {
       envelope,
       auditId,
       auditEnvelope,
       subscriptionHash,
+      ...(shouldClearPushSchedules ? { pushSchedules: [] } : {}),
     });
     if (!resp.ok) return resp;
     const row = resp.json.data;
@@ -447,10 +517,15 @@ const executeLocalE2eeTool = async (tool, args, vaultCtx) => {
       1,
       vaultCtx.userId,
       id,
+      vaultCtx.keyEpoch,
     ]);
     const beforeResolved = resolveEffectiveSubscription(id, beforeContent, existingRow.createdAt, existingRow.updatedAt);
     const auditId = randomUUID();
-    const auditEnvelope = await sealLocalJson(vaultCtx.dek, { before: beforeResolved }, ['e2ee-audit', 1, vaultCtx.userId, auditId]);
+    const auditEnvelope = await sealLocalJson(
+      vaultCtx.dek,
+      { before: beforeResolved },
+      ['e2ee-audit', 1, vaultCtx.userId, auditId, vaultCtx.keyEpoch]
+    );
     const subscriptionHash = await computePushSubHash(vaultCtx.dekBytes, id);
 
     const resp = await fetchVaultJson('DELETE', `/api/v1/vault/subscriptions/${encodeURIComponent(id)}`, {
@@ -570,7 +645,13 @@ const executeLocalE2eeTool = async (tool, args, vaultCtx) => {
     if (!resp.ok) return resp;
     const entries = [];
     for (const row of resp.json.data ?? []) {
-      const metadata = await openLocalJson(vaultCtx.dek, row.envelope, ['e2ee-audit', 1, vaultCtx.userId, row.id]);
+      const metadata = await openLocalJson(vaultCtx.dek, row.envelope, [
+        'e2ee-audit',
+        1,
+        vaultCtx.userId,
+        row.id,
+        vaultCtx.keyEpoch,
+      ]);
       entries.push({
         id: row.id,
         action: row.action,
@@ -715,12 +796,13 @@ const buildRequest = (tool, args = {}) => {
 const callTool = async (tool, args) => {
   if (localVaultKeyToken && !tool.path.startsWith('/api/v1/notification-settings')) {
     const vaultCtx = await getLocalVaultContext();
-    if (vaultCtx) {
-      const localResult = await executeLocalE2eeTool(tool, args, vaultCtx);
-      if (localResult) {
-        return localResult;
-      }
+    const localResult = await executeLocalE2eeTool(tool, args, vaultCtx);
+    if (!localResult) {
+      throw new Error(
+        `Refusing to send plaintext for unsupported E2EE tool '${tool.name}' while SUBSCRIPTION_MANAGER_VAULT_KEY is configured.`
+      );
     }
+    return localResult;
   }
 
   const request = buildRequest(tool, args);

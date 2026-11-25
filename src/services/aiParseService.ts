@@ -18,6 +18,7 @@ export interface CaptureRequest {
   text?: string;
   image?: { mediaType: string; dataBase64: string };
   subscriptions?: AiSubscriptionContextItem[];
+  localTargetMatching?: boolean;
 }
 
 // Stable error codes the function emits; the UI maps them to localized copy and

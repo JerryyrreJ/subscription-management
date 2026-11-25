@@ -50,6 +50,10 @@ const DEK_BYTE_LENGTH = 32;
 const NONCE_BYTE_LENGTH = 12;
 const BARK_IV_LENGTH = 16;
 const BARK_KEY_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+const DEK_SUBKEY_SALT = 'steadyrenew-e2ee-dek-subkey-v1';
+const DEK_AEAD_SUBKEY_INFO = 'steadyrenew-e2ee-aead-v1';
+const DEK_PUSH_HMAC_SUBKEY_INFO = 'steadyrenew-e2ee-push-hmac-v1';
+const DEK_CONTROL_PROOF_INFO_PREFIX = 'steadyrenew-e2ee-control-proof-v1:';
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
@@ -119,13 +123,40 @@ export function generateDekBytes(): Uint8Array {
   return globalThis.crypto.getRandomValues(new Uint8Array(DEK_BYTE_LENGTH));
 }
 
-export async function importDek(dekBytes: Uint8Array): Promise<CryptoKey> {
+function isAllZeroBytes(bytes: Uint8Array): boolean {
+  return !bytes.some(byte => byte !== 0);
+}
+
+async function deriveDekBaseKey(dekBytes: Uint8Array): Promise<CryptoKey> {
   if (dekBytes.byteLength !== DEK_BYTE_LENGTH) {
     throw new Error('Invalid DEK length: expected 32 bytes');
+  }
+  if (isAllZeroBytes(dekBytes)) {
+    throw new Error('Invalid DEK: key material cannot be all zeros');
   }
   return globalThis.crypto.subtle.importKey(
     'raw',
     toArrayBuffer(dekBytes),
+    'HKDF',
+    false,
+    ['deriveKey', 'deriveBits']
+  );
+}
+
+/**
+ * Derives a domain-separated AES-256-GCM subkey from the 32-byte master DEK via HKDF-SHA256
+ * so the raw master DEK is never reused directly across AEAD and HMAC primitives.
+ */
+export async function importDek(dekBytes: Uint8Array): Promise<CryptoKey> {
+  const baseKey = await deriveDekBaseKey(dekBytes);
+  return globalThis.crypto.subtle.deriveKey(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: toArrayBuffer(textEncoder.encode(DEK_SUBKEY_SALT)),
+      info: toArrayBuffer(textEncoder.encode(DEK_AEAD_SUBKEY_INFO)),
+    },
+    baseKey,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt', 'decrypt']
@@ -208,6 +239,9 @@ export async function derivePrfKek(
 ): Promise<CryptoKey> {
   if (prfBytes.byteLength < 32) {
     throw new Error('WebAuthn PRF output must be at least 32 bytes');
+  }
+  if (isAllZeroBytes(prfBytes)) {
+    throw new Error('WebAuthn PRF output cannot be all zeros');
   }
   const saltBytes = base64ToBytes(hkdfSaltBase64);
   try {
@@ -305,21 +339,26 @@ export async function wrapDek(
   kek: CryptoKey,
   dekBytes: Uint8Array,
   userId: string,
-  slotType: KeySlotType
+  slotType: KeySlotType,
+  keyEpoch: number = 1
 ): Promise<Envelope> {
   if (dekBytes.byteLength !== DEK_BYTE_LENGTH) {
     throw new Error('Invalid DEK length');
   }
-  return sealBytes(kek, dekBytes, ['e2ee-key-slot', 1, userId, slotType]);
+  if (isAllZeroBytes(dekBytes)) {
+    throw new Error('Invalid DEK: key material cannot be all zeros');
+  }
+  return sealBytes(kek, dekBytes, ['e2ee-key-slot', 1, userId, slotType, keyEpoch]);
 }
 
 export async function unwrapDek(
   kek: CryptoKey,
   wrappedDek: Envelope,
   userId: string,
-  slotType: KeySlotType
+  slotType: KeySlotType,
+  keyEpoch: number = 1
 ): Promise<Uint8Array> {
-  const dekBytes = await openBytes(kek, wrappedDek, ['e2ee-key-slot', 1, userId, slotType]);
+  const dekBytes = await openBytes(kek, wrappedDek, ['e2ee-key-slot', 1, userId, slotType, keyEpoch]);
   if (dekBytes.byteLength !== DEK_BYTE_LENGTH) {
     dekBytes.fill(0);
     throw new Error('Unwrapped DEK has invalid length');
@@ -365,21 +404,23 @@ export async function encryptSubscriptionPayload(
   dek: CryptoKey,
   userId: string,
   subscriptionId: string,
-  payload: EncryptedSubscriptionContent
+  payload: EncryptedSubscriptionContent,
+  keyEpoch: number = 1
 ): Promise<Envelope> {
-  return sealJson(dek, payload, ['e2ee-subscription', 1, userId, subscriptionId]);
+  return sealJson(dek, payload, ['e2ee-subscription', 1, userId, subscriptionId, keyEpoch]);
 }
 
 export async function decryptSubscriptionPayload(
   dek: CryptoKey,
   userId: string,
   subscriptionId: string,
-  envelope: Envelope
+  envelope: Envelope,
+  keyEpoch: number = 1
 ): Promise<EncryptedSubscriptionContent> {
   return openJson<EncryptedSubscriptionContent>(
     dek,
     envelope,
-    ['e2ee-subscription', 1, userId, subscriptionId]
+    ['e2ee-subscription', 1, userId, subscriptionId, keyEpoch]
   );
 }
 
@@ -387,21 +428,23 @@ export async function encryptCategoryPayload(
   dek: CryptoKey,
   userId: string,
   categoryId: string,
-  payload: EncryptedCategoryContent
+  payload: EncryptedCategoryContent,
+  keyEpoch: number = 1
 ): Promise<Envelope> {
-  return sealJson(dek, payload, ['e2ee-category', 1, userId, categoryId]);
+  return sealJson(dek, payload, ['e2ee-category', 1, userId, categoryId, keyEpoch]);
 }
 
 export async function decryptCategoryPayload(
   dek: CryptoKey,
   userId: string,
   categoryId: string,
-  envelope: Envelope
+  envelope: Envelope,
+  keyEpoch: number = 1
 ): Promise<EncryptedCategoryContent> {
   return openJson<EncryptedCategoryContent>(
     dek,
     envelope,
-    ['e2ee-category', 1, userId, categoryId]
+    ['e2ee-category', 1, userId, categoryId, keyEpoch]
   );
 }
 
@@ -409,21 +452,23 @@ export async function encryptAuditPayload(
   dek: CryptoKey,
   userId: string,
   auditId: string,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  keyEpoch: number = 1
 ): Promise<Envelope> {
-  return sealJson(dek, metadata, ['e2ee-audit', 1, userId, auditId]);
+  return sealJson(dek, metadata, ['e2ee-audit', 1, userId, auditId, keyEpoch]);
 }
 
 export async function decryptAuditPayload(
   dek: CryptoKey,
   userId: string,
   auditId: string,
-  envelope: Envelope
+  envelope: Envelope,
+  keyEpoch: number = 1
 ): Promise<Record<string, unknown>> {
   return openJson<Record<string, unknown>>(
     dek,
     envelope,
-    ['e2ee-audit', 1, userId, auditId]
+    ['e2ee-audit', 1, userId, auditId, keyEpoch]
   );
 }
 
@@ -431,34 +476,83 @@ export async function encryptLocalCachePayload(
   dek: CryptoKey,
   userId: string,
   purpose: string,
-  value: unknown
+  value: unknown,
+  keyEpoch: number = 1
 ): Promise<Envelope> {
-  return sealJson(dek, value, ['e2ee-local-cache', 1, userId, purpose]);
+  return sealJson(dek, value, ['e2ee-local-cache', 1, userId, purpose, keyEpoch]);
 }
 
 export async function decryptLocalCachePayload<T>(
   dek: CryptoKey,
   userId: string,
   purpose: string,
-  envelope: Envelope
+  envelope: Envelope,
+  keyEpoch: number = 1
 ): Promise<T> {
-  return openJson<T>(dek, envelope, ['e2ee-local-cache', 1, userId, purpose]);
+  return openJson<T>(dek, envelope, ['e2ee-local-cache', 1, userId, purpose, keyEpoch]);
 }
 
 export async function computeSubscriptionPushHash(
   dekBytes: Uint8Array,
   subscriptionId: string
 ): Promise<string> {
-  const hmacKey = await globalThis.crypto.subtle.importKey(
-    'raw',
-    toArrayBuffer(dekBytes),
-    { name: 'HMAC', hash: 'SHA-256' },
+  const baseKey = await deriveDekBaseKey(dekBytes);
+  const hmacKey = await globalThis.crypto.subtle.deriveKey(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: toArrayBuffer(textEncoder.encode(DEK_SUBKEY_SALT)),
+      info: toArrayBuffer(textEncoder.encode(DEK_PUSH_HMAC_SUBKEY_INFO)),
+    },
+    baseKey,
+    { name: 'HMAC', hash: 'SHA-256', length: 256 },
     false,
     ['sign']
   );
   const message = textEncoder.encode(`push-sub:v1:${subscriptionId}`);
   const mac = await globalThis.crypto.subtle.sign('HMAC', hmacKey, toArrayBuffer(message));
   return bytesToHex(new Uint8Array(mac));
+}
+
+/**
+ * Derives a domain-separated one-way control proof bound to (userId, keyEpoch) via HKDF-SHA256.
+ * Its SHA-256 commitment is stored in `e2ee_accounts.dek_verifier_hash` so destructive vault
+ * transitions (`disable_e2ee_vault` and `rotate_e2ee_dek`) require proof of DEK possession
+ * without ever transmitting the master DEK or AEAD/HMAC subkeys to the server.
+ */
+export async function deriveDekControlProof(
+  dekBytes: Uint8Array,
+  userId: string,
+  keyEpoch: number = 1
+): Promise<string> {
+  const baseKey = await deriveDekBaseKey(dekBytes);
+  const derivedBits = await globalThis.crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: toArrayBuffer(textEncoder.encode(DEK_SUBKEY_SALT)),
+      info: toArrayBuffer(textEncoder.encode(`${DEK_CONTROL_PROOF_INFO_PREFIX}${userId}:${keyEpoch}`)),
+    },
+    baseKey,
+    256
+  );
+  const proofBytes = new Uint8Array(derivedBits);
+  try {
+    return bytesToHex(proofBytes);
+  } finally {
+    proofBytes.fill(0);
+  }
+}
+
+export async function computeDekControlProofHash(controlProofHex: string): Promise<string> {
+  if (!/^[a-f0-9]{64}$/.test(controlProofHex)) {
+    throw new Error('Invalid DEK control proof format');
+  }
+  const digest = await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    toArrayBuffer(textEncoder.encode(controlProofHex))
+  );
+  return bytesToHex(new Uint8Array(digest));
 }
 
 function randomAsciiFromAlphabet(length: number): string {

@@ -14,7 +14,19 @@ test('local MCP server executes zero-knowledge E2EE CRUD + analytics without sen
   const userId = '11111111-1111-4111-8111-111111111111';
   const dekBytes = webcrypto.getRandomValues(new Uint8Array(32));
   const vaultKeyToken = `vk1_${Buffer.from(dekBytes).toString('base64url')}`;
-  const dek = await webcrypto.subtle.importKey('raw', dekBytes, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+  const dekBaseKey = await webcrypto.subtle.importKey('raw', dekBytes, 'HKDF', false, ['deriveKey']);
+  const dek = await webcrypto.subtle.deriveKey(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: new TextEncoder().encode('steadyrenew-e2ee-dek-subkey-v1'),
+      info: new TextEncoder().encode('steadyrenew-e2ee-aead-v1'),
+    },
+    dekBaseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
 
   // Create server-stored dekCheck ciphertext
   const checkNonce = webcrypto.getRandomValues(new Uint8Array(12));
@@ -34,6 +46,7 @@ test('local MCP server executes zero-knowledge E2EE CRUD + analytics without sen
   const storedAudits = [];
   const observedAuthHeaders = [];
   const observedBodies = [];
+  const observedPatchPayloads = [];
 
   const mockServer = http.createServer(async (req, res) => {
     observedAuthHeaders.push(req.headers.authorization || '');
@@ -84,6 +97,7 @@ test('local MCP server executes zero-knowledge E2EE CRUD + analytics without sen
       }
       if (req.method === 'PATCH') {
         const parsed = JSON.parse(bodyStr);
+        observedPatchPayloads.push(parsed);
         const existing = storedCipherRows.get(id);
         const updated = { ...existing, envelope: parsed.envelope, revision: existing.revision + 1, updatedAt: '2026-11-24T12:05:00.000Z' };
         storedCipherRows.set(id, updated);
@@ -164,18 +178,105 @@ test('local MCP server executes zero-knowledge E2EE CRUD + analytics without sen
     assert.equal(summaryJson.summary.counts.active, 1);
     assert.equal(summaryJson.summary.byCurrency[0].monthlyTotal, 12.5);
 
-    // 4. Audit log decrypted locally
+    // 4. Updating name/amount preserves existing Bark schedules (omits pushSchedules),
+    // while disabling notifications explicitly sends pushSchedules: [] to clear them.
+    const renameRes = await client.callTool({
+      name: 'update_subscription',
+      arguments: { id: createdJson.data.id, patch: { name: 'ZeroKnowledge Pro' } },
+    });
+    assert.ok(!renameRes.isError);
+    assert.equal(Object.hasOwn(observedPatchPayloads[0], 'pushSchedules'), false);
+
+    const muteRes = await client.callTool({
+      name: 'update_subscription',
+      arguments: { id: createdJson.data.id, patch: { notificationEnabled: false } },
+    });
+    assert.ok(!muteRes.isError);
+    assert.deepEqual(observedPatchPayloads[1].pushSchedules, []);
+
+    // 5. Audit log decrypted locally (with keyEpoch-bound AAD)
     const auditRes = await client.callTool({ name: 'list_audit_log', arguments: {} });
     assert.ok(!auditRes.isError);
     const auditJson = JSON.parse(auditRes.content[0].text);
-    assert.equal(auditJson.data[0].metadata.after.name, 'ZeroKnowledge Cloud');
+    assert.equal(auditJson.data.length, 3);
+    assert.equal(auditJson.data[2].metadata.after.name, 'ZeroKnowledge Cloud');
+    assert.equal(auditJson.data[1].metadata.after.name, 'ZeroKnowledge Pro');
 
     // Verify ZERO leakage of vault key or plaintext over HTTP!
     assert.ok(observedAuthHeaders.length > 0);
     assert.ok(observedAuthHeaders.every(h => h === 'Bearer subm_localtest.secretpart'));
-    assert.ok(observedBodies.every(b => !b.includes('ZeroKnowledge Cloud') && !b.includes('12.5') && !b.includes('vk1_')));
+    assert.ok(
+      observedBodies.every(
+        b => !b.includes('ZeroKnowledge Cloud') && !b.includes('ZeroKnowledge Pro') && !b.includes('12.5') && !b.includes('vk1_')
+      )
+    );
   } finally {
     await client.close();
     await new Promise(resolve => mockServer.close(resolve));
+  }
+});
+
+test('local MCP strips accidental .vk1_ suffix from SUBSCRIPTION_MANAGER_API_KEY and fails closed if server claims E2EE is disabled', async () => {
+  const userId = '22222222-2222-4222-8222-222222222222';
+  const dekBytes = webcrypto.getRandomValues(new Uint8Array(32));
+  const vaultKeyToken = `vk1_${Buffer.from(dekBytes).toString('base64url')}`;
+
+  const observedAuthHeaders = [];
+  const observedPaths = [];
+
+  const downgradeServer = http.createServer((req, res) => {
+    observedAuthHeaders.push(req.headers.authorization || '');
+    const url = new URL(req.url, 'http://127.0.0.1');
+    observedPaths.push(`${req.method} ${url.pathname}`);
+    res.setHeader('Content-Type', 'application/json');
+
+    if (req.method === 'GET' && url.pathname === '/api/v1/vault/state') {
+      // Simulate compromised/downgraded server claiming E2EE is off
+      res.end(JSON.stringify({ enabled: false, userId, account: null }));
+      return;
+    }
+
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: { code: 'should_not_be_called' } }));
+  });
+
+  await new Promise(resolve => downgradeServer.listen(0, '127.0.0.1', resolve));
+  const { port } = downgradeServer.address();
+
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [serverEntry],
+    env: {
+      ...process.env,
+      SUBSCRIPTION_MANAGER_BASE_URL: `http://127.0.0.1:${port}`,
+      // Accidentally concatenated bridge key in SUBSCRIPTION_MANAGER_API_KEY (no SUBSCRIPTION_MANAGER_VAULT_KEY)
+      SUBSCRIPTION_MANAGER_API_KEY: `subm_localtest.secretpart.${vaultKeyToken}`,
+    },
+    stderr: 'pipe',
+  });
+
+  const client = new Client({ name: 'e2ee-downgrade-test', version: '1.0.0' });
+  try {
+    await client.connect(transport);
+    const res = await client.callTool({
+      name: 'create_subscription',
+      arguments: {
+        name: 'Must Never Leak Plaintext',
+        category: 'Other',
+        amount: 99,
+        currency: 'USD',
+        period: 'monthly',
+        nextPaymentDate: '2026-12-20',
+      },
+    });
+
+    assert.equal(res.isError, true);
+    assert.match(res.content[0].text, /Refusing to fall back to plaintext/i);
+    // `.vk1_` MUST have been stripped before sending Authorization to /api/v1/vault/state
+    assert.deepEqual(observedPaths, ['GET /api/v1/vault/state']);
+    assert.deepEqual(observedAuthHeaders, ['Bearer subm_localtest.secretpart']);
+  } finally {
+    await client.close();
+    await new Promise(resolve => downgradeServer.close(resolve));
   }
 });

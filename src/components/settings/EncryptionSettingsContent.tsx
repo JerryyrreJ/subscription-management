@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Bell,
@@ -21,6 +21,7 @@ import type { Subscription } from '../../types';
 import { loadCategories, loadPendingCategorySync, saveCategories } from '../../utils/categories';
 import { getUserDataScope } from '../../utils/dataScope';
 import { loadPendingSyncOperations, loadSubscriptions, saveSubscriptions } from '../../utils/storage';
+import { isRememberMeEnabled } from '../../utils/rememberMe';
 import {
   type BarkE2eeMode,
   generateBarkEncryptionKey,
@@ -74,10 +75,19 @@ export function EncryptionSettingsContent({
     prfBytes: Uint8Array;
     kdfParams: PasskeyPrfKdfParams;
   } | null>(null);
+  const boundPasskeyRef = useRef(boundPasskey);
+  boundPasskeyRef.current = boundPasskey;
+
+  useEffect(() => {
+    return () => {
+      boundPasskeyRef.current?.prfBytes.fill(0);
+    };
+  }, []);
   const [passkeyHint, setPasskeyHint] = useState<string | null>(null);
   const [setupBarkMode, setSetupBarkMode] = useState<BarkE2eeMode>('generic');
   const [setupBarkKey, setSetupBarkKey] = useState<string>(() => generateBarkEncryptionKey());
   const [copiedBarkKey, setCopiedBarkKey] = useState(false);
+  const [setupRememberDevice, setSetupRememberDevice] = useState<boolean>(() => isRememberMeEnabled());
 
   // Unlocked management state
   const [newSlotLabel, setNewSlotLabel] = useState('');
@@ -185,6 +195,7 @@ export function EncryptionSettingsContent({
     try {
       const label = passkeyLabel.trim() || 'Passkey';
       const registered = await registerPasskeyForVault(user.id, user.email ?? '', label);
+      boundPasskey?.prfBytes.fill(0);
       setBoundPasskey({
         label,
         credentialId: registered.credentialId,
@@ -224,6 +235,7 @@ export function EncryptionSettingsContent({
         passkeyMaterial: boundPasskey,
         barkMode: setupBarkMode,
         barkEncryptionKey: setupBarkMode === 'bark_e2ee' ? setupBarkKey : null,
+        rememberDevice: setupRememberDevice,
         localSubscriptions: localSubs,
         localCategories: localCats,
       });
@@ -270,12 +282,15 @@ export function EncryptionSettingsContent({
   const handleConfirmRegeneratePhrase = async () => {
     if (!isRegenConfirmed) return;
     setError(null);
+    setBusyMessage(t('e2ee:rotatingPhraseBusy'));
     try {
       await regenerateRecoveryPhraseSlot(user.id, regeneratedPhrase);
       setRegeneratedPhrase('');
       setRegeneratedConfirm('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to replace recovery key');
+    } finally {
+      setBusyMessage(null);
     }
   };
 
@@ -397,6 +412,10 @@ export function EncryptionSettingsContent({
             <div className="e2ee-spec-row">
               <dt className="e2ee-spec-label">{t('e2ee:scopeApiLabel')}</dt>
               <dd className="e2ee-spec-value">{t('e2ee:scopeApiValue')}</dd>
+            </div>
+            <div className="e2ee-spec-row">
+              <dt className="e2ee-spec-label">{t('e2ee:scopeAiLabel')}</dt>
+              <dd className="e2ee-spec-value">{t('e2ee:scopeAiValue')}</dd>
             </div>
           </dl>
         </section>
@@ -684,6 +703,21 @@ export function EncryptionSettingsContent({
             )}
           </section>
 
+          <label className="flex items-center gap-2.5 text-xs app-theme-text-secondary cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={setupRememberDevice}
+              onChange={e => setSetupRememberDevice(e.target.checked)}
+              className="rounded"
+              style={{ accentColor: 'var(--settings-accent)' }}
+            />
+            <span>{t('e2ee:rememberBrowserLabel')}</span>
+          </label>
+
+          <p className="text-xs leading-relaxed app-theme-text-muted">
+            {t('e2ee:aiCloudNotice')}
+          </p>
+
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <button
               type="button"
@@ -875,18 +909,22 @@ export function EncryptionSettingsContent({
                     </button>
                   </div>
                 </div>
+                <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/25 border border-amber-200 dark:border-amber-900/50 rounded-[9px] px-3 py-2">
+                  {t('e2ee:regeneratePhraseRotateNotice')}
+                </p>
                 <textarea
                   rows={2}
                   value={regeneratedConfirm}
                   onChange={e => setRegeneratedConfirm(e.target.value)}
                   placeholder={t('e2ee:confirmPhrasePlaceholder')}
                   spellCheck={false}
+                  disabled={Boolean(busyMessage)}
                   className="settings-input font-mono text-[13px]"
                 />
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    disabled={!isRegenConfirmed}
+                    disabled={!isRegenConfirmed || Boolean(busyMessage)}
                     onClick={() => void handleConfirmRegeneratePhrase()}
                     className="settings-button-primary"
                   >
@@ -894,6 +932,7 @@ export function EncryptionSettingsContent({
                   </button>
                   <button
                     type="button"
+                    disabled={Boolean(busyMessage)}
                     onClick={() => {
                       setRegeneratedPhrase('');
                       setRegeneratedConfirm('');
@@ -1039,6 +1078,11 @@ export function EncryptionSettingsContent({
               </button>
             </div>
           </section>
+
+          {/* AI capture privacy note */}
+          <p className="px-1 text-xs leading-relaxed app-theme-text-muted">
+            {t('e2ee:aiCloudNotice')}
+          </p>
 
           {/* Disable E2EE */}
           <section className="settings-danger">

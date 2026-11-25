@@ -128,3 +128,50 @@ test('OpenRouter parser throws provider errors without exposing input content', 
     globalThis.fetch = originalFetch;
   }
 });
+
+test('OpenRouter parser omits subscriptions and keeps targetName when localTargetMatching is enabled', async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedUserText = '';
+
+  globalThis.fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body ?? '{}')) as {
+      messages: Array<{ role: string; content: Array<{ type: string; text?: string }> }>;
+    };
+    capturedUserText = body.messages[1].content.find(part => part.type === 'text')?.text ?? '';
+
+    return new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            action: 'update',
+            targetName: 'Netflix',
+            patch: { amount: 19.99, currency: 'USD' },
+          }),
+        },
+      }],
+      usage: { prompt_tokens: 120, completion_tokens: 25 },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  try {
+    const parser = createOpenRouterParser(config);
+    const result = await parser.parse({
+      text: 'Update Netflix to $19.99',
+      subscriptions: [],
+      localTargetMatching: true,
+    }, '2026-06-19');
+
+    assert.match(capturedUserText, /omitted because end-to-end encryption is enabled/i);
+    assert.equal(result.command.type, 'update');
+    if (result.command.type === 'update') {
+      assert.equal(result.command.subscriptionId, '');
+      assert.equal(result.command.targetName, 'Netflix');
+      assert.deepEqual(result.command.patch, { amount: 19.99, currency: 'USD' });
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

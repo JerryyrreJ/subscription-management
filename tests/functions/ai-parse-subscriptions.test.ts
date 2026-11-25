@@ -358,3 +358,47 @@ test('rejects malformed image.dataBase64 before consuming quota or calling the m
   assert.equal(flags.reserveCalled, false);
   assert.equal(flags.parseCalled, false);
 });
+
+test('strips subscriptions context when localTargetMatching is enabled for E2EE accounts', async () => {
+  let receivedLocalTargetMatching: boolean | undefined;
+  let receivedSubscriptionsCount = -1;
+  const { handler } = buildHandler({
+    parser: {
+      parse: async (input) => {
+        receivedLocalTargetMatching = input.localTargetMatching;
+        receivedSubscriptionsCount = input.subscriptions.length;
+        return {
+          command: {
+            type: 'update',
+            subscriptionId: '',
+            targetName: 'Netflix',
+            patch: { amount: 19.99, currency: 'USD' },
+          },
+          usage: { inputTokens: 80, outputTokens: 20 },
+        };
+      },
+    },
+  });
+  const response = expectHandlerResponse(
+    await handler(
+      postEvent({
+        text: 'Change Netflix to $19.99',
+        localTargetMatching: true,
+        subscriptions: [{
+          id: 'sub-secret',
+          name: 'Secret Subscription',
+          category: 'Other',
+          amount: 9.99,
+          currency: 'USD',
+          period: 'monthly',
+          lastPaymentDate: '2026-06-01',
+        }],
+      }),
+      {} as never
+    )
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(receivedLocalTargetMatching, true);
+  assert.equal(receivedSubscriptionsCount, 0);
+});

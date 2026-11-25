@@ -29,6 +29,13 @@ interface VaultApiDependencies {
   authenticatedIdentity?: ApiKeyIdentity;
 }
 
+const MAX_VAULT_REQUEST_BYTES = 256 * 1024;
+const MAX_PENDING_PUSH_SCHEDULES_PER_USER = 500;
+const MAX_PENDING_PUSH_SCHEDULES_PER_DAY = 25;
+const SUBSCRIPTION_HASH_PATTERN = /^[a-f0-9]{64}$/;
+const BARK_CIPHERTEXT_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
+const BARK_IV_PATTERN = /^[A-Za-z0-9]{16}$/;
+
 const ALLOWED_METHODS = 'GET, POST, PATCH, DELETE, OPTIONS';
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -40,35 +47,73 @@ const envelopeSchema = z.custom<Envelope>(isValidEnvelope, {
   message: 'Expected a valid version-1 AES-256-GCM envelope { version: 1, nonce, ciphertext }',
 });
 
-const pushScheduleSchema = z.object({
-  subscription_hash: z.string().regex(/^[a-f0-9]{64}$/),
-  trigger_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  payload_mode: z.enum(['bark_ciphertext', 'generic']),
-  bark_ciphertext: z.string().nullable().optional(),
-  bark_iv: z.string().nullable().optional(),
-});
+const pushScheduleSchema = z
+  .object({
+    subscription_hash: z.string().regex(SUBSCRIPTION_HASH_PATTERN, 'Invalid subscription_hash'),
+    trigger_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'trigger_date must be YYYY-MM-DD'),
+    payload_mode: z.enum(['bark_ciphertext', 'generic']),
+    bark_ciphertext: z.string().nullable().optional(),
+    bark_iv: z.string().nullable().optional(),
+  })
+  .superRefine((item, ctx) => {
+    if (item.payload_mode === 'bark_ciphertext') {
+      if (
+        !item.bark_ciphertext
+        || item.bark_ciphertext.length < 16
+        || item.bark_ciphertext.length > 16_384
+        || !BARK_CIPHERTEXT_PATTERN.test(item.bark_ciphertext)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['bark_ciphertext'],
+          message: 'bark_ciphertext must be valid base64 (16-16384 chars) for bark_ciphertext mode',
+        });
+      }
+      if (!item.bark_iv || !BARK_IV_PATTERN.test(item.bark_iv)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['bark_iv'],
+          message: 'bark_iv must be 16 alphanumeric characters for bark_ciphertext mode',
+        });
+      }
+    } else if (item.bark_ciphertext != null || item.bark_iv != null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['payload_mode'],
+        message: 'generic push schedules must not carry bark_ciphertext or bark_iv',
+      });
+    }
+  });
+
+type PushScheduleInput = z.infer<typeof pushScheduleSchema>;
 
 const createCiphertextBodySchema = z.object({
   id: z.string().uuid().optional(),
   envelope: envelopeSchema,
   auditId: z.string().uuid().optional(),
-  auditEnvelope: envelopeSchema.optional(),
-  subscriptionHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  auditEnvelope: envelopeSchema,
+  subscriptionHash: z.string().regex(SUBSCRIPTION_HASH_PATTERN).optional(),
   pushSchedules: z.array(pushScheduleSchema).max(24).optional(),
 });
 
 const patchCiphertextBodySchema = z.object({
   envelope: envelopeSchema,
   auditId: z.string().uuid().optional(),
-  auditEnvelope: envelopeSchema.optional(),
-  subscriptionHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  auditEnvelope: envelopeSchema,
+  subscriptionHash: z.string().regex(SUBSCRIPTION_HASH_PATTERN).optional(),
   pushSchedules: z.array(pushScheduleSchema).max(24).optional(),
 });
 
 const deleteCiphertextBodySchema = z.object({
   auditId: z.string().uuid().optional(),
-  auditEnvelope: envelopeSchema.optional(),
-  subscriptionHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  auditEnvelope: envelopeSchema,
+  subscriptionHash: z.string().regex(SUBSCRIPTION_HASH_PATTERN).optional(),
+});
+
+const auditQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).max(10_000).default(0),
+  subscriptionId: z.string().uuid('subscriptionId must be a valid UUID').optional(),
 });
 
 const createDefaultDependencies = (): VaultApiDependencies => {
@@ -93,6 +138,157 @@ const withRateHeaders = (
   ...response,
   headers: { ...(response.headers ?? {}), ...context.rateLimit.headers },
 });
+
+function parseVaultJsonBody(rawBody: string | null): Record<string, unknown> {
+  if (!rawBody) {
+    return {};
+  }
+  if (Buffer.byteLength(rawBody, 'utf8') > MAX_VAULT_REQUEST_BYTES) {
+    throw new HttpError(
+      413,
+      'payload_too_large',
+      `Request body exceeds maximum size of ${MAX_VAULT_REQUEST_BYTES} bytes`
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawBody);
+  } catch {
+    throw new HttpError(400, 'invalid_json', 'Request body must be valid JSON');
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new HttpError(400, 'invalid_request', 'Request body must be a JSON object');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function parseWithSchema<T>(schema: z.ZodType<T>, input: unknown, errorCode: string): T {
+  const result = schema.safeParse(input);
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    throw new HttpError(
+      400,
+      errorCode,
+      issue?.message || 'Invalid request payload',
+      {},
+      { field: issue?.path.map(String).join('.') || undefined }
+    );
+  }
+  return result.data;
+}
+
+function validatePushScheduleInputs(
+  boundHash: string | null,
+  schedules: readonly PushScheduleInput[]
+): void {
+  if (schedules.length === 0) {
+    return;
+  }
+  if (!boundHash) {
+    throw new HttpError(
+      400,
+      'invalid_request',
+      'subscriptionHash is required when providing pushSchedules'
+    );
+  }
+
+  const seenDates = new Set<string>();
+  for (const item of schedules) {
+    if (item.subscription_hash !== boundHash) {
+      throw new HttpError(
+        400,
+        'subscription_hash_mismatch',
+        'All pushSchedules entries must match the target subscriptionHash'
+      );
+    }
+    if (seenDates.has(item.trigger_date)) {
+      throw new HttpError(
+        400,
+        'invalid_request',
+        `Duplicate trigger_date in pushSchedules: ${item.trigger_date}`
+      );
+    }
+    seenDates.add(item.trigger_date);
+  }
+}
+
+async function replaceSubscriptionPushSchedules(
+  database: SupabaseClient,
+  userId: string,
+  boundHash: string,
+  schedules: readonly PushScheduleInput[]
+): Promise<void> {
+  validatePushScheduleInputs(boundHash, schedules);
+
+  if (schedules.length > 0) {
+    const { data: existingPending, error: countError } = await database
+      .from('encrypted_push_schedules')
+      .select('subscription_hash, trigger_date')
+      .eq('user_id', userId)
+      .is('dispatched_at', null);
+
+    if (countError) {
+      throw countError;
+    }
+
+    const otherRows = ((existingPending ?? []) as Array<{
+      subscription_hash: string;
+      trigger_date: string;
+    }>).filter(row => row.subscription_hash !== boundHash);
+
+    if (otherRows.length + schedules.length > MAX_PENDING_PUSH_SCHEDULES_PER_USER) {
+      throw new HttpError(
+        400,
+        'push_schedule_limit_exceeded',
+        `Pending push schedules cannot exceed ${MAX_PENDING_PUSH_SCHEDULES_PER_USER} per account`
+      );
+    }
+
+    const dailyCounts = new Map<string, number>();
+    for (const row of otherRows) {
+      dailyCounts.set(row.trigger_date, (dailyCounts.get(row.trigger_date) ?? 0) + 1);
+    }
+    for (const item of schedules) {
+      const nextCount = (dailyCounts.get(item.trigger_date) ?? 0) + 1;
+      if (nextCount > MAX_PENDING_PUSH_SCHEDULES_PER_DAY) {
+        throw new HttpError(
+          400,
+          'push_schedule_daily_limit_exceeded',
+          `Pending push schedules for ${item.trigger_date} cannot exceed ${MAX_PENDING_PUSH_SCHEDULES_PER_DAY}`
+        );
+      }
+      dailyCounts.set(item.trigger_date, nextCount);
+    }
+  }
+
+  const { error: deleteError } = await database
+    .from('encrypted_push_schedules')
+    .delete()
+    .eq('user_id', userId)
+    .eq('subscription_hash', boundHash)
+    .is('dispatched_at', null);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  if (schedules.length > 0) {
+    const { error: upsertError } = await database.from('encrypted_push_schedules').upsert(
+      schedules.map(item => ({
+        user_id: userId,
+        subscription_hash: boundHash,
+        trigger_date: item.trigger_date,
+        payload_mode: item.payload_mode,
+        bark_ciphertext: item.bark_ciphertext ?? null,
+        bark_iv: item.bark_iv ?? null,
+      })),
+      { onConflict: 'user_id,subscription_hash,trigger_date' }
+    );
+    if (upsertError) {
+      throw upsertError;
+    }
+  }
+}
 
 function parseVaultRoute(rawPath: string): {
   resource: 'state' | 'subscriptions' | 'audit';
@@ -202,13 +398,15 @@ export const createVaultApiHandler = (
       if (event.httpMethod !== 'GET') {
         throw new HttpError(405, 'method_not_allowed', 'Method not allowed');
       }
-      const limit = Math.min(100, Math.max(1, Number(event.queryStringParameters?.limit ?? 50) || 50));
-      const offset = Math.min(10_000, Math.max(0, Number(event.queryStringParameters?.offset ?? 0) || 0));
-      const subscriptionId = event.queryStringParameters?.subscriptionId;
+      const { limit, offset, subscriptionId } = parseWithSchema(
+        auditQuerySchema,
+        event.queryStringParameters ?? {},
+        'invalid_query'
+      );
 
       let query = dependencies.database
         .from('encrypted_api_audit_log')
-        .select('id, action, subscription_id, api_key_id, request_id, envelope, created_at')
+        .select('id, action, subscription_id, api_key_id, oauth_client_id, request_id, envelope, created_at')
         .eq('user_id', identity.userId);
 
       if (subscriptionId) {
@@ -220,7 +418,16 @@ export const createVaultApiHandler = (
         .range(offset, offset + limit);
 
       if (error) throw error;
-      const rows = data ?? [];
+      const rows = (data ?? []) as Array<{
+        id: string;
+        action: string;
+        subscription_id: string | null;
+        api_key_id: string | null;
+        oauth_client_id?: string | null;
+        request_id: string | null;
+        envelope: Envelope;
+        created_at: string;
+      }>;
       const hasMore = rows.length > limit;
       const page = hasMore ? rows.slice(0, limit) : rows;
 
@@ -230,6 +437,7 @@ export const createVaultApiHandler = (
           action: row.action,
           subscriptionId: row.subscription_id ?? undefined,
           apiKeyId: row.api_key_id ?? undefined,
+          oauthClientId: row.oauth_client_id ?? undefined,
           requestId: row.request_id ?? undefined,
           envelope: row.envelope,
           createdAt: row.created_at,
@@ -286,55 +494,50 @@ export const createVaultApiHandler = (
     }
 
     if (event.httpMethod === 'POST' && !route.id) {
-      const bodyRaw = event.body ? JSON.parse(event.body) : {};
-      const parsed = createCiphertextBodySchema.parse(bodyRaw);
-      const id = parsed.id ?? crypto.randomUUID();
+      const bodyRaw = parseVaultJsonBody(event.body);
+      const parsed = parseWithSchema(createCiphertextBodySchema, bodyRaw, 'invalid_request');
+      if (parsed.pushSchedules !== undefined) {
+        validatePushScheduleInputs(parsed.subscriptionHash ?? null, parsed.pushSchedules);
+      }
 
+      const id = parsed.id ?? crypto.randomUUID();
       const { data, error } = await dependencies.database
         .from('encrypted_subscriptions')
         .insert({
           id,
           user_id: identity.userId,
           envelope: parsed.envelope,
+          subscription_hash: parsed.subscriptionHash ?? null,
         })
         .select('id, envelope, revision, created_at, updated_at')
         .single();
 
       if (error) throw error;
 
-      if (parsed.subscriptionHash) {
-        await dependencies.database
-          .from('encrypted_push_schedules')
-          .delete()
-          .eq('user_id', identity.userId)
-          .eq('subscription_hash', parsed.subscriptionHash)
-          .is('dispatched_at', null);
-      }
-      if (parsed.pushSchedules && parsed.pushSchedules.length > 0) {
-        await dependencies.database.from('encrypted_push_schedules').upsert(
-          parsed.pushSchedules.map(item => ({
-            user_id: identity.userId,
-            subscription_hash: item.subscription_hash,
-            trigger_date: item.trigger_date,
-            payload_mode: item.payload_mode,
-            bark_ciphertext: item.bark_ciphertext ?? null,
-            bark_iv: item.bark_iv ?? null,
-          })),
-          { onConflict: 'user_id,subscription_hash,trigger_date' }
+      if (parsed.pushSchedules !== undefined && parsed.subscriptionHash) {
+        await replaceSubscriptionPushSchedules(
+          dependencies.database,
+          identity.userId,
+          parsed.subscriptionHash,
+          parsed.pushSchedules
         );
       }
-      if (parsed.auditEnvelope) {
-        await dependencies.database.from('encrypted_api_audit_log').insert({
+
+      const { error: auditError } = await dependencies.database
+        .from('encrypted_api_audit_log')
+        .insert({
           id: parsed.auditId ?? crypto.randomUUID(),
           user_id: identity.userId,
           api_key_id: identity.apiKeyId,
+          oauth_client_id: identity.oauthClientId ?? null,
           action: 'subscription.create',
           subscription_id: data.id,
           request_id: requestId,
           envelope: parsed.auditEnvelope,
           created_at: now.toISOString(),
         });
-      }
+
+      if (auditError) throw auditError;
 
       return withCorsHeaders(withRateHeaders(context, jsonResponse(201, {
         data: {
@@ -349,12 +552,46 @@ export const createVaultApiHandler = (
     }
 
     if (event.httpMethod === 'PATCH' && route.id) {
-      const bodyRaw = event.body ? JSON.parse(event.body) : {};
-      const parsed = patchCiphertextBodySchema.parse(bodyRaw);
+      const bodyRaw = parseVaultJsonBody(event.body);
+      const parsed = parseWithSchema(patchCiphertextBodySchema, bodyRaw, 'invalid_request');
+
+      const { data: existing, error: existingError } = await dependencies.database
+        .from('encrypted_subscriptions')
+        .select('id, subscription_hash')
+        .eq('user_id', identity.userId)
+        .eq('id', route.id)
+        .maybeSingle<{ id: string; subscription_hash?: string | null }>();
+
+      if (existingError) throw existingError;
+      if (!existing) {
+        throw new HttpError(404, 'subscription_not_found', 'Subscription not found');
+      }
+
+      if (
+        parsed.subscriptionHash
+        && existing.subscription_hash
+        && existing.subscription_hash !== parsed.subscriptionHash
+      ) {
+        throw new HttpError(
+          400,
+          'subscription_hash_mismatch',
+          'Provided subscriptionHash does not match this subscription'
+        );
+      }
+
+      const boundHash = existing.subscription_hash ?? parsed.subscriptionHash ?? null;
+      if (parsed.pushSchedules !== undefined) {
+        validatePushScheduleInputs(boundHash, parsed.pushSchedules);
+      }
+
+      const updatePayload: Record<string, unknown> = { envelope: parsed.envelope };
+      if (!existing.subscription_hash && parsed.subscriptionHash) {
+        updatePayload.subscription_hash = parsed.subscriptionHash;
+      }
 
       const { data, error } = await dependencies.database
         .from('encrypted_subscriptions')
-        .update({ envelope: parsed.envelope })
+        .update(updatePayload)
         .eq('user_id', identity.userId)
         .eq('id', route.id)
         .select('id, envelope, revision, created_at, updated_at')
@@ -365,39 +602,32 @@ export const createVaultApiHandler = (
         throw new HttpError(404, 'subscription_not_found', 'Subscription not found');
       }
 
-      if (parsed.subscriptionHash) {
-        await dependencies.database
-          .from('encrypted_push_schedules')
-          .delete()
-          .eq('user_id', identity.userId)
-          .eq('subscription_hash', parsed.subscriptionHash)
-          .is('dispatched_at', null);
-      }
-      if (parsed.pushSchedules && parsed.pushSchedules.length > 0) {
-        await dependencies.database.from('encrypted_push_schedules').upsert(
-          parsed.pushSchedules.map(item => ({
-            user_id: identity.userId,
-            subscription_hash: item.subscription_hash,
-            trigger_date: item.trigger_date,
-            payload_mode: item.payload_mode,
-            bark_ciphertext: item.bark_ciphertext ?? null,
-            bark_iv: item.bark_iv ?? null,
-          })),
-          { onConflict: 'user_id,subscription_hash,trigger_date' }
+      // Only replace push schedules when explicitly provided (omitting `pushSchedules` preserves
+      // existing Bark reminders when local clients update non-schedule fields).
+      if (parsed.pushSchedules !== undefined && boundHash) {
+        await replaceSubscriptionPushSchedules(
+          dependencies.database,
+          identity.userId,
+          boundHash,
+          parsed.pushSchedules
         );
       }
-      if (parsed.auditEnvelope) {
-        await dependencies.database.from('encrypted_api_audit_log').insert({
+
+      const { error: auditError } = await dependencies.database
+        .from('encrypted_api_audit_log')
+        .insert({
           id: parsed.auditId ?? crypto.randomUUID(),
           user_id: identity.userId,
           api_key_id: identity.apiKeyId,
+          oauth_client_id: identity.oauthClientId ?? null,
           action: 'subscription.update',
           subscription_id: route.id,
           request_id: requestId,
           envelope: parsed.auditEnvelope,
           created_at: now.toISOString(),
         });
-      }
+
+      if (auditError) throw auditError;
 
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
         data: {
@@ -412,38 +642,78 @@ export const createVaultApiHandler = (
     }
 
     if (event.httpMethod === 'DELETE' && route.id) {
-      const bodyRaw = event.body ? JSON.parse(event.body) : {};
-      const parsed = deleteCiphertextBodySchema.parse(bodyRaw);
-      const subHash = parsed.subscriptionHash ?? event.queryStringParameters?.subscriptionHash;
+      const bodyRaw = parseVaultJsonBody(event.body);
+      const parsed = parseWithSchema(deleteCiphertextBodySchema, bodyRaw, 'invalid_request');
+      const querySubHash = event.queryStringParameters?.subscriptionHash;
+      if (querySubHash !== undefined && !SUBSCRIPTION_HASH_PATTERN.test(querySubHash)) {
+        throw new HttpError(400, 'invalid_query', 'subscriptionHash query parameter must be 64 lowercase hex characters');
+      }
+      const requestedHash = parsed.subscriptionHash ?? querySubHash ?? null;
 
-      const { error } = await dependencies.database
+      const { data: existing, error: existingError } = await dependencies.database
+        .from('encrypted_subscriptions')
+        .select('id, subscription_hash')
+        .eq('user_id', identity.userId)
+        .eq('id', route.id)
+        .maybeSingle<{ id: string; subscription_hash?: string | null }>();
+
+      if (existingError) throw existingError;
+      if (!existing) {
+        throw new HttpError(404, 'subscription_not_found', 'Subscription not found');
+      }
+
+      if (
+        requestedHash
+        && existing.subscription_hash
+        && existing.subscription_hash !== requestedHash
+      ) {
+        throw new HttpError(
+          400,
+          'subscription_hash_mismatch',
+          'Provided subscriptionHash does not match this subscription'
+        );
+      }
+
+      const { data: deleted, error } = await dependencies.database
         .from('encrypted_subscriptions')
         .delete()
         .eq('user_id', identity.userId)
-        .eq('id', route.id);
+        .eq('id', route.id)
+        .select('id')
+        .maybeSingle();
 
       if (error) throw error;
+      if (!deleted) {
+        throw new HttpError(404, 'subscription_not_found', 'Subscription not found');
+      }
 
-      if (subHash && /^[a-f0-9]{64}$/.test(subHash)) {
-        await dependencies.database
+      const boundHash = existing.subscription_hash ?? requestedHash;
+      if (boundHash) {
+        const { error: scheduleDeleteError } = await dependencies.database
           .from('encrypted_push_schedules')
           .delete()
           .eq('user_id', identity.userId)
-          .eq('subscription_hash', subHash)
+          .eq('subscription_hash', boundHash)
           .is('dispatched_at', null);
+
+        if (scheduleDeleteError) throw scheduleDeleteError;
       }
-      if (parsed.auditEnvelope) {
-        await dependencies.database.from('encrypted_api_audit_log').insert({
+
+      const { error: auditError } = await dependencies.database
+        .from('encrypted_api_audit_log')
+        .insert({
           id: parsed.auditId ?? crypto.randomUUID(),
           user_id: identity.userId,
           api_key_id: identity.apiKeyId,
+          oauth_client_id: identity.oauthClientId ?? null,
           action: 'subscription.delete',
           subscription_id: route.id,
           request_id: requestId,
           envelope: parsed.auditEnvelope,
           created_at: now.toISOString(),
         });
-      }
+
+      if (auditError) throw auditError;
 
       return withCorsHeaders(withRateHeaders(context, jsonResponse(200, {
         deleted: true,

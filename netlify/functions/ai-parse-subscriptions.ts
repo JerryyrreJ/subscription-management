@@ -147,7 +147,11 @@ const parseCaptureInput = (
   }
 
   const record = parsed as Record<string, unknown>;
-  const input: CaptureInput = { subscriptions: [] };
+  const localTargetMatching = record.localTargetMatching === true;
+  const input: CaptureInput = {
+    subscriptions: [],
+    ...(localTargetMatching ? { localTargetMatching: true } : {}),
+  };
 
   if (record.text !== undefined && record.text !== null) {
     if (typeof record.text !== 'string') {
@@ -201,7 +205,7 @@ const parseCaptureInput = (
     });
   }
 
-  if (record.subscriptions !== undefined && record.subscriptions !== null) {
+  if (!localTargetMatching && record.subscriptions !== undefined && record.subscriptions !== null) {
     if (!Array.isArray(record.subscriptions)) {
       throw new HttpError(400, 'invalid_capture', 'subscriptions must be an array', {}, { field: 'subscriptions' });
     }

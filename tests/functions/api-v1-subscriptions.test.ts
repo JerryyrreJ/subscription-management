@@ -225,7 +225,7 @@ test('responds to subscription API preflight requests with CORS headers', async 
 
   assert.equal(response.statusCode, 204);
   assert.equal(response.headers?.['Access-Control-Allow-Origin'], '*');
-  assert.equal(response.headers?.['Access-Control-Allow-Headers'], 'Authorization, Content-Type');
+  assert.equal(response.headers?.['Access-Control-Allow-Headers'], 'Authorization, Content-Type, X-SteadyRenew-Vault-Key');
   assert.equal(response.headers?.['Access-Control-Allow-Methods'], 'GET, POST, PATCH, DELETE, OPTIONS');
 });
 

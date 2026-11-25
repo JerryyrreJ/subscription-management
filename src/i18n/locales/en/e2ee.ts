@@ -17,6 +17,11 @@ export const e2ee = {
   scopeApiLabel: 'API & MCP',
   scopeApiValue:
     'Decrypt locally through the MCP CLI, or append a per-request memory key for remote clients',
+  scopeAiLabel: 'AI capture',
+  scopeAiValue:
+    'If you use AI to add or edit subscriptions, what you submit in the AI input box is sent through our backend to OpenRouter models (your existing subscription list is never uploaded). Use manual entry instead if you prefer.',
+  aiCloudNotice:
+    'Note: If you use AI capture to add or edit subscriptions, the text or screenshot you submit is sent through our backend to OpenRouter models for parsing (your existing subscription list is never uploaded). If you prefer not to, use manual entry instead.',
 
   startSetupButton: 'Set up encryption',
   cancelSetup: 'Cancel',
@@ -72,7 +77,10 @@ export const e2ee = {
   addPasskeyButton: 'Add Passkey',
   addingPasskey: 'Waiting for verification…',
   regeneratePhraseButton: 'Replace recovery key',
-  saveNewPhraseButton: 'Save new recovery key',
+  regeneratePhraseRotateNotice:
+    'Replacing your recovery key rotates the underlying master encryption key and re-encrypts all cloud data. Your old recovery key and vk1_ API/MCP keys will stop working immediately, and any Passkeys will need to be re-added.',
+  rotatingPhraseBusy: 'Rotating master key and re-encrypting data…',
+  saveNewPhraseButton: 'Rotate key & save',
   removeSlot: 'Remove',
 
   barkSectionTitle: 'Bark renewal alerts',
@@ -102,6 +110,17 @@ export const e2ee = {
   unlockWithPhraseButton: 'Decrypt data',
   unlockingWithPhrase: 'Decrypting…',
   signOutInstead: 'Sign out',
+
+  // Downgrade protection alert
+  downgradeBlockedTitle: 'Encryption status changed unexpectedly',
+  downgradeAccountMissingBody:
+    'This browser remembers end-to-end encryption as enabled for this account, but the server now reports it as off. Sync is paused so your subscriptions are not uploaded in plaintext. Confirm below only if you intentionally turned off encryption on another device; otherwise sign out and check your account.',
+  downgradeTableUnavailableBody:
+    'This browser remembers end-to-end encryption as enabled for this account, but the encryption service is currently unavailable on the server. Sync is paused to prevent silent fallback to plaintext. Retry shortly or sign out.',
+  downgradeRetryButton: 'Retry check',
+  downgradeAcknowledgeButton: 'I turned off encryption on another device',
+  downgradeConfirmPrompt: 'Confirm you intentionally disabled encryption and want to resume standard sync?',
+  downgradeConfirmYes: 'Resume standard sync',
 
   // Errors
   errorWrongWordCount: 'Enter all 16 recovery words.',

@@ -64,7 +64,7 @@ const ALLOWED_METHODS = 'GET, OPTIONS';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-SteadyRenew-Vault-Key',
   'Access-Control-Allow-Methods': ALLOWED_METHODS,
 };
 
@@ -212,10 +212,10 @@ export const createAnalyticsApiHandler = (
       );
     }
 
-    bridge = await resolveE2eeBridgeSession(dependencies.database, identity);
-
     const context = await consumeApiRateLimit(dependencies.database, identity, now);
     apiContext = context;
+
+    bridge = await resolveE2eeBridgeSession(dependencies.database, identity);
 
     let rawRows: AnalyticsRow[];
     if (bridge) {

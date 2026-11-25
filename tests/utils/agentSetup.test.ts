@@ -75,3 +75,39 @@ test('buildAgentAssets substitutes the deployment origin into /agent schemas and
  assert.ok(singleFileMcp.startsWith('#!/usr/bin/env node'));
  assert.ok(singleFileMcp.includes('list_subscriptions'));
 });
+
+test('E2EE Bridge and Local modes keep vk1_ out of local stdio SUBSCRIPTION_MANAGER_API_KEY', () => {
+ const apiKey = 'subm_abc123.secretpart';
+ const vaultKeyToken = 'vk1_0123456789abcdefghijklmnopqrstuvwxyzABCDEFG';
+
+ // Bridge mode: remote HTTP carries dot-joined bridge key, while local stdio configs
+ // MUST separate SUBSCRIPTION_MANAGER_API_KEY and SUBSCRIPTION_MANAGER_VAULT_KEY.
+ const bridgeSnippets = buildAgentClientConfigSnippets({
+  origin: 'https://steadyrenew.com',
+  apiKey,
+  vaultKeyToken,
+  e2eeApiMode: 'bridge',
+ });
+ assert.ok(bridgeSnippets.claudeCodeRemoteCmd.includes(`Bearer ${apiKey}.${vaultKeyToken}`));
+ const desktopParsed = JSON.parse(bridgeSnippets.claudeDesktopJson) as {
+  mcpServers: { 'subscription-manager': { env: Record<string, string> } };
+ };
+ assert.equal(desktopParsed.mcpServers['subscription-manager'].env.SUBSCRIPTION_MANAGER_API_KEY, apiKey);
+ assert.equal(desktopParsed.mcpServers['subscription-manager'].env.SUBSCRIPTION_MANAGER_VAULT_KEY, vaultKeyToken);
+ assert.ok(bridgeSnippets.codexToml.includes(`SUBSCRIPTION_MANAGER_API_KEY = "${apiKey}"`));
+ assert.ok(bridgeSnippets.codexToml.includes(`SUBSCRIPTION_MANAGER_VAULT_KEY = "${vaultKeyToken}"`));
+ assert.equal(bridgeSnippets.codexToml.includes(`${apiKey}.${vaultKeyToken}`), false);
+
+ // Even if a caller passes a dot-concatenated bridge key as `apiKey`, local snippets strip `.vk1_`.
+ const defensiveSnippets = buildAgentClientConfigSnippets({
+  origin: 'https://steadyrenew.com',
+  apiKey: `${apiKey}.${vaultKeyToken}`,
+  e2eeApiMode: 'local',
+ });
+ assert.equal(defensiveSnippets.claudeCodeRemoteCmd.includes(vaultKeyToken), false);
+ const defensiveDesktop = JSON.parse(defensiveSnippets.claudeDesktopJson) as {
+  mcpServers: { 'subscription-manager': { env: Record<string, string> } };
+ };
+ assert.equal(defensiveDesktop.mcpServers['subscription-manager'].env.SUBSCRIPTION_MANAGER_API_KEY, apiKey);
+ assert.equal(defensiveDesktop.mcpServers['subscription-manager'].env.SUBSCRIPTION_MANAGER_VAULT_KEY, vaultKeyToken);
+});

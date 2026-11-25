@@ -1,12 +1,19 @@
-import { lookup } from 'node:dns/promises'
+import https from 'node:https'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   BARK_NOTIFICATION_ICON_URL,
-  isPublicBarkIpAddress,
   sendBarkCiphertextNotification,
   sendBarkNotification,
   validateBarkConfig,
 } from '../../src/utils/barkPush'
+import {
+  defaultDnsLookup,
+  resolveValidatedBarkAddresses,
+  sendPinnedBarkCiphertextNotification,
+  sendPinnedBarkNotification,
+  type DnsAddressLookup,
+  type HttpsRequestFn,
+} from './_shared/barkServerPush'
 import { formatDateOnly, getTodayDateOnly, normalizeTimeZone } from '../../src/utils/dates'
 import { cleanupNotificationHistoryEntries, mergeNotificationHistoryEntries, wasNotifiedToday } from '../../src/utils/notificationHistory'
 import { buildSubscriptionReminderContent } from '../../src/utils/notificationContent'
@@ -133,14 +140,12 @@ async function releaseNotificationDelivery(
   }
 }
 
-export type DnsAddressLookup = (hostname: string) => Promise<Array<{ address: string }>>
-
-const defaultDnsLookup: DnsAddressLookup = async (hostname: string) =>
-  lookup(hostname, { all: true, verbatim: true })
+export type { DnsAddressLookup } from './_shared/barkServerPush'
 
 export const createServerBarkSender = (
   resolveAddresses: DnsAddressLookup = defaultDnsLookup,
-  sendPush: typeof sendBarkNotification = sendBarkNotification
+  sendPush?: typeof sendBarkNotification,
+  requestImpl: HttpsRequestFn = https.request
 ): typeof sendBarkNotification => async (
   serverUrl,
   deviceKey,
@@ -155,38 +160,31 @@ export const createServerBarkSender = (
     return false
   }
 
-  let hostname: string
-  try {
-    hostname = new URL(serverUrl.trim()).hostname
-  } catch {
+  const resolved = await resolveValidatedBarkAddresses(serverUrl, resolveAddresses)
+  if (!resolved) {
     return false
   }
 
-  // Literal IPs are already validated by validateBarkConfig; resolve domain names to prevent DNS SSRF.
-  if (!isPublicBarkIpAddress(hostname)) {
-    let records: Array<{ address: string }>
-    try {
-      records = await resolveAddresses(hostname)
-    } catch (error) {
-      console.error(`[Scheduled Notifications] Failed to resolve Bark server host ${hostname}:`, error)
-      return false
-    }
-
-    if (
-      records.length === 0 ||
-      records.some(record => !isPublicBarkIpAddress(record.address))
-    ) {
-      console.error(`[Scheduled Notifications] Blocked Bark server host resolving to non-public IP: ${hostname}`)
-      return false
-    }
+  if (sendPush) {
+    return sendPush(serverUrl, deviceKey, title, body, options, timeoutMs)
   }
 
-  return sendPush(serverUrl, deviceKey, title, body, options, timeoutMs)
+  return sendPinnedBarkNotification(
+    serverUrl,
+    deviceKey,
+    title,
+    body,
+    resolved.addresses,
+    options,
+    timeoutMs,
+    requestImpl
+  )
 }
 
 export const createServerBarkCiphertextSender = (
   resolveAddresses: DnsAddressLookup = defaultDnsLookup,
-  sendCiphertext: typeof sendBarkCiphertextNotification = sendBarkCiphertextNotification
+  sendCiphertext?: typeof sendBarkCiphertextNotification,
+  requestImpl: HttpsRequestFn = https.request
 ): typeof sendBarkCiphertextNotification => async (
   serverUrl,
   deviceKey,
@@ -201,32 +199,25 @@ export const createServerBarkCiphertextSender = (
     return false
   }
 
-  let hostname: string
-  try {
-    hostname = new URL(serverUrl.trim()).hostname
-  } catch {
+  const resolved = await resolveValidatedBarkAddresses(serverUrl, resolveAddresses)
+  if (!resolved) {
     return false
   }
 
-  if (!isPublicBarkIpAddress(hostname)) {
-    let records: Array<{ address: string }>
-    try {
-      records = await resolveAddresses(hostname)
-    } catch (error) {
-      console.error(`[Scheduled Notifications] Failed to resolve Bark server host ${hostname}:`, error)
-      return false
-    }
-
-    if (
-      records.length === 0 ||
-      records.some(record => !isPublicBarkIpAddress(record.address))
-    ) {
-      console.error(`[Scheduled Notifications] Blocked Bark server host resolving to non-public IP: ${hostname}`)
-      return false
-    }
+  if (sendCiphertext) {
+    return sendCiphertext(serverUrl, deviceKey, ciphertext, iv, iconUrl, timeoutMs)
   }
 
-  return sendCiphertext(serverUrl, deviceKey, ciphertext, iv, iconUrl, timeoutMs)
+  return sendPinnedBarkCiphertextNotification(
+    serverUrl,
+    deviceKey,
+    ciphertext,
+    iv,
+    resolved.addresses,
+    iconUrl,
+    timeoutMs,
+    requestImpl
+  )
 }
 
 interface EncryptedPushScheduleRow {
@@ -381,6 +372,26 @@ export const createScheduledNotificationsHandler = (
       }
 
       if (!subscriptions || subscriptions.length === 0) {
+        // Check E2EE account bark_mode before dispatching encrypted push schedules
+        const { data: e2eeAccount, error: e2eeAccountError } = await supabase
+          .from('e2ee_accounts')
+          .select('bark_mode')
+          .eq('user_id', user_id)
+          .maybeSingle<{ bark_mode: string }>()
+
+        if (e2eeAccountError) {
+          const code = (e2eeAccountError as { code?: string }).code ?? ''
+          const msg = e2eeAccountError.message ?? ''
+          if (code !== '42P01' && code !== 'PGRST205' && !msg.includes('Unexpected query:')) {
+            console.error(`[Scheduled Notifications] Error fetching E2EE account mode ${buildUserLogContext(user_id)}:`, e2eeAccountError)
+            totalErrors++
+            continue
+          }
+        } else if (e2eeAccount?.bark_mode === 'off') {
+          console.log(`[Scheduled Notifications] Skipping encrypted schedules because E2EE bark_mode is off ${buildUserLogContext(user_id)}`)
+          continue
+        }
+
         // Check pre-computed encrypted push schedules for E2EE accounts
         const userToday = formatDateOnly(getTodayDateOnly(userTimeZone))
         const { data: encryptedSchedules, error: encryptedError } = await supabase
@@ -407,15 +418,22 @@ export const createScheduledNotificationsHandler = (
 
         for (const schedule of encryptedSchedules as EncryptedPushScheduleRow[]) {
           const claimedAt = new Date().toISOString()
-          const { error: claimError } = await supabase
+          const { data: claimedSchedule, error: claimError } = await supabase
             .from('encrypted_push_schedules')
             .update({ dispatched_at: claimedAt })
             .eq('id', schedule.id)
             .is('dispatched_at', null)
+            .select('id')
+            .maybeSingle()
 
           if (claimError) {
             console.error(`[Scheduled Notifications] Failed to reserve encrypted schedule ${schedule.id}:`, claimError)
             totalErrors++
+            continue
+          }
+
+          if (!claimedSchedule) {
+            console.log(`[Scheduled Notifications] Encrypted schedule already claimed by another worker: ${schedule.id}`)
             continue
           }
 
@@ -456,10 +474,14 @@ export const createScheduledNotificationsHandler = (
             totalNotificationsSent++
           } else {
             totalErrors++
-            await supabase
+            const { error: releaseError } = await supabase
               .from('encrypted_push_schedules')
               .update({ dispatched_at: null })
               .eq('id', schedule.id)
+              .eq('dispatched_at', claimedAt)
+            if (releaseError) {
+              console.error(`[Scheduled Notifications] Failed to release encrypted schedule claim ${schedule.id}:`, releaseError)
+            }
           }
         }
         continue

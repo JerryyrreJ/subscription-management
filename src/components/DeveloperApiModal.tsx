@@ -423,8 +423,10 @@ export function DeveloperApiModal({
         </section>
        )}
        <AgentSetupCard
-        key={createdKeyId && effectiveDisplayApiKey ? `${createdKeyId}-${e2eeApiMode}` : 'no-key'}
-        apiKey={effectiveDisplayApiKey}
+        key={createdKeyId && createdApiKey ? `${createdKeyId}-${e2eeApiMode}` : 'no-key'}
+        apiKey={createdApiKey}
+        vaultKeyToken={vault.status === 'unlocked' ? unlockedVaultKeyToken : null}
+        e2eeApiMode={vault.status === 'unlocked' ? e2eeApiMode : undefined}
         scopes={createdKeyScopes}
         onVerified={() => void loadKeys()}
        />

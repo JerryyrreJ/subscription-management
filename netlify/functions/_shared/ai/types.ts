@@ -14,6 +14,7 @@ export interface CaptureInput {
   text?: string;
   image?: CaptureImage;
   subscriptions: AiSubscriptionContextItem[];
+  localTargetMatching?: boolean;
 }
 
 export interface ParseUsage {

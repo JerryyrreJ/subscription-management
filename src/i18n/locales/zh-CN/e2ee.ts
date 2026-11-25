@@ -17,6 +17,11 @@ export const e2ee = {
   scopeApiLabel: 'API 与 MCP',
   scopeApiValue:
     '支持在本机运行 MCP 完成加解密，或为远端客户端附加单次请求内存密钥',
+  scopeAiLabel: 'AI 智能录入',
+  scopeAiValue:
+    '若使用 AI 添加或修改订阅，你在输入框发送的文字或截图会经由后端转发给 OpenRouter 上的模型处理（不会上传已有订阅列表）；如介意，请直接使用手动录入',
+  aiCloudNotice:
+    '提示：若使用 AI 录入或修改订阅，你在输入框发送的内容会经由我们的后端转发给 OpenRouter 上的模型处理（不会上传已有订阅列表）；如介意，请使用手动录入。',
 
   startSetupButton: '开启端到端加密',
   cancelSetup: '取消',
@@ -72,7 +77,10 @@ export const e2ee = {
   addPasskeyButton: '添加 Passkey',
   addingPasskey: '正在等待验证…',
   regeneratePhraseButton: '更换恢复密钥',
-  saveNewPhraseButton: '保存新恢复密钥',
+  regeneratePhraseRotateNotice:
+    '更换恢复密钥会同时轮换底层加密主密钥并重新加密所有云端数据。完成后，旧恢复密钥与旧 API/MCP 密钥（vk1_）将立即失效，已绑定的 Passkey 需重新添加。',
+  rotatingPhraseBusy: '正在轮换主密钥并重新加密数据…',
+  saveNewPhraseButton: '轮换主密钥并保存',
   removeSlot: '移除',
 
   barkSectionTitle: 'Bark 续费提醒',
@@ -102,6 +110,17 @@ export const e2ee = {
   unlockWithPhraseButton: '解密数据',
   unlockingWithPhrase: '正在解密…',
   signOutInstead: '退出登录',
+
+  // 降级阻断告警
+  downgradeBlockedTitle: '检测到加密状态异常',
+  downgradeAccountMissingBody:
+    '此浏览器此前记录该账号已开启端到端加密，但服务端当前显示未开启。为防止数据在不知情的情况下以明文上传，已暂停同步。如果你刚刚在其他设备主动关闭了加密，可确认后恢复标准同步；否则请退出登录并检查账号安全。',
+  downgradeTableUnavailableBody:
+    '此浏览器此前记录该账号已开启端到端加密，但服务端加密服务当前不可用。为防止静默降级为明文同步，已暂停同步。请稍后重试或退出登录。',
+  downgradeRetryButton: '重新检查状态',
+  downgradeAcknowledgeButton: '我已在其他设备关闭加密，恢复标准同步',
+  downgradeConfirmPrompt: '确认已主动关闭端到端加密并恢复标准明文同步？',
+  downgradeConfirmYes: '确认恢复标准同步',
 
   // 错误提示
   errorWrongWordCount: '请输入完整的 16 个英文单词。',

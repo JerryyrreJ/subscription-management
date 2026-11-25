@@ -33,6 +33,8 @@ import { useCategorySync } from './hooks/useCategorySync';
 import { useVaultState } from './hooks/useVaultState';
 import { E2EEUnlockModal } from './components/E2EEUnlockModal';
 import {
+ acknowledgeVaultDowngrade,
+ clearDeletedAccountVaultData,
  isVaultUnlockedForUser,
  rebuildAllEncryptedPushSchedules,
  resetVaultOnSignOut,
@@ -510,29 +512,29 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   };
  }, [baseCurrency, refreshExchangeRates]);
 
- // 根据当前用户切换本地数据作用域
+ // 根据当前用户切换本地数据作用域（访客数据迁移延后至确认 E2EE 状态之后，避免新设备登录先写明文）
  useEffect(() => {
  if (loading) {
   return;
- }
-
- if (appUser && isOwnedGuestDataForUser(appUser.id)) {
-  migrateOwnedGuestDataToUserScope(appUser.id);
- }
-
- if (appUser) {
-  migrateUnownedGuestDataToUserScope(appUser.id);
  }
 
  const nextScope = appUser ? getUserDataScope(appUser.id) : GUEST_DATA_SCOPE;
  setActiveDataScope(nextScope);
  setSubscriptions(loadSubscriptions(nextScope));
  setNotificationSettings(loadNotificationSettings(nextScope));
-
- if (appUser) {
-  refreshLocalDataOwnership(appUser.id, nextScope);
- }
  }, [appUser, loading]);
+
+ const migrateGuestDataAfterVaultReady = useCallback((userId: string) => {
+  const syncScope = getUserDataScope(userId);
+  if (isOwnedGuestDataForUser(userId)) {
+   migrateOwnedGuestDataToUserScope(userId);
+  }
+  migrateUnownedGuestDataToUserScope(userId);
+  claimLocalDataOwnership(userId, syncScope);
+  refreshLocalDataOwnership(userId, syncScope);
+  setSubscriptions(loadSubscriptions(syncScope));
+  setNotificationSettings(loadNotificationSettings(syncScope));
+ }, []);
 
  // 主题切换效果
  useEffect(() => {
@@ -552,14 +554,15 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  // 首次登录同步策略：云端为准
  try {
  console.log('User logged in, checking cloud data...');
- claimLocalDataOwnership(appUser.id, getUserDataScope(appUser.id));
 
  const vaultSnap = await syncVaultAccountState(appUser.id);
  if (!isCurrentTask()) return;
- if (vaultSnap.status === 'locked') {
-  // Wait for user to unlock via Passkey or 16-word recovery phrase
+ if (vaultSnap.status === 'locked' || vaultSnap.status === 'downgrade_blocked') {
+  // Wait for user to unlock or explicitly acknowledge encryption status change before syncing
   return;
  }
+
+ migrateGuestDataAfterVaultReady(appUser.id);
 
  // 1. 同步订阅数据
  const cloudSubscriptions = await syncSubscriptions();
@@ -756,14 +759,14 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  };
 
  const handleSignOut = async () => {
- resetVaultOnSignOut();
+ await resetVaultOnSignOut(appUser?.id);
  await signOut();
  };
 
  const handleVaultUnlocked = async () => {
  if (!appUser) return;
  const syncScope = getUserDataScope(appUser.id);
- setSubscriptions(loadSubscriptions(syncScope));
+ migrateGuestDataAfterVaultReady(appUser.id);
  try {
   await syncSubscriptions();
   await syncCategories();
@@ -777,9 +780,16 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
  }
  };
 
+ const handleVaultDowngradeAcknowledged = async () => {
+ if (!appUser) return;
+ await acknowledgeVaultDowngrade(appUser.id);
+ await handleVaultUnlocked();
+ };
+
  const handleDeleteAccount = async () => {
  const deletedUserId = await deleteAccount();
 
+ await clearDeletedAccountVaultData(deletedUserId);
  clearDeletedUserLocalData(deletedUserId);
  setActiveDataScope(GUEST_DATA_SCOPE);
  setSubscriptions(loadSubscriptions(GUEST_DATA_SCOPE));
@@ -1324,6 +1334,7 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
   onClose={() => setIsAiCaptureOpen(false)}
   accessToken={appSession?.access_token ?? ''}
   subscriptions={subscriptions}
+  isEncryptedVault={vaultState.status !== 'disabled'}
   onCreate={createSubscription}
   onUpdate={updateSubscription}
   onDelete={deleteSubscription}
@@ -1626,12 +1637,13 @@ const [exchangeRateError, setExchangeRateError] = useState<string | undefined>()
         </div>
       )}
 
- {appUser && vaultState.status === 'locked' && (
+ {appUser && (vaultState.status === 'locked' || vaultState.status === 'downgrade_blocked') && (
   <E2EEUnlockModal
    userId={appUser.id}
    userEmail={appUser.email}
    vault={vaultState}
    onUnlocked={handleVaultUnlocked}
+   onDowngradeAcknowledged={handleVaultDowngradeAcknowledged}
    onSignOut={handleSignOut}
   />
  )}

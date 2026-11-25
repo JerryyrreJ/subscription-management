@@ -28,6 +28,7 @@ export type AiUpdateMissingField = 'customDate';
 
 export interface AiUpdateOperation {
   subscriptionId: string;
+  targetName?: string;
   patch: Partial<Pick<
     Subscription,
     'name' | 'category' | 'amount' | 'currency' | 'period' | 'nextPaymentDate' | 'customDate' | 'notificationEnabled'
@@ -49,6 +50,7 @@ export interface AiBatchUpdateCommand {
 export interface AiDeleteCommand {
   type: 'delete';
   subscriptionId: string;
+  targetName?: string;
   message?: string;
 }
 
@@ -117,6 +119,9 @@ const normalizeSubscriptionId = (
   return subscriptions.some(subscription => subscription.id === id) ? id : null;
 };
 
+const extractTargetName = (payload: Record<string, unknown>): string =>
+  asString(payload.subscriptionName ?? payload.targetName ?? payload.name ?? payload.target).slice(0, 120);
+
 const findSubscriptionTarget = (
   payload: Record<string, unknown>,
   subscriptions: readonly AiSubscriptionContextItem[]
@@ -129,9 +134,7 @@ const findSubscriptionTarget = (
     return subscriptions.find(subscription => subscription.id === subscriptionId) ?? null;
   }
 
-  const targetName = asString(
-    payload.subscriptionName ?? payload.targetName ?? payload.name ?? payload.target
-  );
+  const targetName = extractTargetName(payload);
   if (!targetName) {
     return null;
   }
@@ -251,18 +254,43 @@ const requiredMissingFields = (
   return mergedPeriod === 'custom' && !mergedCustomDate ? ['customDate'] : [];
 };
 
+export interface NormalizeAiCommandOptions {
+  allowUnresolvedTargets?: boolean;
+}
+
 const normalizeUpdateOperation = (
   payload: Record<string, unknown>,
   today: string,
-  subscriptions: readonly AiSubscriptionContextItem[]
+  subscriptions: readonly AiSubscriptionContextItem[],
+  options?: NormalizeAiCommandOptions
 ): AiUpdateOperation | null => {
   const target = findSubscriptionTarget(payload, subscriptions);
   const patch = normalizePatch(payload.patch ?? payload.updates ?? payload.fields, today, target);
-  if (!target || !patch) {
+  if (!patch) {
     return null;
   }
 
   const message = asString(payload.message);
+
+  if (!target) {
+    if (!options?.allowUnresolvedTargets) {
+      return null;
+    }
+    const targetName = extractTargetName(payload);
+    if (!targetName) {
+      return null;
+    }
+    const missingFields: AiUpdateMissingField[] =
+      patch.period === 'custom' && !patch.customDate ? ['customDate'] : [];
+    return {
+      subscriptionId: '',
+      targetName,
+      patch,
+      ...(missingFields.length > 0 ? { missingFields } : {}),
+      ...(message ? { message } : {}),
+    };
+  }
+
   const missingFields = requiredMissingFields(patch, target);
 
   return {
@@ -296,10 +324,80 @@ export const buildAiSubscriptionContext = (
     notificationEnabled: subscription.notificationEnabled ?? true,
   }));
 
+/**
+ * Resolves `targetName`-only update/delete commands locally against the browser's
+ * decrypted subscriptions when E2EE prevents sending existing subscriptions to the server.
+ */
+export const resolveAiCommandTargets = (
+  command: AiCommand,
+  subscriptions: readonly Subscription[]
+): AiCommand => {
+  if (command.type === 'create' || command.type === 'none') {
+    return command;
+  }
+
+  const localContext = buildAiSubscriptionContext(subscriptions);
+
+  const resolveUpdate = (op: AiUpdateOperation): AiUpdateOperation | null => {
+    const target = findSubscriptionTarget(
+      { subscriptionId: op.subscriptionId, targetName: op.targetName },
+      localContext
+    );
+    if (!target) {
+      return null;
+    }
+    const missingFields = requiredMissingFields(op.patch, target);
+    return {
+      subscriptionId: target.id,
+      patch: op.patch,
+      ...(missingFields.length > 0 ? { missingFields } : {}),
+      ...(op.message ? { message: op.message } : {}),
+    };
+  };
+
+  if (command.type === 'update') {
+    const resolved = resolveUpdate(command);
+    if (!resolved) {
+      return { type: 'none', reason: 'Could not uniquely match that subscription locally.' };
+    }
+    return {
+      type: 'update',
+      ...resolved,
+      ...(command.message ? { message: command.message } : {}),
+    };
+  }
+
+  if (command.type === 'batchUpdate') {
+    const resolvedUpdates = command.updates
+      .map(resolveUpdate)
+      .filter((op): op is AiUpdateOperation => Boolean(op));
+    if (resolvedUpdates.length === 0) {
+      return { type: 'none', reason: 'Could not uniquely match those subscriptions locally.' };
+    }
+    return resolvedUpdates.length === 1
+      ? { type: 'update', ...resolvedUpdates[0], ...(command.message ? { message: command.message } : {}) }
+      : { type: 'batchUpdate', updates: resolvedUpdates, ...(command.message ? { message: command.message } : {}) };
+  }
+
+  const target = findSubscriptionTarget(
+    { subscriptionId: command.subscriptionId, targetName: command.targetName },
+    localContext
+  );
+  if (!target) {
+    return { type: 'none', reason: 'Could not uniquely match that subscription locally.' };
+  }
+  return {
+    type: 'delete',
+    subscriptionId: target.id,
+    ...(command.message ? { message: command.message } : {}),
+  };
+};
+
 export const normalizeAiCommand = (
   raw: unknown,
   today: string,
-  subscriptions: readonly AiSubscriptionContextItem[]
+  subscriptions: readonly AiSubscriptionContextItem[],
+  options?: NormalizeAiCommandOptions
 ): NormalizeAiCommandResult => {
   const payload = extractPayload(raw);
   const action = normalizeAction(payload.type ?? payload.action);
@@ -319,7 +417,7 @@ export const normalizeAiCommand = (
       const updates = rawOperations
         .map(item => asRecord(item))
         .filter((item): item is Record<string, unknown> => Boolean(item))
-        .map(item => normalizeUpdateOperation(item, today, subscriptions))
+        .map(item => normalizeUpdateOperation(item, today, subscriptions, options))
         .filter((item): item is AiUpdateOperation => Boolean(item));
 
       if (updates.length === 0) {
@@ -331,7 +429,7 @@ export const normalizeAiCommand = (
         : { command: { type: 'batchUpdate', updates, ...(message ? { message } : {}) }, dropped: rawOperations.length - updates.length };
     }
 
-    const update = normalizeUpdateOperation(payload, today, subscriptions);
+    const update = normalizeUpdateOperation(payload, today, subscriptions, options);
     if (!update) {
       return { command: { type: 'none', reason: asString(payload.reason) || 'Could not identify a subscription update.' }, dropped: 0 };
     }
@@ -348,9 +446,16 @@ export const normalizeAiCommand = (
 
   if (action === 'delete') {
     const target = findSubscriptionTarget(payload, subscriptions);
-    return target
-      ? { command: { type: 'delete', subscriptionId: target.id, ...(message ? { message } : {}) }, dropped: 0 }
-      : { command: { type: 'none', reason: asString(payload.reason) || 'Could not identify a subscription to delete.' }, dropped: 0 };
+    if (target) {
+      return { command: { type: 'delete', subscriptionId: target.id, ...(message ? { message } : {}) }, dropped: 0 };
+    }
+    if (options?.allowUnresolvedTargets) {
+      const targetName = extractTargetName(payload);
+      if (targetName) {
+        return { command: { type: 'delete', subscriptionId: '', targetName, ...(message ? { message } : {}) }, dropped: 0 };
+      }
+    }
+    return { command: { type: 'none', reason: asString(payload.reason) || 'Could not identify a subscription to delete.' }, dropped: 0 };
   }
 
   return { command: { type: 'none', reason: asString(payload.reason) || 'No supported action was found.' }, dropped: 0 };

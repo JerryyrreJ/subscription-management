@@ -22,7 +22,12 @@ import {
   createSubscriptionRecord,
   getSubscriptionValidationMessage,
 } from '../utils/subscriptionDomain';
-import { buildAiSubscriptionContext, type AiCommand, type AiUpdateOperation } from '../utils/aiCommand';
+import {
+  buildAiSubscriptionContext,
+  resolveAiCommandTargets,
+  type AiCommand,
+  type AiUpdateOperation,
+} from '../utils/aiCommand';
 import { parseCapture, AiParseError, type DraftSubscription, type ParseQuota } from '../services/aiParseService';
 import { getDateOnlyDay } from '../utils/dates';
 import { coerceToExistingCategory, getAllCategories, getCategoryDisplayName } from '../utils/categories';
@@ -41,6 +46,7 @@ interface AiCaptureModalProps {
   onClose: () => void;
   accessToken: string;
   subscriptions: Subscription[];
+  isEncryptedVault?: boolean;
   onCreate: (subscription: Subscription) => Promise<Subscription>;
   onUpdate: (subscription: Subscription) => Promise<Subscription>;
   onDelete: (subscriptionId: string) => Promise<void>;
@@ -122,6 +128,7 @@ export function AiCaptureModal({
   onClose,
   accessToken,
   subscriptions,
+  isEncryptedVault = false,
   onCreate,
   onUpdate,
   onDelete,
@@ -320,13 +327,17 @@ export function AiCaptureModal({
       const result = await parseCapture(accessToken, {
         text: text.trim() || undefined,
         image: image ?? undefined,
-        subscriptions: buildAiSubscriptionContext(subscriptions),
+        ...(isEncryptedVault
+          ? { localTargetMatching: true }
+          : { subscriptions: buildAiSubscriptionContext(subscriptions) }),
       });
       setQuota(result.quota);
       const allowedCategories = getAllCategories();
       setCategories(allowedCategories);
 
-      let nextCommand = result.command;
+      let nextCommand = isEncryptedVault
+        ? resolveAiCommandTargets(result.command, subscriptions)
+        : result.command;
       if (nextCommand.type === 'update' && nextCommand.patch.category) {
         nextCommand = {
           ...nextCommand,

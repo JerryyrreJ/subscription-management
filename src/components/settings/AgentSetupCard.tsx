@@ -6,18 +6,27 @@ import {
  buildAgentClientConfigSnippets,
  buildAgentSetupPrompt,
  type AgentConnectionMode,
+ type AgentE2eeApiMode,
 } from '../../utils/agentSetup';
 import { getDocumentationUrl } from '../../lib/site';
 
 interface AgentSetupCardProps {
  apiKey: string | null;
+ vaultKeyToken?: string | null;
+ e2eeApiMode?: AgentE2eeApiMode;
  scopes?: readonly string[];
  onVerified?: () => void;
 }
 
 type SnippetId = 'oauthUrl' | 'oauthCmd' | 'remote' | 'desktop' | 'codex';
 
-export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardProps) {
+export function AgentSetupCard({
+ apiKey,
+ vaultKeyToken,
+ e2eeApiMode,
+ scopes,
+ onVerified,
+}: AgentSetupCardProps) {
  const { t, i18n } = useTranslation('developerApi');
  const [mode, setMode] = useState<AgentConnectionMode>('mcp');
  const [includeKey, setIncludeKey] = useState(false);
@@ -29,18 +38,30 @@ export function AgentSetupCard({ apiKey, scopes, onVerified }: AgentSetupCardPro
  const [pastedKey, setPastedKey] = useState('');
  const [showPrompt, setShowPrompt] = useState(false);
  const [showSnippets, setShowSnippets] = useState(false);
- const keyToTest = apiKey?.trim() || pastedKey.trim() || null;
+ const keyToTest =
+  (apiKey?.trim()
+   ? (e2eeApiMode === 'bridge' && vaultKeyToken?.trim()
+    ? `${apiKey.trim()}.${vaultKeyToken.trim()}`
+    : apiKey.trim())
+   : '')
+  || pastedKey.trim()
+  || null;
  const includedApiKey = includeKey ? apiKey ?? undefined : undefined;
+ const includedVaultKeyToken = includeKey ? vaultKeyToken ?? undefined : undefined;
  const prompt = buildAgentSetupPrompt({
   origin: window.location.origin,
   locale: i18n.language,
   mode,
   apiKey: includedApiKey,
+  vaultKeyToken: includedVaultKeyToken,
+  e2eeApiMode,
   scopes,
  });
  const snippets = buildAgentClientConfigSnippets({
   origin: window.location.origin,
   apiKey: includedApiKey,
+  vaultKeyToken: includedVaultKeyToken,
+  e2eeApiMode,
  });
  const guideUrl = getDocumentationUrl('user-guide/agent-setup', i18n.language);
 

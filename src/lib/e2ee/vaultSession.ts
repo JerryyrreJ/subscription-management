@@ -5,6 +5,7 @@ import { DEFAULT_CATEGORIES } from '../../utils/categories';
 import { getUserDataScope, type DataScope } from '../../utils/dataScope';
 import { normalizeSubscriptionRecord } from '../../utils/subscriptionDomain';
 import { loadNotificationSettings } from '../../utils/notificationChecker';
+import { isRememberMeEnabled } from '../../utils/rememberMe';
 import {
   extractUserIdFromScope,
   getOrCreateShadowBucket,
@@ -25,7 +26,6 @@ import {
 import {
   type BarkE2eeMode,
   computeSubscriptionPushHash,
-  createDekCheck,
   decryptCategoryPayload,
   decryptSubscriptionPayload,
   deriveMnemonicKek,
@@ -36,8 +36,6 @@ import {
   type EncryptedCategoryContent,
   type EncryptedSubscriptionContent,
   type Envelope,
-  generateDekBytes,
-  generateRandomSaltBase64,
   importDek,
   isValidBarkEncryptionKey,
   isValidEnvelope,
@@ -47,6 +45,15 @@ import {
   wrapDek,
 } from './crypto';
 import {
+  executeEnableVaultMigration,
+  type EnableVaultOptions,
+} from './vaultEnable';
+import {
+  executeDisableVaultMigration,
+  executeRotateVaultDek,
+} from './vaultLifecycle';
+import {
+  clearEncryptedOfflineSnapshot,
   clearLocalAccountEncryptedFlag,
   clearTrustedDeviceVaultMaterial,
   isLocalAccountMarkedEncrypted,
@@ -55,6 +62,7 @@ import {
   persistTrustedDeviceVaultMaterial,
   restoreTrustedDeviceVaultMaterial,
   saveEncryptedOfflineSnapshot,
+  scrubPlaintextUserLocalStorage,
 } from './deviceKeyStore';
 import {
   evaluatePasskeyForVaultSlots,
@@ -89,11 +97,13 @@ export interface E2eeKeySlotRow {
   last_used_at: string | null;
 }
 
-export type VaultStatus = 'disabled' | 'locked' | 'unlocked';
+export type VaultStatus = 'disabled' | 'locked' | 'unlocked' | 'downgrade_blocked';
+export type VaultDowngradeReason = 'account_missing' | 'table_unavailable' | null;
 
 export interface VaultStateSnapshot {
   userId: string | null;
   status: VaultStatus;
+  downgradeReason: VaultDowngradeReason;
   account: E2eeAccountRow | null;
   keySlots: E2eeKeySlotRow[];
   hasPasskeySlot: boolean;
@@ -108,12 +118,14 @@ interface ActiveUnlockedSession {
   dekBytes: Uint8Array;
   dek: CryptoKey;
   barkEncryptionKey: string | null;
+  rememberDevice: boolean;
 }
 
 let activeUserId: string | null = null;
 let currentAccount: E2eeAccountRow | null = null;
 let currentKeySlots: E2eeKeySlotRow[] = [];
 let unlockedSession: ActiveUnlockedSession | null = null;
+let downgradeBlockedReason: VaultDowngradeReason = null;
 
 export const E2EE_STATE_CHANGED_EVENT = 'steadyrenew:e2ee-state-changed';
 
@@ -124,17 +136,22 @@ function emitVaultStateChanged(): void {
 }
 
 function scheduleEncryptedLocalFlush(userId: string): void {
-  if (!unlockedSession || unlockedSession.userId !== userId) {
+  if (!unlockedSession || unlockedSession.userId !== userId || !unlockedSession.rememberDevice) {
     return;
   }
   const sessionRef = unlockedSession;
   const store = getOrCreateShadowBucket(userId, DEFAULT_CATEGORIES);
-  void saveEncryptedOfflineSnapshot(sessionRef.dek, userId, {
-    subscriptions: store.subscriptions,
-    pendingOperations: store.pendingOperations,
-    categories: store.categories,
-    pendingCategories: store.pendingCategories,
-  });
+  void saveEncryptedOfflineSnapshot(
+    sessionRef.dek,
+    userId,
+    {
+      subscriptions: store.subscriptions,
+      pendingOperations: store.pendingOperations,
+      categories: store.categories,
+      pendingCategories: store.pendingCategories,
+    },
+    sessionRef.keyEpoch
+  );
 }
 
 registerShadowFlushListener(scheduleEncryptedLocalFlush);
@@ -162,10 +179,25 @@ export function isVaultUnlockedForUser(userId: string): boolean {
 }
 
 export function getVaultSnapshot(): VaultStateSnapshot {
+  if (activeUserId && downgradeBlockedReason) {
+    return {
+      userId: activeUserId,
+      status: 'downgrade_blocked',
+      downgradeReason: downgradeBlockedReason,
+      account: null,
+      keySlots: [],
+      hasPasskeySlot: false,
+      barkMode: 'generic',
+      hasBarkEncryptionKey: false,
+      barkEncryptionKey: null,
+    };
+  }
+
   if (!activeUserId || !currentAccount) {
     return {
       userId: activeUserId,
       status: 'disabled',
+      downgradeReason: null,
       account: null,
       keySlots: [],
       hasPasskeySlot: false,
@@ -181,6 +213,7 @@ export function getVaultSnapshot(): VaultStateSnapshot {
   return {
     userId: activeUserId,
     status: isUnlocked ? 'unlocked' : 'locked',
+    downgradeReason: null,
     account: currentAccount,
     keySlots: [...currentKeySlots],
     hasPasskeySlot: currentKeySlots.some(slot => slot.slot_type === 'passkey_prf'),
@@ -205,17 +238,51 @@ function clearInMemorySession(): void {
   }
 }
 
-export function resetVaultOnSignOut(): void {
+export async function resetVaultOnSignOut(userId?: string | null): Promise<void> {
+  const targetUserId = userId ?? activeUserId ?? unlockedSession?.userId ?? null;
   clearInMemorySession();
   activeUserId = null;
   currentAccount = null;
   currentKeySlots = [];
+  downgradeBlockedReason = null;
   resetAllShadowStores();
+  if (targetUserId) {
+    clearEncryptedOfflineSnapshot(targetUserId);
+  }
   emitVaultStateChanged();
+  if (targetUserId) {
+    await clearTrustedDeviceVaultMaterial(targetUserId);
+  }
 }
 
-async function hydrateShadowFromLocalCache(dek: CryptoKey, userId: string): Promise<void> {
-  const cached = await loadEncryptedOfflineSnapshot(dek, userId);
+/**
+ * Explicit user-confirmed escape hatch when a locally pinned E2EE account was intentionally
+ * disabled on another device. Clears local E2EE pins so standard cloud sync can resume.
+ */
+export async function acknowledgeVaultDowngrade(userId: string): Promise<VaultStateSnapshot> {
+  clearInMemorySession();
+  currentAccount = null;
+  currentKeySlots = [];
+  downgradeBlockedReason = null;
+  setShadowAccountActive(userId, false);
+  clearLocalAccountEncryptedFlag(userId);
+  await clearTrustedDeviceVaultMaterial(userId);
+  emitVaultStateChanged();
+  return getVaultSnapshot();
+}
+
+export async function clearDeletedAccountVaultData(userId: string): Promise<void> {
+  await resetVaultOnSignOut(userId);
+  clearLocalAccountEncryptedFlag(userId);
+  scrubPlaintextUserLocalStorage(userId);
+}
+
+async function hydrateShadowFromLocalCache(
+  dek: CryptoKey,
+  userId: string,
+  keyEpoch: number
+): Promise<void> {
+  const cached = await loadEncryptedOfflineSnapshot(dek, userId, keyEpoch);
   if (!cached) return;
   const store = getOrCreateShadowBucket(userId, DEFAULT_CATEGORIES);
   store.subscriptions = Array.isArray(cached.subscriptions) ? cached.subscriptions : [];
@@ -232,7 +299,7 @@ async function hydrateShadowFromLocalCache(dek: CryptoKey, userId: string): Prom
  */
 export async function syncVaultAccountState(userId: string | null): Promise<VaultStateSnapshot> {
   if (!userId || !supabase) {
-    resetVaultOnSignOut();
+    await resetVaultOnSignOut();
     return getVaultSnapshot();
   }
 
@@ -241,7 +308,10 @@ export async function syncVaultAccountState(userId: string | null): Promise<Vaul
     activeUserId = userId;
     currentAccount = null;
     currentKeySlots = [];
+    downgradeBlockedReason = null;
   }
+
+  const wasLocallyPinned = isLocalAccountMarkedEncrypted(userId);
 
   const { data: accountData, error: accountError } = await supabase
     .from('e2ee_accounts')
@@ -249,14 +319,23 @@ export async function syncVaultAccountState(userId: string | null): Promise<Vaul
     .eq('user_id', userId)
     .maybeSingle();
 
-  // Gracefully tolerate environments where the E2EE v2 migration has not been applied yet
+  // Fail closed if this browser previously pinned this account as E2EE-enabled;
+  // only tolerate missing E2EE tables when the account was never locally pinned.
   if (accountError) {
     const code = (accountError as { code?: string }).code ?? '';
     const msg = accountError.message ?? '';
     if (code === '42P01' || code === 'PGRST205' || msg.includes('e2ee_accounts')) {
+      clearInMemorySession();
       currentAccount = null;
       currentKeySlots = [];
-      clearLocalAccountEncryptedFlag(userId);
+      if (wasLocallyPinned) {
+        downgradeBlockedReason = 'table_unavailable';
+        setShadowAccountActive(userId, true);
+        setShadowAccountUnlocked(userId, false);
+      } else {
+        downgradeBlockedReason = null;
+        clearLocalAccountEncryptedFlag(userId);
+      }
       emitVaultStateChanged();
       return getVaultSnapshot();
     }
@@ -267,6 +346,16 @@ export async function syncVaultAccountState(userId: string | null): Promise<Vaul
     clearInMemorySession();
     currentAccount = null;
     currentKeySlots = [];
+    if (wasLocallyPinned) {
+      // Never silently clear the local E2EE pin or fall back to plaintext sync without
+      // explicit user confirmation.
+      downgradeBlockedReason = 'account_missing';
+      setShadowAccountActive(userId, true);
+      setShadowAccountUnlocked(userId, false);
+      emitVaultStateChanged();
+      return getVaultSnapshot();
+    }
+    downgradeBlockedReason = null;
     setShadowAccountActive(userId, false);
     clearLocalAccountEncryptedFlag(userId);
     await clearTrustedDeviceVaultMaterial(userId);
@@ -274,6 +363,7 @@ export async function syncVaultAccountState(userId: string | null): Promise<Vaul
     return getVaultSnapshot();
   }
 
+  downgradeBlockedReason = null;
   const account = accountData as E2eeAccountRow;
   currentAccount = account;
   setShadowAccountActive(userId, true);
@@ -302,9 +392,10 @@ export async function syncVaultAccountState(userId: string | null): Promise<Vaul
           dekBytes: restored.dekBytes,
           dek,
           barkEncryptionKey: restored.barkEncryptionKey,
+          rememberDevice: true,
         };
         setShadowAccountUnlocked(userId, true);
-        await hydrateShadowFromLocalCache(dek, userId);
+        await hydrateShadowFromLocalCache(dek, userId, account.key_epoch);
       } else {
         restored.dekBytes.fill(0);
         await clearTrustedDeviceVaultMaterial(userId);
@@ -339,18 +430,21 @@ async function activateUnlockedSession(
     dekBytes,
     dek,
     barkEncryptionKey: preservedBarkKey,
+    rememberDevice,
   };
   setShadowAccountUnlocked(userId, true);
 
-  await hydrateShadowFromLocalCache(dek, userId);
-
   if (rememberDevice) {
+    await hydrateShadowFromLocalCache(dek, userId, account.key_epoch);
     await persistTrustedDeviceVaultMaterial(
       userId,
       dekBytes,
       account.key_epoch,
       preservedBarkKey
     );
+  } else {
+    clearEncryptedOfflineSnapshot(userId);
+    await clearTrustedDeviceVaultMaterial(userId);
   }
 
   if (usedSlotId && supabase) {
@@ -358,7 +452,12 @@ async function activateUnlockedSession(
       .from('e2ee_key_slots')
       .update({ last_used_at: new Date().toISOString() })
       .eq('id', usedSlotId)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .then(({ error }) => {
+        if (error) {
+          console.warn('Failed to update E2EE key slot last_used_at:', error.message);
+        }
+      });
   }
 
   emitVaultStateChanged();
@@ -387,7 +486,13 @@ export async function unlockVaultWithMnemonic(
     if (!salt) continue;
     try {
       const kek = await deriveMnemonicKek(mnemonicPhrase, salt);
-      const dekBytes = await unwrapDek(kek, slot.wrapped_dek, userId, 'recovery_mnemonic');
+      const dekBytes = await unwrapDek(
+        kek,
+        slot.wrapped_dek,
+        userId,
+        'recovery_mnemonic',
+        currentAccount.key_epoch
+      );
       await activateUnlockedSession(userId, currentAccount, dekBytes, rememberDevice, undefined, slot.id);
       return;
     } catch (error) {
@@ -432,7 +537,13 @@ export async function unlockVaultWithPasskey(
       throw new Error('Matching Passkey slot no longer exists.');
     }
     const kek = await derivePrfKek(evaluated.prfBytes, evaluated.kdfParams.hkdfSalt);
-    const dekBytes = await unwrapDek(kek, targetSlot.wrapped_dek, userId, 'passkey_prf');
+    const dekBytes = await unwrapDek(
+      kek,
+      targetSlot.wrapped_dek,
+      userId,
+      'passkey_prf',
+      currentAccount.key_epoch
+    );
     await activateUnlockedSession(userId, currentAccount, dekBytes, rememberDevice, undefined, targetSlot.id);
   } finally {
     evaluated.prfBytes.fill(0);
@@ -607,7 +718,8 @@ export const EncryptedSubscriptionStore = {
         sessionRef.dek,
         userId,
         row.id,
-        row.envelope
+        row.envelope,
+        sessionRef.keyEpoch
       );
       decrypted.push(
         encryptedContentToSubscription(row.id, content, row.created_at, row.updated_at)
@@ -624,11 +736,18 @@ export const EncryptedSubscriptionStore = {
     const sessionRef = requireUnlockedSession(userId);
     const id = 'id' in subscription && subscription.id ? subscription.id : globalThis.crypto.randomUUID();
     const content = subscriptionToEncryptedContent(subscription);
-    const envelope = await encryptSubscriptionPayload(sessionRef.dek, userId, id, content);
+    const envelope = await encryptSubscriptionPayload(
+      sessionRef.dek,
+      userId,
+      id,
+      content,
+      sessionRef.keyEpoch
+    );
+    const subscriptionHash = await computeSubscriptionPushHash(sessionRef.dekBytes, id);
 
     const { data, error } = await supabase
       .from('encrypted_subscriptions')
-      .insert([{ id, user_id: userId, envelope }])
+      .insert([{ id, user_id: userId, envelope, subscription_hash: subscriptionHash }])
       .select('id, created_at, updated_at')
       .single();
 
@@ -651,7 +770,8 @@ export const EncryptedSubscriptionStore = {
       sessionRef.dek,
       userId,
       subscription.id,
-      content
+      content,
+      sessionRef.keyEpoch
     );
 
     const { data, error } = await supabase
@@ -706,7 +826,8 @@ export const EncryptedCategoryStore = {
         sessionRef.dek,
         userId,
         row.category_id,
-        row.envelope
+        row.envelope,
+        sessionRef.keyEpoch
       );
       categories.push({
         id: row.category_id,
@@ -729,7 +850,13 @@ export const EncryptedCategoryStore = {
       isBuiltIn: category.isBuiltIn,
       isHidden: category.isHidden,
     };
-    const envelope = await encryptCategoryPayload(sessionRef.dek, userId, category.id, content);
+    const envelope = await encryptCategoryPayload(
+      sessionRef.dek,
+      userId,
+      category.id,
+      content,
+      sessionRef.keyEpoch
+    );
     const { error } = await supabase
       .from('encrypted_categories')
       .upsert([{ category_id: category.id, user_id: userId, envelope }], {
@@ -749,7 +876,13 @@ export const EncryptedCategoryStore = {
       isBuiltIn: category.isBuiltIn,
       isHidden: category.isHidden,
     };
-    const envelope = await encryptCategoryPayload(sessionRef.dek, userId, category.id, content);
+    const envelope = await encryptCategoryPayload(
+      sessionRef.dek,
+      userId,
+      category.id,
+      content,
+      sessionRef.keyEpoch
+    );
     const { error } = await supabase
       .from('encrypted_categories')
       .update({ envelope })
@@ -779,207 +912,44 @@ export const EncryptedCategoryStore = {
 
 // Vault Lifecycle: Enable, Add/Remove Key Slots, Bark E2EE, Disable -----------
 
-export interface EnableVaultOptions {
-  userId: string;
-  userEmail: string;
-  mnemonicPhrase: string;
-  passkeyMaterial?: {
-    label: string;
-    credentialId: string;
-    prfBytes: Uint8Array;
-    kdfParams: PasskeyPrfKdfParams;
-  } | null;
-  barkMode?: BarkE2eeMode;
-  barkEncryptionKey?: string | null;
-  localSubscriptions: Subscription[];
-  localCategories: Category[];
-}
+export type { EnableVaultOptions };
 
 export async function enableVaultForAccount(options: EnableVaultOptions): Promise<void> {
   if (!supabase) throw new Error('Cloud sync not available');
 
-  const { data: prepData, error: prepError } = await supabase.rpc('prepare_e2ee_migration');
-  if (prepError) throw prepError;
+  const reminderSettings = loadNotificationSettings(getUserDataScope(options.userId));
+  const completed = await executeEnableVaultMigration(supabase, options, reminderSettings);
 
-  const prepared = prepData as {
-    token: string;
-    snapshot: {
-      subscriptions: Array<Record<string, unknown>>;
-      categories: Array<Record<string, unknown>>;
-    };
-  };
-
-  const dekBytes = generateDekBytes();
-  try {
-    const dek = await importDek(dekBytes);
-    const dekCheck = await createDekCheck(dek, options.userId, 1);
-
-    // Slot 1: Mandatory 16-word recovery phrase slot
-    const mnemonicSalt = generateRandomSaltBase64(32);
-    const mnemonicKek = await deriveMnemonicKek(options.mnemonicPhrase, mnemonicSalt);
-    const mnemonicWrappedDek = await wrapDek(
-      mnemonicKek,
-      dekBytes,
-      options.userId,
-      'recovery_mnemonic'
-    );
-
-    const keySlotsPayload: Array<Record<string, unknown>> = [
-      {
-        slot_type: 'recovery_mnemonic',
-        label: '16-Word Recovery Phrase',
-        credential_id: null,
-        kdf_params: {
-          alg: 'HKDF-SHA256',
-          salt: mnemonicSalt,
-          info: 'steadyrenew-e2ee-mnemonic-kek-v1',
-        },
-        wrapped_dek: mnemonicWrappedDek,
-      },
-    ];
-
-    // Slot 2 (Optional): WebAuthn Passkey PRF slot registered during wizard
-    if (options.passkeyMaterial) {
-      const prfKek = await derivePrfKek(
-        options.passkeyMaterial.prfBytes,
-        options.passkeyMaterial.kdfParams.hkdfSalt
-      );
-      const prfWrappedDek = await wrapDek(prfKek, dekBytes, options.userId, 'passkey_prf');
-      keySlotsPayload.push({
-        slot_type: 'passkey_prf',
-        label: options.passkeyMaterial.label,
-        credential_id: options.passkeyMaterial.credentialId,
-        kdf_params: options.passkeyMaterial.kdfParams,
-        wrapped_dek: prfWrappedDek,
-      });
-    }
-
-    // Merge server snapshot with local state so nothing is dropped
-    const serverSubById = new Map<string, Subscription>();
-    for (const raw of prepared.snapshot.subscriptions ?? []) {
-      const id = String(raw.id);
-      serverSubById.set(
-        id,
-        normalizeSubscriptionRecord({
-          id,
-          name: String(raw.name ?? ''),
-          category: String(raw.category ?? 'Other'),
-          amount: Number(raw.amount ?? 0),
-          currency: String(raw.currency ?? 'USD') as Subscription['currency'],
-          period: String(raw.period ?? 'monthly') as Subscription['period'],
-          lastPaymentDate: String(raw.last_payment_date ?? ''),
-          nextPaymentDate: String(raw.next_payment_date ?? ''),
-          billingAnchorDay:
-            raw.billing_anchor_day !== null && raw.billing_anchor_day !== undefined
-              ? Number(raw.billing_anchor_day)
-              : undefined,
-          customDate: raw.custom_date ? String(raw.custom_date) : undefined,
-          notificationEnabled: raw.notification_enabled !== false,
-          isTrial: Boolean(raw.is_trial),
-          trialEndsOn: raw.trial_ends_on ? String(raw.trial_ends_on) : undefined,
-          status: (raw.status as Subscription['status']) ?? 'active',
-        })
-      );
-    }
-    for (const localSub of options.localSubscriptions) {
-      if (!serverSubById.has(localSub.id)) {
-        serverSubById.set(localSub.id, localSub);
-      }
-    }
-    const mergedSubscriptions = [...serverSubById.values()];
-
-    const serverCategories: Category[] = (prepared.snapshot.categories ?? []).map((raw, idx) => ({
-      id: String(raw.category_id ?? `cat-${idx}`),
-      name: String(raw.name ?? 'Unnamed'),
-      order: typeof raw.order === 'number' ? raw.order : idx,
-      isBuiltIn: Boolean(raw.is_built_in),
-      isHidden: Boolean(raw.is_hidden),
-    }));
-    const categoriesToEncrypt =
-      serverCategories.length > 0 ? serverCategories : options.localCategories;
-
-    const encryptedSubscriptionsPayload: Array<{ id: string; envelope: Envelope }> = [];
-    for (const sub of mergedSubscriptions) {
-      const envelope = await encryptSubscriptionPayload(
-        dek,
-        options.userId,
-        sub.id,
-        subscriptionToEncryptedContent(sub)
-      );
-      encryptedSubscriptionsPayload.push({ id: sub.id, envelope });
-    }
-
-    const encryptedCategoriesPayload: Array<{ category_id: string; envelope: Envelope }> = [];
-    for (const cat of categoriesToEncrypt) {
-      const envelope = await encryptCategoryPayload(dek, options.userId, cat.id, {
-        id: cat.id,
-        name: cat.name,
-        order: cat.order,
-        isBuiltIn: cat.isBuiltIn,
-        isHidden: cat.isHidden,
-      });
-      encryptedCategoriesPayload.push({ category_id: cat.id, envelope });
-    }
-
-    const barkMode: BarkE2eeMode = options.barkMode ?? 'generic';
-    const barkKey =
-      barkMode === 'bark_e2ee' && options.barkEncryptionKey && isValidBarkEncryptionKey(options.barkEncryptionKey)
-        ? options.barkEncryptionKey.trim()
-        : null;
-
-    const reminderSettings = loadNotificationSettings(getUserDataScope(options.userId));
-    const pushScheduleRows = await buildPushSchedulesForAllSubscriptions(
-      mergedSubscriptions,
-      dekBytes,
-      {
-        barkEnabled: Boolean(reminderSettings.barkPush.enabled && reminderSettings.barkPush.deviceKey),
-        daysBefore: reminderSettings.barkPush.daysBefore,
-        timeZone: reminderSettings.timeZone,
-        locale: reminderSettings.locale,
-        barkMode,
-        barkEncryptionKey: barkKey,
-      }
-    );
-
-    const { error: enableError } = await supabase.rpc('enable_e2ee_vault', {
-      p_snapshot_token: prepared.token,
-      p_dek_check: dekCheck,
-      p_bark_mode: barkMode,
-      p_key_slots: keySlotsPayload,
-      p_subscriptions: encryptedSubscriptionsPayload,
-      p_categories: encryptedCategoriesPayload,
-      p_push_schedules: pushScheduleRows,
-    });
-    if (enableError) throw enableError;
-
-    markLocalAccountEncrypted(options.userId);
-    const dekCopy = dekBytes.slice();
-    await persistTrustedDeviceVaultMaterial(options.userId, dekCopy, 1, barkKey);
-
-    unlockedSession = {
-      userId: options.userId,
-      keyEpoch: 1,
-      dekBytes: dekCopy,
-      dek,
-      barkEncryptionKey: barkKey,
-    };
-    setShadowAccountActive(options.userId, true);
-    setShadowAccountUnlocked(options.userId, true);
-
-    const store = getOrCreateShadowBucket(options.userId, DEFAULT_CATEGORIES);
-    store.subscriptions = structuredClone(mergedSubscriptions);
-    store.pendingOperations = [];
-    store.categories = structuredClone(categoriesToEncrypt);
-    store.pendingCategories = null;
-    scheduleEncryptedLocalFlush(options.userId);
-
-    await syncVaultAccountState(options.userId);
-  } finally {
-    dekBytes.fill(0);
-    if (options.passkeyMaterial) {
-      options.passkeyMaterial.prfBytes.fill(0);
-    }
+  const rememberDevice = options.rememberDevice ?? isRememberMeEnabled();
+  markLocalAccountEncrypted(options.userId);
+  if (rememberDevice) {
+    await persistTrustedDeviceVaultMaterial(options.userId, completed.dekBytes, 1, completed.barkKey);
+  } else {
+    clearEncryptedOfflineSnapshot(options.userId);
+    await clearTrustedDeviceVaultMaterial(options.userId);
   }
+
+  unlockedSession = {
+    userId: options.userId,
+    keyEpoch: 1,
+    dekBytes: completed.dekBytes,
+    dek: completed.dek,
+    barkEncryptionKey: completed.barkKey,
+    rememberDevice,
+  };
+  setShadowAccountActive(options.userId, true);
+  setShadowAccountUnlocked(options.userId, true);
+
+  const store = getOrCreateShadowBucket(options.userId, DEFAULT_CATEGORIES);
+  store.subscriptions = structuredClone(completed.mergedSubscriptions);
+  store.pendingOperations = [];
+  store.categories = structuredClone(completed.categoriesToEncrypt);
+  store.pendingCategories = null;
+  if (rememberDevice) {
+    scheduleEncryptedLocalFlush(options.userId);
+  }
+
+  await syncVaultAccountState(options.userId);
 }
 
 export async function addPasskeySlotToVault(
@@ -992,7 +962,13 @@ export async function addPasskeySlotToVault(
   const registered = await registerPasskeyForVault(userId, userEmail, label);
   try {
     const kek = await derivePrfKek(registered.prfBytes, registered.kdfParams.hkdfSalt);
-    const wrappedDek = await wrapDek(kek, sessionRef.dekBytes, userId, 'passkey_prf');
+    const wrappedDek = await wrapDek(
+      kek,
+      sessionRef.dekBytes,
+      userId,
+      'passkey_prf',
+      sessionRef.keyEpoch
+    );
     const { error } = await supabase.rpc('add_e2ee_key_slot', {
       p_slot_type: 'passkey_prf',
       p_label: label.trim() || 'Passkey',
@@ -1013,20 +989,57 @@ export async function regenerateRecoveryPhraseSlot(
 ): Promise<void> {
   if (!supabase) throw new Error('Cloud sync not available');
   const sessionRef = requireUnlockedSession(userId);
-  const salt = generateRandomSaltBase64(32);
-  const kek = await deriveMnemonicKek(newMnemonicPhrase, salt);
-  const wrappedDek = await wrapDek(kek, sessionRef.dekBytes, userId, 'recovery_mnemonic');
+  const reminderSettings = loadNotificationSettings(getUserDataScope(userId));
+  const barkMode: BarkE2eeMode = currentAccount?.bark_mode ?? 'generic';
+  const rememberDevice = sessionRef.rememberDevice;
+  const preservedBarkKey = sessionRef.barkEncryptionKey;
 
-  const { error } = await supabase.rpc('replace_e2ee_recovery_slot', {
-    p_label: '16-Word Recovery Phrase',
-    p_kdf_params: {
-      alg: 'HKDF-SHA256',
-      salt,
-      info: 'steadyrenew-e2ee-mnemonic-kek-v1',
+  const rotated = await executeRotateVaultDek(
+    supabase,
+    {
+      userId,
+      currentDek: sessionRef.dek,
+      currentDekBytes: sessionRef.dekBytes,
+      currentKeyEpoch: sessionRef.keyEpoch,
+      newMnemonicPhrase,
+      barkMode,
+      barkEncryptionKey: preservedBarkKey,
     },
-    p_wrapped_dek: wrappedDek,
-  });
-  if (error) throw error;
+    reminderSettings
+  );
+
+  // Swap active in-memory session to the rotated DEK + keyEpoch and zero old DEK bytes.
+  clearInMemorySession();
+  unlockedSession = {
+    userId,
+    keyEpoch: rotated.newKeyEpoch,
+    dekBytes: rotated.newDekBytes,
+    dek: rotated.newDek,
+    barkEncryptionKey: preservedBarkKey,
+    rememberDevice,
+  };
+  setShadowAccountActive(userId, true);
+  setShadowAccountUnlocked(userId, true);
+
+  const store = getOrCreateShadowBucket(userId, DEFAULT_CATEGORIES);
+  store.subscriptions = structuredClone(rotated.subscriptions);
+  store.pendingOperations = [];
+  store.categories = structuredClone(rotated.categories);
+  store.pendingCategories = null;
+
+  if (rememberDevice) {
+    await persistTrustedDeviceVaultMaterial(
+      userId,
+      rotated.newDekBytes,
+      rotated.newKeyEpoch,
+      preservedBarkKey
+    );
+    scheduleEncryptedLocalFlush(userId);
+  } else {
+    clearEncryptedOfflineSnapshot(userId);
+    await clearTrustedDeviceVaultMaterial(userId);
+  }
+
   await syncVaultAccountState(userId);
 }
 
@@ -1068,12 +1081,14 @@ export async function updateVaultBarkSettings(
     currentAccount = { ...currentAccount, bark_mode: barkMode };
   }
 
-  await persistTrustedDeviceVaultMaterial(
-    userId,
-    sessionRef.dekBytes,
-    sessionRef.keyEpoch,
-    normalizedKey
-  );
+  if (sessionRef.rememberDevice) {
+    await persistTrustedDeviceVaultMaterial(
+      userId,
+      sessionRef.dekBytes,
+      sessionRef.keyEpoch,
+      normalizedKey
+    );
+  }
 
   await rebuildAllEncryptedPushSchedules(userId, subscriptions);
   emitVaultStateChanged();
@@ -1084,43 +1099,16 @@ export async function disableVaultForAccount(userId: string): Promise<{
   categories: Category[];
 }> {
   if (!supabase) throw new Error('Cloud sync not available');
-  requireUnlockedSession(userId);
+  const sessionRef = requireUnlockedSession(userId);
 
-  const subscriptions = await EncryptedSubscriptionStore.list(userId);
-  const categories = await EncryptedCategoryStore.list(userId);
-
-  const plaintextSubscriptionsPayload = subscriptions.map(sub => ({
-    id: sub.id,
-    name: sub.name,
-    category: sub.category,
-    amount: sub.amount,
-    currency: sub.currency,
-    period: sub.period,
-    last_payment_date: sub.lastPaymentDate,
-    next_payment_date: sub.nextPaymentDate,
-    billing_anchor_day:
-      sub.period === 'monthly' ? (sub.billingAnchorDay ?? null) : null,
-    custom_date: sub.period === 'custom' ? (sub.customDate ?? null) : null,
-    notification_enabled: sub.notificationEnabled,
-    is_trial: Boolean(sub.isTrial),
-    trial_ends_on: sub.isTrial ? (sub.trialEndsOn ?? sub.nextPaymentDate) : null,
-    status: sub.status ?? 'active',
-  }));
-
-  const plaintextCategoriesPayload = categories.map((cat, idx) => ({
-    category_id: cat.id,
-    name: cat.name,
-    order: typeof cat.order === 'number' ? cat.order : idx,
-    is_built_in: Boolean(cat.isBuiltIn),
-    is_hidden: Boolean(cat.isHidden),
-  }));
-
-  const { error } = await supabase.rpc('disable_e2ee_vault', {
-    p_subscriptions: plaintextSubscriptionsPayload,
-    p_categories: plaintextCategoriesPayload,
+  const { subscriptions, categories } = await executeDisableVaultMigration(supabase, {
+    userId,
+    currentDek: sessionRef.dek,
+    currentDekBytes: sessionRef.dekBytes,
+    currentKeyEpoch: sessionRef.keyEpoch,
   });
-  if (error) throw error;
 
+  downgradeBlockedReason = null;
   clearLocalAccountEncryptedFlag(userId);
   await clearTrustedDeviceVaultMaterial(userId);
   clearInMemorySession();

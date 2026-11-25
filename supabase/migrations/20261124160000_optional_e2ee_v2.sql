@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS public.e2ee_accounts (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   key_epoch INTEGER NOT NULL DEFAULT 1 CHECK (key_epoch > 0),
   dek_check JSONB NOT NULL CHECK (public.is_valid_e2ee_envelope(dek_check)),
+  dek_verifier_hash TEXT NOT NULL CHECK (dek_verifier_hash ~ '^[a-f0-9]{64}$'),
   bark_mode TEXT NOT NULL DEFAULT 'generic' CHECK (bark_mode IN ('off', 'generic', 'bark_e2ee')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -59,7 +60,10 @@ CREATE TABLE IF NOT EXISTS public.e2ee_key_slots (
   slot_type TEXT NOT NULL CHECK (slot_type IN ('recovery_mnemonic', 'passkey_prf')),
   label TEXT NOT NULL CHECK (char_length(btrim(label)) BETWEEN 1 AND 80),
   credential_id TEXT CHECK (credential_id IS NULL OR char_length(btrim(credential_id)) BETWEEN 1 AND 512),
-  kdf_params JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(kdf_params) = 'object'),
+  kdf_params JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (
+    jsonb_typeof(kdf_params) = 'object'
+    AND octet_length(kdf_params::text) <= 2048
+  ),
   wrapped_dek JSONB NOT NULL CHECK (public.is_valid_e2ee_envelope(wrapped_dek)),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_used_at TIMESTAMPTZ,
@@ -71,6 +75,9 @@ CREATE TABLE IF NOT EXISTS public.e2ee_key_slots (
 );
 
 CREATE INDEX IF NOT EXISTS e2ee_key_slots_user_idx ON public.e2ee_key_slots(user_id, created_at ASC);
+CREATE UNIQUE INDEX IF NOT EXISTS e2ee_key_slots_one_recovery_per_user_idx
+  ON public.e2ee_key_slots(user_id)
+  WHERE slot_type = 'recovery_mnemonic';
 
 COMMENT ON TABLE public.e2ee_key_slots IS
   'Wrapped copies of the account DEK (16-word recovery phrase slot + WebAuthn Passkey PRF slots).';
@@ -81,6 +88,7 @@ CREATE TABLE IF NOT EXISTS public.encrypted_subscriptions (
   id UUID NOT NULL DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.e2ee_accounts(user_id) ON DELETE CASCADE,
   envelope JSONB NOT NULL CHECK (public.is_valid_e2ee_envelope(envelope)),
+  subscription_hash TEXT CHECK (subscription_hash IS NULL OR subscription_hash ~ '^[a-f0-9]{64}$'),
   revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -131,6 +139,7 @@ CREATE TABLE IF NOT EXISTS public.encrypted_api_audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.e2ee_accounts(user_id) ON DELETE CASCADE,
   api_key_id UUID REFERENCES public.api_keys(id) ON DELETE SET NULL,
+  oauth_client_id TEXT CHECK (oauth_client_id IS NULL OR char_length(btrim(oauth_client_id)) BETWEEN 1 AND 255),
   action TEXT NOT NULL CHECK (action IN ('subscription.create', 'subscription.update', 'subscription.delete')),
   subscription_id UUID,
   request_id TEXT,
@@ -363,6 +372,7 @@ GRANT EXECUTE ON FUNCTION public.prepare_e2ee_migration() TO authenticated;
 CREATE OR REPLACE FUNCTION public.enable_e2ee_vault(
   p_snapshot_token TEXT,
   p_dek_check JSONB,
+  p_dek_verifier_hash TEXT,
   p_bark_mode TEXT,
   p_key_slots JSONB,
   p_subscriptions JSONB DEFAULT '[]'::jsonb,
@@ -397,8 +407,12 @@ BEGIN
     RAISE EXCEPTION 'Account data changed on another device. Sync and retry.' USING ERRCODE = '40001';
   END IF;
 
-  IF p_key_slots IS NULL OR jsonb_typeof(p_key_slots) <> 'array' OR jsonb_array_length(p_key_slots) < 1 THEN
-    RAISE EXCEPTION 'At least one key slot is required';
+  IF p_dek_verifier_hash IS NULL OR p_dek_verifier_hash !~ '^[a-f0-9]{64}$' THEN
+    RAISE EXCEPTION 'A valid DEK verifier commitment hash is required';
+  END IF;
+
+  IF p_key_slots IS NULL OR jsonb_typeof(p_key_slots) <> 'array' OR jsonb_array_length(p_key_slots) NOT BETWEEN 1 AND 10 THEN
+    RAISE EXCEPTION 'Between 1 and 10 key slots are required';
   END IF;
 
   SELECT COUNT(*)
@@ -406,8 +420,8 @@ BEGIN
   FROM jsonb_array_elements(p_key_slots) AS slot
   WHERE slot ->> 'slot_type' = 'recovery_mnemonic';
 
-  IF COALESCE(v_recovery_count, 0) < 1 THEN
-    RAISE EXCEPTION 'A 16-word recovery phrase slot is required before enabling encryption';
+  IF COALESCE(v_recovery_count, 0) <> 1 THEN
+    RAISE EXCEPTION 'Exactly one 16-word recovery phrase slot is required before enabling encryption';
   END IF;
 
   -- Remove plaintext records BEFORE inserting e2ee_accounts so guard triggers allow the cleanup
@@ -418,8 +432,8 @@ BEGIN
     SET bark_history = '{}'::jsonb
     WHERE user_id = v_user;
 
-  INSERT INTO public.e2ee_accounts (user_id, key_epoch, dek_check, bark_mode)
-  VALUES (v_user, 1, p_dek_check, COALESCE(p_bark_mode, 'generic'));
+  INSERT INTO public.e2ee_accounts (user_id, key_epoch, dek_check, dek_verifier_hash, bark_mode)
+  VALUES (v_user, 1, p_dek_check, p_dek_verifier_hash, COALESCE(p_bark_mode, 'generic'));
 
   INSERT INTO public.e2ee_key_slots (user_id, slot_type, label, credential_id, kdf_params, wrapped_dek)
   SELECT
@@ -432,11 +446,12 @@ BEGIN
   FROM jsonb_array_elements(p_key_slots) AS slot;
 
   IF p_subscriptions IS NOT NULL AND jsonb_typeof(p_subscriptions) = 'array' AND jsonb_array_length(p_subscriptions) > 0 THEN
-    INSERT INTO public.encrypted_subscriptions (id, user_id, envelope)
+    INSERT INTO public.encrypted_subscriptions (id, user_id, envelope, subscription_hash)
     SELECT
       (item ->> 'id')::UUID,
       v_user,
-      item -> 'envelope'
+      item -> 'envelope',
+      NULLIF(item ->> 'subscription_hash', '')
     FROM jsonb_array_elements(p_subscriptions) AS item;
   END IF;
 
@@ -471,9 +486,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.enable_e2ee_vault(TEXT, JSONB, TEXT, JSONB, JSONB, JSONB, JSONB)
+REVOKE ALL ON FUNCTION public.enable_e2ee_vault(TEXT, JSONB, TEXT, TEXT, JSONB, JSONB, JSONB, JSONB)
   FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.enable_e2ee_vault(TEXT, JSONB, TEXT, JSONB, JSONB, JSONB, JSONB)
+GRANT EXECUTE ON FUNCTION public.enable_e2ee_vault(TEXT, JSONB, TEXT, TEXT, JSONB, JSONB, JSONB, JSONB)
   TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.add_e2ee_key_slot(
@@ -491,13 +506,29 @@ AS $$
 DECLARE
   v_user UUID := auth.uid();
   v_slot_id UUID;
+  v_slot_count INTEGER;
 BEGIN
   IF v_user IS NULL OR NOT public.is_direct_user_session() THEN
     RAISE EXCEPTION 'Direct browser authentication required' USING ERRCODE = '42501';
   END IF;
 
+  PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user::text, 821921));
+
   IF NOT EXISTS (SELECT 1 FROM public.e2ee_accounts WHERE user_id = v_user) THEN
     RAISE EXCEPTION 'End-to-end encryption is not enabled';
+  END IF;
+
+  IF p_slot_type <> 'passkey_prf' THEN
+    RAISE EXCEPTION 'Only passkey_prf slots can be added; use replace_e2ee_recovery_slot to rotate recovery phrases';
+  END IF;
+
+  SELECT COUNT(*)
+  INTO v_slot_count
+  FROM public.e2ee_key_slots
+  WHERE user_id = v_user;
+
+  IF COALESCE(v_slot_count, 0) >= 10 THEN
+    RAISE EXCEPTION 'Maximum number of encryption key slots (10) reached';
   END IF;
 
   INSERT INTO public.e2ee_key_slots (
@@ -526,19 +557,148 @@ REVOKE ALL ON FUNCTION public.add_e2ee_key_slot(TEXT, TEXT, TEXT, JSONB, JSONB)
 GRANT EXECUTE ON FUNCTION public.add_e2ee_key_slot(TEXT, TEXT, TEXT, JSONB, JSONB)
   TO authenticated;
 
-CREATE OR REPLACE FUNCTION public.replace_e2ee_recovery_slot(
-  p_label TEXT,
-  p_kdf_params JSONB,
-  p_wrapped_dek JSONB
-)
-RETURNS UUID
+CREATE OR REPLACE FUNCTION public.e2ee_encrypted_snapshot_token(p_user UUID)
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  SELECT encode(
+    pg_catalog.sha256(
+      pg_catalog.convert_to(
+        jsonb_build_object(
+          'key_epoch', COALESCE((SELECT key_epoch FROM public.e2ee_accounts WHERE user_id = p_user), 0),
+          'subscriptions', COALESCE(
+            (
+              SELECT jsonb_agg(
+                jsonb_build_object('id', s.id, 'revision', s.revision, 'updated_at', s.updated_at)
+                ORDER BY s.id
+              )
+              FROM public.encrypted_subscriptions s
+              WHERE s.user_id = p_user
+            ),
+            '[]'::jsonb
+          ),
+          'categories', COALESCE(
+            (
+              SELECT jsonb_agg(
+                jsonb_build_object('category_id', c.category_id, 'revision', c.revision, 'updated_at', c.updated_at)
+                ORDER BY c.category_id
+              )
+              FROM public.encrypted_categories c
+              WHERE c.user_id = p_user
+            ),
+            '[]'::jsonb
+          )
+        )::text,
+        'UTF8'
+      )
+    ),
+    'hex'
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.e2ee_encrypted_snapshot_token(UUID) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.prepare_e2ee_encrypted_operation()
+RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
   v_user UUID := auth.uid();
-  v_slot_id UUID;
+  v_key_epoch INTEGER;
+  v_token TEXT;
+  v_subs JSONB;
+  v_cats JSONB;
+BEGIN
+  IF v_user IS NULL OR NOT public.is_direct_user_session() THEN
+    RAISE EXCEPTION 'Direct browser authentication required' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT key_epoch
+  INTO v_key_epoch
+  FROM public.e2ee_accounts
+  WHERE user_id = v_user;
+
+  IF v_key_epoch IS NULL THEN
+    RAISE EXCEPTION 'End-to-end encryption is not enabled';
+  END IF;
+
+  v_token := public.e2ee_encrypted_snapshot_token(v_user);
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', s.id,
+        'envelope', s.envelope,
+        'revision', s.revision,
+        'created_at', s.created_at,
+        'updated_at', s.updated_at
+      )
+      ORDER BY s.id
+    ),
+    '[]'::jsonb
+  )
+  INTO v_subs
+  FROM public.encrypted_subscriptions s
+  WHERE s.user_id = v_user;
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'category_id', c.category_id,
+        'envelope', c.envelope,
+        'revision', c.revision,
+        'created_at', c.created_at,
+        'updated_at', c.updated_at
+      )
+      ORDER BY c.category_id
+    ),
+    '[]'::jsonb
+  )
+  INTO v_cats
+  FROM public.encrypted_categories c
+  WHERE c.user_id = v_user;
+
+  RETURN jsonb_build_object(
+    'token', v_token,
+    'key_epoch', v_key_epoch,
+    'snapshot', jsonb_build_object(
+      'subscriptions', v_subs,
+      'categories', v_cats
+    )
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.prepare_e2ee_encrypted_operation()
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.prepare_e2ee_encrypted_operation()
+  TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.rotate_e2ee_dek(
+  p_snapshot_token TEXT,
+  p_current_control_proof TEXT,
+  p_new_dek_check JSONB,
+  p_new_dek_verifier_hash TEXT,
+  p_recovery_label TEXT,
+  p_recovery_kdf_params JSONB,
+  p_recovery_wrapped_dek JSONB,
+  p_subscriptions JSONB DEFAULT '[]'::jsonb,
+  p_categories JSONB DEFAULT '[]'::jsonb,
+  p_push_schedules JSONB DEFAULT '[]'::jsonb
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_user UUID := auth.uid();
+  v_account RECORD;
+  v_new_epoch INTEGER;
 BEGIN
   IF v_user IS NULL OR NOT public.is_direct_user_session() THEN
     RAISE EXCEPTION 'Direct browser authentication required' USING ERRCODE = '42501';
@@ -546,13 +706,42 @@ BEGIN
 
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user::text, 821921));
 
-  IF NOT EXISTS (SELECT 1 FROM public.e2ee_accounts WHERE user_id = v_user) THEN
+  SELECT key_epoch, dek_verifier_hash
+  INTO v_account
+  FROM public.e2ee_accounts
+  WHERE user_id = v_user;
+
+  IF v_account IS NULL THEN
     RAISE EXCEPTION 'End-to-end encryption is not enabled';
   END IF;
 
-  DELETE FROM public.e2ee_key_slots
-  WHERE user_id = v_user AND slot_type = 'recovery_mnemonic';
+  IF p_current_control_proof IS NULL
+    OR p_current_control_proof !~ '^[a-f0-9]{64}$'
+    OR encode(pg_catalog.sha256(pg_catalog.convert_to(p_current_control_proof, 'UTF8')), 'hex') <> v_account.dek_verifier_hash
+  THEN
+    RAISE EXCEPTION 'Valid vault key proof is required to rotate encryption keys' USING ERRCODE = '42501';
+  END IF;
 
+  IF p_snapshot_token IS NULL OR p_snapshot_token <> public.e2ee_encrypted_snapshot_token(v_user) THEN
+    RAISE EXCEPTION 'Encrypted vault changed on another device. Sync and retry.' USING ERRCODE = '40001';
+  END IF;
+
+  IF p_new_dek_verifier_hash IS NULL OR p_new_dek_verifier_hash !~ '^[a-f0-9]{64}$' THEN
+    RAISE EXCEPTION 'A valid new DEK verifier commitment hash is required';
+  END IF;
+
+  v_new_epoch := v_account.key_epoch + 1;
+
+  UPDATE public.e2ee_accounts
+  SET
+    key_epoch = v_new_epoch,
+    dek_check = p_new_dek_check,
+    dek_verifier_hash = p_new_dek_verifier_hash
+  WHERE user_id = v_user;
+
+  -- Rotating the DEK invalidates all prior wrapped key slots (old recovery phrase & Passkey slots)
+  -- as well as old audit entries encrypted under the prior epoch's DEK.
+  DELETE FROM public.e2ee_key_slots WHERE user_id = v_user;
   INSERT INTO public.e2ee_key_slots (
     user_id,
     slot_type,
@@ -563,20 +752,63 @@ BEGIN
   ) VALUES (
     v_user,
     'recovery_mnemonic',
-    p_label,
+    p_recovery_label,
     NULL,
-    COALESCE(p_kdf_params, '{}'::jsonb),
-    p_wrapped_dek
-  )
-  RETURNING id INTO v_slot_id;
+    COALESCE(p_recovery_kdf_params, '{}'::jsonb),
+    p_recovery_wrapped_dek
+  );
 
-  RETURN v_slot_id;
+  DELETE FROM public.encrypted_subscriptions WHERE user_id = v_user;
+  IF p_subscriptions IS NOT NULL AND jsonb_typeof(p_subscriptions) = 'array' AND jsonb_array_length(p_subscriptions) > 0 THEN
+    INSERT INTO public.encrypted_subscriptions (id, user_id, envelope, subscription_hash)
+    SELECT
+      (item ->> 'id')::UUID,
+      v_user,
+      item -> 'envelope',
+      NULLIF(item ->> 'subscription_hash', '')
+    FROM jsonb_array_elements(p_subscriptions) AS item;
+  END IF;
+
+  DELETE FROM public.encrypted_categories WHERE user_id = v_user;
+  IF p_categories IS NOT NULL AND jsonb_typeof(p_categories) = 'array' AND jsonb_array_length(p_categories) > 0 THEN
+    INSERT INTO public.encrypted_categories (category_id, user_id, envelope)
+    SELECT
+      item ->> 'category_id',
+      v_user,
+      item -> 'envelope'
+    FROM jsonb_array_elements(p_categories) AS item;
+  END IF;
+
+  DELETE FROM public.encrypted_push_schedules WHERE user_id = v_user;
+  IF p_push_schedules IS NOT NULL AND jsonb_typeof(p_push_schedules) = 'array' AND jsonb_array_length(p_push_schedules) > 0 THEN
+    INSERT INTO public.encrypted_push_schedules (
+      user_id,
+      subscription_hash,
+      trigger_date,
+      payload_mode,
+      bark_ciphertext,
+      bark_iv
+    )
+    SELECT
+      v_user,
+      item ->> 'subscription_hash',
+      (item ->> 'trigger_date')::DATE,
+      item ->> 'payload_mode',
+      NULLIF(item ->> 'bark_ciphertext', ''),
+      NULLIF(item ->> 'bark_iv', '')
+    FROM jsonb_array_elements(p_push_schedules) AS item
+    ON CONFLICT (user_id, subscription_hash, trigger_date) DO NOTHING;
+  END IF;
+
+  DELETE FROM public.encrypted_api_audit_log WHERE user_id = v_user;
+
+  RETURN v_new_epoch;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.replace_e2ee_recovery_slot(TEXT, JSONB, JSONB)
+REVOKE ALL ON FUNCTION public.rotate_e2ee_dek(TEXT, TEXT, JSONB, TEXT, TEXT, JSONB, JSONB, JSONB, JSONB, JSONB)
   FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.replace_e2ee_recovery_slot(TEXT, JSONB, JSONB)
+GRANT EXECUTE ON FUNCTION public.rotate_e2ee_dek(TEXT, TEXT, JSONB, TEXT, TEXT, JSONB, JSONB, JSONB, JSONB, JSONB)
   TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.remove_e2ee_key_slot(p_slot_id UUID)
@@ -628,6 +860,8 @@ GRANT EXECUTE ON FUNCTION public.remove_e2ee_key_slot(UUID)
   TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.disable_e2ee_vault(
+  p_snapshot_token TEXT,
+  p_control_proof TEXT,
   p_subscriptions JSONB DEFAULT '[]'::jsonb,
   p_categories JSONB DEFAULT '[]'::jsonb
 )
@@ -638,6 +872,7 @@ SET search_path = ''
 AS $$
 DECLARE
   v_user UUID := auth.uid();
+  v_verifier_hash TEXT;
 BEGIN
   IF v_user IS NULL OR NOT public.is_direct_user_session() THEN
     RAISE EXCEPTION 'Direct browser authentication required' USING ERRCODE = '42501';
@@ -645,8 +880,24 @@ BEGIN
 
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user::text, 821921));
 
-  IF NOT EXISTS (SELECT 1 FROM public.e2ee_accounts WHERE user_id = v_user) THEN
+  SELECT dek_verifier_hash
+  INTO v_verifier_hash
+  FROM public.e2ee_accounts
+  WHERE user_id = v_user;
+
+  IF v_verifier_hash IS NULL THEN
     RAISE EXCEPTION 'End-to-end encryption is not enabled';
+  END IF;
+
+  IF p_control_proof IS NULL
+    OR p_control_proof !~ '^[a-f0-9]{64}$'
+    OR encode(pg_catalog.sha256(pg_catalog.convert_to(p_control_proof, 'UTF8')), 'hex') <> v_verifier_hash
+  THEN
+    RAISE EXCEPTION 'Valid vault key proof is required to disable encryption' USING ERRCODE = '42501';
+  END IF;
+
+  IF p_snapshot_token IS NULL OR p_snapshot_token <> public.e2ee_encrypted_snapshot_token(v_user) THEN
+    RAISE EXCEPTION 'Encrypted vault changed on another device. Sync and retry.' USING ERRCODE = '40001';
   END IF;
 
   -- Deleting e2ee_accounts cascades all encrypted rows, slots, push schedules, and audit logs,
@@ -711,9 +962,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.disable_e2ee_vault(JSONB, JSONB)
+REVOKE ALL ON FUNCTION public.disable_e2ee_vault(TEXT, TEXT, JSONB, JSONB)
   FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.disable_e2ee_vault(JSONB, JSONB)
+GRANT EXECUTE ON FUNCTION public.disable_e2ee_vault(TEXT, TEXT, JSONB, JSONB)
   TO authenticated;
 
 COMMIT;
