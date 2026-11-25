@@ -107,7 +107,6 @@ const extractPayload = (raw: unknown): Record<string, unknown> => {
 const normalizeNameForMatch = (value: string): string =>
   value
     .normalize('NFKC')
-    .replace(/[🐟🐠]/gu, '鱼')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '');
 

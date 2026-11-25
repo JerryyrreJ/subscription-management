@@ -17,7 +17,7 @@ const SYSTEM_PROMPT = [
   'Rules:',
   '- For update/delete, choose subscriptionId ONLY from the provided currentSubscriptions list. Never invent IDs.',
   '- If the user requests multiple subscription updates, return action update with an updates array. Each item must include subscriptionId and patch.',
-  '- Names in currentSubscriptions may include emoji or icons. Match by the visible name/meaning too; for example 鱼云 can match 🐟云.',
+  '- Names in currentSubscriptions may include emoji or icons. Match by the visible name/meaning too; for example Spotify can match 🎵 Spotify.',
   '- If the user names a subscription but multiple current subscriptions match, return none with a short reason.',
   '- If the target is absent from currentSubscriptions, return none with a short reason.',
   '- For create, one subscription object per distinct recurring subscription. Do not invent subscriptions that are not present.',

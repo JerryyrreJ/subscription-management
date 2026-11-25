@@ -129,3 +129,38 @@ test('account deletion does not report success when Supabase rejects deletion', 
   assert.equal(response?.statusCode, 502);
   assert.equal(JSON.parse(response?.body || '{}').error.code, 'account_deletion_failed');
 });
+
+test('account deletion rejects OAuth 2.1 access tokens with 403', async () => {
+  let adminCalled = false;
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    sub: authenticatedUser.id,
+    role: 'authenticated',
+    client_id: 'oauth_client_mcp',
+  })).toString('base64url');
+  const oauthToken = `${header}.${payload}.signature`;
+
+  const handler = createDeleteAccountHandler(() => ({
+    supabaseConfig,
+    authClient: {
+      auth: { getUser: async () => ({ data: { user: authenticatedUser }, error: null }) },
+    },
+    adminClient: {
+      auth: { admin: { deleteUser: async () => {
+        adminCalled = true;
+        return { data: null, error: null };
+      } } },
+    },
+    createRequestId: () => 'request-oauth-delete-blocked',
+  }));
+
+  const response = await handler(event(
+    'DELETE',
+    JSON.stringify({ confirmation: 'DELETE_ACCOUNT' }),
+    { authorization: `Bearer ${oauthToken}` }
+  ), {} as never);
+
+  assert.equal(response?.statusCode, 403);
+  assert.equal(JSON.parse(response?.body || '{}').error.code, 'oauth_token_not_allowed');
+  assert.equal(adminCalled, false);
+});

@@ -16,6 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { setStoredLocale } from '../../utils/locale';
 import {
   clearPendingOAuthAuthorizationId,
+  describeOAuthRedirectTarget,
   extractAuthorizationId,
   peekPendingOAuthAuthorizationId,
   savePendingOAuthAuthorizationId,
@@ -77,6 +78,11 @@ export function OAuthConsentPage() {
   const [submittingAction, setSubmittingAction] = useState<'approve' | 'deny' | null>(null);
   const [errorKind, setErrorKind] = useState<'none' | 'server_disabled' | 'generic'>('none');
   const [errorMessage, setErrorMessage] = useState('');
+
+  const redirectTarget = useMemo(
+    () => (details ? describeOAuthRedirectTarget(details.redirectUri) : null),
+    [details]
+  );
 
   const isChinese = i18n.language.startsWith('zh');
 
@@ -379,6 +385,50 @@ export function OAuthConsentPage() {
                 </button>
               </div>
 
+              {/* Verified redirect destination (cannot be spoofed by DCR client metadata) */}
+              {redirectTarget && (
+                <div className="settings-inset px-3 py-2.5 space-y-1 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="app-theme-text-muted shrink-0">
+                      {t('developerApi:consentRedirectLabel')}
+                    </span>
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      {redirectTarget.kind === 'custom_scheme' && (
+                        <span
+                          className="px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
+                          style={{
+                            background: 'var(--settings-accent-soft)',
+                            color: 'var(--settings-accent)',
+                          }}
+                        >
+                          {t('developerApi:consentRedirectCustomSchemeBadge')}
+                        </span>
+                      )}
+                      {redirectTarget.kind === 'loopback' && (
+                        <span
+                          className="px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
+                          style={{
+                            background: 'var(--app-control)',
+                            color: 'var(--app-secondary)',
+                          }}
+                        >
+                          {t('developerApi:consentRedirectLoopbackBadge')}
+                        </span>
+                      )}
+                      <code
+                        className="font-mono font-medium app-theme-text-primary truncate"
+                        title={details.redirectUri}
+                      >
+                        {redirectTarget.displayTarget}
+                      </code>
+                    </span>
+                  </div>
+                  <p className="text-[11px] app-theme-text-muted leading-relaxed">
+                    {t('developerApi:consentRedirectUnverifiedHint')}
+                  </p>
+                </div>
+              )}
+
               {/* Scope selection cards */}
               <fieldset className="space-y-2" disabled={Boolean(submittingAction)}>
                 <legend className="text-xs font-semibold uppercase tracking-wider app-theme-text-muted mb-1.5">
@@ -506,7 +556,7 @@ export function OAuthConsentPage() {
                 <button
                   type="button"
                   onClick={() => void handleApprove()}
-                  disabled={Boolean(submittingAction)}
+                  disabled={Boolean(submittingAction) || !redirectTarget || redirectTarget.kind === 'invalid'}
                   className="settings-button-primary sm:flex-1"
                 >
                   {submittingAction === 'approve' && (

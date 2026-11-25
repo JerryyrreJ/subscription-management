@@ -238,3 +238,43 @@ test('returns 400 for invalid API key names', async () => {
   assert.equal(body.error.code, 'invalid_api_key');
   assert.equal(rpcCalled, false);
 });
+
+test('rejects OAuth 2.1 access tokens from minting static API keys', async () => {
+  let rpcCalled = false;
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({
+    sub: user.id,
+    role: 'authenticated',
+    client_id: 'oauth_client_readonly',
+  })).toString('base64url');
+  const oauthToken = `${header}.${payload}.signature`;
+
+  const database = createFakeSupabaseClient(() => ({ data: null, error: null }), () => {
+    rpcCalled = true;
+    return { data: null, error: null };
+  });
+
+  const handler = createApiKeysHandler(() => ({
+    supabaseConfig,
+    database,
+    limits,
+    createAuthClient: () => ({
+      auth: { getUser: async () => ({ data: { user }, error: null }) },
+    }),
+    createApiKeyMaterial: () => ({ apiKey: 'subm_escalated.secret', keyPrefix: 'subm_escalated' }),
+    createRequestId: () => 'request-oauth-blocked',
+    now: () => new Date('2026-06-16T00:00:00.000Z'),
+  }));
+
+  const response = expectHandlerResponse(await handler(event(
+    'POST',
+    '/.netlify/functions/api-keys',
+    { authorization: `Bearer ${oauthToken}` },
+    JSON.stringify({ name: 'Escalated', scopes: ['read', 'write'] })
+  ), {} as never));
+  const body = parseJsonResponse<{ error: { code: string } }>(response);
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(body.error.code, 'oauth_token_not_allowed');
+  assert.equal(rpcCalled, false);
+});

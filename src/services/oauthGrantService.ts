@@ -134,10 +134,15 @@ export const OAuthGrantService = {
       throw new OAuthGrantServiceError('Missing OAuth client identifier.', 'authorization_failed');
     }
 
+    const redirectUri = details.redirect_uri?.trim() ?? '';
+    if (!isSafeExternalRedirectUrl(redirectUri)) {
+      throw new OAuthGrantServiceError('Unsafe OAuth redirect URL.', 'invalid_redirect');
+    }
+
     return {
       kind: 'consent_required',
       authorizationId: details.authorization_id || authorizationId,
-      redirectUri: details.redirect_uri ?? '',
+      redirectUri,
       requestedScope: details.scope ?? '',
       client: {
         id: clientId,
@@ -291,15 +296,21 @@ export const OAuthGrantService = {
       throw new OAuthGrantServiceError('Cloud authentication is not configured.', 'supabase_unavailable');
     }
 
-    const { error } = await supabase.auth.oauth.revokeGrant({ clientId });
-    if (error) {
-      throw new OAuthGrantServiceError(error.message, 'authorization_failed');
-    }
-
-    await supabase
+    // Delete scope record first so fail-closed API enforcement takes effect immediately
+    // and any deletion error leaves the grant visible for retry.
+    const { error: scopeDeleteError } = await supabase
       .from('oauth_client_scopes')
       .delete()
       .eq('user_id', userId)
       .eq('client_id', clientId);
+
+    if (scopeDeleteError) {
+      throw new OAuthGrantServiceError(scopeDeleteError.message, 'authorization_failed');
+    }
+
+    const { error } = await supabase.auth.oauth.revokeGrant({ clientId });
+    if (error) {
+      throw new OAuthGrantServiceError(error.message, 'authorization_failed');
+    }
   },
 };
