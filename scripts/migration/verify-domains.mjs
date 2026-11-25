@@ -25,12 +25,12 @@ const checks = [
     ['https://sub.jerrylu.xyz/zh/', 301, null, website + '/zh/'],
     ['https://sub.jerrylu.xyz/pricing/', 301, null, website + '/pricing/'],
     ['https://sub.jerrylu.xyz/app/', 301, null, website + '/app/'],
-    ['https://sub.jerrylu.xyz/blog', 301, null, website + '/blog'],
+    ['https://sub.jerrylu.xyz/blog', 301, null, website + '/blog/'],
     ['https://sub.jerrylu.xyz/blog/how-to-do-a-subscription-audit', 301, null, website + '/blog/how-to-do-a-subscription-audit'],
     ['https://sub.jerrylu.xyz/zh/blog/how-to-cancel-auto-renew', 301, null, website + '/zh/blog/how-to-cancel-auto-renew'],
     ['https://www.steadyrenew.com/', 301, null, website + '/'],
     [manifest.applicationAliasOrigin + '/', 301, null, manifest.applicationUrl],
-    [manifest.applicationAliasOrigin + '/pricing', 301, null, app + '/pricing'],
+    [manifest.applicationAliasOrigin + '/pricing', 301, null, app + '/pricing/'],
   ] : []),
 ];
 const results = await Promise.all(checks.map(async ([url, expectedStatus, text, location]) => {

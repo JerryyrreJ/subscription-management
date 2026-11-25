@@ -30,11 +30,12 @@
   VITE_APP_URL = "/app"
 
 # The old host moves entirely onto the apex domain. Each rule names
-# sub.jerrylu.xyz, so steadyrenew.com is not redirected. Blog rules stay
-# above the catch-all and keep the targets that already 301 correctly.
+# sub.jerrylu.xyz, so steadyrenew.com is not redirected. Exact marketing and
+# blog rules stay above the catch-all and land directly on canonical
+# trailing-slash URLs in a single 301 hop.
 [[redirects]]
   from = "https://sub.jerrylu.xyz/blog"
-  to = "https://steadyrenew.com/blog"
+  to = "https://steadyrenew.com/blog/"
   status = 301
   force = true
 
@@ -46,13 +47,31 @@
 
 [[redirects]]
   from = "https://sub.jerrylu.xyz/zh/blog"
-  to = "https://steadyrenew.com/zh/blog"
+  to = "https://steadyrenew.com/zh/blog/"
   status = 301
   force = true
 
 [[redirects]]
   from = "https://sub.jerrylu.xyz/zh/blog/*"
   to = "https://steadyrenew.com/zh/blog/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://sub.jerrylu.xyz/zh"
+  to = "https://steadyrenew.com/zh/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://sub.jerrylu.xyz/pricing"
+  to = "https://steadyrenew.com/pricing/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://sub.jerrylu.xyz/zh/pricing"
+  to = "https://steadyrenew.com/zh/pricing/"
   status = 301
   force = true
 
@@ -113,6 +132,30 @@
   force = true
 
 [[redirects]]
+  from = "https://www.steadyrenew.com/blog"
+  to = "https://steadyrenew.com/blog/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.steadyrenew.com/zh/blog"
+  to = "https://steadyrenew.com/zh/blog/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.steadyrenew.com/pricing"
+  to = "https://steadyrenew.com/pricing/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.steadyrenew.com/zh"
+  to = "https://steadyrenew.com/zh/"
+  status = 301
+  force = true
+
+[[redirects]]
   from = "https://www.steadyrenew.com/*"
   to = "https://steadyrenew.com/:splat"
   status = 301
@@ -129,6 +172,12 @@
 [[redirects]]
   from = "http://app.steadyrenew.com/"
   to = "https://steadyrenew.com/app"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://app.steadyrenew.com/pricing"
+  to = "https://steadyrenew.com/pricing/"
   status = 301
   force = true
 

@@ -1,9 +1,10 @@
 ---
 title: "How to do a subscription audit (keep / cancel / remind)"
+seoTitle: "How to Do a Subscription Audit (Keep, Cancel, Remind)"
 slug: how-to-do-a-subscription-audit
-description: "Sit down with your statements, app-store accounts, and wallets for half an hour to find every recurring bill, cancel what went stale, and catch annual renewals ahead of time."
+description: "Check your bank statements, app stores, and wallets in 30 minutes to find every recurring bill, cancel unused plans, and catch annual renewals early."
 date: 2026-09-16
-updated: 2026-11-12
+updated: 2026-11-25
 status: published
 lang: en
 cluster: audit-cleanup

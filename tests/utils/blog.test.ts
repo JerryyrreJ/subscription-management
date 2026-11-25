@@ -191,7 +191,7 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.match(article, /<nav class="toc" aria-label="On this page">/);
   assert.match(
     article,
-    /<title>How to do a subscription audit \(keep \/ cancel \/ remind\) · SteadyRenew<\/title>/
+    /<title>How to Do a Subscription Audit \(Keep, Cancel, Remind\) · SteadyRenew<\/title>/
   );
   assert.doesNotMatch(index, /Draft outline/);
   assert.doesNotMatch(article, /Draft outline/);
@@ -214,19 +214,19 @@ test('public blog files list app and posts under the canonical host', () => {
   assert.doesNotMatch(article, /hreflang=/);
 
   assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>\s*<lastmod>2026-11-20<\/lastmod>/);
+  assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/blog\/<\/loc>\s*<lastmod>2026-11-25<\/lastmod>/);
   assert.match(sitemap, /<loc>https:\/\/steadyrenew.com\/zh\/blog\/<\/loc>\s*<lastmod>2026-11-20<\/lastmod>/);
   assert.match(
     sitemap,
-    /<loc>https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/
+    /<loc>https:\/\/steadyrenew.com\/blog\/how-to-do-a-subscription-audit\/<\/loc>\s*<lastmod>2026-11-25<\/lastmod>/
   );
   assert.match(
     sitemap,
-    /<loc>https:\/\/steadyrenew.com\/blog\/apple-free-trial-charge-refund\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/
+    /<loc>https:\/\/steadyrenew.com\/blog\/apple-free-trial-charge-refund\/<\/loc>\s*<lastmod>2026-11-25<\/lastmod>/
   );
   assert.match(
     sitemap,
-    /<loc>https:\/\/steadyrenew.com\/blog\/rocket-money-alternatives-without-bank-login\/<\/loc>\s*<lastmod>2026-11-12<\/lastmod>/
+    /<loc>https:\/\/steadyrenew.com\/blog\/rocket-money-alternatives-without-bank-login\/<\/loc>\s*<lastmod>2026-11-25<\/lastmod>/
   );
   assert.match(
     sitemap,

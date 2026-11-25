@@ -28,9 +28,9 @@ export function Footer() {
  </svg>
  </a>
  <br />
- <a href={getMarketingUrl(i18n.language.startsWith('zh') ? '/zh/privacy' : '/privacy')}>{i18n.language.startsWith('zh') ? '隐私政策' : 'Privacy'}</a>
+ <a href={getMarketingUrl(i18n.language.startsWith('zh') ? '/zh/privacy/' : '/privacy/')}>{i18n.language.startsWith('zh') ? '隐私政策' : 'Privacy'}</a>
  {' · '}
- <a href={getMarketingUrl(i18n.language.startsWith('zh') ? '/zh/terms' : '/terms')}>{i18n.language.startsWith('zh') ? '服务条款' : 'Terms'}</a>
+ <a href={getMarketingUrl(i18n.language.startsWith('zh') ? '/zh/terms/' : '/terms/')}>{i18n.language.startsWith('zh') ? '服务条款' : 'Terms'}</a>
  <br />
  <a
  href={getMarketingUrl(WEBSITE_PATH)}

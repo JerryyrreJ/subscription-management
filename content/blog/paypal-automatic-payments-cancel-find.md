@@ -1,9 +1,10 @@
 ---
 title: "How to find and cancel PayPal automatic payments (billing agreements)"
-seoTitle: "How to Find & Cancel PayPal Automatic Payments"
+seoTitle: "Stop Recurring PayPal Payments: Find & Cancel Automatic Payments"
 slug: paypal-automatic-payments-cancel-find
-description: "Stop surprise PayPal recurring charges: where to find active billing agreements on web and mobile, cancel automatic payments, and avoid backup-card fallbacks."
+description: "How to stop recurring payments on PayPal: where to find, manage, and cancel automatic payments (billing agreements) on web or mobile and block backup cards."
 date: 2026-11-15
+updated: 2026-11-25
 status: published
 lang: en
 cluster: trials-refunds
@@ -11,11 +12,11 @@ cta: trial
 canonical: https://steadyrenew.com/blog/paypal-automatic-payments-cancel-find/
 ---
 
-Many people discover forgotten software, hosting, or streaming renewals not on a credit card statement, but as a vague line item reading `PAYPAL *MERCHANT` days after the money has already left checking. Worse, replacing an expired debit card rarely stops a PayPal billing agreement—PayPal simply falls back to your linked bank account or secondary card.
+Many people discover forgotten software, hosting, or streaming renewals not on a credit card statement, but as a vague line item reading `PAYPAL *MERCHANT` days after the money has already left checking. Worse, replacing an expired debit card rarely stops recurring payments on PayPal—PayPal simply falls back to your linked bank account or secondary card.
 
-Checking PayPal’s Automatic Payments list takes under five minutes on desktop or mobile and lets you cut recurring billing authorizations directly at the wallet level.
+To stop a PayPal payment from billing you again, revoke the merchant’s authorization inside PayPal’s **Manage automatic payments** settings. Checking that list takes under five minutes on desktop or mobile and lets you review, update, or cancel recurring PayPal payments directly at the wallet level.
 
-## Why PayPal charges can survive a new card
+## Why recurring PayPal payments survive a new card
 
 When you check out with PayPal for a subscription or free trial, you sign a merchant **billing agreement** (PayPal calls these **automatic payments**). Unlike a one-time card swipe:
 
@@ -23,7 +24,7 @@ When you check out with PayPal for a subscription or free trial, you sign a merc
 - Deleting the app or closing a tab never revokes the billing agreement.
 - Even if a merchant’s own website hides the cancel button behind customer-support chat, canceling the automatic payment inside PayPal blocks future PayPal-routed pulls from that authorization.
 
-## How to cancel PayPal automatic payments on desktop web
+## How to manage and stop PayPal automatic payments on desktop web
 
 Using a desktop browser gives you the clearest view of active merchants, funding methods, and past transaction logs:
 
@@ -33,11 +34,11 @@ Using a desktop browser gives you the clearest view of active merchants, funding
 4. Review the **Active** tab on the left. Click any merchant name to inspect the billing details, agreement ID, and assigned payment method.
 5. Click **Cancel** (or **Cancel automatic billing**), then confirm when prompted.
 
-PayPal moves that merchant from **Active** to **Inactive** immediately. Official steps are documented in [PayPal’s automatic payments help page](https://www.paypal.com/us/cshelp/article/what-is-an-automatic-payment-and-how-do-i-update-or-cancel-one-ts1440).
+PayPal moves that merchant from **Active** to **Inactive** immediately, stopping future recurring pulls under that agreement. If you want to keep a subscription active on PayPal but switch which card or bank funds it, edit the **Payment method** on that same merchant screen instead of canceling. Official steps are documented in [PayPal’s automatic payments help page](https://www.paypal.com/us/cshelp/article/what-is-an-automatic-payment-and-how-do-i-update-or-cancel-one-ts1440).
 
-## How to find and cancel automatic payments in the PayPal app
+## How to find and stop recurring payments in the PayPal app
 
-If you only have your phone handy, the mobile app exposes the same list under your Wallet tab:
+If you only have your phone handy, the mobile app exposes the same **Automatic payments** list under your Wallet tab:
 
 1. Open the **PayPal** app and tap **Wallet** at the bottom right.
 2. Scroll down to **Manage** or tap **Autopay** / **Automatic payments**.
@@ -74,6 +75,10 @@ PayPal handles a surprising share of annual renewals: web domains, VPNs, WordPre
 ### Where did "Preapproved payments" go in PayPal?
 
 PayPal renamed "Preapproved payments" to **Automatic payments** (or **Autopay** in parts of the mobile app). You can find the full list under **Settings → Payments → Automatic payments** on the web or **Wallet → Automatic payments** on mobile.
+
+### How do I reactivate an automatic payment on PayPal?
+
+You cannot reactivate a canceled automatic payment inside PayPal—once a billing agreement moves to **Inactive**, PayPal does not let you flip it back to **Active**. To resume recurring PayPal billing with that merchant, return to the merchant’s billing or checkout page and authorize PayPal again as your payment method, which creates a new active agreement.
 
 ### Does canceling an automatic payment in PayPal refund my last charge?
 

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { FREE_PRICE_USD, PREMIUM_PRICE_CURRENCY, PREMIUM_PRICE_USD, PREMIUM_UNIT_AMOUNT_CENTS } from '../../src/utils/pricingFacts.ts';
 import { marketingStructuredData, STEADYRENEW_SAME_AS } from '../../src/utils/structuredData.ts';
 import { legalContact } from '../../src/components/legal/content.ts';
+import { publicPages } from '../../src/utils/publicPages.ts';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -130,7 +131,17 @@ test('llms.txt is plain text and only links to pages that exist in this repo', (
   assert.match(toml, /from = "http:\/\/app\.steadyrenew\.com\/\*"\s+to = "https:\/\/steadyrenew\.com\/:splat"/);
 });
 
-test('public legal contact is configured so /privacy and /terms prerender as indexable pages', () => {
+test('public legal contact is configured and all public page canonicals use trailing slashes', () => {
   assert.equal(legalContact.operator, 'SteadyRenew');
   assert.equal(legalContact.email, 'jerryno153@gmail.com');
+  for (const [route, page] of Object.entries(publicPages)) {
+    assert.ok(
+      page.canonicalPath.endsWith('/'),
+      `${route} canonicalPath (${page.canonicalPath}) should end with / to match Netlify 301 normalization`
+    );
+  }
+  const toml = readFileSync(path.join(root, 'netlify.toml'), 'utf8');
+  assert.match(toml, /from = "https:\/\/sub\.jerrylu\.xyz\/blog"\s+to = "https:\/\/steadyrenew\.com\/blog\/"/);
+  assert.match(toml, /from = "https:\/\/sub\.jerrylu\.xyz\/zh\/blog"\s+to = "https:\/\/steadyrenew\.com\/zh\/blog\/"/);
+  assert.match(toml, /from = "https:\/\/app\.steadyrenew\.com\/pricing"\s+to = "https:\/\/steadyrenew\.com\/pricing\/"/);
 });
